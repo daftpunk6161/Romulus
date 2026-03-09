@@ -30,11 +30,29 @@ Describe 'ApiServer unit helpers' {
   It 'validates run payload roots and mode' {
     $errNoRoots = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'DryRun'; roots = @() })
     $errMode = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'BadMode'; roots = @('C:\ROMs') })
-    $ok = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'Move'; roots = @('C:\ROMs') })
 
     [string]$errNoRoots | Should -Match 'root'
     [string]$errMode | Should -Match 'DryRun or Move'
+  }
+
+  It 'rejects non-existent root paths (BUG-032)' {
+    $err = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'Move'; roots = @('C:\NonExistentRomPath12345') })
+    [string]$err | Should -Match 'does not exist'
+  }
+
+  It 'accepts valid existing root paths (BUG-032)' {
+    $testDir = Join-Path $TestDrive 'validRoot'
+    New-Item -Path $testDir -ItemType Directory -Force | Out-Null
+    $ok = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'Move'; roots = @($testDir) })
     $ok | Should -BeNullOrEmpty
+  }
+
+  It 'rejects system directory roots (BUG-032)' {
+    $winDir = [System.Environment]::GetFolderPath('Windows')
+    if ($winDir) {
+      $err = Test-ApiRunPayload -Payload ([pscustomobject]@{ mode = 'DryRun'; roots = @($winDir) })
+      [string]$err | Should -Match 'protected system directory'
+    }
   }
 
   It 'builds CLI arguments with required summary flags' {

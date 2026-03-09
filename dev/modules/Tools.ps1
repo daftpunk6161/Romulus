@@ -60,7 +60,9 @@ function Test-ToolBinaryHash {
   )
 
   if (-not (Test-Path -LiteralPath $ToolPath -PathType Leaf)) { return $false }
-  $cacheKey = [string]$ToolPath
+  # BUG-035 FIX: Include LastWriteTime in cache key so binary changes invalidate the cache
+  $lwt = try { (Get-Item -LiteralPath $ToolPath -ErrorAction Stop).LastWriteTimeUtc.Ticks } catch { 0 }
+  $cacheKey = ('{0}|{1}' -f [string]$ToolPath, $lwt)
   if ($script:TOOL_HASH_VERDICT_CACHE.ContainsKey($cacheKey)) {
     return [bool]$script:TOOL_HASH_VERDICT_CACHE[$cacheKey]
   }
@@ -71,6 +73,27 @@ function Test-ToolBinaryHash {
   # SEC-04: Einmalige Session-Warnung wenn Insecure-Bypass aktiv
   if ($allowInsecureBypass -and -not $script:TOOL_HASH_BYPASS_WARNED) {
     $script:TOOL_HASH_BYPASS_WARNED = $true
+    # BUG-038 FIX: In GUI mode, show confirmation dialog for InsecureToolHashBypass
+    $guiConfirmed = $true
+    try {
+      if ([System.Threading.Thread]::CurrentThread.ApartmentState -eq [System.Threading.ApartmentState]::STA -and
+          [System.AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'PresentationFramework' }) {
+        $confirmResult = [System.Windows.MessageBox]::Show(
+          ('AllowInsecureToolHashBypass ist aktiviert!{0}{0}Tool-Binaries werden NICHT auf Integritaet geprueft.{0}Dies ist ein Sicherheitsrisiko.{0}{0}Fortfahren ohne Hash-Verifizierung?' -f [Environment]::NewLine),
+          'Sicherheitswarnung: Tool-Hash-Bypass',
+          [System.Windows.MessageBoxButton]::YesNo,
+          [System.Windows.MessageBoxImage]::Warning
+        )
+        if ($confirmResult -ne [System.Windows.MessageBoxResult]::Yes) {
+          $guiConfirmed = $false
+          Set-AppStateValue -Key 'AllowInsecureToolHashBypass' -Value $false
+        }
+      }
+    } catch { }
+    if (-not $guiConfirmed) {
+      $script:TOOL_HASH_VERDICT_CACHE[$cacheKey] = $false
+      return $false
+    }
     Write-Warning '[SEC] AllowInsecureToolHashBypass ist aktiv! Tool-Binaries werden NICHT auf Integritaet geprueft. Nur in vertrauenswuerdigen Umgebungen verwenden.'
     if (Get-Command Write-SecurityAuditEvent -ErrorAction SilentlyContinue) {
       try {
@@ -848,6 +871,38 @@ function Expand-ArchiveToTemp {
         }
         return 'SKIP'
       }
+      # BUG-031 FIX: Check archive bomb — file count limit and decompressed size estimate
+      $maxEntryCount = 10000
+      if ($entryPaths.Count -gt $maxEntryCount) {
+        if ($Log) { & $Log ("  SKIP (Archive Bomb: {0} Eintraege > {1} Limit): {2}" -f $entryPaths.Count, $maxEntryCount, $ArchivePath) }
+        if ($tempDir -and (Test-Path -LiteralPath $tempDir)) {
+          Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        return 'SKIP'
+      }
+      # BUG-031 FIX (cont.): Estimate decompressed size from 7z listing
+      $maxDecompressedBytes = 50GB
+      try {
+        $sizeArgs = @('l', '-slt', (ConvertTo-QuotedArg $ArchivePath))
+        $sizeRun = Invoke-7z -SevenZipPath $SevenZipPath -Arguments $sizeArgs -TempFiles $null
+        if ($sizeRun.ExitCode -eq 0) {
+          $totalSize = [int64]0
+          foreach ($sizeLine in @([string]$sizeRun.StdOut -split "`r?`n")) {
+            if ($sizeLine -match '^Size = (\d+)$') {
+              $totalSize += [int64]$Matches[1]
+              if ($totalSize -gt $maxDecompressedBytes) { break }
+            }
+          }
+          if ($totalSize -gt $maxDecompressedBytes) {
+            $sizeMB = [Math]::Round($totalSize / 1MB, 0)
+            if ($Log) { & $Log ("  SKIP (Archive Bomb: {0} MB entpackt > {1} GB Limit): {2}" -f $sizeMB, [Math]::Round($maxDecompressedBytes / 1GB, 0), $ArchivePath) }
+            if ($tempDir -and (Test-Path -LiteralPath $tempDir)) {
+              Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            return 'SKIP'
+          }
+        }
+      } catch { }
     }
 
     $outArg = "-o{0}" -f ([System.IO.Path]::GetFullPath($tempDir))

@@ -129,6 +129,31 @@ function Write-PhaseMetricsSummary {
   return $metrics
 }
 
+function Export-PhaseMetrics {
+  <#
+  .SYNOPSIS  Exports phase metrics to a JSON file in the reports directory.
+  .PARAMETER ReportsDir  Directory where the JSON file will be written.
+  .OUTPUTS   The path of the written JSON file, or $null if no metrics are available.
+  #>
+  param(
+    [Parameter(Mandatory)][string]$ReportsDir
+  )
+
+  $metrics = Get-PhaseMetrics
+  if (-not $metrics) { return $null }
+
+  $timestamp = $metrics.StartedAt.ToString('yyyyMMdd-HHmmss')
+  $fileName = "phase-metrics-$timestamp.json"
+  $filePath = Join-Path $ReportsDir $fileName
+  $latestPath = Join-Path $ReportsDir 'phase-metrics-latest.json'
+
+  $json = $metrics | ConvertTo-Json -Depth 5
+  [System.IO.File]::WriteAllText($filePath, $json, [System.Text.Encoding]::UTF8)
+  [System.IO.File]::WriteAllText($latestPath, $json, [System.Text.Encoding]::UTF8)
+
+  return $filePath
+}
+
 function Write-PhaseMetricsToOperationLog {
   <#
   .SYNOPSIS  Writes phase metrics and LRU cache statistics into the operation JSONL log.

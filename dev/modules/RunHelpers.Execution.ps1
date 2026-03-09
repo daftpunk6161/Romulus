@@ -627,9 +627,14 @@ function Invoke-MovePhase {
           $relative = Get-RelativePathSafe -Path $p -Root $rootNorm
           if ([string]::IsNullOrWhiteSpace($relative)) { continue }
           $dest = Join-Path $trashBase $relative
-          # BUG-MV-04: Blocklist-Check im Plan-Build
+          # BUG-MV-04: Blocklist-Check im Plan-Build (mit Root-Exemption wie im Move-Loop)
           if ($planBlocklist.Count -gt 0 -and (Get-Command Test-PathBlockedByBlocklist -ErrorAction SilentlyContinue)) {
-            if (Test-PathBlockedByBlocklist -Path $dest -Blocklist $planBlocklist) { continue }
+            $isExempt = $false
+            try { $isExempt = Test-PathWithinRoot -Path $dest -Root $root -DisallowReparsePoints } catch { $isExempt = $false }
+            if ((-not $isExempt) -and -not [string]::IsNullOrWhiteSpace($TrashRoot)) {
+              try { $isExempt = Test-PathWithinRoot -Path $dest -Root $TrashRoot -DisallowReparsePoints } catch { $isExempt = $false }
+            }
+            if ((-not $isExempt) -and (Test-PathBlockedByBlocklist -Path $dest -Blocklist $planBlocklist)) { continue }
           }
           $size = $null
           try { $size = (Get-Item -LiteralPath $p -ErrorAction SilentlyContinue).Length } catch { }
@@ -656,9 +661,11 @@ function Invoke-MovePhase {
           $relative = Get-RelativePathSafe -Path $p -Root $rootNorm
           if ([string]::IsNullOrWhiteSpace($relative)) { continue }
           $dest = Join-Path $biosBase $relative
-          # BUG-MV-04: Blocklist-Check im Plan-Build
+          # BUG-MV-04: Blocklist-Check im Plan-Build (mit Root-Exemption wie im Move-Loop)
           if ($planBlocklist.Count -gt 0 -and (Get-Command Test-PathBlockedByBlocklist -ErrorAction SilentlyContinue)) {
-            if (Test-PathBlockedByBlocklist -Path $dest -Blocklist $planBlocklist) { continue }
+            $isExempt = $false
+            try { $isExempt = Test-PathWithinRoot -Path $dest -Root $root -DisallowReparsePoints } catch { $isExempt = $false }
+            if ((-not $isExempt) -and (Test-PathBlockedByBlocklist -Path $dest -Blocklist $planBlocklist)) { continue }
           }
           $size = $null
           try { $size = (Get-Item -LiteralPath $p -ErrorAction SilentlyContinue).Length } catch { }

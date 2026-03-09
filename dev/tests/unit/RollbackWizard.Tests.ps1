@@ -13,6 +13,8 @@ Describe 'Rollback – Audit-CSV-Parsing' {
         }
         . (Join-Path $root 'dev\modules\Settings.ps1')
         . (Join-Path $root 'dev\modules\FileOps.ps1')
+        . (Join-Path $root 'dev\modules\LruCache.ps1')
+        . (Join-Path $root 'dev\modules\Tools.ps1')
         if (Test-Path (Join-Path $root 'dev\modules\Report.ps1')) {
             . (Join-Path $root 'dev\modules\Report.ps1')
         }

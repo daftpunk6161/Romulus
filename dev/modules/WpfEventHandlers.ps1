@@ -2662,7 +2662,13 @@ function Start-WpfOperationAsync {
 
   $timerTick = {
     try {
-      Update-WpfRuntimeStatus -Ctx $Ctx -Elapsed $runStopwatch.Elapsed
+      # BUG-018 FIX: Wrap Update-WpfRuntimeStatus in its own try/catch so failure
+      # doesn't prevent log drain and completion detection below
+      try {
+        Update-WpfRuntimeStatus -Ctx $Ctx -Elapsed $runStopwatch.Elapsed
+      } catch {
+        # Non-fatal: status update failure should not block the rest of the tick
+      }
 
     try {
       if ($job -and $job.PSObject.Properties['LogQueue'] -and $job.LogQueue) {

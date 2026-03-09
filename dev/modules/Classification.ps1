@@ -755,25 +755,25 @@ $script:CONSOLE_FOLDER_RX_MAP = @($script:CONSOLE_RX_MAP_BASE | ForEach-Object {
 # Folder-Regex behaelt alle Patterns, da Ordnernamen i.d.R. bewusst benannt sind.
 # BUG-CS-06: Auch 3-Buchstaben-Codes 'dos' und 'arcade' filtern –
 # 'dos' matched in Dateinamen (z.B. "Shadow of the Colossus"), 'arcade' ist zu generisch.
-$script:_SHORT_AMBIG_CODES = [System.Collections.Generic.HashSet[string]]::new(
+$script:_ShortAmbigCodes = [System.Collections.Generic.HashSet[string]]::new(
   [string[]]@('dc', 'gg', 'md', 'gb', 'vb', 'ss', 'ws', 'dos'),
   [StringComparer]::OrdinalIgnoreCase
 )
 # Patterns die aus dem Filename-Regex komplett entfernt werden (zu viele False Positives)
-$script:_NAME_RX_STRIP_PATTERNS = [System.Collections.Generic.HashSet[string]]::new(
+$script:_NameRxStripPatterns = [System.Collections.Generic.HashSet[string]]::new(
   [string[]]@('\bdos\b', 'arcade', 'mame', 'fbneo', 'fba'),
   [StringComparer]::OrdinalIgnoreCase
 )
 $script:CONSOLE_NAME_RX_MAP = @($script:CONSOLE_RX_MAP_BASE | ForEach-Object {
   $rx = $_.Rx
   # BUG-CS-06: Entferne kurze/ambige Patterns aus dem Filename-Regex
-  if ($script:_SHORT_AMBIG_CODES.Contains($_.Key)) {
+  if ($script:_ShortAmbigCodes.Contains($_.Key)) {
     $parts = @($rx -split '\|' | Where-Object {
       $p = $_.Trim()
       # Kurze \bXX\b oder \bXXX\b Patterns entfernen
       if ($p -match '^\\b[a-z]{2,3}\\b$') { return $false }
       # Explizit gelistete Strip-Patterns entfernen
-      if ($script:_NAME_RX_STRIP_PATTERNS.Contains($p)) { return $false }
+      if ($script:_NameRxStripPatterns.Contains($p)) { return $false }
       return $true
     })
     if ($parts.Count -gt 0) {
@@ -806,11 +806,11 @@ function Rebuild-ClassificationCompiledMaps {
   # BUG-CS-06: Filename-Regex mit gleicher Filterung wie beim Modul-Init
   $script:CONSOLE_NAME_RX_MAP = @($script:CONSOLE_RX_MAP_BASE | ForEach-Object {
     $rx = $_.Rx
-    if ($script:_SHORT_AMBIG_CODES.Contains($_.Key)) {
+    if ($script:_ShortAmbigCodes.Contains($_.Key)) {
       $parts = @($rx -split '\|' | Where-Object {
         $p = $_.Trim()
         if ($p -match '^\\b[a-z]{2,3}\\b$') { return $false }
-        if ($script:_NAME_RX_STRIP_PATTERNS.Contains($p)) { return $false }
+        if ($script:_NameRxStripPatterns.Contains($p)) { return $false }
         return $true
       })
       if ($parts.Count -gt 0) { $rx = $parts -join '|' }

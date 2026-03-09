@@ -88,7 +88,10 @@ function Get-UserSettings {
     }
     $s = $raw | ConvertFrom-Json -ErrorAction Stop
     if (Get-Command Invoke-SettingsMigration -ErrorAction SilentlyContinue) {
-      try { $s = Invoke-SettingsMigration -Settings $s } catch { }
+      # BUG-029 FIX: Log migration errors instead of silent catch
+      try { $s = Invoke-SettingsMigration -Settings $s } catch {
+        Write-Warning ('Settings-Migration fehlgeschlagen: {0}' -f $_.Exception.Message)
+      }
     }
     if (-not ($s -is [pscustomobject] -or $s -is [hashtable])) {
       $warnMsg = ('Settings-Datei ungueltig (kein Objekt): {0}' -f $SettingsPath)
@@ -138,7 +141,10 @@ function Set-UserSettings {
 
   try {
     if (Get-Command Invoke-SettingsMigration -ErrorAction SilentlyContinue) {
-      try { $Settings = Invoke-SettingsMigration -Settings $Settings } catch { }
+      # BUG-029 FIX: Log migration errors in Set-UserSettings too
+      try { $Settings = Invoke-SettingsMigration -Settings $Settings } catch {
+        Write-Warning ('Settings-Migration fehlgeschlagen (Save): {0}' -f $_.Exception.Message)
+      }
     }
     Assert-DirectoryExists -Path (Split-Path -Parent $script:SETTINGS_PATH)
     Write-JsonFile -Path $script:SETTINGS_PATH -Data $Settings -Depth 10

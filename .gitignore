@@ -20,6 +20,9 @@ dev/reports/
 docs/openapi.generated.json
 docs/implementation/archive/
 
+# ── Stale / unknown origin ──
+PBP/
+
 # ── Editor / OS ──
 .vs/
 *.suo

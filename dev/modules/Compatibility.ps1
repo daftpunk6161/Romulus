@@ -32,6 +32,14 @@ function Update-QuickStatus {
 }
 
 function Invoke-UiPump {
+  # BUG-050: DEPRECATED — implements forbidden DoEvents pattern (copilot-instructions.md).
+  # Reentrance risk: UI events may fire during Dispatcher.Invoke pump.
+  # Replace call sites with proper Dispatcher.BeginInvoke or Timer-based patterns.
+  # TODO: Remove in v2.0 migration.
+  if (-not $script:_UiPumpDeprecationWarned) {
+    $script:_UiPumpDeprecationWarned = $true
+    Write-Warning '[Compatibility] Invoke-UiPump ist veraltet (DoEvents-Pattern). Bitte durch Timer/Dispatcher ersetzen.'
+  }
   try {
     if ([System.Threading.Thread]::CurrentThread.ApartmentState -eq [System.Threading.ApartmentState]::STA) {
       try {

@@ -129,6 +129,31 @@ function Test-ApiRunPayload {
     }
   }
 
+  # BUG-032 FIX: Validate each root path — must be existing directory, not a system path
+  $blockedPrefixes = @(
+    [System.Environment]::GetFolderPath('Windows'),
+    [System.Environment]::GetFolderPath('ProgramFiles'),
+    [System.Environment]::GetFolderPath('ProgramFilesX86'),
+    [System.Environment]::GetFolderPath('System')
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+  foreach ($root in $roots) {
+    $rootStr = [string]$root
+    try {
+      $normalized = [System.IO.Path]::GetFullPath($rootStr)
+    } catch {
+      return ('Root path is invalid: {0}' -f $rootStr)
+    }
+    if (-not (Test-Path -LiteralPath $normalized -PathType Container)) {
+      return ('Root path does not exist or is not a directory: {0}' -f $rootStr)
+    }
+    foreach ($blocked in $blockedPrefixes) {
+      if ($normalized.StartsWith($blocked, [StringComparison]::OrdinalIgnoreCase)) {
+        return ('Root path is in a protected system directory: {0}' -f $rootStr)
+      }
+    }
+  }
+
   return $null
 }
 
@@ -713,13 +738,17 @@ function Start-ApiRun {
   param([Parameter(Mandatory=$true)][psobject]$Payload)
 
   $state = Get-ApiServerState
-  if ($state.ActiveRunId) {
-    $active = Update-ApiRunState -RunId $state.ActiveRunId
-    if ($active -and $active.status -eq 'running') {
-      throw 'Another run is already active.'
+  # BUG-040 FIX: Synchronize check-and-set of ActiveRunId to prevent TOCTOU race
+  if (-not $state.ContainsKey('_SyncRoot')) { $state['_SyncRoot'] = [object]::new() }
+  [System.Threading.Monitor]::Enter($state['_SyncRoot'])
+  try {
+    if ($state.ActiveRunId) {
+      $active = Update-ApiRunState -RunId $state.ActiveRunId
+      if ($active -and $active.status -eq 'running') {
+        throw 'Another run is already active.'
+      }
+      $state.ActiveRunId = $null
     }
-    $state.ActiveRunId = $null
-  }
 
   $runId = [guid]::NewGuid().ToString('N')
   $summaryPath = Join-Path ([System.IO.Path]::GetTempPath()) ("romcleanup-api-run-{0}.json" -f $runId)
@@ -748,6 +777,9 @@ function Start-ApiRun {
   $run = New-ApiRunRecord -RunId $runId -Payload $Payload -SummaryJsonPath $summaryPath -ProcessId $proc.Id
   $state.Runs[$runId] = $run
   $state.ActiveRunId = $runId
+  } finally {
+    [System.Threading.Monitor]::Exit($state['_SyncRoot'])
+  }
 
   return [pscustomobject]$run
 }

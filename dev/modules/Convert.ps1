@@ -582,6 +582,12 @@ function Invoke-ConvertItem {
     [void]$removePaths.Remove($targetPath)
     [void]$removePaths.Remove($workingTargetPath)
 
+    # BUG-009 FIX: Verify final target BEFORE removing source files (TOCTOU prevention)
+    $finalTargetItem = Get-Item -LiteralPath $targetPath -ErrorAction SilentlyContinue
+    if (-not $finalTargetItem -or $finalTargetItem.PSIsContainer -or [long]$finalTargetItem.Length -le 0) {
+      return (& $newOutcome 'ERROR' $null 'target-missing-after-commit' @{ Source = $mainPath; Target = $targetPath })
+    }
+
     $backupSettings = Get-ConversionBackupSettings
 
     foreach ($p in $removePaths) {
@@ -598,11 +604,6 @@ function Invoke-ConvertItem {
           Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
         }
       }
-    }
-
-    $finalTargetItem = Get-Item -LiteralPath $targetPath -ErrorAction SilentlyContinue
-    if (-not $finalTargetItem -or $finalTargetItem.PSIsContainer -or [long]$finalTargetItem.Length -le 0) {
-      return (& $newOutcome 'ERROR' $null 'target-missing-after-source-cleanup' @{ Source = $mainPath; Target = $targetPath })
     }
 
     return (& $newOutcome 'OK' $targetPath $null)
@@ -654,11 +655,18 @@ function New-ConversionAuditRow {
   )
 
   $srcExt = [IO.Path]::GetExtension($MainPath).ToLowerInvariant()
+  # BUG-039 FIX: CSV injection protection for user-controlled path values
+  $safeCsvValue = {
+    param([string]$v)
+    $v = $v -replace '"','""'
+    if ($v -match '^[=+\-@\|]') { $v = "'" + $v }
+    $v
+  }
   return ('"{0}","{1}","{2}","{3}","{4}","{5}","{6}","{7}",{8},{9},{10}' -f `
     (Get-Date).ToString('o'), $Status, $ToolName, $srcExt, $TargetExt,
-    ($MainPath -replace '"','""'),
-    (([string]$OutputPath -replace '"','""') -replace '^$',''),
-    ([string]$Reason -replace '"','""'),
+    (& $safeCsvValue $MainPath),
+    (& $safeCsvValue ([string]$OutputPath)),
+    (& $safeCsvValue ([string]$Reason)),
     $OldSize, $NewSize, $Saved)
 }
 

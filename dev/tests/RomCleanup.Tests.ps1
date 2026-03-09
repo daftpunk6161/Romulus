@@ -1636,7 +1636,7 @@ Describe 'DAT Matching Consistency' {
             $euRow | Should -Not -BeNullOrEmpty
             $usRow | Should -Not -BeNullOrEmpty
             $euRow.Action | Should -Be 'KEEP'
-            $usRow.Action | Should -Be 'DRYRUN'
+            $usRow.Action | Should -Be 'SKIP_DRYRUN'
 
             (@($rows | Where-Object { $_.Name -eq 'GAME.BAT' })).Count | Should -Be 0
         } finally {
@@ -1675,7 +1675,7 @@ Describe 'DAT Matching Consistency' {
             $euRow | Should -Not -BeNullOrEmpty
             $usRow | Should -Not -BeNullOrEmpty
             $euRow.Action | Should -Be 'KEEP'
-            $usRow.Action | Should -Be 'DRYRUN'
+            $usRow.Action | Should -Be 'SKIP_DRYRUN'
         } finally {
             if ($result -and $result.CsvPath -and (Test-Path -LiteralPath $result.CsvPath)) {
                 Remove-Item -LiteralPath $result.CsvPath -Force -ErrorAction SilentlyContinue
@@ -1697,13 +1697,17 @@ Describe 'DAT Matching Consistency' {
         New-Item -ItemType Directory -Path $euFolder -Force | Out-Null
         New-Item -ItemType Directory -Path $usFolder -Force | Out-Null
 
+        # Launcher files needed for DOS folder detection
+        'echo eu' | Out-File -LiteralPath (Join-Path $euFolder 'GAME.BAT') -Encoding ascii -Force
+        'echo us' | Out-File -LiteralPath (Join-Path $usFolder 'GAME.BAT') -Encoding ascii -Force
+        # Data files that should not affect the game key comparison
         'eu-data' | Out-File -LiteralPath (Join-Path $euFolder 'README.TXT') -Encoding ascii -Force
         'us-data' | Out-File -LiteralPath (Join-Path $usFolder 'README.TXT') -Encoding ascii -Force
 
         $result = $null
         try {
             $result = Invoke-RegionDedupe -Roots @($dosRoot) -Mode 'DryRun' -PreferOrder @('EU','US','JP') `
-                -IncludeExtensions @('.txt') -RemoveJunk $false -SeparateBios $false -UseDat $false -Log { param($m) }
+                -IncludeExtensions @('.bat','.txt') -RemoveJunk $false -SeparateBios $false -UseDat $false -Log { param($m) }
 
             $rows = @(Import-Csv -LiteralPath $result.CsvPath)
             $euRow = @($rows | Where-Object { $_.Name -eq 'Meta-Game (Europe) [DOS]' } | Select-Object -First 1)
@@ -1712,7 +1716,7 @@ Describe 'DAT Matching Consistency' {
             $euRow | Should -Not -BeNullOrEmpty
             $usRow | Should -Not -BeNullOrEmpty
             $euRow.Action | Should -Be 'KEEP'
-            $usRow.Action | Should -Be 'DRYRUN'
+            $usRow.Action | Should -Be 'SKIP_DRYRUN'
             $euRow.GameKey | Should -Be $usRow.GameKey
         } finally {
             if ($result -and $result.CsvPath -and (Test-Path -LiteralPath $result.CsvPath)) {
@@ -2882,8 +2886,8 @@ Describe 'Integration - Invoke-RegionDedupe Minimal' {
         $biosItems = New-Object System.Collections.Generic.List[psobject]
         $allItems  = New-Object System.Collections.Generic.List[psobject]
         $itemByMain = @{}
-        $itemByMain[$moveMain] = [pscustomobject]@{ Root=$root; Type='FILE'; MainPath=$moveMain; BaseName='Preview Dupe' }
-        $itemByMain[$keepMain] = [pscustomobject]@{ Root=$root; Type='FILE'; MainPath=$keepMain; BaseName='Preview Keep' }
+        $itemByMain[$moveMain] = [pscustomobject]@{ Root=$root; Type='FILE'; MainPath=$moveMain; BaseName='Preview Dupe'; Paths=@($moveMain) }
+        $itemByMain[$keepMain] = [pscustomobject]@{ Root=$root; Type='FILE'; MainPath=$keepMain; BaseName='Preview Keep'; Paths=@($keepMain) }
 
         $capturedSummary = $null
         Mock -CommandName Get-ConsoleType -MockWith { 'PS1' }

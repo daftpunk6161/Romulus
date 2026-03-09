@@ -228,8 +228,15 @@ function Get-M3URelatedFiles {
   param(
     [string]$M3UPath,
     [string]$RootPath,
-    [System.Collections.Generic.HashSet[string]]$VisitedM3u
+    [System.Collections.Generic.HashSet[string]]$VisitedM3u,
+    [int]$MaxDepth = 20
   )
+
+  # BUG-022 FIX: Depth limit prevents stack overflow on deep M3U chains
+  if ($MaxDepth -le 0) {
+    Write-Warning ('[SetParsing] M3U Rekursionstiefe ueberschritten fuer: {0}' -f $M3UPath)
+    return @()
+  }
 
   if (-not $VisitedM3u) {
     $VisitedM3u = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
@@ -258,7 +265,7 @@ function Get-M3URelatedFiles {
 
       # Referenzierte Disc-Images rekursiv aufloesen
       $subFiles = switch ($ext) {
-        '.m3u' { Get-M3URelatedFiles -M3UPath $p -RootPath $RootPath -VisitedM3u $VisitedM3u }
+        '.m3u' { Get-M3URelatedFiles -M3UPath $p -RootPath $RootPath -VisitedM3u $VisitedM3u -MaxDepth ($MaxDepth - 1) }
         '.cue' { Get-CueRelatedFiles -CuePath $p -RootPath $RootPath }
         '.gdi' { Get-GdiRelatedFiles -GdiPath $p -RootPath $RootPath }
         '.ccd' { Get-CcdRelatedFiles -CcdPath $p -RootPath $RootPath }
@@ -279,8 +286,15 @@ function Get-M3UMissingFiles {
   param(
     [string]$M3UPath,
     [string]$RootPath,
-    [System.Collections.Generic.HashSet[string]]$VisitedM3u
+    [System.Collections.Generic.HashSet[string]]$VisitedM3u,
+    [int]$MaxDepth = 20
   )
+
+  # BUG-022 FIX: Depth limit prevents stack overflow on deep M3U chains
+  if ($MaxDepth -le 0) {
+    Write-Warning ('[SetParsing] M3U Rekursionstiefe ueberschritten fuer: {0}' -f $M3UPath)
+    return @()
+  }
 
   if (-not $VisitedM3u) {
     $VisitedM3u = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
@@ -311,7 +325,7 @@ function Get-M3UMissingFiles {
 
       $ext = [IO.Path]::GetExtension($p).ToLowerInvariant()
       $subMissing = switch ($ext) {
-        '.m3u' { Get-M3UMissingFiles -M3UPath $p -RootPath $RootPath -VisitedM3u $VisitedM3u }
+        '.m3u' { Get-M3UMissingFiles -M3UPath $p -RootPath $RootPath -VisitedM3u $VisitedM3u -MaxDepth ($MaxDepth - 1) }
         '.cue' { Get-CueMissingFiles -CuePath $p -RootPath $RootPath }
         '.gdi' { Get-GdiMissingFiles -GdiPath $p -RootPath $RootPath }
         '.ccd' { Get-CcdMissingFiles -CcdPath $p -RootPath $RootPath }

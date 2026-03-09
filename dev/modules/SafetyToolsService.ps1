@@ -354,3 +354,6 @@ function Invoke-ToolSelfTest {
     WarningCount = $warningCount
   }
 }
+
+# Test-only aliases – simplified names for Pester tests (TD-API-01)
+Set-Alias -Name Set-SafetyPolicyProfile -Value Invoke-SafetyPolicyProfileApply -Scope Script

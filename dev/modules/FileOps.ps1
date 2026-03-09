@@ -406,13 +406,16 @@ function Save-SqliteFileScanIndex {
     if ($csvLines.Count -eq 0) { return }
     Set-Content -LiteralPath $tmpCsv -Value @($csvLines.ToArray()) -Encoding UTF8
 
-    # SQLite CLI does not support parameterized queries; validate inputs to
-    # prevent SQL injection. Both values are internally generated paths, but
-    # we guard defensively against unexpected characters.
+    # BUG-001 FIX: Strict input validation for SQLite CLI (no parameterized queries available).
+    # Allowlist: only permit safe path characters. Reject anything else.
     $rootSql = ([string]$Root).Replace("'", "''")
     $csvSqlPath = ([string]$tmpCsv).Replace("'", "''")
-    if ($rootSql -match '[;]' -or $csvSqlPath -match '[;]') {
+    if ($rootSql -match '[;\x00-\x1f]' -or $csvSqlPath -match '[;\x00-\x1f]') {
       Write-Warning ('[FileOps] Save-SqliteFileScanIndex: skipped due to suspicious path characters in root or csv path.')
+      return
+    }
+    if ($rootSql -match '--' -or $csvSqlPath -match '--') {
+      Write-Warning ('[FileOps] Save-SqliteFileScanIndex: skipped due to SQL comment sequence in path.')
       return
     }
     $sqlScript = @(
@@ -799,12 +802,24 @@ function Move-ItemSafely {
     [string]$ValidateDestWithinRoot = $null
   )
 
+  # BUG-042 FIX: Pre-check path length to avoid PathTooLongException crash
+  $srcLen = ([string]$Source).Length
+  $dstLen = ([string]$Dest).Length
+  if ($srcLen -gt 240 -or $dstLen -gt 240) {
+    $maxLen = [Math]::Max($srcLen, $dstLen)
+    Write-Warning ('[FileOps] Move-ItemSafely: Pfad zu lang ({0} Zeichen, max 240): {1}' -f $maxLen, [IO.Path]::GetFileName($Source))
+    throw ('Move-ItemSafely: Path too long ({0} chars). Source or destination exceeds 240 character limit: {1}' -f $maxLen, [IO.Path]::GetFileName($Source))
+  }
+
   try {
     $srcFull = [System.IO.Path]::GetFullPath($Source)
     $destFull = [System.IO.Path]::GetFullPath($Dest)
     if ($srcFull -eq $destFull) {
       throw "Blocked: Source and destination are the same path: $Source"
     }
+  } catch [System.IO.PathTooLongException] {
+    Write-Warning ('[FileOps] Move-ItemSafely: PathTooLongException: {0}' -f $_.Exception.Message)
+    throw
   } catch {
     throw "Blocked: Invalid source/destination path: $Source -> $Dest"
   }
@@ -841,6 +856,10 @@ function Move-ItemSafely {
   $attempt = 0
   $maxAttempts = 10000
   while ($attempt -lt $maxAttempts) {
+    # BUG-043 FIX: Check cancellation between DUP retry iterations (prevents indefinite hang on NAS/UNC)
+    if ($attempt -gt 0 -and (Get-Command Test-CancelRequested -ErrorAction SilentlyContinue)) {
+      try { if (Test-CancelRequested) { throw 'Move-ItemSafely: Operation abgebrochen (Cancel).'; } } catch [System.Management.Automation.CommandNotFoundException] { }
+    }
     $candidate = if ($attempt -eq 0) {
       $Dest
     } else {
@@ -917,6 +936,29 @@ function Invoke-RootSafeMove {
 
   return (Move-ItemSafely -Source $Source -Dest $Dest `
     -ValidateSourceWithinRoot $SourceRoot -ValidateDestWithinRoot $DestRoot)
+}
+
+function Find-OrphanedTmpMoveFiles {
+  <# BUG-003 FIX: Scans roots for orphaned .tmp_move files left by failed Move-ItemSafely operations. #>
+  param(
+    [Parameter(Mandatory=$true)][string[]]$Roots
+  )
+
+  $orphans = [System.Collections.Generic.List[pscustomobject]]::new()
+  foreach ($root in $Roots) {
+    if ([string]::IsNullOrWhiteSpace($root)) { continue }
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+    $files = Get-ChildItem -LiteralPath $root -Filter '*.tmp_move' -File -Recurse -ErrorAction SilentlyContinue
+    foreach ($f in $files) {
+      $orphans.Add([pscustomobject]@{
+        FullName     = $f.FullName
+        Root         = $root
+        LastWriteUtc = $f.LastWriteTimeUtc
+        Length       = $f.Length
+      })
+    }
+  }
+  return @($orphans)
 }
 
 function Test-IsProtectedPath {

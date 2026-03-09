@@ -2,6 +2,16 @@
 #  LruCache.ps1 - Generic LRU Cache Wrapper
 #  Provides a reusable LRU-eviction cache to replace inline
 #  implementations in Tools.ps1 (Archive) and Dat.ps1 (FileHash).
+#
+#  THREAD SAFETY (BUG-034):
+#  - This cache is NOT thread-safe for concurrent reads+writes.
+#  - LinkedList and Hashtable operations are not atomic.
+#  - Safe usage patterns:
+#    1) Single-thread access only (GameKey cache, main pipeline)
+#    2) Clone per-runspace (Classification caches via Reset-ClassificationCaches)
+#  - If concurrent access is needed, wrap Get/Set calls in
+#    [System.Threading.Monitor]::Enter/Exit or use
+#    [System.Collections.Concurrent.ConcurrentDictionary] for Data.
 # ================================================================
 
 function New-LruCache {

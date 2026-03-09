@@ -37,7 +37,7 @@ Describe 'F-09: Settings SchemaFehler -> Write-Log + Write-Warning' {
 
                 # Trigger settings load from temp file
                 try {
-                    Get-UserSettings -Path $tmpFile -ErrorAction SilentlyContinue | Out-Null
+                    Get-UserSettings -SettingsPath $tmpFile -ErrorAction SilentlyContinue | Out-Null
                 } catch { }
 
                 # $logCalled might not be set if Write-Log is only called when already available
@@ -61,7 +61,7 @@ Describe 'F-09: Settings SchemaFehler -> Write-Log + Write-Warning' {
 
                 $warnings = [System.Collections.Generic.List[string]]::new()
                 try {
-                    Get-UserSettings -Path $tmpFile -WarningAction Continue -ErrorAction SilentlyContinue 3>&1 |
+                    Get-UserSettings -SettingsPath $tmpFile -WarningAction Continue -ErrorAction SilentlyContinue 3>&1 |
                         ForEach-Object {
                             if ($_ -is [System.Management.Automation.WarningRecord]) {
                                 $warnings.Add($_.Message)
@@ -73,7 +73,7 @@ Describe 'F-09: Settings SchemaFehler -> Write-Log + Write-Warning' {
                 $warnings.Count | Should -BeGreaterOrEqual 0 -Because 'keine Exception bei korrupten Settings'
                 # Funktion sollte Default-Settings zurueckgeben statt null
                 $result = $null
-                try { $result = Get-UserSettings -Path $tmpFile -ErrorAction SilentlyContinue } catch { }
+                try { $result = Get-UserSettings -SettingsPath $tmpFile -ErrorAction SilentlyContinue } catch { }
                 # Mindestens keine Exception - das ist das Minimum
             } finally {
                 Remove-Item -LiteralPath $tmpFile -ErrorAction SilentlyContinue

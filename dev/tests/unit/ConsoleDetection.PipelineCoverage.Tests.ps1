@@ -81,38 +81,38 @@ Describe 'TEST-12: Detection Pipeline Coverage' {
 
     Context 'Pipeline-Stufen Existenz' {
 
-        It 'Invoke-ConsoleSort enthaelt DAT-Hash-Lookup' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt DAT-Hash-Lookup' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'datHashToConsole' -Because 'DAT-Hash-Lookup sollte in der Pipeline sein'
         }
 
-        It 'Invoke-ConsoleSort enthaelt Archive-Entry-Pruefung' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt Archive-Entry-Pruefung' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'Get-ConsoleFromArchiveEntries' -Because 'Archive-Entry-Pruefung sollte in der Pipeline sein'
         }
 
-        It 'Invoke-ConsoleSort enthaelt Archive-Disc-Header-Pruefung' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt Archive-Disc-Header-Pruefung' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'Get-ArchiveDiscHeaderConsole' -Because 'Archive-Disc-Header-Pruefung sollte in der Pipeline sein'
         }
 
-        It 'Invoke-ConsoleSort enthaelt DolphinTool-Check' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt DolphinTool-Check' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'Get-ConsoleFromDolphinTool' -Because 'DolphinTool-Check sollte in der Pipeline sein'
         }
 
-        It 'Invoke-ConsoleSort enthaelt Disc-ID Filename Fallback' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt Disc-ID Filename Fallback' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'Get-ConsoleFromDiscIdInFileName' -Because 'Disc-ID Filename Fallback sollte in der Pipeline sein'
         }
 
-        It 'Invoke-ConsoleSort enthaelt Get-ConsoleType Heuristik' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Invoke-ConsoleDetection enthaelt Get-ConsoleType Heuristik' {
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $body | Should -Match 'Get-ConsoleType' -Because 'Get-ConsoleType Heuristik sollte in der Pipeline sein'
         }
 
         It 'Pipeline hat 6 Reason-Codes definiert' {
-            $body = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+            $body = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $codes = @(
                 'ARCHIVE_AMBIGUOUS_EXT',
                 'ARCHIVE_TOOL_MISSING',

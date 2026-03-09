@@ -404,7 +404,8 @@ function Get-DatIndex {
 
   $index = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
   $xmlReaderSettings = New-SecureXmlReaderSettings
-  $maxCharsInDoc = 500MB
+  # BUG-045 FIX: Reduced from 500MB to 100MB (still 2x largest known DAT file)
+  $maxCharsInDoc = 100MB
   if (Get-Command Get-AppStateValue -ErrorAction SilentlyContinue) {
     try {
       $configuredMaxChars = Get-AppStateValue -Key 'DatXmlMaxCharactersInDocument' -Default $maxCharsInDoc

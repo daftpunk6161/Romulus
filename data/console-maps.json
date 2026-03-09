@@ -230,6 +230,7 @@
     ".wux": "WIIU",
     ".rpx": "WIIU",
     ".vpk": "VITA",
+    ".gdi": "DC",
 
     ".32x": "32X",
     ".sg": "SG1000",

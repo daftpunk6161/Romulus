@@ -4,6 +4,11 @@
 function Get-AuditSigningKeyBytes {
   $rawKey = [string]$env:ROMCLEANUP_AUDIT_HMAC_KEY
   if ([string]::IsNullOrWhiteSpace($rawKey)) { return $null }
+  # BUG-041 FIX: Enforce minimum key length (32 bytes) for HMAC security
+  if ($rawKey.Length -lt 32) {
+    Write-Warning '[SEC] ROMCLEANUP_AUDIT_HMAC_KEY ist zu kurz (< 32 Zeichen). Audit-Signierung deaktiviert. Bitte einen Key mit mindestens 32 Zeichen setzen.'
+    return $null
+  }
   return [System.Text.Encoding]::UTF8.GetBytes($rawKey)
 }
 
@@ -293,6 +298,8 @@ function Invoke-AuditRollback {
   $skippedMissingDest = 0
   $skippedCollision = 0
   $failed = 0
+  # BUG-021 FIX: Track all rollback operations for audit trail
+  $rollbackTrail = [System.Collections.Generic.List[pscustomobject]]::new()
 
   for ($i = $eligible.Count - 1; $i -ge 0; $i--) {
     $entry = $eligible[$i]
@@ -329,14 +336,38 @@ function Invoke-AuditRollback {
       }
       [void](Invoke-RootSafeMove -Source $from -Dest $to -SourceRoot $fromRoot -DestRoot $toRoot)
       $rolledBack++
+      # BUG-021 FIX: Track successful rollback entries for audit trail
+      [void]$rollbackTrail.Add([pscustomobject]@{ Status='OK'; From=$from; To=$to })
     } catch {
       $failed++
+      [void]$rollbackTrail.Add([pscustomobject]@{ Status='FAILED'; From=$from; To=$to; Error=$_.Exception.Message })
       if ($Log) { & $Log ("Rollback FEHLER: {0} -> {1} ({2})" -f $from, $to, $_.Exception.Message) }
+    }
+  }
+
+  # BUG-021 FIX: Write rollback audit trail CSV if any operations were attempted
+  $rollbackAuditPath = $null
+  if ($rollbackTrail.Count -gt 0 -and -not $DryRun) {
+    $rollbackAuditPath = [System.IO.Path]::ChangeExtension($AuditCsvPath, '.rollback-audit.csv')
+    $timestamp = [DateTime]::UtcNow.ToString('o')
+    $trailLines = [System.Collections.Generic.List[string]]::new()
+    [void]$trailLines.Add('Status,From,To,Error,Timestamp')
+    foreach ($t in $rollbackTrail) {
+      $errVal = if ($t.PSObject.Properties['Error']) { [string]$t.Error } else { '' }
+      $line = '"{0}","{1}","{2}","{3}","{4}"' -f $t.Status, ($t.From -replace '"','""'), ($t.To -replace '"','""'), ($errVal -replace '"','""'), $timestamp
+      [void]$trailLines.Add($line)
+    }
+    try {
+      $trailLines -join "`r`n" | Set-Content -LiteralPath $rollbackAuditPath -Encoding UTF8 -Force
+      if ($Log) { & $Log ("Rollback-Audit geschrieben: {0}" -f $rollbackAuditPath) }
+    } catch {
+      if ($Log) { & $Log ("Rollback-Audit konnte nicht geschrieben werden: {0}" -f $_.Exception.Message) }
     }
   }
 
   return [pscustomobject]@{
     AuditCsvPath       = $AuditCsvPath
+    RollbackAuditPath  = $rollbackAuditPath
     TotalRows          = $rows.Count
     EligibleRows       = $eligible.Count
     SkippedUnsafe      = $skippedUnsafe

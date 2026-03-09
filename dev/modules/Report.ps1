@@ -45,7 +45,8 @@ function ConvertTo-SafeOutputValue {
     default {
       if ([string]::IsNullOrEmpty($Value)) { return $Value }
       $trimmed = $Value.TrimStart([char[]]@(' ', "`t", "`r", "`n", [char]0))
-      if ($trimmed.StartsWith([string][char]9) -or $trimmed -match '^[=+\-@\|]') {
+      # BUG-033 FIX: Removed redundant tab check — TrimStart already strips tabs
+      if ($trimmed -match '^[=+\-@\|]') {
         return "'" + $Value
       }
       return $Value

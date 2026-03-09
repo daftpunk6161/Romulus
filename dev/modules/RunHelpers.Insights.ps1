@@ -842,11 +842,15 @@ $payload | ConvertTo-Json -Depth 12 | Out-File -LiteralPath $ResultPath -Encodin
         }
         $pluginResult = $isolated.Result
       } else {
+        # BUG-030 FIX: Execute in child scope to prevent scope pollution from trusted plugins
         Remove-Item Function:\Invoke-RomCleanupOperationPlugin -ErrorAction SilentlyContinue
-        . $file.FullName
-        $handler = Get-Command Invoke-RomCleanupOperationPlugin -CommandType Function -ErrorAction SilentlyContinue
-        if (-not $handler) { continue }
-        $pluginResult = Invoke-RomCleanupOperationPlugin -Phase $Phase -Context $Context
+        $pluginResult = & {
+          . $file.FullName
+          $handler = Get-Command Invoke-RomCleanupOperationPlugin -CommandType Function -ErrorAction SilentlyContinue
+          if (-not $handler) { return $null }
+          Invoke-RomCleanupOperationPlugin -Phase $Phase -Context $Context
+        }
+        if ($null -eq $pluginResult -and -not (Get-Command Invoke-RomCleanupOperationPlugin -CommandType Function -ErrorAction SilentlyContinue)) { continue }
       }
 
       $normalizedResult = & $normalizePluginResult $pluginResult

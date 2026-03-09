@@ -445,6 +445,9 @@ Describe 'FolderDedupe – Invoke-AutoFolderDedupe' {
         }
         . (Join-Path $root 'dev\modules\Settings.ps1')
         . (Join-Path $root 'dev\modules\FileOps.ps1')
+        . (Join-Path $root 'dev\modules\LruCache.ps1')
+        . (Join-Path $root 'dev\modules\AppState.ps1')
+        . (Join-Path $root 'dev\modules\Tools.ps1')
         . (Join-Path $root 'dev\modules\Classification.ps1')
         . (Join-Path $root 'dev\modules\FolderDedupe.ps1')
 

@@ -129,7 +129,7 @@ Add-Type -AssemblyName PresentationFramework
 # Ensure the process declares System-DPI-Awareness explicitly so WinForms
 # AutoScaleMode=Dpi works consistently across all Windows versions.
 try {
-  if (-not ([System.Management.Automation.PSTypeName]'RomCleanup.DpiHelper').Type) {
+  if (-not ([System.Management.Automation.PSTypeName]'RomCleanupDpiHelper').Type) {
     Add-Type -TypeDefinition @'
 public class RomCleanupDpiHelper {
     [System.Runtime.InteropServices.DllImport("shcore.dll", SetLastError = true)]
@@ -242,11 +242,11 @@ function Resolve-ModuleDirectory {
 # Loads the RomCleanup module by dot-sourcing RomCleanupLoader.ps1 into script scope
 # so that all $script: state variables remain shared.
 # When ARCH-16/17 (state management) are completed, this can switch to Import-Module.
+$scriptOverrideDir = $null
 try {
   $script:ROMCLEANUP_MODULE_PROFILE = 'all'
   $previousModuleProfileEnv = $env:ROMCLEANUP_MODULE_PROFILE
   $env:ROMCLEANUP_MODULE_PROFILE = $script:ROMCLEANUP_MODULE_PROFILE
-  $scriptOverrideDir = $null
   $scriptOverrideVar = Get-Variable -Scope Script -Name ROM_CLEANUP_MODULE_DIR -ErrorAction SilentlyContinue
   if ($scriptOverrideVar -and -not [string]::IsNullOrWhiteSpace([string]$scriptOverrideVar.Value)) {
     $scriptOverrideDir = [string]$scriptOverrideVar.Value
@@ -282,7 +282,9 @@ try {
   }
 } catch {
   $script:ModuleLoadError = $_.Exception.Message
-  [void](Set-AppStateValue -Key 'ModuleLoadError' -Value $_.Exception.Message)
+  if (Get-Command Set-AppStateValue -ErrorAction SilentlyContinue) {
+    [void](Set-AppStateValue -Key 'ModuleLoadError' -Value $_.Exception.Message)
+  }
 } finally {
   if ($null -eq $previousModuleProfileEnv) {
     Remove-Item Env:\ROMCLEANUP_MODULE_PROFILE -ErrorAction SilentlyContinue
@@ -301,6 +303,7 @@ try {
 }
 
 # --- Load persisted theme preference -----------------------------------------
+$startupSettings = $null
 try {
   $startupSettings = Get-UserSettings
   if ($startupSettings -and $startupSettings.general -and $startupSettings.general.theme) {
@@ -398,7 +401,7 @@ if ($script:IsAutomatedTestMode) {
       [void](Set-AppStateValue -Key 'IsAutomatedTestMode' -Value $true)
     }
   } catch {
-    Write-Verbose ("Activation-Event Dispose Warnung: {0}" -f $_.Exception.Message)
+    Write-Verbose ("Set-AppStateValue im TestMode fehlgeschlagen: {0}" -f $_.Exception.Message)
   }
   return
 }
@@ -428,10 +431,11 @@ try {
 
 # ── Centralized PowerShell Executable Discovery ──────────────────────────────
 function Resolve-PowerShellExe {
-  <# Finds the best available PowerShell executable (pwsh.exe preferred, then powershell.exe). #>
+  <# Finds the best available PowerShell executable.
+     Prefers powershell.exe (Windows PowerShell) because pwsh.exe (PS7) does not support -STA. #>
   $candidates = @(
-    (Get-Command -Name 'pwsh.exe' -ErrorAction SilentlyContinue),
-    (Get-Command -Name 'powershell.exe' -ErrorAction SilentlyContinue)
+    (Get-Command -Name 'powershell.exe' -ErrorAction SilentlyContinue),
+    (Get-Command -Name 'pwsh.exe' -ErrorAction SilentlyContinue)
   )
   foreach ($cmd in $candidates) {
     if ($cmd -and $cmd.Source) { return [string]$cmd.Source }
@@ -455,7 +459,11 @@ function Start-StaProcess {
   if (-not $exe -or -not $ScriptPath) { return $false }
 
   try {
-    $argsList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', $ScriptPath) + $ExtraArgs
+    # pwsh.exe (PS7) does not support -STA; only add it for powershell.exe
+    $isPwsh = [System.IO.Path]::GetFileNameWithoutExtension($exe) -ieq 'pwsh'
+    $argsList = @('-NoProfile', '-ExecutionPolicy', 'Bypass')
+    if (-not $isPwsh) { $argsList += '-STA' }
+    $argsList += @('-File', $ScriptPath) + $ExtraArgs
     if ($WindowStyle -eq 'Hidden') {
       # Use .NET ProcessStartInfo with CreateNoWindow for reliable console hiding.
       # Start-Process -WindowStyle Hidden is unreliable for console applications.

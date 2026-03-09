@@ -168,23 +168,25 @@ function Initialize-RulePatterns {
 
     $rd = $script:RULE_DATA
 
-    $script:RX_MULTIREGION = [regex]::new($rd.MultiRegionPattern, 'IgnoreCase, Compiled')
-    $script:RX_FALLBACK_EU = [regex]::new($rd.FallbackEU, 'IgnoreCase, Compiled')
-    $script:RX_FALLBACK_US = [regex]::new($rd.FallbackUS, 'IgnoreCase, Compiled')
-    $script:RX_FALLBACK_JP = [regex]::new($rd.FallbackJP, 'IgnoreCase, Compiled')
+    # BUG-044 FIX: All regex compilations use a 5-second timeout to prevent ReDoS
+    $rxTimeout = [TimeSpan]::FromSeconds(5)
+    $script:RX_MULTIREGION = [regex]::new($rd.MultiRegionPattern, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_FALLBACK_EU = [regex]::new($rd.FallbackEU, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_FALLBACK_US = [regex]::new($rd.FallbackUS, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_FALLBACK_JP = [regex]::new($rd.FallbackJP, 'IgnoreCase, Compiled', $rxTimeout)
 
-    $script:RX_VERIFIED = [regex]::new($rd.VerifiedPattern, 'Compiled')
-    $script:RX_REVISION = [regex]::new($rd.RevisionPattern, 'IgnoreCase, Compiled')
-    $script:RX_VERSION  = [regex]::new($rd.VersionPattern, 'IgnoreCase, Compiled')
-    $script:RX_LANG     = [regex]::new($rd.LangPattern, 'IgnoreCase, Compiled')
-    $script:RX_CLEANUP1 = [regex]::new($rd.Cleanup1, 'Compiled')
-    $script:RX_CLEANUP2 = [regex]::new($rd.Cleanup2, 'Compiled')
+    $script:RX_VERIFIED = [regex]::new($rd.VerifiedPattern, 'Compiled', $rxTimeout)
+    $script:RX_REVISION = [regex]::new($rd.RevisionPattern, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_VERSION  = [regex]::new($rd.VersionPattern, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_LANG     = [regex]::new($rd.LangPattern, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_CLEANUP1 = [regex]::new($rd.Cleanup1, 'Compiled', $rxTimeout)
+    $script:RX_CLEANUP2 = [regex]::new($rd.Cleanup2, 'Compiled', $rxTimeout)
 
-    $script:RX_BIOS = [regex]::new($rd.BiosPattern, 'IgnoreCase, Compiled')
-    $script:RX_JUNK_TAGS = [regex]::new($rd.JunkTags, 'IgnoreCase, Compiled')
-    $script:RX_JUNK_WORDS = [regex]::new($rd.JunkWords, 'IgnoreCase, Compiled')
-    $script:RX_JUNK_TAGS_AGGRESSIVE = [regex]::new($rd.JunkTagsAggressive, 'IgnoreCase, Compiled')
-    $script:RX_JUNK_WORDS_AGGRESSIVE = [regex]::new($rd.JunkWordsAggressive, 'IgnoreCase, Compiled')
+    $script:RX_BIOS = [regex]::new($rd.BiosPattern, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_JUNK_TAGS = [regex]::new($rd.JunkTags, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_JUNK_WORDS = [regex]::new($rd.JunkWords, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_JUNK_TAGS_AGGRESSIVE = [regex]::new($rd.JunkTagsAggressive, 'IgnoreCase, Compiled', $rxTimeout)
+    $script:RX_JUNK_WORDS_AGGRESSIVE = [regex]::new($rd.JunkWordsAggressive, 'IgnoreCase, Compiled', $rxTimeout)
 
     $script:UseAggressiveJunk = $false
     if (Get-Command Set-AppStateValue -ErrorAction SilentlyContinue) {
@@ -193,18 +195,18 @@ function Initialize-RulePatterns {
 
     $script:RX_GAMEKEY = @()
     foreach ($pat in $rd.GameKeyPatterns) {
-        $script:RX_GAMEKEY += [regex]::new($pat, 'IgnoreCase, Compiled')
+        $script:RX_GAMEKEY += [regex]::new($pat, 'IgnoreCase, Compiled', $rxTimeout)
     }
     # Invalidate cached combined regexes (rebuilt lazily in ConvertTo-GameKey)
     Set-Variable -Name RX_GAMEKEY_COMBINED -Scope Script -Value $null -ErrorAction SilentlyContinue
     Set-Variable -Name RX_GAMEKEY_CLEANUP_COMBINED -Scope Script -Value $null -ErrorAction SilentlyContinue
 
-    $script:RX_GAMEKEY_STORE_TAGS = [regex]::new($rd.StoreTagPattern, 'IgnoreCase, Compiled')
+    $script:RX_GAMEKEY_STORE_TAGS = [regex]::new($rd.StoreTagPattern, 'IgnoreCase, Compiled', $rxTimeout)
 
     $script:GAMEKEY_ALIAS_TAG_PATTERNS = $rd.AliasTagPatterns
     $script:RX_GAMEKEY_ALIAS_TAGS = [regex]::new(
         ('\s*\(({0})\)\s*' -f ($rd.AliasTagPatterns -join '|')),
-        'IgnoreCase, Compiled')
+        'IgnoreCase, Compiled', $rxTimeout)
 
     $script:GAMEKEY_ALIAS_MAP = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($k in $rd.BaseAliasMap.Keys) {
@@ -240,7 +242,7 @@ function Initialize-RulePatterns {
     foreach ($entry in $rd.RegionOrdered) {
         $script:RX_REGION_ORDERED += @{
             Key = $entry.Key
-            Rx  = [regex]::new($entry.Pattern, 'IgnoreCase, Compiled')
+            Rx  = [regex]::new($entry.Pattern, 'IgnoreCase, Compiled', $rxTimeout)
         }
     }
 
@@ -248,7 +250,7 @@ function Initialize-RulePatterns {
     foreach ($entry in $rd.Region2Letter) {
         $script:RX_REGION_2LETTER += @{
             Key = $entry.Key
-            Rx  = [regex]::new($entry.Pattern, 'IgnoreCase, Compiled')
+            Rx  = [regex]::new($entry.Pattern, 'IgnoreCase, Compiled', $rxTimeout)
         }
     }
 
@@ -264,7 +266,7 @@ function Initialize-RulePatterns {
     }
     [void]$combinedParts.Add(('(?:{0})' -f $rd.StoreTagPattern))
     [void]$combinedParts.Add(('(?:{0})' -f $rd.Cleanup1))
-    $script:RX_GAMEKEY_COMBINED = [regex]::new(($combinedParts -join '|'), 'IgnoreCase, Compiled')
+    $script:RX_GAMEKEY_COMBINED = [regex]::new(($combinedParts -join '|'), 'IgnoreCase, Compiled', $rxTimeout)
     # Cleanup2 (\s{2,}) is redundant: space-insensitive key normalisation collapses all spaces
     $script:RX_GAMEKEY_CLEANUP_COMBINED = $null
 }
@@ -362,6 +364,8 @@ function ConvertTo-AsciiFold {
 
   $work = [string]$Text
   $work = $work.Replace('ß', 'ss').Replace('ẞ', 'ss')
+  # BUG-027 FIX: Turkish İ/ı dotless-i does not decompose via NFD — explicit mapping
+  $work = $work.Replace([string][char]0x0131, 'i').Replace([string][char]0x0130, 'I')
   $work = $work.Replace([string][char]0x2019, "'").Replace([string][char]0x2018, "'")
   $work = $work.Replace([string][char]0x2013, '-').Replace([string][char]0x2014, '-')
 

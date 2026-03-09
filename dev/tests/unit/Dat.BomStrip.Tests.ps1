@@ -14,6 +14,7 @@ Describe 'F-05: DAT BOM-Strip Erkennung' {
         . (Join-Path $root 'dev\modules\Settings.ps1')
         . (Join-Path $root 'dev\modules\AppState.ps1')
         . (Join-Path $root 'dev\modules\Core.ps1')
+        . (Join-Path $root 'dev\modules\LruCache.ps1')
         . (Join-Path $root 'dev\modules\Classification.ps1')
         . (Join-Path $root 'dev\modules\Dat.ps1')
     }

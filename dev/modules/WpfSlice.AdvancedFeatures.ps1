@@ -611,6 +611,33 @@ function Invoke-WpfPluginManager {
 
   $btnInstallUrl.add_Click({
     try {
+      # BUG-047 FIX: Check PluginTrustMode before allowing URL install
+      $trustMode = 'trusted-only'
+      $envTrust = [string]$env:ROMCLEANUP_PLUGIN_TRUST_MODE
+      if (-not [string]::IsNullOrWhiteSpace($envTrust)) {
+        $trustMode = $envTrust
+      } elseif (Get-Command Get-AppStateValue -ErrorAction SilentlyContinue) {
+        try { $trustMode = [string](Get-AppStateValue -Key 'PluginTrustMode' -Default 'trusted-only') } catch {}
+      }
+      if ($trustMode -eq 'signed-only') {
+        [System.Windows.MessageBox]::Show(
+          'Plugin-Installation von URLs ist im Modus "signed-only" nicht erlaubt. Nur signierte Plugins können installiert werden.',
+          'TrustMode: signed-only',
+          [System.Windows.MessageBoxButton]::OK,
+          [System.Windows.MessageBoxImage]::Warning
+        ) | Out-Null
+        return
+      }
+      if ($trustMode -eq 'trusted-only') {
+        $confirm = [System.Windows.MessageBox]::Show(
+          ('TrustMode ist "trusted-only". Plugins von externen URLs sind nicht als vertrauenswürdig markiert.{0}{0}Trotzdem installieren?' -f [Environment]::NewLine),
+          'TrustMode-Warnung',
+          [System.Windows.MessageBoxButton]::YesNo,
+          [System.Windows.MessageBoxImage]::Warning
+        )
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
+      }
+
       $url = Show-WpfTextInputDialog -Owner $dialog -Title 'Plugin installieren' -Message 'Plugin-URL (.ps1) eingeben:' -DefaultValue ''
       if ([string]::IsNullOrWhiteSpace([string]$url)) { return }
 

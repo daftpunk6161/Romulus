@@ -66,6 +66,21 @@ function Import-ConsolePlugins {
           $key = [string]$prop.Name
           $rx = [string]$prop.Value
           if ([string]::IsNullOrWhiteSpace($key) -or [string]::IsNullOrWhiteSpace($rx)) { continue }
+          # BUG-048 FIX: Validate regex pattern from plugin JSON (syntax + length + timeout)
+          if ($rx.Length -gt 500) {
+            $msg = 'Plugin-Regex zu lang ({0} Zeichen, max 500): Key={1}' -f $rx.Length, $key
+            [void]$errors.Add($msg)
+            if ($Log) { & $Log ('WARNUNG: {0}' -f $msg) }
+            continue
+          }
+          try {
+            [void][regex]::new($rx, 'IgnoreCase', [TimeSpan]::FromSeconds(2))
+          } catch {
+            $msg = 'Plugin-Regex ungueltig: Key={0}, Pattern={1}, Fehler={2}' -f $key, $rx, $_.Exception.Message
+            [void]$errors.Add($msg)
+            if ($Log) { & $Log ('WARNUNG: {0}' -f $msg) }
+            continue
+          }
           $existing = @($script:CONSOLE_RX_MAP_BASE | Where-Object { $_.Key -eq $key })
           if ($existing.Count -eq 0) {
             $script:CONSOLE_RX_MAP_BASE += @{ Key = $key.Trim().ToUpperInvariant(); Rx = $rx }

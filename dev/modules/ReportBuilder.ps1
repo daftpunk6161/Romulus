@@ -299,14 +299,18 @@ function Invoke-ReportPlugins {
   $results = New-Object System.Collections.Generic.List[pscustomobject]
   foreach ($plugin in $plugins) {
     try {
-      # Plugin laden (dot-source in eigenem Scope)
-      $pluginFunc = $null
+      # BUG-049 FIX: Plugin laden + aufrufen in isoliertem Child-Scope (verhindert Scope-Pollution)
       $pluginBlock = [scriptblock]::Create((Get-Content -LiteralPath $plugin.Path -Raw -ErrorAction Stop))
-      & $pluginBlock
+      $pluginResult = & {
+        & $pluginBlock
+        if (Get-Command Invoke-ReportPlugin -ErrorAction SilentlyContinue) {
+          Invoke-ReportPlugin -Report $Report -ReportDir $ReportDir -Timestamp $Timestamp -Mode $Mode -Summary $Summary
+        }
+      }
 
-      # Plugin aufrufen (erwartet Invoke-ReportPlugin Funktion)
-      if (Get-Command Invoke-ReportPlugin -ErrorAction SilentlyContinue) {
-        $pluginResult = Invoke-ReportPlugin -Report $Report -ReportDir $ReportDir -Timestamp $Timestamp -Mode $Mode -Summary $Summary
+      # Plugin-Ergebnis verarbeiten
+      if ($pluginResult) {
+        # placeholder: result is captured from child scope above
         [void]$results.Add([pscustomobject]@{
           Plugin = $plugin.Name
           Success = $true

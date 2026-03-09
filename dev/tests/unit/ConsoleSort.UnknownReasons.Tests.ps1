@@ -81,9 +81,9 @@ Describe 'TEST-11: Unknown-Reasons Statistik' {
     Context 'Get-ConsoleUnknownReasonLabel Mapping' {
 
         It 'Alle bekannten Reason-Codes haben Labels' {
-            # Get-ConsoleUnknownReasonLabel ist nested in Invoke-ConsoleSort,
+            # Get-ConsoleUnknownReasonLabel ist nested in Invoke-ConsoleDetection,
             # daher pruefen wir den Funktions-Body direkt
-            $funcBody = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+            $funcBody = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
 
             $knownCodes = @(
                 'ARCHIVE_AMBIGUOUS_EXT',
@@ -95,12 +95,12 @@ Describe 'TEST-11: Unknown-Reasons Statistik' {
             )
 
             foreach ($code in $knownCodes) {
-                $funcBody | Should -Match $code -Because "Reason-Code '$code' sollte in Invoke-ConsoleSort definiert sein"
+                $funcBody | Should -Match $code -Because "Reason-Code '$code' sollte in Invoke-ConsoleDetection definiert sein"
             }
         }
 
-        It 'Reason-Label Funktion ist in Invoke-ConsoleSort vorhanden' {
-            $funcBody = (Get-Command Invoke-ConsoleSort).ScriptBlock.ToString()
+        It 'Reason-Label Funktion ist in Invoke-ConsoleDetection vorhanden' {
+            $funcBody = (Get-Command Invoke-ConsoleDetection).ScriptBlock.ToString()
             $funcBody | Should -Match 'Get-ConsoleUnknownReasonLabel' -Because 'Label-Funktion sollte existieren'
         }
     }

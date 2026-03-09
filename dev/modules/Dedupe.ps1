@@ -1554,7 +1554,8 @@ function Invoke-ClassifyFilesParallel {
       [void]$ps.AddArgument($PreferOrder)
       [void]$ps.AddArgument($AggressiveJunk)
       [void]$ps.AddArgument($UseDat)
-      [void]$ps.AddArgument($DatIndex)
+      # BUG-017 FIX: Wrap DatIndex in Synchronized hashtable for thread-safe reads across workers
+      [void]$ps.AddArgument(([hashtable]::Synchronized($DatIndex)))
       [void]$ps.AddArgument($DatHashType)
       [void]$ps.AddArgument($DatFallback)
       [void]$ps.AddArgument($AliasEditionKeying)

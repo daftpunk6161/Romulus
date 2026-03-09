@@ -9,6 +9,8 @@ Describe 'DAT Index Cache Persistenz' {
 
         . (Join-Path $repoRoot 'dev\modules\FileOps.ps1')
         . (Join-Path $repoRoot 'dev\modules\Settings.ps1')
+        . (Join-Path $repoRoot 'dev\modules\LruCache.ps1')
+        . (Join-Path $repoRoot 'dev\modules\AppState.ps1')
         . (Join-Path $repoRoot 'dev\modules\Dat.ps1')
         if (-not (Get-Variable -Name CONSOLE_FOLDER_MAP -Scope Script -ErrorAction SilentlyContinue) -or -not $script:CONSOLE_FOLDER_MAP) {
             $script:CONSOLE_FOLDER_MAP = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
