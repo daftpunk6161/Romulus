@@ -951,6 +951,245 @@
             </ScrollViewer>
           </TabItem>
 
+          <!-- ── FEATURES (alle Feature-Module) ──────────────────────── -->
+          <TabItem x:Name="tabConfigFeatures" Header="Features">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+              <StackPanel>
+
+                <!-- ═══ ANALYSE & BERICHTE ══════════════════════════════ -->
+                <Expander Header="Analyse &amp; Berichte" IsExpanded="True" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="ANALYSE &amp; BERICHTE" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" Width="190" Margin="0 0 8 4"
+                                ToolTip="Speicherersparnis durch Formatkonvertierung berechnen"/>
+                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" Width="130" Margin="0 0 8 4"
+                                ToolTip="Detaillierter Bericht über Junk-Klassifikationen"/>
+                        <Button x:Name="btnRomFilter" Content="ROM-Filter" Width="120" Margin="0 0 8 4"
+                                ToolTip="ROM-Sammlung durchsuchen und filtern"/>
+                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" Width="150" Margin="0 0 8 4"
+                                ToolTip="Duplikatverteilung nach Konsole visualisieren"/>
+                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" Width="130" Margin="0 0 8 4"
+                                ToolTip="Gegen DAT-Datenbank fehlende ROMs ermitteln"/>
+                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" Width="170" Margin="0 0 8 4"
+                                ToolTip="Duplikate über mehrere ROM-Verzeichnisse finden"/>
+                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" Width="130" Margin="0 0 8 4"
+                                ToolTip="ROM-Header auslesen und analysieren"/>
+                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" Width="130" Margin="0 0 8 4"
+                                ToolTip="Vollständigkeitsbericht der Sammlung"/>
+                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" Width="150" Margin="0 0 8 4"
+                                ToolTip="Zwei DryRun-Ergebnisse vergleichen"/>
+                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" Width="130" Margin="0 0 8 4"
+                                ToolTip="Historische Sammlungstrends anzeigen"/>
+                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" Width="185" Margin="0 0 8 4"
+                                ToolTip="Emulator-Kompatibilitätsmatrix anzeigen"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ KONVERTIERUNG & HASHING ═════════════════════════ -->
+                <Expander Header="Konvertierung &amp; Hashing" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="KONVERTIERUNG &amp; HASHING" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" Width="185" Margin="0 0 8 4"
+                                ToolTip="Mehrstufige Konvertierungs-Pipeline erstellen"/>
+                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" Width="155" Margin="0 0 8 4"
+                                ToolTip="NKit-Format konvertieren (GC/Wii)"/>
+                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" Width="170" Margin="0 0 8 4"
+                                ToolTip="Konvertierungsaufträge verwalten"/>
+                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" Width="185" Margin="0 0 8 4"
+                                ToolTip="Konvertierte Dateien gegen Quellhash prüfen"/>
+                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" Width="140" Margin="0 0 8 4"
+                                ToolTip="Bevorzugte Formatreihenfolge konfigurieren"/>
+                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" Width="145" Margin="0 0 8 4"
+                                ToolTip="Dateien parallel hashen (Multi-Thread)"/>
+                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" Width="120" Margin="0 0 8 4"
+                                ToolTip="GPU-beschleunigtes Hashing prüfen"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ DAT & VERIFIZIERUNG ═════════════════════════════ -->
+                <Expander Header="DAT &amp; Verifizierung" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="DAT &amp; VERIFIZIERUNG" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" Width="145" Margin="0 0 8 4"
+                                ToolTip="DAT-Dateien auf Updates prüfen"/>
+                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" Width="140" Margin="0 0 8 4"
+                                ToolTip="Zwei DAT-Versionen vergleichen"/>
+                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" Width="110" Margin="0 0 8 4"
+                                ToolTip="TOSEC-DAT-Dateien importieren"/>
+                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" Width="155" Margin="0 0 8 4"
+                                ToolTip="Eigene DAT-Datei erstellen/bearbeiten"/>
+                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" Width="140" Margin="0 0 8 4"
+                                ToolTip="Hash-Datenbank exportieren"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ SAMMLUNGSVERWALTUNG ══════════════════════════════ -->
+                <Expander Header="Sammlungsverwaltung" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="SAMMLUNGSVERWALTUNG" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnCollectionManager" Content="Smart Collection" Width="145" Margin="0 0 8 4"
+                                ToolTip="Intelligente Sammlung erstellen"/>
+                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" Width="120" Margin="0 0 8 4"
+                                ToolTip="Parent/Clone-Baumansicht"/>
+                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" Width="130" Margin="0 0 8 4"
+                                ToolTip="Cover-Bilder herunterladen"/>
+                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" Width="160" Margin="0 0 8 4"
+                                ToolTip="ROMs nach Genre klassifizieren"/>
+                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" Width="145" Margin="0 0 8 4"
+                                ToolTip="RetroArch-Spielzeiten importieren"/>
+                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" Width="140" Margin="0 0 8 4"
+                                ToolTip="Sammlungs-Metadaten exportieren/teilen"/>
+                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" Width="140" Margin="0 0 8 4"
+                                ToolTip="Treemap-Vorschau der Ordnerstruktur"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ SICHERHEIT & INTEGRITÄT ═════════════════════════ -->
+                <Expander Header="Sicherheit &amp; Integrität" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="SICHERHEIT &amp; INTEGRITÄT" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" Width="160" Margin="0 0 8 4"
+                                ToolTip="Bit-Rot-Erkennung: Baseline erstellen oder prüfen"/>
+                        <Button x:Name="btnBackupManager" Content="Backup-Manager" Width="140" Margin="0 0 8 4"
+                                ToolTip="Inkrementelle Backup-Strategie konfigurieren"/>
+                        <Button x:Name="btnQuarantine" Content="Quarantäne" Width="120" Margin="0 0 8 4"
+                                ToolTip="Verdächtige Dateien in Quarantäne verschieben"/>
+                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" Width="120" Margin="0 0 8 4"
+                                ToolTip="Klassifikations-Regelwerk auswerten"/>
+                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" Width="120" Margin="0 0 8 4"
+                                ToolTip="IPS/UPS-Patches anwenden"/>
+                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" Width="140" Margin="0 0 8 4"
+                                ToolTip="Fehlerhafte ROM-Header reparieren"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ WORKFLOW & AUTOMATISIERUNG ══════════════════════ -->
+                <Expander Header="Workflow &amp; Automatisierung" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="WORKFLOW &amp; AUTOMATISIERUNG" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnCommandPalette" Content="Command-Palette" Width="145" Margin="0 0 8 4"
+                                ToolTip="Fuzzy-Suche über alle Befehle"/>
+                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" Width="120" Margin="0 0 8 4"
+                                ToolTip="Vorher/Nachher Split-Vorschau"/>
+                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" Width="130" Margin="0 0 8 4"
+                                ToolTip="Dynamische Filterregeln erstellen"/>
+                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" Width="130" Margin="0 0 8 4"
+                                ToolTip="Sortiervorlagen verwalten"/>
+                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" Width="140" Margin="0 0 8 4"
+                                ToolTip="Mehrstufige Pipelines definieren"/>
+                        <Button x:Name="btnSystemTray" Content="System-Tray" Width="120" Margin="0 0 8 4"
+                                ToolTip="Tray-Icon-Konfiguration"/>
+                        <Button x:Name="btnSchedulerAdvanced" Content="Scheduler" Width="110" Margin="0 0 8 4"
+                                ToolTip="Zeitgesteuerte Aufgaben planen"/>
+                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" Width="130" Margin="0 0 8 4"
+                                ToolTip="Regelpakete teilen und importieren"/>
+                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" Width="155" Margin="0 0 8 4"
+                                ToolTip="Arcade-ROMs zusammenführen oder aufteilen"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ EXPORT & INTEGRATION ════════════════════════════ -->
+                <Expander Header="Export &amp; Integration" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="EXPORT &amp; INTEGRATION" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnPdfReport" Content="PDF-Report" Width="120" Margin="0 0 8 4"
+                                ToolTip="Bericht als PDF exportieren"/>
+                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" Width="165" Margin="0 0 8 4"
+                                ToolTip="Emulator-Launcher-Konfiguration exportieren"/>
+                        <Button x:Name="btnToolImport" Content="Tool-Import" Width="120" Margin="0 0 8 4"
+                                ToolTip="clrmamepro/RomVault-Daten importieren"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ INFRASTRUKTUR & DEPLOYMENT ══════════════════════ -->
+                <Expander Header="Infrastruktur &amp; Deployment" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="INFRASTRUKTUR &amp; DEPLOYMENT" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" Width="140" Margin="0 0 8 4"
+                                ToolTip="Intelligentes Storage-Tiering konfigurieren"/>
+                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" Width="140" Margin="0 0 8 4"
+                                ToolTip="NAS/SMB-Optimierungsprofil erstellen"/>
+                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" Width="120" Margin="0 0 8 4"
+                                ToolTip="FTP/SFTP-Quelle konfigurieren"/>
+                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" Width="120" Margin="0 0 8 4"
+                                ToolTip="Einstellungen in die Cloud synchronisieren"/>
+                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz" Width="145" Margin="0 0 8 4"
+                                ToolTip="Plugins aus dem Marktplatz suchen und installieren"/>
+                        <Button x:Name="btnPortableMode" Content="Portable Modus" Width="130" Margin="0 0 8 4"
+                                ToolTip="Portable-Modus aktivieren (alle Daten im App-Ordner)"/>
+                        <Button x:Name="btnDockerContainer" Content="Docker" Width="100" Margin="0 0 8 4"
+                                ToolTip="Docker-Container-Konfiguration generieren"/>
+                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" Width="130" Margin="0 0 8 4"
+                                ToolTip="Mobile Web-Oberfläche starten"/>
+                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" Width="120" Margin="0 0 8 4"
+                                ToolTip="Windows-Kontextmenü-Einträge verwalten"/>
+                        <Button x:Name="btnPSGallery" Content="PSGallery" Width="110" Margin="0 0 8 4"
+                                ToolTip="PowerShell Gallery Manifest generieren"/>
+                        <Button x:Name="btnPackageManager" Content="Paketmanager" Width="130" Margin="0 0 8 4"
+                                ToolTip="Winget/Scoop/Chocolatey-Manifest erstellen"/>
+                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" Width="130" Margin="0 0 8 4"
+                                ToolTip="Hardlinks statt Kopien verwenden"/>
+                        <Button x:Name="btnUsnJournal" Content="USN-Journal" Width="120" Margin="0 0 8 4"
+                                ToolTip="NTFS-Journal für schnelle Änderungserkennung nutzen"/>
+                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" Width="120" Margin="0 0 8 4"
+                                ToolTip="Mehrere RomCleanup-Instanzen synchronisieren"/>
+                        <Button x:Name="btnTelemetry" Content="Telemetrie" Width="110" Margin="0 0 8 4"
+                                ToolTip="Opt-In Telemetrie konfigurieren"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <!-- ═══ UI & ERSCHEINUNGSBILD ═══════════════════════════ -->
+                <Expander Header="UI &amp; Erscheinungsbild" IsExpanded="False" Margin="0 0 0 8">
+                  <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                      <TextBlock Text="UI &amp; ERSCHEINUNGSBILD" Style="{StaticResource SectionHeader}"/>
+                      <WrapPanel Margin="0 0 0 4">
+                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" Width="140" Margin="0 0 8 4"
+                                ToolTip="Barrierefreiheits-Einstellungen anpassen"/>
+                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" Width="130" Margin="0 0 8 4"
+                                ToolTip="Verfügbare Themes anzeigen und anwenden"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </Expander>
+
+                <TextBlock x:Name="lblFeatureStatus" Text="Features: bereit" Style="{StaticResource CaptionText}" Margin="0 8 0 0"/>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
         </TabControl>
       </TabItem>
 

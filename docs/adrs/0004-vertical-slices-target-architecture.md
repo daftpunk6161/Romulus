@@ -59,8 +59,8 @@ Wir führen schrittweise eine Zielarchitektur ein:
 | Phase | Status | Fortschritt | Referenz |
 |-------|--------|-------------|----------|
 | A | ✅ Done | 100% | API-Key, CORS, Plugin-Trust, Dead-Code-Cleanup |
-| B | 🔄 In Progress | 85% | 6/6 Slices done, Runspace-Helper done, UseCase-Contracts v1 implementiert, Dependency-Boundary-Tests aktiv |
-| C | ⏳ Geplant | 10% | Governance-Gate implementiert, Architektur-Map dokumentiert, Enforcement ab M3 |
+| B | ✅ Done | 100% | 6/6 Slices done, Runspace-Helper done, UseCase-Contracts v1 implementiert, Dependency-Boundary-Tests aktiv, 76 Feature-Module mit 22 Service-Facades, Features-Tab (65 Buttons), ISS-001 Wizard |
+| C | 🔄 In Progress | 25% | Governance-Gate implementiert, Architektur-Map dokumentiert, ModuleDependencyBoundary-Tests aktiv, CatchGuard-Compliance, Enforcement ab M3 |
 
 ## Konsequenzen
 

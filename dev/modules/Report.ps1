@@ -262,7 +262,7 @@ function ConvertTo-HtmlReport {
     $cspTag = '<meta http-equiv="Content-Security-Policy" content="default-src ''none''; style-src ''unsafe-inline''; script-src ''unsafe-inline''; img-src data:;">'
   }
   $header = @"
-<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
 ${cspTag}
 <title>ROM Cleanup Report</title><style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -583,7 +583,7 @@ function toggleFilter(el){removeActive(".filter-bar .btn[data-filter]");el.class
 function toggleDatFilter(el){removeActive(".filter-bar .btn[data-dat]");el.classList.add("active");datFilter=el.getAttribute("data-dat");applyFilters();}
 function applyFilters(){var searchEl=document.getElementById("search");var q=(searchEl&&searchEl.value?searchEl.value:"").toLowerCase();var rows=document.querySelectorAll("#reportTable tbody tr");for(var i=0;i<rows.length;i++){var r=rows[i];var act=r.getAttribute("data-action");var dat=r.getAttribute("data-dat");var txt=(r.textContent||r.innerText||"").toLowerCase();var matchAct=activeFilter==="ALL"||act===activeFilter||(activeFilter==="MOVE"&&(act==="MOVE"||act==="SKIP_DRYRUN"))||(activeFilter==="JUNK"&&(act==="JUNK"||act==="DRYRUN-JUNK"))||(activeFilter==="BIOS"&&(act==="BIOS-MOVE"||act==="DRYRUN-BIOS"));var matchDat=datFilter==="DAT-ALL"||dat===(datFilter==="DAT-YES"?"yes":"no");var matchTxt=!q||txt.indexOf(q)!==-1;r.style.display=matchAct&&matchDat&&matchTxt?"":"none";}}
 var sortDir={};function sortTable(th){var idx=0;var ths=th.parentNode.children;for(var i=0;i<ths.length;i++){if(ths[i]===th){idx=i;break;}}var tb=document.querySelector("#reportTable tbody");if(!tb){return;}var rows=[];for(var r=0;r<tb.rows.length;r++){rows.push(tb.rows[r]);}sortDir[idx]=!sortDir[idx];rows.sort(function(a,b){var va=(a.cells[idx].textContent||a.cells[idx].innerText||"").trim();var vb=(b.cells[idx].textContent||b.cells[idx].innerText||"").trim();var na=parseFloat(va),nb=parseFloat(vb);if(!isNaN(na)&&!isNaN(nb)){va=na;vb=nb;}if(va<vb){return sortDir[idx]?-1:1;}if(va>vb){return sortDir[idx]?1:-1;}return 0;});for(var j=0;j<rows.length;j++){tb.appendChild(rows[j]);}}
-document.addEventListener("click",function(e){var t=e.target;if(t.getAttribute&&t.getAttribute("data-filter")){toggleFilter(t);}else if(t.getAttribute&&t.getAttribute("data-dat")){toggleDatFilter(t);}else if(t.tagName==="TH"&&t.closest&&t.closest("#reportTable")){sortTable(t);}});var se=document.getElementById("search");if(se){se.addEventListener("input",function(){applyFilters();});}
+function addEvt(el,evt,fn){if(el.addEventListener){el.addEventListener(evt,fn,false);}else if(el.attachEvent){el.attachEvent("on"+evt,fn);}else{el["on"+evt]=fn;}}function findClosest(el,id){var n=el;while(n){if(n.id===id){return n;}n=n.parentNode;}return null;}addEvt(document,"click",function(e){e=e||window.event;var t=e.target||e.srcElement;if(t.getAttribute&&t.getAttribute("data-filter")){toggleFilter(t);}else if(t.getAttribute&&t.getAttribute("data-dat")){toggleDatFilter(t);}else if(t.tagName==="TH"&&findClosest(t,"reportTable")){sortTable(t);}});var se=document.getElementById("search");if(se){addEvt(se,"input",function(){applyFilters();});addEvt(se,"propertychange",function(){applyFilters();});}
 </script>
 </body></html>
 "@

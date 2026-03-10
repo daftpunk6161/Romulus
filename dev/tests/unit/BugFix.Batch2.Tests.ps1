@@ -139,7 +139,13 @@ Describe 'Bug-Fix Batch 2 Regression Tests' {
         }
 
         It 'throws on excessively long paths' {
-            $longName = 'A' * 200
+            # Mirror production logic: check LongPathsEnabled to determine effective limit
+            $effectiveMax = 240
+            try {
+                $lpEnabled = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -ErrorAction SilentlyContinue).LongPathsEnabled
+                if ($lpEnabled -eq 1) { $effectiveMax = 32000 }
+            } catch { }
+            $longName = 'A' * $effectiveMax
             $longSource = Join-Path $TestDrive "$longName.zip"
             $longDest = Join-Path $TestDrive "dest\$longName.zip"
 

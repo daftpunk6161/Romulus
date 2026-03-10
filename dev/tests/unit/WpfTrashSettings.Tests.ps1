@@ -113,7 +113,6 @@ Describe 'Papierkorb in Einstellungen (Allgemein) - XAML & Settings' {
 
         It 'txtTrash ist nicht mehr im Audit-Bereich (expCfgAudit)' {
             $auditStart = $script:xamlContent.IndexOf('expCfgAudit')
-            $auditSectionEnd = $script:xamlContent.IndexOf('</Expander>', $auditStart)
             $txtTrashPos = $script:xamlContent.IndexOf('x:Name="txtTrash"')
 
             # txtTrash must be positioned before the audit section starts
@@ -143,10 +142,10 @@ Describe 'Papierkorb in Einstellungen (Allgemein) - XAML & Settings' {
             $ctx = New-MockCtx
 
             Mock -CommandName Get-UserSettings -MockWith {
-                [pscustomobject]@{
-                    toolPaths = [pscustomobject]@{}
-                    dat = [pscustomobject]@{}
-                    general = [pscustomobject]@{
+                @{
+                    toolPaths = @{}
+                    dat = @{}
+                    general = @{
                         logLevel = 'Info'
                         trashRoot = 'D:\Roms\_TRASH'
                     }
@@ -162,10 +161,10 @@ Describe 'Papierkorb in Einstellungen (Allgemein) - XAML & Settings' {
             $ctx = New-MockCtx
 
             Mock -CommandName Get-UserSettings -MockWith {
-                [pscustomobject]@{
-                    toolPaths = [pscustomobject]@{}
-                    dat = [pscustomobject]@{}
-                    general = [pscustomobject]@{
+                @{
+                    toolPaths = @{}
+                    dat = @{}
+                    general = @{
                         logLevel = 'Info'
                     }
                 }

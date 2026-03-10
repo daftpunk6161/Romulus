@@ -1690,7 +1690,12 @@ function Register-WpfEventHandlers {
     }
     try { Set-WpfLocale -Ctx $Ctx } catch { }
     & $refreshReportPreview
-    Invoke-WpfQuickOnboarding -Window $Window -Ctx $Ctx -BrowseFolder $browseFolder
+    # ISS-001: First-start wizard (replaces old 3-step MessageBox onboarding)
+    if (Get-Command Invoke-WpfFirstStartWizard -ErrorAction SilentlyContinue) {
+      Invoke-WpfFirstStartWizard -Window $Window -Ctx $Ctx -BrowseFolder $browseFolder
+    } else {
+      Invoke-WpfQuickOnboarding -Window $Window -Ctx $Ctx -BrowseFolder $browseFolder
+    }
   }.GetNewClosure())
 
   # ── Save settings on window close ──────────────────────────────────────

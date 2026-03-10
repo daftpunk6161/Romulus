@@ -177,6 +177,48 @@ param(
     # Path for the JSON summary file; defaults to reports\session-summary.json if not specified
     [string]$SummaryJsonPath,
 
+    # ── Post-Run Feature Operations ──────────────────────────────────────────
+    # Rename ROMs to DAT-standard names after dedupe (requires -UseDat)
+    [switch]$DatRename,
+
+    # Decompress .ecm files to .bin before/after processing
+    [switch]$EcmDecompress,
+
+    # Repack archives to target format after processing
+    [switch]$ArchiveRepack,
+
+    # Target format for archive repacking
+    [ValidateSet('zip','7z')]
+    [string]$ArchiveRepackFormat = 'zip',
+
+    # Compression level for archive repacking (1-9)
+    [ValidateRange(1,9)]
+    [int]$ArchiveCompressionLevel = 5,
+
+    # Generate M3U playlists for multi-disc games
+    [switch]$GenerateM3u,
+
+    # Export RetroArch .lpl playlists after processing
+    [switch]$ExportRetroArch,
+
+    # Output path for RetroArch playlists
+    [string]$RetroArchOutputPath,
+
+    # Export collection as CSV with all metadata
+    [switch]$ExportCsv,
+
+    # Output path for CSV export
+    [string]$CsvOutputPath,
+
+    # Send webhook notification on completion (Discord/Slack URL)
+    [string]$WebhookUrl,
+
+    # Use parallel multi-threaded hashing for large collections
+    [switch]$ParallelHash,
+
+    # Max threads for parallel hashing (0 = auto-detect)
+    [int]$ParallelHashThreads = 0,
+
     [hashtable]$Ports = @{}
 )
 
@@ -485,6 +527,13 @@ try {
         Write-Output "  DAT:     $(if ($UseDat) { 'Yes' } else { 'No' })"
         Write-Output "  Convert: $(if ($Convert) { 'Yes' } else { 'No' })"
         Write-Output "  1G1R:    $(if ($Use1G1R) { 'Yes' } else { 'No' })"
+        if ($DatRename)      { Write-Output "  DAT-Rename:    Yes" }
+        if ($EcmDecompress)  { Write-Output "  ECM-Decomp:    Yes" }
+        if ($ArchiveRepack)  { Write-Output "  Archive-Repack: $ArchiveRepackFormat (Level $ArchiveCompressionLevel)" }
+        if ($GenerateM3u)    { Write-Output "  M3U-Generate:  Yes" }
+        if ($ExportRetroArch){ Write-Output "  RetroArch-Export: Yes" }
+        if ($ExportCsv)      { Write-Output "  CSV-Export:    Yes" }
+        if ($ParallelHash)   { Write-Output "  Parallel-Hash: Yes (Threads: $(if ($ParallelHashThreads -eq 0) { 'auto' } else { $ParallelHashThreads }))" }
         Write-Output "================================================================"
         Write-Output ""
     }
@@ -610,7 +659,20 @@ try {
         -Log $LogFn `
         -Convert ([bool]$Convert) `
         -DedupeParams $dedupeParams `
-        -Ports $Ports
+        -Ports $Ports `
+        -DatRename ([bool]$DatRename) `
+        -EcmDecompress ([bool]$EcmDecompress) `
+        -ArchiveRepack ([bool]$ArchiveRepack) `
+        -ArchiveRepackFormat $ArchiveRepackFormat `
+        -ArchiveCompressionLevel $ArchiveCompressionLevel `
+        -GenerateM3u ([bool]$GenerateM3u) `
+        -ExportRetroArch ([bool]$ExportRetroArch) `
+        -RetroArchOutputPath $RetroArchOutputPath `
+        -ExportCsv ([bool]$ExportCsv) `
+        -CsvOutputPath $CsvOutputPath `
+        -WebhookUrl $WebhookUrl `
+        -ParallelHash ([bool]$ParallelHash) `
+        -ParallelHashThreads $ParallelHashThreads
 
     # --- Error summary ---
     # ENTRY-010 FIX: Guard Write-RunErrorSummary with existence check

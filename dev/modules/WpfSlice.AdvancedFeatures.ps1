@@ -1096,9 +1096,9 @@ function Register-WpfAdvancedFeatureHandlers {
     $Ctx['btnConflictPolicy'].add_Click({
       try {
         $current = [string](Get-AppStateValue -Key 'ConflictPolicy' -Default 'KeepExisting')
-        $input = Read-WpfPromptText -Owner $Window -Title 'Conflict-Policy' -Message 'Policy eingeben: KeepExisting | Overwrite | CreateDuplicate' -DefaultValue $current
-        if (-not [string]::IsNullOrWhiteSpace($input)) {
-          $normalized = $input.Trim()
+          $policyInput = Read-WpfPromptText -Owner $Window -Title 'Conflict-Policy' -Message 'Policy eingeben: KeepExisting | Overwrite | CreateDuplicate' -DefaultValue $current
+          if (-not [string]::IsNullOrWhiteSpace($policyInput)) {
+            $normalized = $policyInput.Trim()
           if ($normalized -in @('KeepExisting','Overwrite','CreateDuplicate')) {
             [void](Set-AppStateValue -Key 'ConflictPolicy' -Value $normalized)
             Add-WpfLogLine -Ctx $Ctx -Line ("Conflict-Policy gesetzt: {0}" -f $normalized) -Level 'INFO'
@@ -1174,6 +1174,1145 @@ function Register-WpfAdvancedFeatureHandlers {
   if ($Ctx.ContainsKey('btnRollback') -and $Ctx['btnRollback']) {
     $Ctx['btnRollback'].add_Click({
       Invoke-WpfRollbackWizard -Window $Window -Ctx $Ctx
+    }.GetNewClosure())
+  }
+
+  # ── DAT-Rename (ISS-003) ──────────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnDatRename') -and $Ctx['btnDatRename']) {
+    $Ctx['btnDatRename'].add_Click({
+      try {
+        $datRoot = Get-AppStateValue -Key 'DatRoot' -Default ''
+        $hashType = Get-AppStateValue -Key 'DatHashType' -Default 'SHA1'
+        if ([string]::IsNullOrWhiteSpace($datRoot)) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'DAT-Rename: Kein DatRoot konfiguriert.' -Level 'WARNING'
+          return
+        }
+        $roots = Get-WpfRootsList -Ctx $Ctx
+        if (-not $roots -or $roots.Count -eq 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'DAT-Rename: Keine Roots konfiguriert.' -Level 'WARNING'
+          return
+        }
+        $datIdx = Get-DatIndex -DatRoot $datRoot -HashType $hashType
+        $files = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          }
+        }
+        if (-not $files) { Add-WpfLogLine -Ctx $Ctx -Line 'DAT-Rename: Keine Dateien gefunden.' -Level 'INFO'; return }
+        $renameResult = Invoke-RunDatRenameService -Operation 'Preview' -Files @($files) -DatIndex $datIdx -HashType $hashType -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("DAT-Rename Preview: {0} würden umbenannt, {1} kein Match, {2} Konflikte" -f $renameResult.Renamed, $renameResult.NoMatch, $renameResult.Conflicts) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("DAT-Rename fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── M3U-Generierung (ISS-004) ─────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnGenerateM3u') -and $Ctx['btnGenerateM3u']) {
+    $Ctx['btnGenerateM3u'].add_Click({
+      try {
+        $roots = Get-WpfRootsList -Ctx $Ctx
+        if (-not $roots -or $roots.Count -eq 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'M3U: Keine Roots konfiguriert.' -Level 'WARNING'
+          return
+        }
+        $discFiles = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension -imatch '^\.(chd|cue|ccd|gdi|iso|pbp)$' } |
+              Select-Object -ExpandProperty FullName
+          }
+        }
+        if (-not $discFiles) { Add-WpfLogLine -Ctx $Ctx -Line 'M3U: Keine Disc-Dateien gefunden.' -Level 'INFO'; return }
+        $m3uResult = Invoke-RunM3uGenerationService -Files @($discFiles) -OutputDir $roots[0] -Mode 'DryRun' -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("M3U Preview: {0} würden generiert, {1} übersprungen" -f $m3uResult.Generated, $m3uResult.Skipped) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("M3U-Generierung fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── CSV-Export (ISS-009) ───────────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnExportCsv') -and $Ctx['btnExportCsv']) {
+    $Ctx['btnExportCsv'].add_Click({
+      try {
+        $lastResult = Get-AppStateValue -Key 'LastDedupeResult' -Default $null
+        if (-not $lastResult) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'CSV-Export: Kein Scan-Ergebnis vorhanden. Zuerst DryRun ausführen.' -Level 'WARNING'
+          return
+        }
+        $csvPath = Join-Path $PSScriptRoot ('reports\collection-export-{0}.csv' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+        $items = @()
+        if ($lastResult.PSObject.Properties.Name -contains 'AllItems') { $items = @($lastResult.AllItems) }
+        elseif ($lastResult.PSObject.Properties.Name -contains 'Winners') { $items = @($lastResult.Winners) }
+        if ($items.Count -eq 0) { Add-WpfLogLine -Ctx $Ctx -Line 'CSV-Export: Keine Daten zum Exportieren.' -Level 'WARNING'; return }
+        Invoke-RunCsvExportService -Items $items -OutputPath $csvPath -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("CSV-Export: {0}" -f $csvPath) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("CSV-Export fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── CLI-Command Export (ISS-008) ───────────────────────────────────────
+  if ($Ctx.ContainsKey('btnExportCliCommand') -and $Ctx['btnExportCliCommand']) {
+    $Ctx['btnExportCliCommand'].add_Click({
+      try {
+        $settings = Get-WpfRunParameters -Ctx $Ctx
+        $cmd = Invoke-RunCliExportService -Settings $settings -Ports @{}
+        if ($cmd) {
+          [System.Windows.Clipboard]::SetText($cmd)
+          Add-WpfLogLine -Ctx $Ctx -Line ('CLI-Kommando in Zwischenablage kopiert: {0}' -f ($cmd.Substring(0, [Math]::Min(100, $cmd.Length)))) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("CLI-Export fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── RetroArch Playlist Export (ISS-015) ────────────────────────────────
+  if ($Ctx.ContainsKey('btnExportRetroArch') -and $Ctx['btnExportRetroArch']) {
+    $Ctx['btnExportRetroArch'].add_Click({
+      try {
+        $lastResult = Get-AppStateValue -Key 'LastDedupeResult' -Default $null
+        if (-not $lastResult) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'RetroArch-Export: Kein Scan-Ergebnis. Zuerst DryRun ausführen.' -Level 'WARNING'
+          return
+        }
+        $roots = Get-WpfRootsList -Ctx $Ctx
+        $outputPath = if ($roots -and $roots.Count -gt 0) { Join-Path $roots[0] '_playlists' } else { Join-Path $PSScriptRoot 'reports\_playlists' }
+        $items = @()
+        if ($lastResult.PSObject.Properties.Name -contains 'Winners') { $items = @($lastResult.Winners) }
+        if ($items.Count -eq 0) { Add-WpfLogLine -Ctx $Ctx -Line 'RetroArch-Export: Keine Winner-Daten.' -Level 'WARNING'; return }
+        Invoke-RunRetroArchExportService -Items $items -OutputPath $outputPath -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("RetroArch-Playlists exportiert nach: {0}" -f $outputPath) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("RetroArch-Export fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── ECM-Dekompression (ISS-005) ───────────────────────────────────────
+  if ($Ctx.ContainsKey('btnEcmDecompress') -and $Ctx['btnEcmDecompress']) {
+    $Ctx['btnEcmDecompress'].add_Click({
+      try {
+        $roots = Get-WpfRootsList -Ctx $Ctx
+        if (-not $roots -or $roots.Count -eq 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'ECM: Keine Roots konfiguriert.' -Level 'WARNING'
+          return
+        }
+        $ecmFiles = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Filter '*.ecm' -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          }
+        }
+        if (-not $ecmFiles) { Add-WpfLogLine -Ctx $Ctx -Line 'ECM: Keine .ecm-Dateien gefunden.' -Level 'INFO'; return }
+        $ecmResult = Invoke-RunEcmDecompressService -Files @($ecmFiles) -Mode 'DryRun' -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("ECM Preview: {0} würden dekomprimiert, {1} fehlgeschlagen" -f $ecmResult.Success, $ecmResult.Failed) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("ECM-Dekompression fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Archive-Repack (ISS-006) ──────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnArchiveRepack') -and $Ctx['btnArchiveRepack']) {
+    $Ctx['btnArchiveRepack'].add_Click({
+      try {
+        $roots = Get-WpfRootsList -Ctx $Ctx
+        if (-not $roots -or $roots.Count -eq 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'Repack: Keine Roots konfiguriert.' -Level 'WARNING'
+          return
+        }
+        $targetFormat = 'zip'
+        if ($Ctx.ContainsKey('cmbRepackFormat') -and $Ctx['cmbRepackFormat']) {
+          $sel = $Ctx['cmbRepackFormat'].SelectedItem
+          if ($sel) { $targetFormat = [string]$sel }
+        }
+        $archiveFiles = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            $sourceExts = if ($targetFormat -eq 'zip') { @('*.7z','*.rar') } else { @('*.zip','*.rar') }
+            foreach ($ext in $sourceExts) {
+              Get-ChildItem -LiteralPath $r -Filter $ext -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            }
+          }
+        }
+        if (-not $archiveFiles) { Add-WpfLogLine -Ctx $Ctx -Line 'Repack: Keine umzuwandelnden Archive gefunden.' -Level 'INFO'; return }
+        $repackResult = Invoke-RunArchiveRepackService -Files @($archiveFiles) -TargetFormat $targetFormat -Mode 'DryRun' -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Repack Preview: {0} würden umgepackt, {1} übersprungen" -f $repackResult.Repacked, $repackResult.Skipped) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Archive-Repack fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Webhook Test (ISS-016) ────────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnTestWebhook') -and $Ctx['btnTestWebhook']) {
+    $Ctx['btnTestWebhook'].add_Click({
+      try {
+        $url = ''
+        if ($Ctx.ContainsKey('txtWebhookUrl') -and $Ctx['txtWebhookUrl']) { $url = $Ctx['txtWebhookUrl'].Text }
+        if ([string]::IsNullOrWhiteSpace($url)) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'Webhook: Keine URL eingegeben.' -Level 'WARNING'
+          return
+        }
+        $testSummary = @{ Status = 'test'; Message = 'RomCleanup Webhook-Test'; Timestamp = (Get-Date).ToString('o') }
+        Invoke-RunWebhookService -WebhookUrl $url -Summary $testSummary -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line 'Webhook-Test erfolgreich gesendet.' -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Webhook-Test fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Run History (ISS-018) ──────────────────────────────────────────────
+  if ($Ctx.ContainsKey('btnRunHistory') -and $Ctx['btnRunHistory']) {
+    $Ctx['btnRunHistory'].add_Click({
+      try {
+        $reportsDir = Join-Path $PSScriptRoot 'reports'
+        $history = Get-RunHistory -ReportsDir $reportsDir -MaxEntries 50
+        if (-not $history -or $history.Count -eq 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line 'Run-History: Keine bisherigen Runs gefunden.' -Level 'INFO'
+          return
+        }
+        foreach ($entry in $history | Select-Object -First 10) {
+          $line = "{0} | {1} | {2}" -f $entry.Date, $entry.Mode, $entry.Status
+          Add-WpfLogLine -Ctx $Ctx -Line $line -Level 'INFO'
+        }
+        Add-WpfLogLine -Ctx $Ctx -Line ("Run-History: {0} Einträge total" -f $history.Count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Run-History fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # FEATURE-TAB HANDLERS (Phase 1-4 Feature Module)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── Analyse & Berichte ─────────────────────────────────────────────────
+
+  # Konvertierungs-Schätzung (QW-04)
+  if ($Ctx.ContainsKey('btnConversionEstimate') -and $Ctx['btnConversionEstimate']) {
+    $Ctx['btnConversionEstimate'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Konvertierungs-Schätzung: Keine Roots konfiguriert.' -Level 'WARNING'; return }
+        $files = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Recurse -File -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty FullName
+          }
+        }
+        if (-not $files) { Add-WpfLogLine -Ctx $Ctx -Line 'Konvertierungs-Schätzung: Keine Dateien gefunden.' -Level 'INFO'; return }
+        $estimate = Get-ConversionSavingsEstimate -Files $files
+        Add-WpfLogLine -Ctx $Ctx -Line ("Schätzung: {0:N0} MB einsparbar bei {1} Dateien" -f ($estimate.TotalSavingsBytes / 1MB), $estimate.FileCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvertierungs-Schätzung fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Junk-Bericht (QW-05)
+  if ($Ctx.ContainsKey('btnJunkReport') -and $Ctx['btnJunkReport']) {
+    $Ctx['btnJunkReport'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Junk-Bericht: Keine Roots konfiguriert.' -Level 'WARNING'; return }
+        $result = Invoke-RunJunkReportService -Roots $roots -Log { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Junk-Bericht: {0} Junk-Dateien gefunden" -f $result.JunkCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Junk-Bericht fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ROM-Filter (QW-08)
+  if ($Ctx.ContainsKey('btnRomFilter') -and $Ctx['btnRomFilter']) {
+    $Ctx['btnRomFilter'].add_Click({
+      try {
+        $query = Show-WpfTextInputDialog -Window $Window -Title 'ROM-Filter' -Prompt 'Suchbegriff eingeben:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($query)) { return }
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'ROM-Filter: Keine Roots.' -Level 'WARNING'; return }
+        $results = Search-RomCollection -Roots $roots -Query $query
+        $count = ($results | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("ROM-Filter: {0} Treffer für '{1}'" -f $count, $query) -Level 'INFO'
+        foreach ($item in $results | Select-Object -First 20) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}" -f $item.Name) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("ROM-Filter fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Duplikat-Heatmap (QW-09)
+  if ($Ctx.ContainsKey('btnDuplicateHeatmap') -and $Ctx['btnDuplicateHeatmap']) {
+    $Ctx['btnDuplicateHeatmap'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Duplikat-Heatmap: Keine Roots.' -Level 'WARNING'; return }
+        $data = Get-DuplicateHeatmapData -Roots $roots
+        if (-not $data -or $data.Count -eq 0) { Add-WpfLogLine -Ctx $Ctx -Line 'Duplikat-Heatmap: Keine Duplikate gefunden.' -Level 'INFO'; return }
+        foreach ($entry in $data | Select-Object -First 15) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("{0}: {1} Duplikate" -f $entry.Console, $entry.DuplicateCount) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Duplikat-Heatmap fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Fehlende ROMs (MF-01)
+  if ($Ctx.ContainsKey('btnMissingRom') -and $Ctx['btnMissingRom']) {
+    $Ctx['btnMissingRom'].add_Click({
+      try {
+        Add-WpfLogLine -Ctx $Ctx -Line 'Fehlende ROMs: Analyse wird gestartet...' -Level 'INFO'
+        $datIndex = Get-AppStateValue 'DatIndex'
+        if (-not $datIndex) { Add-WpfLogLine -Ctx $Ctx -Line 'Fehlende ROMs: Kein DAT-Index geladen.' -Level 'WARNING'; return }
+        $foundHashes = @(Get-AppStateValue 'FoundHashes')
+        $result = Invoke-RunMissingRomService -DatIndex $datIndex -FoundHashes $foundHashes -Ports @{}
+        $count = ($result | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Fehlende ROMs: {0} fehlende Einträge gefunden" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Fehlende ROMs fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Cross-Root-Duplikate (MF-02)
+  if ($Ctx.ContainsKey('btnCrossRootDupe') -and $Ctx['btnCrossRootDupe']) {
+    $Ctx['btnCrossRootDupe'].add_Click({
+      try {
+        Add-WpfLogLine -Ctx $Ctx -Line 'Cross-Root-Duplikate: Suche wird gestartet...' -Level 'INFO'
+        $fileIndex = Get-AppStateValue 'FileIndex'
+        if (-not $fileIndex) { Add-WpfLogLine -Ctx $Ctx -Line 'Cross-Root: Kein FileIndex vorhanden. Bitte zuerst DryRun ausführen.' -Level 'WARNING'; return }
+        $result = Invoke-RunCrossRootDupeService -FileIndex $fileIndex -Progress { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        $count = ($result | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cross-Root: {0} Duplikatgruppen gefunden" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cross-Root-Duplikate fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Header-Analyse (MF-03)
+  if ($Ctx.ContainsKey('btnHeaderAnalysis') -and $Ctx['btnHeaderAnalysis']) {
+    $Ctx['btnHeaderAnalysis'].add_Click({
+      try {
+        $filePath = Show-WpfTextInputDialog -Window $Window -Title 'Header-Analyse' -Prompt 'ROM-Dateipfad eingeben:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($filePath)) { return }
+        if (-not (Test-Path -LiteralPath $filePath)) { Add-WpfLogLine -Ctx $Ctx -Line 'Header-Analyse: Datei nicht gefunden.' -Level 'WARNING'; return }
+        $header = Read-RomHeader -Path $filePath
+        Add-WpfLogLine -Ctx $Ctx -Line ("Header: System={0}, Title={1}, Region={2}" -f $header.System, $header.Title, $header.Region) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Header-Analyse fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Vollständigkeit (MF-04)
+  if ($Ctx.ContainsKey('btnCompleteness') -and $Ctx['btnCompleteness']) {
+    $Ctx['btnCompleteness'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Vollständigkeit: Keine Roots.' -Level 'WARNING'; return }
+        $report = Get-CompletenessReport -Roots $roots
+        Add-WpfLogLine -Ctx $Ctx -Line ("Vollständigkeit: {0:P0} komplett ({1}/{2})" -f $report.Percentage, $report.OwnedCount, $report.TotalCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Vollständigkeit fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # DryRun-Vergleich (MF-21)
+  if ($Ctx.ContainsKey('btnDryRunCompare') -and $Ctx['btnDryRunCompare']) {
+    $Ctx['btnDryRunCompare'].add_Click({
+      try {
+        $reportsDir = Join-Path $PSScriptRoot 'reports'
+        $plans = Get-ChildItem -Path $reportsDir -Filter 'move-plan-*.json' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 2
+        if ($plans.Count -lt 2) { Add-WpfLogLine -Ctx $Ctx -Line 'DryRun-Vergleich: Mindestens 2 Move-Plans benötigt.' -Level 'WARNING'; return }
+        $diff = Compare-DryRunResults -BaselinePath $plans[1].FullName -CurrentPath $plans[0].FullName
+        Add-WpfLogLine -Ctx $Ctx -Line ("DryRun-Diff: +{0} neu, -{1} entfernt, ~{2} geändert" -f $diff.Added, $diff.Removed, $diff.Changed) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("DryRun-Vergleich fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Trend-Analyse (XL-06)
+  if ($Ctx.ContainsKey('btnTrendAnalysis') -and $Ctx['btnTrendAnalysis']) {
+    $Ctx['btnTrendAnalysis'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Trend-Analyse: Keine Roots.' -Level 'WARNING'; return }
+        $snapshot = New-TrendSnapshot -Roots $roots
+        Add-WpfLogLine -Ctx $Ctx -Line ("Trend-Snapshot erstellt: {0} Dateien, {1:N0} MB" -f $snapshot.FileCount, ($snapshot.TotalBytes / 1MB)) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Trend-Analyse fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Emulator-Kompatibilität (XL-07)
+  if ($Ctx.ContainsKey('btnEmulatorCompat') -and $Ctx['btnEmulatorCompat']) {
+    $Ctx['btnEmulatorCompat'].add_Click({
+      try {
+        $profile = New-EmulatorProfile
+        Add-WpfLogLine -Ctx $Ctx -Line ("Emulator-Profil: {0} Konsolen, {1} Emulatoren konfiguriert" -f $profile.ConsoleCount, $profile.EmulatorCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Emulator-Kompatibilität fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Konvertierung & Hashing ────────────────────────────────────────────
+
+  # Konvertierungs-Pipeline (MF-06)
+  if ($Ctx.ContainsKey('btnConversionPipeline') -and $Ctx['btnConversionPipeline']) {
+    $Ctx['btnConversionPipeline'].add_Click({
+      try {
+        $pipeline = New-ConversionPipeline
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvertierungs-Pipeline erstellt: {0} Schritte" -f $pipeline.Steps.Count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvertierungs-Pipeline fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # NKit-Konvertierung (MF-07)
+  if ($Ctx.ContainsKey('btnNKitConvert') -and $Ctx['btnNKitConvert']) {
+    $Ctx['btnNKitConvert'].add_Click({
+      try {
+        $filePath = Show-WpfTextInputDialog -Window $Window -Title 'NKit-Konvertierung' -Prompt 'NKit-Dateipfad eingeben:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($filePath)) { return }
+        $result = Invoke-NKitConversion -Path $filePath -Mode 'DryRun'
+        Add-WpfLogLine -Ctx $Ctx -Line ("NKit: {0} → {1}" -f $result.SourceFormat, $result.TargetFormat) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("NKit-Konvertierung fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Konvert-Warteschlange (MF-08)
+  if ($Ctx.ContainsKey('btnConvertQueue') -and $Ctx['btnConvertQueue']) {
+    $Ctx['btnConvertQueue'].add_Click({
+      try {
+        $queue = Invoke-RunConvertQueueService -Operation 'Create' -Items @() -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvert-Warteschlange: {0} Einträge" -f $queue.Items.Count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvert-Warteschlange fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Konvertierung verifizieren (MF-09)
+  if ($Ctx.ContainsKey('btnConversionVerify') -and $Ctx['btnConversionVerify']) {
+    $Ctx['btnConversionVerify'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Konvertierungs-Verifizierung: Keine Roots.' -Level 'WARNING'; return }
+        $result = Invoke-BatchVerify -Roots $roots
+        Add-WpfLogLine -Ctx $Ctx -Line ("Verifizierung: {0} OK, {1} fehlerhaft" -f $result.Passed, $result.Failed) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Konvertierungs-Verifizierung fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Format-Priorität (MF-10)
+  if ($Ctx.ContainsKey('btnFormatPriority') -and $Ctx['btnFormatPriority']) {
+    $Ctx['btnFormatPriority'].add_Click({
+      try {
+        $priorities = Get-FormatPriority
+        foreach ($p in $priorities | Select-Object -First 10) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}: Priorität {1}" -f $p.Format, $p.Priority) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Format-Priorität fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Parallel-Hashing (MF-14)
+  if ($Ctx.ContainsKey('btnParallelHashing') -and $Ctx['btnParallelHashing']) {
+    $Ctx['btnParallelHashing'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Parallel-Hashing: Keine Roots.' -Level 'WARNING'; return }
+        $files = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 100 -ExpandProperty FullName
+          }
+        }
+        if (-not $files) { Add-WpfLogLine -Ctx $Ctx -Line 'Parallel-Hashing: Keine Dateien.' -Level 'INFO'; return }
+        $result = Invoke-RunParallelHashService -Files @($files) -Algorithm 'SHA1' -Progress { param($m) Add-WpfLogLine -Ctx $Ctx -Line $m -Level 'INFO' } -Ports @{}
+        $count = ($result | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Parallel-Hashing: {0} Dateien gehasht" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Parallel-Hashing fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # GPU-Hashing (XL-09)
+  if ($Ctx.ContainsKey('btnGpuHashing') -and $Ctx['btnGpuHashing']) {
+    $Ctx['btnGpuHashing'].add_Click({
+      try {
+        $available = Test-GpuHashingAvailable
+        $status = if ($available) { 'GPU-Hashing verfügbar und aktiv' } else { 'GPU-Hashing nicht verfügbar (Fallback: CPU)' }
+        Add-WpfLogLine -Ctx $Ctx -Line $status -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("GPU-Hashing fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── DAT & Verifizierung ───────────────────────────────────────────────
+
+  # DAT Auto-Update (MF-11)
+  if ($Ctx.ContainsKey('btnDatAutoUpdate') -and $Ctx['btnDatAutoUpdate']) {
+    $Ctx['btnDatAutoUpdate'].add_Click({
+      try {
+        Add-WpfLogLine -Ctx $Ctx -Line 'DAT Auto-Update: Prüfe auf Aktualisierungen...' -Level 'INFO'
+        $updates = Test-DatUpdateAvailable
+        if ($updates -and $updates.Count -gt 0) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("DAT-Updates verfügbar: {0} Quellen" -f $updates.Count) -Level 'INFO'
+          foreach ($u in $updates | Select-Object -First 5) {
+            Add-WpfLogLine -Ctx $Ctx -Line ("  {0}: {1}" -f $u.Source, $u.Status) -Level 'INFO'
+          }
+        } else {
+          Add-WpfLogLine -Ctx $Ctx -Line 'DAT Auto-Update: Alle DATs sind aktuell.' -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("DAT Auto-Update fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # DAT-Diff-Viewer (MF-12)
+  if ($Ctx.ContainsKey('btnDatDiffViewer') -and $Ctx['btnDatDiffViewer']) {
+    $Ctx['btnDatDiffViewer'].add_Click({
+      try {
+        $datRoot = Get-AppStateValue 'DatRoot'
+        if ([string]::IsNullOrWhiteSpace($datRoot)) { Add-WpfLogLine -Ctx $Ctx -Line 'DAT-Diff: Kein DAT-Root konfiguriert.' -Level 'WARNING'; return }
+        $diff = Compare-DatVersions -DatRoot $datRoot
+        Add-WpfLogLine -Ctx $Ctx -Line ("DAT-Diff: +{0} neu, -{1} entfernt, ~{2} geändert" -f $diff.Added, $diff.Removed, $diff.Changed) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("DAT-Diff fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # TOSEC-DAT (MF-13)
+  if ($Ctx.ContainsKey('btnTosecDat') -and $Ctx['btnTosecDat']) {
+    $Ctx['btnTosecDat'].add_Click({
+      try {
+        $filePath = Show-WpfTextInputDialog -Window $Window -Title 'TOSEC-DAT' -Prompt 'TOSEC-DAT-Dateipfad eingeben:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($filePath)) { return }
+        $result = ConvertFrom-TosecDat -Path $filePath
+        $count = ($result | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("TOSEC-DAT: {0} Einträge importiert" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("TOSEC-DAT fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Custom-DAT-Editor (LF-09)
+  if ($Ctx.ContainsKey('btnCustomDatEditor') -and $Ctx['btnCustomDatEditor']) {
+    $Ctx['btnCustomDatEditor'].add_Click({
+      try {
+        $dat = New-CustomDat
+        Add-WpfLogLine -Ctx $Ctx -Line ("Custom-DAT erstellt: {0}" -f $dat.Name) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Custom-DAT-Editor fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Hash-Datenbank (LF-11)
+  if ($Ctx.ContainsKey('btnHashDatabaseExport') -and $Ctx['btnHashDatabaseExport']) {
+    $Ctx['btnHashDatabaseExport'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Hash-DB: Keine Roots.' -Level 'WARNING'; return }
+        $db = New-HashDatabase -Roots $roots
+        Add-WpfLogLine -Ctx $Ctx -Line ("Hash-Datenbank: {0} Einträge exportiert" -f $db.EntryCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Hash-Datenbank fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Sammlungsverwaltung ────────────────────────────────────────────────
+
+  # Smart Collection (MF-05)
+  if ($Ctx.ContainsKey('btnCollectionManager') -and $Ctx['btnCollectionManager']) {
+    $Ctx['btnCollectionManager'].add_Click({
+      try {
+        $name = Show-WpfTextInputDialog -Window $Window -Title 'Smart Collection' -Prompt 'Name der Sammlung:' -DefaultValue 'Meine Sammlung'
+        if ([string]::IsNullOrWhiteSpace($name)) { return }
+        $collection = New-SmartCollection -Name $name
+        Add-WpfLogLine -Ctx $Ctx -Line ("Smart Collection '{0}' erstellt" -f $collection.Name) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Smart Collection fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Clone-Liste (LF-10)
+  if ($Ctx.ContainsKey('btnCloneListViewer') -and $Ctx['btnCloneListViewer']) {
+    $Ctx['btnCloneListViewer'].add_Click({
+      try {
+        $datIndex = Get-AppStateValue 'DatIndex'
+        if (-not $datIndex) { Add-WpfLogLine -Ctx $Ctx -Line 'Clone-Liste: Kein DAT-Index geladen.' -Level 'WARNING'; return }
+        $tree = Build-CloneTree -DatIndex $datIndex
+        $count = ($tree | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Clone-Baum: {0} Parent-Einträge" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Clone-Liste fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Cover-Scraper (LF-01)
+  if ($Ctx.ContainsKey('btnCoverScraper') -and $Ctx['btnCoverScraper']) {
+    $Ctx['btnCoverScraper'].add_Click({
+      try {
+        $config = New-CoverScraperConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cover-Scraper konfiguriert: Provider={0}" -f $config.Provider) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cover-Scraper fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Genre-Klassifikation (LF-02)
+  if ($Ctx.ContainsKey('btnGenreClassification') -and $Ctx['btnGenreClassification']) {
+    $Ctx['btnGenreClassification'].add_Click({
+      try {
+        $taxonomy = Get-GenreTaxonomy
+        $count = ($taxonomy | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Genre-Taxonomie: {0} Genres verfügbar" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Genre-Klassifikation fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Spielzeit-Tracker (LF-04)
+  if ($Ctx.ContainsKey('btnPlaytimeTracker') -and $Ctx['btnPlaytimeTracker']) {
+    $Ctx['btnPlaytimeTracker'].add_Click({
+      try {
+        $logPath = Show-WpfTextInputDialog -Window $Window -Title 'Spielzeit-Tracker' -Prompt 'RetroArch-Log-Pfad eingeben:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($logPath)) { return }
+        $data = Import-RetroArchPlaytime -LogPath $logPath
+        $count = ($data | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Spielzeit: {0} Einträge importiert" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Spielzeit-Tracker fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Sammlung teilen (XL-08)
+  if ($Ctx.ContainsKey('btnCollectionSharing') -and $Ctx['btnCollectionSharing']) {
+    $Ctx['btnCollectionSharing'].add_Click({
+      try {
+        $config = New-CollectionExportConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Sammlungs-Export konfiguriert: Format={0}" -f $config.Format) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Sammlung teilen fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Virtuelle Ordner (LF-12)
+  if ($Ctx.ContainsKey('btnVirtualFolderPreview') -and $Ctx['btnVirtualFolderPreview']) {
+    $Ctx['btnVirtualFolderPreview'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Virtuelle Ordner: Keine Roots.' -Level 'WARNING'; return }
+        $data = Build-TreemapData -Roots $roots
+        Add-WpfLogLine -Ctx $Ctx -Line ("Treemap: {0} Knoten, {1:N0} MB gesamt" -f $data.NodeCount, ($data.TotalBytes / 1MB)) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Virtuelle Ordner fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Sicherheit & Integrität ────────────────────────────────────────────
+
+  # Integritäts-Monitor (MF-24)
+  if ($Ctx.ContainsKey('btnIntegrityMonitor') -and $Ctx['btnIntegrityMonitor']) {
+    $Ctx['btnIntegrityMonitor'].add_Click({
+      try {
+        $roots = Get-AppStateValue 'RootPaths'
+        if (-not $roots) { Add-WpfLogLine -Ctx $Ctx -Line 'Integrität: Keine Roots.' -Level 'WARNING'; return }
+        $files = foreach ($r in $roots) {
+          if (Test-Path -LiteralPath $r -PathType Container) {
+            Get-ChildItem -LiteralPath $r -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 200
+          }
+        }
+        $baseline = Invoke-RunIntegrityCheckService -Operation 'Baseline' -Files @($files) -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Integrität: Baseline mit {0} Dateien erstellt" -f $baseline.FileCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Integritäts-Monitor fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Backup-Manager (MF-25)
+  if ($Ctx.ContainsKey('btnBackupManager') -and $Ctx['btnBackupManager']) {
+    $Ctx['btnBackupManager'].add_Click({
+      try {
+        $config = New-BackupConfig
+        $session = Invoke-RunBackupService -Operation 'Create' -Config $config -Label 'GUI-Backup' -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Backup-Session erstellt: {0}" -f $session.SessionId) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Backup-Manager fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Quarantäne (MF-26)
+  if ($Ctx.ContainsKey('btnQuarantine') -and $Ctx['btnQuarantine']) {
+    $Ctx['btnQuarantine'].add_Click({
+      try {
+        $filePath = Show-WpfTextInputDialog -Window $Window -Title 'Quarantäne' -Prompt 'Dateipfad für Quarantäne:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($filePath)) { return }
+        $qRoot = Join-Path (Get-AppStateValue 'TrashRoot') 'quarantine'
+        $result = Invoke-RunQuarantineService -SourcePath $filePath -QuarantineRoot $qRoot -Reasons @('ManualReview') -Mode 'DryRun' -Ports @{}
+        Add-WpfLogLine -Ctx $Ctx -Line ("Quarantäne (DryRun): {0} → {1}" -f $result.Source, $result.Destination) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Quarantäne fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Regel-Engine (MF-19)
+  if ($Ctx.ContainsKey('btnRuleEngine') -and $Ctx['btnRuleEngine']) {
+    $Ctx['btnRuleEngine'].add_Click({
+      try {
+        Add-WpfLogLine -Ctx $Ctx -Line 'Regel-Engine: Lade Standard-Regeln...' -Level 'INFO'
+        $rules = Get-AppStateValue 'Rules'
+        if (-not $rules) { $rules = @() }
+        Add-WpfLogLine -Ctx $Ctx -Line ("Regel-Engine: {0} Regeln geladen" -f ($rules | Measure-Object).Count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Regel-Engine fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Patch-Engine (LF-05)
+  if ($Ctx.ContainsKey('btnPatchEngine') -and $Ctx['btnPatchEngine']) {
+    $Ctx['btnPatchEngine'].add_Click({
+      try {
+        $patchPath = Show-WpfTextInputDialog -Window $Window -Title 'Patch-Engine' -Prompt 'Patch-Datei (.ips/.ups/.bps):' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($patchPath)) { return }
+        $format = Test-PatchFormat -Path $patchPath
+        Add-WpfLogLine -Ctx $Ctx -Line ("Patch-Format erkannt: {0}" -f $format.Format) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Patch-Engine fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Header-Reparatur (LF-06)
+  if ($Ctx.ContainsKey('btnHeaderRepair') -and $Ctx['btnHeaderRepair']) {
+    $Ctx['btnHeaderRepair'].add_Click({
+      try {
+        $filePath = Show-WpfTextInputDialog -Window $Window -Title 'Header-Reparatur' -Prompt 'ROM-Dateipfad:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($filePath)) { return }
+        $result = Repair-NesHeader -Path $filePath -Mode 'DryRun'
+        Add-WpfLogLine -Ctx $Ctx -Line ("Header-Reparatur (DryRun): {0}" -f $result.Status) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Header-Reparatur fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Workflow & Automatisierung ─────────────────────────────────────────
+
+  # Command-Palette (MF-15)
+  if ($Ctx.ContainsKey('btnCommandPalette') -and $Ctx['btnCommandPalette']) {
+    $Ctx['btnCommandPalette'].add_Click({
+      try {
+        $query = Show-WpfTextInputDialog -Window $Window -Title 'Command-Palette' -Prompt 'Befehl suchen:' -DefaultValue ''
+        if ([string]::IsNullOrWhiteSpace($query)) { return }
+        $results = Search-PaletteCommands -Query $query
+        $count = ($results | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Command-Palette: {0} Treffer für '{1}'" -f $count, $query) -Level 'INFO'
+        foreach ($cmd in $results | Select-Object -First 10) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}: {1}" -f $cmd.Name, $cmd.Description) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Command-Palette fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Split-Panel (MF-16)
+  if ($Ctx.ContainsKey('btnSplitPanelPreview') -and $Ctx['btnSplitPanelPreview']) {
+    $Ctx['btnSplitPanelPreview'].add_Click({
+      try {
+        $reportsDir = Join-Path $PSScriptRoot 'reports'
+        $latestPlan = Get-ChildItem -Path $reportsDir -Filter 'move-plan-*.json' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $latestPlan) { Add-WpfLogLine -Ctx $Ctx -Line 'Split-Panel: Kein Move-Plan vorhanden.' -Level 'WARNING'; return }
+        $data = ConvertTo-SplitPanelData -PlanPath $latestPlan.FullName
+        Add-WpfLogLine -Ctx $Ctx -Line ("Split-Panel: {0} Einträge geladen" -f $data.EntryCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Split-Panel fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Filter-Builder (MF-17)
+  if ($Ctx.ContainsKey('btnFilterBuilder') -and $Ctx['btnFilterBuilder']) {
+    $Ctx['btnFilterBuilder'].add_Click({
+      try {
+        $filter = New-FilterCondition
+        Add-WpfLogLine -Ctx $Ctx -Line ("Filter-Builder: Neue Filterbedingung erstellt (Typ={0})" -f $filter.Type) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Filter-Builder fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Sort-Templates (MF-22)
+  if ($Ctx.ContainsKey('btnSortTemplates') -and $Ctx['btnSortTemplates']) {
+    $Ctx['btnSortTemplates'].add_Click({
+      try {
+        $templates = Get-DefaultSortTemplates
+        $count = ($templates | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Sort-Templates: {0} Vorlagen verfügbar" -f $count) -Level 'INFO'
+        foreach ($t in $templates | Select-Object -First 5) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}: {1}" -f $t.Name, $t.Description) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Sort-Templates fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Pipeline-Engine (MF-20)
+  if ($Ctx.ContainsKey('btnPipelineEngine') -and $Ctx['btnPipelineEngine']) {
+    $Ctx['btnPipelineEngine'].add_Click({
+      try {
+        $step = New-PipelineStep
+        Add-WpfLogLine -Ctx $Ctx -Line ("Pipeline-Step erstellt: {0}" -f $step.Name) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Pipeline-Engine fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # System-Tray (MF-18)
+  if ($Ctx.ContainsKey('btnSystemTray') -and $Ctx['btnSystemTray']) {
+    $Ctx['btnSystemTray'].add_Click({
+      try {
+        $config = New-TrayIconConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("System-Tray konfiguriert: Icon={0}" -f $config.IconPath) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("System-Tray fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Scheduler (MF-23)
+  if ($Ctx.ContainsKey('btnSchedulerAdvanced') -and $Ctx['btnSchedulerAdvanced']) {
+    $Ctx['btnSchedulerAdvanced'].add_Click({
+      try {
+        $entry = New-ScheduleEntry
+        Add-WpfLogLine -Ctx $Ctx -Line ("Scheduler: Neuer Eintrag erstellt ({0})" -f $entry.Cron) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Scheduler fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Regel-Pakete (LF-19)
+  if ($Ctx.ContainsKey('btnRulePackSharing') -and $Ctx['btnRulePackSharing']) {
+    $Ctx['btnRulePackSharing'].add_Click({
+      try {
+        $pack = New-RulePack
+        Add-WpfLogLine -Ctx $Ctx -Line ("Regel-Paket erstellt: {0}" -f $pack.Name) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Regel-Pakete fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Arcade Merge/Split (LF-07)
+  if ($Ctx.ContainsKey('btnArcadeMergeSplit') -and $Ctx['btnArcadeMergeSplit']) {
+    $Ctx['btnArcadeMergeSplit'].add_Click({
+      try {
+        $types = Get-ArcadeSetTypes
+        $count = ($types | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Arcade Set-Typen: {0} Typen verfügbar" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Arcade Merge/Split fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Export & Integration ───────────────────────────────────────────────
+
+  # PDF-Report (LF-14)
+  if ($Ctx.ContainsKey('btnPdfReport') -and $Ctx['btnPdfReport']) {
+    $Ctx['btnPdfReport'].add_Click({
+      try {
+        $config = New-PdfReportConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("PDF-Report konfiguriert: Template={0}" -f $config.Template) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("PDF-Report fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Launcher-Integration (LF-03)
+  if ($Ctx.ContainsKey('btnLauncherIntegration') -and $Ctx['btnLauncherIntegration']) {
+    $Ctx['btnLauncherIntegration'].add_Click({
+      try {
+        $formats = Get-SupportedLauncherFormats
+        $count = ($formats | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Launcher-Integration: {0} Formate unterstützt" -f $count) -Level 'INFO'
+        foreach ($f in $formats | Select-Object -First 5) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}" -f $f.Name) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Launcher-Integration fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Tool-Import (XL-12)
+  if ($Ctx.ContainsKey('btnToolImport') -and $Ctx['btnToolImport']) {
+    $Ctx['btnToolImport'].add_Click({
+      try {
+        $formats = Get-SupportedImportFormats
+        $count = ($formats | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Tool-Import: {0} Import-Formate unterstützt" -f $count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Tool-Import fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── Infrastruktur & Deployment ─────────────────────────────────────────
+
+  # Storage-Tiering (LF-08)
+  if ($Ctx.ContainsKey('btnStorageTiering') -and $Ctx['btnStorageTiering']) {
+    $Ctx['btnStorageTiering'].add_Click({
+      try {
+        $config = Get-StorageTierConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Storage-Tiering: {0} Tier(s) konfiguriert" -f $config.Tiers.Count) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Storage-Tiering fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # NAS-Optimierung (LF-15)
+  if ($Ctx.ContainsKey('btnNasOptimization') -and $Ctx['btnNasOptimization']) {
+    $Ctx['btnNasOptimization'].add_Click({
+      try {
+        $profile = New-NasProfile
+        Add-WpfLogLine -Ctx $Ctx -Line ("NAS-Profil erstellt: BufferSize={0}" -f $profile.BufferSize) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("NAS-Optimierung fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # FTP-Quelle (LF-16)
+  if ($Ctx.ContainsKey('btnFtpSource') -and $Ctx['btnFtpSource']) {
+    $Ctx['btnFtpSource'].add_Click({
+      try {
+        $config = New-FtpSourceConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("FTP-Quelle konfiguriert: Protokoll={0}" -f $config.Protocol) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("FTP-Quelle fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Cloud-Sync (LF-17)
+  if ($Ctx.ContainsKey('btnCloudSync') -and $Ctx['btnCloudSync']) {
+    $Ctx['btnCloudSync'].add_Click({
+      try {
+        $config = New-CloudSyncConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cloud-Sync konfiguriert: Provider={0}" -f $config.Provider) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Cloud-Sync fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Plugin-Marktplatz (LF-18)
+  if ($Ctx.ContainsKey('btnPluginMarketplaceFeature') -and $Ctx['btnPluginMarketplaceFeature']) {
+    $Ctx['btnPluginMarketplaceFeature'].add_Click({
+      try {
+        $config = New-PluginMarketplaceConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Plugin-Marktplatz: {0} Plugins verfügbar" -f $config.AvailableCount) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Plugin-Marktplatz fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Portable Modus (QW-12)
+  if ($Ctx.ContainsKey('btnPortableMode') -and $Ctx['btnPortableMode']) {
+    $Ctx['btnPortableMode'].add_Click({
+      try {
+        $root = Get-PortableSettingsRoot
+        Add-WpfLogLine -Ctx $Ctx -Line ("Portable Modus: Settings-Root = {0}" -f $root) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Portable Modus fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Docker (XL-01)
+  if ($Ctx.ContainsKey('btnDockerContainer') -and $Ctx['btnDockerContainer']) {
+    $Ctx['btnDockerContainer'].add_Click({
+      try {
+        $config = New-DockerfileConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Dockerfile generiert: Base={0}" -f $config.BaseImage) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Docker fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Mobile Web UI (XL-02)
+  if ($Ctx.ContainsKey('btnMobileWebUI') -and $Ctx['btnMobileWebUI']) {
+    $Ctx['btnMobileWebUI'].add_Click({
+      try {
+        $config = New-WebUIConfig
+        Add-WpfLogLine -Ctx $Ctx -Line ("Web UI: Port={0}, Bind={1}" -f $config.Port, $config.BindAddress) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Mobile Web UI fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Windows-Kontextmenü (XL-03)
+  if ($Ctx.ContainsKey('btnWindowsContextMenu') -and $Ctx['btnWindowsContextMenu']) {
+    $Ctx['btnWindowsContextMenu'].add_Click({
+      try {
+        $entry = New-ContextMenuEntry
+        Add-WpfLogLine -Ctx $Ctx -Line ("Kontextmenü-Eintrag: {0}" -f $entry.Label) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Kontextmenü fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # PSGallery (XL-04)
+  if ($Ctx.ContainsKey('btnPSGallery') -and $Ctx['btnPSGallery']) {
+    $Ctx['btnPSGallery'].add_Click({
+      try {
+        $manifest = New-PSGalleryManifest
+        Add-WpfLogLine -Ctx $Ctx -Line ("PSGallery-Manifest: Version={0}" -f $manifest.ModuleVersion) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("PSGallery fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Paketmanager (XL-05)
+  if ($Ctx.ContainsKey('btnPackageManager') -and $Ctx['btnPackageManager']) {
+    $Ctx['btnPackageManager'].add_Click({
+      try {
+        $manifest = New-WingetManifest
+        Add-WpfLogLine -Ctx $Ctx -Line ("Winget-Manifest: PackageId={0}" -f $manifest.PackageIdentifier) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Paketmanager fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Hardlink-Modus (XL-11)
+  if ($Ctx.ContainsKey('btnHardlinkMode') -and $Ctx['btnHardlinkMode']) {
+    $Ctx['btnHardlinkMode'].add_Click({
+      try {
+        $supported = Test-HardlinkSupported
+        $status = if ($supported) { 'Hardlinks werden unterstützt' } else { 'Hardlinks nicht verfügbar (Dateisystem oder Rechte)' }
+        Add-WpfLogLine -Ctx $Ctx -Line ("Hardlink-Modus: {0}" -f $status) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Hardlink-Modus fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # USN-Journal (XL-10)
+  if ($Ctx.ContainsKey('btnUsnJournal') -and $Ctx['btnUsnJournal']) {
+    $Ctx['btnUsnJournal'].add_Click({
+      try {
+        $available = Test-UsnJournalAvailable
+        $status = if ($available) { 'USN-Journal verfügbar' } else { 'USN-Journal nicht verfügbar (Admin-Rechte benötigt)' }
+        Add-WpfLogLine -Ctx $Ctx -Line ("USN-Journal: {0}" -f $status) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("USN-Journal fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Multi-Instanz (XL-13)
+  if ($Ctx.ContainsKey('btnMultiInstanceSync') -and $Ctx['btnMultiInstanceSync']) {
+    $Ctx['btnMultiInstanceSync'].add_Click({
+      try {
+        $identity = New-InstanceIdentity
+        Add-WpfLogLine -Ctx $Ctx -Line ("Multi-Instanz: ID={0}" -f $identity.InstanceId) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Multi-Instanz fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Telemetrie (XL-14)
+  if ($Ctx.ContainsKey('btnTelemetry') -and $Ctx['btnTelemetry']) {
+    $Ctx['btnTelemetry'].add_Click({
+      try {
+        $config = New-TelemetryConfig
+        $status = if ($config.Enabled) { 'aktiviert' } else { 'deaktiviert' }
+        Add-WpfLogLine -Ctx $Ctx -Line ("Telemetrie: {0}" -f $status) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Telemetrie fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # ── UI & Erscheinungsbild ──────────────────────────────────────────────
+
+  # Barrierefreiheit (LF-13)
+  if ($Ctx.ContainsKey('btnAccessibility') -and $Ctx['btnAccessibility']) {
+    $Ctx['btnAccessibility'].add_Click({
+      try {
+        $defaults = Get-AccessibilityDefaults
+        Add-WpfLogLine -Ctx $Ctx -Line ("Barrierefreiheit: HighContrast={0}, FontScale={1}" -f $defaults.HighContrast, $defaults.FontScale) -Level 'INFO'
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Barrierefreiheit fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
+    }.GetNewClosure())
+  }
+
+  # Theme-Engine (LF-20)
+  if ($Ctx.ContainsKey('btnThemeEngine') -and $Ctx['btnThemeEngine']) {
+    $Ctx['btnThemeEngine'].add_Click({
+      try {
+        $themes = Get-BuiltinThemes
+        $count = ($themes | Measure-Object).Count
+        Add-WpfLogLine -Ctx $Ctx -Line ("Theme-Engine: {0} Themes verfügbar" -f $count) -Level 'INFO'
+        foreach ($t in $themes | Select-Object -First 5) {
+          Add-WpfLogLine -Ctx $Ctx -Line ("  {0}" -f $t.Name) -Level 'INFO'
+        }
+      } catch {
+        Add-WpfLogLine -Ctx $Ctx -Line ("Theme-Engine fehlgeschlagen: {0}" -f $_.Exception.Message) -Level 'ERROR'
+      }
     }.GetNewClosure())
   }
 }

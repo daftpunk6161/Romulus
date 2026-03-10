@@ -47,8 +47,7 @@ Describe 'Bug-Fix Batch 1 Regression Tests' {
             $m3uPath2 = Join-Path $tempDir 'y.m3u'
             Set-Content -Path $m3uPath2 -Value 'z.m3u'
 
-            $warnings = @()
-            $result = Get-M3URelatedFiles -M3UPath $m3uPath -RootPath $tempDir -MaxDepth 1 -WarningVariable warnings 3>&1 | Where-Object { $_ -is [string] -or $_ -is [System.Management.Automation.WarningRecord] }
+            Get-M3URelatedFiles -M3UPath $m3uPath -RootPath $tempDir -MaxDepth 1 3>&1 | Where-Object { $_ -is [string] -or $_ -is [System.Management.Automation.WarningRecord] } | Out-Null
             # No crash = success
             $true | Should -BeTrue
         }
@@ -81,6 +80,7 @@ Describe 'Bug-Fix Batch 1 Regression Tests' {
 
         It 'gibt bytes zurueck bei ausreichend langem Key (>= 32 Zeichen)' {
             $oldKey = $env:ROMCLEANUP_AUDIT_HMAC_KEY
+            [AppDomain]::CurrentDomain.SetData('_RomCleanup_AuditHmacKeyBytes', $null)
             try {
                 $env:ROMCLEANUP_AUDIT_HMAC_KEY = 'this-is-a-valid-key-with-32-char!'
                 $result = Get-AuditSigningKeyBytes
@@ -88,17 +88,21 @@ Describe 'Bug-Fix Batch 1 Regression Tests' {
                 $result.Length | Should -BeGreaterOrEqual 32
             } finally {
                 $env:ROMCLEANUP_AUDIT_HMAC_KEY = $oldKey
+                [AppDomain]::CurrentDomain.SetData('_RomCleanup_AuditHmacKeyBytes', $null)
             }
         }
 
-        It 'gibt null zurueck bei leerem Key' {
+        It 'generiert Session-Key bei leerem Env-Key (BUG-015)' {
             $oldKey = $env:ROMCLEANUP_AUDIT_HMAC_KEY
+            [AppDomain]::CurrentDomain.SetData('_RomCleanup_AuditHmacKeyBytes', $null)
             try {
                 $env:ROMCLEANUP_AUDIT_HMAC_KEY = ''
                 $result = Get-AuditSigningKeyBytes
-                $result | Should -BeNullOrEmpty
+                $result | Should -Not -BeNullOrEmpty
+                $result.Length | Should -Be 32
             } finally {
                 $env:ROMCLEANUP_AUDIT_HMAC_KEY = $oldKey
+                [AppDomain]::CurrentDomain.SetData('_RomCleanup_AuditHmacKeyBytes', $null)
             }
         }
     }
@@ -143,7 +147,7 @@ Describe 'Bug-Fix Batch 1 Regression Tests' {
             $script:TOOL_HASH_VERDICT_CACHE = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
             
             # The cache should not have a key with just the path
-            $result1 = Test-ToolBinaryHash -ToolPath $tempExe
+            Test-ToolBinaryHash -ToolPath $tempExe | Out-Null
             
             # Cache should have entry with path|ticks format
             $keys = @($script:TOOL_HASH_VERDICT_CACHE.Keys)

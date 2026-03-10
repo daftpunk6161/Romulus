@@ -323,11 +323,11 @@ function Initialize-FileScanWatcher {
     }
 
     $watchAction = {
-      param($sender, $eventArgs)
+        param($watcherSource, $watchEvent)
 
       try {
         $data = $Event.MessageData
-        $rootPath = Resolve-RootPath -Path ([string]$sender.Path)
+          $rootPath = Resolve-RootPath -Path ([string]$watcherSource.Path)
         if ([string]::IsNullOrWhiteSpace($rootPath)) { return }
         if (-not $data.RootVersion.ContainsKey($rootPath)) {
           $data.RootVersion[$rootPath] = 0
@@ -338,11 +338,11 @@ function Initialize-FileScanWatcher {
           $data.ChangedPaths[$rootPath] = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         }
 
-        if ($eventArgs -and ($eventArgs.PSObject.Properties.Name -contains 'FullPath') -and -not [string]::IsNullOrWhiteSpace([string]$eventArgs.FullPath)) {
-          [void]$data.ChangedPaths[$rootPath].Add([string]$eventArgs.FullPath)
+        if ($watchEvent -and ($watchEvent.PSObject.Properties.Name -contains 'FullPath') -and -not [string]::IsNullOrWhiteSpace([string]$watchEvent.FullPath)) {
+          [void]$data.ChangedPaths[$rootPath].Add([string]$watchEvent.FullPath)
         }
-        if ($eventArgs -and ($eventArgs.PSObject.Properties.Name -contains 'OldFullPath') -and -not [string]::IsNullOrWhiteSpace([string]$eventArgs.OldFullPath)) {
-          [void]$data.ChangedPaths[$rootPath].Add([string]$eventArgs.OldFullPath)
+        if ($watchEvent -and ($watchEvent.PSObject.Properties.Name -contains 'OldFullPath') -and -not [string]::IsNullOrWhiteSpace([string]$watchEvent.OldFullPath)) {
+          [void]$data.ChangedPaths[$rootPath].Add([string]$watchEvent.OldFullPath)
         }
       } catch { }
     }
@@ -353,10 +353,10 @@ function Initialize-FileScanWatcher {
     Register-ObjectEvent -InputObject $watcher -EventName Renamed -SourceIdentifier ($identifierPrefix + '.Renamed') -Action $watchAction -MessageData $messageData | Out-Null
 
     $errorAction = {
-      param($sender, $eventArgs)
+      param($watcherSource, $watchError)
       try {
         $data = $Event.MessageData
-        $rootPath = Resolve-RootPath -Path ([string]$sender.Path)
+        $rootPath = Resolve-RootPath -Path ([string]$watcherSource.Path)
         if (-not [string]::IsNullOrWhiteSpace($rootPath) -and $data.RootVersion.ContainsKey($rootPath)) {
           $data.RootVersion[$rootPath] = [int]$data.RootVersion[$rootPath] + 1
         }
@@ -598,7 +598,7 @@ function Get-FilesSafe {
       }
 
       if (-not $fallbackToFullRescan) {
-        $paths = @($pathSet.ToArray())
+        $paths = [string[]]@($pathSet)
         $script:FILE_SCAN_CACHE[$cacheKey] = [pscustomobject]@{
           Root = $normalizedRoot
           RootVersion = $rootVersion

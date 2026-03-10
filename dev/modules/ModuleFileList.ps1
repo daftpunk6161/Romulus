@@ -54,7 +54,91 @@
     'SecurityEventStream.ps1',
     'AppStateSchema.ps1',
     'BackgroundOps.ps1',
-    'OpsBundle.ps1'
+    'OpsBundle.ps1',
+
+    # --- Phase 1 Quick-Win Module (QW-01 bis QW-16) ---
+    'DatRename.ps1',
+    'EcmDecompress.ps1',
+    'ArchiveRepack.ps1',
+    'ConversionEstimate.ps1',
+    'JunkReport.ps1',
+    'KeyboardShortcuts.ps1',
+    'ThemeManager.ps1',
+    'RomFilter.ps1',
+    'DuplicateHeatmap.ps1',
+    'CliExport.ps1',
+    'WebhookNotification.ps1',
+    'PortableMode.ps1',
+    'CollectionCsvExport.ps1',
+    'RunHistory.ps1',
+    'M3uGenerator.ps1',
+    'RetroArchPlaylist.ps1',
+
+    # --- Phase 2 Medium-Feature Module (MF-01 bis MF-26) ---
+    'MissingRomTracker.ps1',
+    'CrossRootDedupe.ps1',
+    'HeaderAnalysis.ps1',
+    'CompletenessTracker.ps1',
+    'CollectionManager.ps1',
+    'ConversionPipeline.ps1',
+    'NKitConvert.ps1',
+    'ConvertQueue.ps1',
+    'ConversionVerify.ps1',
+    'FormatPriority.ps1',
+    'DatAutoUpdate.ps1',
+    'DatDiffViewer.ps1',
+    'TosecDatSupport.ps1',
+    'ParallelHashing.ps1',
+    'CommandPalette.ps1',
+    'SplitPanelPreview.ps1',
+    'FilterBuilder.ps1',
+    'SystemTray.ps1',
+    'RuleEngine.ps1',
+    'PipelineEngine.ps1',
+    'DryRunCompare.ps1',
+    'SortTemplates.ps1',
+    'SchedulerAdvanced.ps1',
+    'IntegrityMonitor.ps1',
+    'BackupManager.ps1',
+    'Quarantine.ps1',
+
+    # --- Phase 3 Large-Feature Module (LF-01 bis LF-20) ---
+    'CoverScraper.ps1',
+    'GenreClassification.ps1',
+    'LauncherIntegration.ps1',
+    'PlaytimeTracker.ps1',
+    'PatchEngine.ps1',
+    'HeaderRepair.ps1',
+    'ArcadeMergeSplit.ps1',
+    'StorageTiering.ps1',
+    'CustomDatEditor.ps1',
+    'CloneListViewer.ps1',
+    'HashDatabaseExport.ps1',
+    'VirtualFolderPreview.ps1',
+    'Accessibility.ps1',
+    'PdfReportExport.ps1',
+    'NasOptimization.ps1',
+    'FtpSource.ps1',
+    'CloudSettingsSync.ps1',
+    'PluginMarketplace.ps1',
+    'RulePackSharing.ps1',
+    'ThemeEngine.ps1',
+
+    # --- Phase 4 Extra-Large-Feature Module (XL-01 bis XL-14) ---
+    'DockerContainer.ps1',
+    'MobileWebUI.ps1',
+    'WindowsContextMenu.ps1',
+    'PSGalleryModule.ps1',
+    'PackageManagerIntegration.ps1',
+    'TrendAnalysis.ps1',
+    'EmulatorCompatReport.ps1',
+    'CollectionSharing.ps1',
+    'GpuHashing.ps1',
+    'UsnJournalScan.ps1',
+    'HardlinkMode.ps1',
+    'ToolImport.ps1',
+    'MultiInstanceSync.ps1',
+    'Telemetry.ps1'
   )
 
   $wpfModules = @(
@@ -68,6 +152,7 @@
     'WpfSlice.DatMapping.ps1',
     'WpfSlice.ReportPreview.ps1',
     'WpfSlice.AdvancedFeatures.ps1',
+    'WpfWizard.ps1',
     'WpfEventHandlers.ps1',
     'SimpleSort.WpfMain.ps1',
     'WpfApp.ps1'
@@ -99,7 +184,8 @@ function Get-RomCleanupModuleDependencies {
   $deps['WpfSlice.DatMapping.ps1'] = @('WpfMainViewModel.ps1')
   $deps['WpfSlice.ReportPreview.ps1'] = @('WpfMainViewModel.ps1')
   $deps['WpfSlice.AdvancedFeatures.ps1'] = @('WpfMainViewModel.ps1')
-  $deps['WpfEventHandlers.ps1'] = @('WpfSelectionConfig.ps1','WpfMainViewModel.ps1','WpfSlice.Roots.ps1','WpfSlice.RunControl.ps1','WpfSlice.Settings.ps1','WpfSlice.DatMapping.ps1','WpfSlice.ReportPreview.ps1','WpfSlice.AdvancedFeatures.ps1')
+  $deps['WpfWizard.ps1'] = @('WpfHost.ps1')
+  $deps['WpfEventHandlers.ps1'] = @('WpfSelectionConfig.ps1','WpfMainViewModel.ps1','WpfSlice.Roots.ps1','WpfSlice.RunControl.ps1','WpfSlice.Settings.ps1','WpfSlice.DatMapping.ps1','WpfSlice.ReportPreview.ps1','WpfSlice.AdvancedFeatures.ps1','WpfWizard.ps1')
   $deps['SimpleSort.WpfMain.ps1'] = @('WpfHost.ps1','WpfMainViewModel.ps1','WpfEventHandlers.ps1')
   $deps['WpfApp.ps1'] = @('SimpleSort.WpfMain.ps1')
 

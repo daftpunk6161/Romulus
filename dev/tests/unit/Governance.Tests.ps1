@@ -39,7 +39,7 @@ Describe 'Governance Gate' {
         New-Item -ItemType Directory -Path $tmpReports -Force | Out-Null
 
         try {
-            $output = & pwsh -NoProfile -File $gatePath -ModulesDir $modulesDir -ReportsDir $tmpReports -WarnOnly 2>&1
+            & pwsh -NoProfile -File $gatePath -ModulesDir $modulesDir -ReportsDir $tmpReports -WarnOnly 2>&1 | Out-Null
             # Should not throw (exit 0 in WarnOnly)
             $LASTEXITCODE | Should -BeIn @(0, $null)
 

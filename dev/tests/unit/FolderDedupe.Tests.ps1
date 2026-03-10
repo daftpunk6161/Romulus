@@ -30,10 +30,12 @@ Describe 'FolderDedupe – Get-FolderBaseKey' {
             Get-FolderBaseKey -FolderName 'Doom ( v2 )' | Should -Be 'doom'
         }
 
-        It 'keeps mid-name parenthetical intact' {
-            # Only trailing groups are stripped
+        It 'strips non-preserve mid-name parenthetical (FOLDERDEDUPE-001)' {
+            # FOLDERDEDUPE-001: ALL non-preserve parentheticals are stripped,
+            # not just trailing ones. (Red Alert) is not a preserve-worthy tag
+            # (Disk/Disc/CD/Side/AGA/ECS/OCS/NTSC/PAL/WHDLoad/ADF).
             Get-FolderBaseKey -FolderName 'Command & Conquer (Red Alert) Gold' |
-              Should -Be 'command & conquer (red alert) gold'
+              Should -Be 'command & conquer gold'
         }
     }
 

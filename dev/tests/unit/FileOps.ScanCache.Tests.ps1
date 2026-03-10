@@ -11,6 +11,13 @@ Describe 'FileOps Scan Cache mit Watcher' {
         . (Join-Path $root 'dev\modules\LruCache.ps1')
         . (Join-Path $root 'dev\modules\AppState.ps1')
         . (Join-Path $root 'dev\modules\FileOps.ps1')
+
+        # Reset scan cache state to avoid contamination from earlier test files
+        $script:FILE_SCAN_CACHE = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
+        $script:FILE_SCAN_WATCHERS = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
+        $script:FILE_SCAN_ROOT_VERSION = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
+        $script:FILE_SCAN_CHANGED_PATHS = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
+        $script:FILE_SCAN_WATCHER_FAILED = [hashtable]::new([StringComparer]::OrdinalIgnoreCase)
     }
 
     It 'aktualisiert Scan-Ergebnis inkrementell bei Dateiänderungen' {

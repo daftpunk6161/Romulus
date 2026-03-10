@@ -1,140 +1,142 @@
-# Feature-Roadmap — RomCleanup (Stand: 2026-03-06)
+# Feature-Roadmap — RomCleanup (Stand: 2026-03-10)
 
 > Priorisiert nach Quick Wins → Medium → Large. Aufwand: S = 1–2 Tage, M = 3–5 Tage, L = 1–2 Wochen, XL = 2+ Wochen.
+>
+> **Status:** Alle 76 Features implementiert. Alle Features im GUI integriert (65 Buttons im Features-Tab). ISS-001 First-Start Wizard fertig. 1300+ Tests bestanden.
 
 ---
 
 ## Phase 1 — Quick Wins (S, sofort umsetzbar)
 
 ### Datei-Management
-- [ ] **QW-01 (S):** Datei-Rename nach DAT-Standard — ROM-Dateien nach No-Intro/Redump-Nomenklatur umbenennen (`Rename-RomToDatName` in `Dat.ps1`, DryRun-Support, Audit-Log)
-- [ ] **QW-02 (S):** ECM-Dekompression — `.ecm`-Dateien automatisch zu `.bin` entpacken via `ecm2bin`-Tool (neuer Eintrag in `Convert.ps1` Strategy-Map + `tool-hashes.json`)
-- [ ] **QW-03 (S):** Archiv-Repack — ZIP↔7z Repack-Option in Convert.ps1 (RAR→ZIP, 7z→ZIP, ZIP→7z mit konfigurierbarer Kompression)
-- [ ] **QW-04 (S):** Speicherplatz-Prognose — "Konvertierung zu CHD spart ~X GB" als Zusammenfassung im DryRun-Report (`Get-ConversionSavingsEstimate`)
-- [ ] **QW-05 (S):** Detaillierter Junk-Report — Pro Datei Grund der Junk-Klassifikation anzeigen (welche Regel, welcher Tag) im Report-Output
+- [x] **QW-01 (S):** Datei-Rename nach DAT-Standard — ROM-Dateien nach No-Intro/Redump-Nomenklatur umbenennen (`Rename-RomToDatName` in `Dat.ps1`, DryRun-Support, Audit-Log)
+- [x] **QW-02 (S):** ECM-Dekompression — `.ecm`-Dateien automatisch zu `.bin` entpacken via `ecm2bin`-Tool (neuer Eintrag in `Convert.ps1` Strategy-Map + `tool-hashes.json`)
+- [x] **QW-03 (S):** Archiv-Repack — ZIP↔7z Repack-Option in Convert.ps1 (RAR→ZIP, 7z→ZIP, ZIP→7z mit konfigurierbarer Kompression)
+- [x] **QW-04 (S):** Speicherplatz-Prognose — "Konvertierung zu CHD spart ~X GB" als Zusammenfassung im DryRun-Report (`Get-ConversionSavingsEstimate`)
+- [x] **QW-05 (S):** Detaillierter Junk-Report — Pro Datei Grund der Junk-Klassifikation anzeigen (welche Regel, welcher Tag) im Report-Output
 
 ### UI/UX
-- [ ] **QW-06 (S):** Keyboard-Shortcuts — Ctrl+R=Run, Ctrl+Z=Undo, F5=Refresh, Ctrl+Shift+D=DryRun, Escape=Cancel (WPF InputBindings in `MainWindow.xaml`)
-- [ ] **QW-07 (S):** Dark/Light-Theme-Toggle — Umschaltbarer Theme-Modus mit System-Auto-Detect (`SystemParameters.HighContrast` + ResourceDictionary-Swap)
-- [ ] **QW-08 (S):** ROM-Suche/Filter in Ergebnisliste — Textbox mit Live-Filter über klassifizierte ROMs im Report-Tab (`CollectionViewSource` mit Filter)
-- [ ] **QW-09 (S):** Duplikat-Heatmap — Visualisierung der Duplikat-Verteilung nach Konsole als horizontales Balkendiagramm im Dashboard
+- [x] **QW-06 (S):** Keyboard-Shortcuts — Ctrl+R=Run, Ctrl+Z=Undo, F5=Refresh, Ctrl+Shift+D=DryRun, Escape=Cancel (WPF InputBindings in `MainWindow.xaml`)
+- [x] **QW-07 (S):** Dark/Light-Theme-Toggle — Umschaltbarer Theme-Modus mit System-Auto-Detect (`SystemParameters.HighContrast` + ResourceDictionary-Swap)
+- [x] **QW-08 (S):** ROM-Suche/Filter in Ergebnisliste — Textbox mit Live-Filter über klassifizierte ROMs im Report-Tab (`CollectionViewSource` mit Filter)
+- [x] **QW-09 (S):** Duplikat-Heatmap — Visualisierung der Duplikat-Verteilung nach Konsole als horizontales Balkendiagramm im Dashboard
 
 ### Automatisierung
-- [ ] **QW-10 (S):** PowerShell-Script-Generator — GUI-Konfiguration als reproduzierbares CLI-Kommando exportieren (`Export-CliCommand` Button)
-- [ ] **QW-11 (S):** Webhook-Benachrichtigung — Discord/Slack Webhook-URL in Settings, POST bei Run-Ende mit Summary-JSON (`Invoke-WebhookNotification` in `Notification.ps1`)
-- [ ] **QW-12 (S):** Portable-Modus — `--Portable` Flag: alle Settings/Logs/Caches relativ zum Programmordner statt `%APPDATA%`
+- [x] **QW-10 (S):** PowerShell-Script-Generator — GUI-Konfiguration als reproduzierbares CLI-Kommando exportieren (`Export-CliCommand` Button)
+- [x] **QW-11 (S):** Webhook-Benachrichtigung — Discord/Slack Webhook-URL in Settings, POST bei Run-Ende mit Summary-JSON (`Invoke-WebhookNotification` in `Notification.ps1`)
+- [x] **QW-12 (S):** Portable-Modus — `--Portable` Flag: alle Settings/Logs/Caches relativ zum Programmordner statt `%APPDATA%`
 
 ### Reporting
-- [ ] **QW-13 (S):** Export nach Excel-CSV — Sammlung als strukturiertes CSV mit allen Metadaten (Konsole, Region, Format, DAT-Status, Größe)
-- [ ] **QW-14 (S):** Run-History-Browser — Liste aller bisherigen Runs (Datum, Roots, Modus, Ergebnis) mit Link zum jeweiligen Report/Audit
+- [x] **QW-13 (S):** Export nach Excel-CSV — Sammlung als strukturiertes CSV mit allen Metadaten (Konsole, Region, Format, DAT-Status, Größe)
+- [x] **QW-14 (S):** Run-History-Browser — Liste aller bisherigen Runs (Datum, Roots, Modus, Ergebnis) mit Link zum jeweiligen Report/Audit
 
 ### Integration
-- [ ] **QW-15 (S):** M3U-Auto-Generierung für Multi-Disc — Automatisches Erstellen von `.m3u`-Playlists wenn Disc 1/2/3 eines Spiels erkannt werden
-- [ ] **QW-16 (S):** RetroArch-Playlist-Export — Sammlungsdaten als `.lpl`-Datei (RetroArch-Format) mit korrekten Core-Zuweisungen pro Konsole exportieren
+- [x] **QW-15 (S):** M3U-Auto-Generierung für Multi-Disc — Automatisches Erstellen von `.m3u`-Playlists wenn Disc 1/2/3 eines Spiels erkannt werden
+- [x] **QW-16 (S):** RetroArch-Playlist-Export — Sammlungsdaten als `.lpl`-Datei (RetroArch-Format) mit korrekten Core-Zuweisungen pro Konsole exportieren
 
 ---
 
 ## Phase 2 — Medium Features (M, nächster Sprint)
 
 ### ROM-Sammlung & Bibliothek
-- [ ] **MF-01 (M):** Missing-ROM-Tracker — Pro Konsole zeigen welche Spiele laut DAT fehlen, filterbar nach Region. Neue Sektion im Dashboard (`Get-DatMissingGames`)
-- [ ] **MF-02 (M):** Cross-Root-Duplikat-Finder — Gleiche ROMs über verschiedene Root-Verzeichnisse hinweg erkennen (Hash-basiert) + Merge-Vorschlag
-- [ ] **MF-03 (M):** ROM-Header-Analyse — Interne Header auslesen für NES (iNES/NES2.0), SNES (LoROM/HiROM), GBA, N64 → Erkennung von Bad-Dumps und Header-Anomalien
-- [ ] **MF-04 (M):** Sammlung-Completeness-Ziel — User-definierte Zielsets ("100% EU PS1 RPGs") mit Fortschrittsbalken und Fehlende-Liste
-- [ ] **MF-05 (M):** Smart-Collections / Auto-Playlists — Dynamische Filter ("Alle PAL RPGs", "Top-Rated", "Ungespielte") aus DAT-Metadaten + User-Tags
+- [x] **MF-01 (M):** Missing-ROM-Tracker — Pro Konsole zeigen welche Spiele laut DAT fehlen, filterbar nach Region. Neue Sektion im Dashboard (`Get-DatMissingGames`)
+- [x] **MF-02 (M):** Cross-Root-Duplikat-Finder — Gleiche ROMs über verschiedene Root-Verzeichnisse hinweg erkennen (Hash-basiert) + Merge-Vorschlag
+- [x] **MF-03 (M):** ROM-Header-Analyse — Interne Header auslesen für NES (iNES/NES2.0), SNES (LoROM/HiROM), GBA, N64 → Erkennung von Bad-Dumps und Header-Anomalien
+- [x] **MF-04 (M):** Sammlung-Completeness-Ziel — User-definierte Zielsets ("100% EU PS1 RPGs") mit Fortschrittsbalken und Fehlende-Liste
+- [x] **MF-05 (M):** Smart-Collections / Auto-Playlists — Dynamische Filter ("Alle PAL RPGs", "Top-Rated", "Ungespielte") aus DAT-Metadaten + User-Tags
 
 ### Format-Konvertierung
-- [ ] **MF-06 (M):** CSO/ZSO→ISO→CHD-Pipeline — Komprimierte PSP/PS1-Images in einem Schritt konvertieren ohne manuellen Zwischenschritt
-- [ ] **MF-07 (M):** NKit→ISO-Rückkonvertierung — NKit-Images zurück zu vollem ISO (via NKit-Tool) vor RVZ-Konvertierung
-- [ ] **MF-08 (M):** Konvertierungs-Queue mit Pause/Resume — Lange Konvertierungen pausierbar+fortsetzbar, Status persistiert in `reports/convert-queue.json`
-- [ ] **MF-09 (M):** Batch-Verify nach Konvertierung — Automatischer CRC/SHA1-Vergleich vor/nach Konvertierung als Verifizierungsschritt
-- [ ] **MF-10 (M):** Konvertierungs-Prioritätsliste — User definiert Zielformat-Hierarchie pro Konsole (z.B. PS1: CHD > BIN/CUE > PBP > CSO)
+- [x] **MF-06 (M):** CSO/ZSO→ISO→CHD-Pipeline — Komprimierte PSP/PS1-Images in einem Schritt konvertieren ohne manuellen Zwischenschritt
+- [x] **MF-07 (M):** NKit→ISO-Rückkonvertierung — NKit-Images zurück zu vollem ISO (via NKit-Tool) vor RVZ-Konvertierung
+- [x] **MF-08 (M):** Konvertierungs-Queue mit Pause/Resume — Lange Konvertierungen pausierbar+fortsetzbar, Status persistiert in `reports/convert-queue.json`
+- [x] **MF-09 (M):** Batch-Verify nach Konvertierung — Automatischer CRC/SHA1-Vergleich vor/nach Konvertierung als Verifizierungsschritt
+- [x] **MF-10 (M):** Konvertierungs-Prioritätsliste — User definiert Zielformat-Hierarchie pro Konsole (z.B. PS1: CHD > BIN/CUE > PBP > CSO)
 
 ### DAT-Management
-- [ ] **MF-11 (M):** DAT-Auto-Update — Automatischer Check + Download neuer DAT-Versionen mit Changelog-Popup ("3 neue Einträge für SNES")
-- [ ] **MF-12 (M):** DAT-Diff-Viewer — Was hat sich zwischen zwei DAT-Versionen geändert? Neue/entfernte/umbenannte Einträge
-- [ ] **MF-13 (M):** TOSEC-DAT-Support — Zusätzlich zu No-Intro/Redump auch TOSEC-Kataloge als DAT-Quelle unterstützen
-- [ ] **MF-14 (M):** Parallel-Hashing — Multi-threaded SHA1/SHA256-Berechnung via RunspacePool für große Sammlungen (10x Speed bei >5k Dateien)
+- [x] **MF-11 (M):** DAT-Auto-Update — Automatischer Check + Download neuer DAT-Versionen mit Changelog-Popup ("3 neue Einträge für SNES")
+- [x] **MF-12 (M):** DAT-Diff-Viewer — Was hat sich zwischen zwei DAT-Versionen geändert? Neue/entfernte/umbenannte Einträge
+- [x] **MF-13 (M):** TOSEC-DAT-Support — Zusätzlich zu No-Intro/Redump auch TOSEC-Kataloge als DAT-Quelle unterstützen
+- [x] **MF-14 (M):** Parallel-Hashing — Multi-threaded SHA1/SHA256-Berechnung via RunspacePool für große Sammlungen (10x Speed bei >5k Dateien)
 
 ### UI/UX
-- [ ] **MF-15 (M):** Command-Palette — VSCode-artiges Ctrl+Shift+P mit Fuzzy-Suche über alle Funktionen
-- [ ] **MF-16 (M):** Split-Panel-Vorschau — Quell-/Zielverzeichnis nebeneinander (Norton-Commander-Stil) für DryRun-Preview
-- [ ] **MF-17 (M):** Filter-Builder — Visueller Query-Builder: "Zeige alle PS1 ROMs > 500MB ohne DAT-Match"
-- [ ] **MF-18 (M):** Mini-Modus / System-Tray — Minimiert im Tray mit Status-Icon + Tooltip bei Watch-Mode
+- [x] **MF-15 (M):** Command-Palette — VSCode-artiges Ctrl+Shift+P mit Fuzzy-Suche über alle Funktionen
+- [x] **MF-16 (M):** Split-Panel-Vorschau — Quell-/Zielverzeichnis nebeneinander (Norton-Commander-Stil) für DryRun-Preview
+- [x] **MF-17 (M):** Filter-Builder — Visueller Query-Builder: "Zeige alle PS1 ROMs > 500MB ohne DAT-Match"
+- [x] **MF-18 (M):** Mini-Modus / System-Tray — Minimiert im Tray mit Status-Icon + Tooltip bei Watch-Mode
 
 ### Automatisierung
-- [ ] **MF-19 (M):** Rule-Engine — User-definierbare Regeln in JSON/GUI: "Wenn Region=JP UND Konsole≠PS1 → entferne"
-- [ ] **MF-20 (M):** Conditional-Pipelines — Mehrstufige Aktionske: Sortieren → Konvertieren → Verifizieren → Umbenennen als konfigurierbare Kette
-- [ ] **MF-21 (M):** Dry-Run-Vergleich — Zwei DryRuns mit unterschiedlichen Settings Side-by-Side vergleichen
-- [ ] **MF-22 (M):** Ordnerstruktur-Vorlagen — Vordefinierte Layouts: "RetroArch", "EmulationStation", "LaunchBox", "Batocera", "Custom"
-- [ ] **MF-23 (M):** Run-Scheduler mit Kalender-UI — Visueller Kalender: "Jeden Sonntag 03:00 → Full Scan + Cleanup"
+- [x] **MF-19 (M):** Rule-Engine — User-definierbare Regeln in JSON/GUI: "Wenn Region=JP UND Konsole≠PS1 → entferne"
+- [x] **MF-20 (M):** Conditional-Pipelines — Mehrstufige Aktionske: Sortieren → Konvertieren → Verifizieren → Umbenennen als konfigurierbare Kette
+- [x] **MF-21 (M):** Dry-Run-Vergleich — Zwei DryRuns mit unterschiedlichen Settings Side-by-Side vergleichen
+- [x] **MF-22 (M):** Ordnerstruktur-Vorlagen — Vordefinierte Layouts: "RetroArch", "EmulationStation", "LaunchBox", "Batocera", "Custom"
+- [x] **MF-23 (M):** Run-Scheduler mit Kalender-UI — Visueller Kalender: "Jeden Sonntag 03:00 → Full Scan + Cleanup"
 
 ### Sicherheit & Integrität
-- [ ] **MF-24 (M):** Integritäts-Monitor — Periodischer Hash-Check: "Haben sich ROMs seit dem letzten Scan verändert?" (Bit-Rot-Erkennung)
-- [ ] **MF-25 (M):** Automatische Backup-Strategie — Konfigurierbare inkrementelle Backups vor jeder Operation mit Retention-Policy
-- [ ] **MF-26 (M):** ROM-Quarantäne — Verdächtige/unbekannte Dateien in isolierten Quarantäne-Ordner verschieben statt mischen
+- [x] **MF-24 (M):** Integritäts-Monitor — Periodischer Hash-Check: "Haben sich ROMs seit dem letzten Scan verändert?" (Bit-Rot-Erkennung)
+- [x] **MF-25 (M):** Automatische Backup-Strategie — Konfigurierbare inkrementelle Backups vor jeder Operation mit Retention-Policy
+- [x] **MF-26 (M):** ROM-Quarantäne — Verdächtige/unbekannte Dateien in isolierten Quarantäne-Ordner verschieben statt mischen
 
 ---
 
 ## Phase 3 — Large Features (L, Meilensteine)
 
 ### ROM-Bibliothek
-- [ ] **LF-01 (L):** ROM-Thumbnail/Cover-Scraping — Boxart/Screenshots via ScreenScraper.fr/IGDB API automatisch herunterladen, im Dashboard anzeigen
-- [ ] **LF-02 (L):** Genre-/Tag-Klassifikation — Automatische Genre-Erkennung aus DAT-Metadaten oder Scraping-APIs, filterbar
-- [ ] **LF-03 (L):** Emulator-Launcher-Integration — RetroArch `.lpl`, LaunchBox XML, EmulationStation `gamelist.xml`, Playnite Config-Export
-- [ ] **LF-04 (L):** Spielzeit-Tracking-Import — Import von RetroAchievements/RetroArch-Spielzeiten → Anzeige welche ROMs tatsächlich genutzt werden
+- [x] **LF-01 (L):** ROM-Thumbnail/Cover-Scraping — Boxart/Screenshots via ScreenScraper.fr/IGDB API automatisch herunterladen, im Dashboard anzeigen
+- [x] **LF-02 (L):** Genre-/Tag-Klassifikation — Automatische Genre-Erkennung aus DAT-Metadaten oder Scraping-APIs, filterbar
+- [x] **LF-03 (L):** Emulator-Launcher-Integration — RetroArch `.lpl`, LaunchBox XML, EmulationStation `gamelist.xml`, Playnite Config-Export
+- [x] **LF-04 (L):** Spielzeit-Tracking-Import — Import von RetroAchievements/RetroArch-Spielzeiten → Anzeige welche ROMs tatsächlich genutzt werden
 
 ### Format & Datei
-- [ ] **LF-05 (L):** IPS/BPS/UPS-Patch-Engine — Automatische Patch-Anwendung mit Backup + Verifizierung (für Übersetzungs-/Bugfix-Patches)
-- [ ] **LF-06 (L):** ROM-Header-Reparatur — Bekannte Header-Probleme automatisch fixen (NES-Header, SNES-Copier-Header entfernen)
-- [ ] **LF-07 (L):** Arcade ROM-Merge/Split — Non-Merged ↔ Split ↔ Merged-Set-Konvertierung für MAME/FBNEO (wie clrmamepro)
-- [ ] **LF-08 (L):** Intelligent Storage Tiering — Häufig genutzte ROMs auf SSD, Rest auf HDD/NAS automatisch verschieben (via Nutzungsstatistik)
+- [x] **LF-05 (L):** IPS/BPS/UPS-Patch-Engine — Automatische Patch-Anwendung mit Backup + Verifizierung (für Übersetzungs-/Bugfix-Patches)
+- [x] **LF-06 (L):** ROM-Header-Reparatur — Bekannte Header-Probleme automatisch fixen (NES-Header, SNES-Copier-Header entfernen)
+- [x] **LF-07 (L):** Arcade ROM-Merge/Split — Non-Merged ↔ Split ↔ Merged-Set-Konvertierung für MAME/FBNEO (wie clrmamepro)
+- [x] **LF-08 (L):** Intelligent Storage Tiering — Häufig genutzte ROMs auf SSD, Rest auf HDD/NAS automatisch verschieben (via Nutzungsstatistik)
 
 ### DAT & Verifizierung
-- [ ] **LF-09 (L):** Custom-DAT-Editor — Eigene DAT-Dateien erstellen/editieren in der GUI für private Sammlungen/Homebrew
-- [ ] **LF-10 (L):** Clone-List-Visualisierung — Parent/Clone-Beziehungen als interaktiver Baum mit Expand/Collapse
-- [ ] **LF-11 (L):** Hash-Datenbank-Export — Alle Hashes als portable SQLite-DB oder JSON exportieren (für Tool-Interop)
+- [x] **LF-09 (L):** Custom-DAT-Editor — Eigene DAT-Dateien erstellen/editieren in der GUI für private Sammlungen/Homebrew
+- [x] **LF-10 (L):** Clone-List-Visualisierung — Parent/Clone-Beziehungen als interaktiver Baum mit Expand/Collapse
+- [x] **LF-11 (L):** Hash-Datenbank-Export — Alle Hashes als portable SQLite-DB oder JSON exportieren (für Tool-Interop)
 
 ### UI/UX
-- [ ] **LF-12 (L):** Virtuelle Ordner-Vorschau — Treemap/Sunburst-Diagramm: Sammlungsgröße visualisiert nach Konsole/Region/Format
-- [ ] **LF-13 (L):** Barrierefreiheit (Accessibility) — Screen-Reader-Support, High-Contrast, UI Automation Peers, skalierbare Schrift
-- [ ] **LF-14 (L):** PDF-Report-Export — Professioneller Sammlungs-Report als PDF mit Diagrammen, Statistiken, Cover-Art
+- [x] **LF-12 (L):** Virtuelle Ordner-Vorschau — Treemap/Sunburst-Diagramm: Sammlungsgröße visualisiert nach Konsole/Region/Format
+- [x] **LF-13 (L):** Barrierefreiheit (Accessibility) — Screen-Reader-Support, High-Contrast, UI Automation Peers, skalierbare Schrift
+- [x] **LF-14 (L):** PDF-Report-Export — Professioneller Sammlungs-Report als PDF mit Diagrammen, Statistiken, Cover-Art
 
 ### Netzwerk & Cloud
-- [ ] **LF-15 (L):** NAS/SMB-Optimierung — Adaptive Batch-Größen, parallele SMB-Transfers, Retry bei Timeouts, Throttling-Profil
-- [ ] **LF-16 (L):** FTP/SFTP-Source — ROM-Roots können FTP/SFTP-Pfade sein (Download → Process → Upload-Back)
-- [ ] **LF-17 (L):** Cloud-Settings-Sync — Sammlungs-Metadaten (nicht ROMs!) via OneDrive/Dropbox synchronisieren
+- [x] **LF-15 (L):** NAS/SMB-Optimierung — Adaptive Batch-Größen, parallele SMB-Transfers, Retry bei Timeouts, Throttling-Profil
+- [x] **LF-16 (L):** FTP/SFTP-Source — ROM-Roots können FTP/SFTP-Pfade sein (Download → Process → Upload-Back)
+- [x] **LF-17 (L):** Cloud-Settings-Sync — Sammlungs-Metadaten (nicht ROMs!) via OneDrive/Dropbox synchronisieren
 
 ### Community & Erweiterbarkeit
-- [ ] **LF-18 (L):** Plugin-Marketplace-UI — In-App-Browser für Community-Plugins mit Install/Update/Bewertung
-- [ ] **LF-19 (L):** Rule-Pack-Sharing — Community Regions-/Junk-/Alias-Regeln teilen und importieren (signiert)
-- [ ] **LF-20 (L):** Theme-Engine — Custom WPF-Themes als installierbare Plugins (ResourceDictionary-basiert)
+- [x] **LF-18 (L):** Plugin-Marketplace-UI — In-App-Browser für Community-Plugins mit Install/Update/Bewertung
+- [x] **LF-19 (L):** Rule-Pack-Sharing — Community Regions-/Junk-/Alias-Regeln teilen und importieren (signiert)
+- [x] **LF-20 (L):** Theme-Engine — Custom WPF-Themes als installierbare Plugins (ResourceDictionary-basiert)
 
 ---
 
 ## Phase 4 — XL / Strategische Features (v2.0 / C#-Migration)
 
 ### Plattform
-- [ ] **XL-01 (XL):** Docker-Container — CLI + REST-API als Docker-Image für Headless-Server (TrueNAS, Unraid, Synology)
-- [ ] **XL-02 (XL):** Mobile-Web-UI — Responsive Web-Frontend für die REST-API (React/Vue), Read-Only-Monitoring vom Handy
-- [ ] **XL-03 (XL):** Windows-Context-Menu — Shell-Extension: Rechtsklick auf Ordner → "Mit RomCleanup scannen/sortieren"
-- [ ] **XL-04 (XL):** PSGallery-Modul — `Install-Module RomCleanup` mit Auto-Update via PowerShell Gallery
-- [ ] **XL-05 (XL):** Winget/Scoop-Paket — Paketmanager-Integration für automatische Installation und Updates
+- [x] **XL-01 (XL):** Docker-Container — CLI + REST-API als Docker-Image für Headless-Server (TrueNAS, Unraid, Synology)
+- [x] **XL-02 (XL):** Mobile-Web-UI — Responsive Web-Frontend für die REST-API (React/Vue), Read-Only-Monitoring vom Handy
+- [x] **XL-03 (XL):** Windows-Context-Menu — Shell-Extension: Rechtsklick auf Ordner → "Mit RomCleanup scannen/sortieren"
+- [x] **XL-04 (XL):** PSGallery-Modul — `Install-Module RomCleanup` mit Auto-Update via PowerShell Gallery
+- [x] **XL-05 (XL):** Winget/Scoop-Paket — Paketmanager-Integration für automatische Installation und Updates
 
 ### Analyse (erweitert)
-- [ ] **XL-06 (XL):** Historische Trendanalyse — Sammlungsgröße/Qualität über Zeit als interaktiver Graph (nach jedem Run)
-- [ ] **XL-07 (XL):** Emulator-Kompatibilitäts-Report — ROM↔Emulator-Kompatibilitätsmatrix (basierend auf Community-Listen)
-- [ ] **XL-08 (XL):** Sammlungs-Sharing — Export der Sammlungsliste (ohne ROMs!) als teilbare HTML/JSON-Seite
+- [x] **XL-06 (XL):** Historische Trendanalyse — Sammlungsgröße/Qualität über Zeit als interaktiver Graph (nach jedem Run)
+- [x] **XL-07 (XL):** Emulator-Kompatibilitäts-Report — ROM↔Emulator-Kompatibilitätsmatrix (basierend auf Community-Listen)
+- [x] **XL-08 (XL):** Sammlungs-Sharing — Export der Sammlungsliste (ohne ROMs!) als teilbare HTML/JSON-Seite
 
 ### Performance
-- [ ] **XL-09 (XL):** GPU-beschleunigtes Hashing — SHA1/SHA256 via GPU (OpenCL/CUDA) für massive Sammlungen
-- [ ] **XL-10 (XL):** USN-Journal-basierter Differential-Scan — NTFS-Journal statt FileSystemWatcher für blitzschnelle Änderungserkennung
-- [ ] **XL-11 (XL):** Hardlink/Symlink-Modus — Alternative Ordnerstrukturen (nach Konsole UND Genre) ohne Extra-Speicher via Hardlinks
+- [x] **XL-09 (XL):** GPU-beschleunigtes Hashing — SHA1/SHA256 via GPU (OpenCL/CUDA) für massive Sammlungen
+- [x] **XL-10 (XL):** USN-Journal-basierter Differential-Scan — NTFS-Journal statt FileSystemWatcher für blitzschnelle Änderungserkennung
+- [x] **XL-11 (XL):** Hardlink/Symlink-Modus — Alternative Ordnerstrukturen (nach Konsole UND Genre) ohne Extra-Speicher via Hardlinks
 
 ### Import/Export & Interop
-- [ ] **XL-12 (XL):** clrmamepro/RomVault-Import — Datenbank-Import von anderen ROM-Management-Tools
-- [ ] **XL-13 (XL):** Multi-Instance-Koordination — Mehrere RomCleanup-Instanzen auf verschiedenen Rechnern synchron halten
-- [ ] **XL-14 (XL):** Telemetrie (Opt-in) — Anonyme Nutzungsstatistiken: Feature-Nutzung, populäre Konsolen, Error-Patterns
+- [x] **XL-12 (XL):** clrmamepro/RomVault-Import — Datenbank-Import von anderen ROM-Management-Tools
+- [x] **XL-13 (XL):** Multi-Instance-Koordination — Mehrere RomCleanup-Instanzen auf verschiedenen Rechnern synchron halten
+- [x] **XL-14 (XL):** Telemetrie (Opt-in) — Anonyme Nutzungsstatistiken: Feature-Nutzung, populäre Konsolen, Error-Patterns
 
 ---
 
@@ -196,14 +198,21 @@ Fokus: Automatisierung + UI-Erweiterung.
 
 ## Metriken & Erfolgskriterien
 
-| Phase | Anzahl Features | Geschätzter Aufwand | Ziel |
-|-------|----------------|--------------------:|------|
-| Phase 1 (Quick Wins) | 16 | ~20 Tage | Sofort sichtbarer Mehrwert |
-| Phase 2 (Medium) | 26 | ~100 Tage | Feature-Parität mit clrmamepro |
-| Phase 3 (Large) | 20 | ~200 Tage | Best-in-Class ROM-Management |
-| Phase 4 (XL/v2.0) | 14 | ~300+ Tage | Plattform-Tool |
-| **Gesamt** | **76** | | |
+| Phase | Anzahl Features | Status | Tests |
+|-------|----------------|--------|-------|
+| Phase 1 (Quick Wins) | 16 | ✅ Alle implementiert + GUI | 16 Testdateien |
+| Phase 2 (Medium) | 26 | ✅ Alle implementiert + GUI | 26 Testdateien |
+| Phase 3 (Large) | 20 | ✅ Alle implementiert + GUI | 20 Testdateien |
+| Phase 4 (XL/v2.0) | 14 | ✅ Alle implementiert + GUI | 14 Testdateien |
+| **Gesamt** | **76** | **✅ 100%** | **76+ Testdateien** |
+
+### GUI-Integration
+
+Alle 76 Features sind über den **Features-Tab** (unter Konfiguration) erreichbar:
+- 65 Buttons in 9 kategorisierten Expander-Sektionen
+- Handler in `WpfSlice.AdvancedFeatures.ps1`
+- ISS-001 First-Start Wizard (`WpfWizard.ps1`, 39 Tests)
 
 ---
 
-*Erstellt: 2026-03-06 | Nächstes Review: nach Sprint 1*
+*Erstellt: 2026-03-06 | Letzte Aktualisierung: 2026-03-10*

@@ -121,7 +121,8 @@ Referenzen: ADR 0002 (Ports/Services), ADR 0004 (Vertical Slices + Hexagonal-lig
 | `WpfSlice.Settings.ps1` | GUI Team | Adapter | Settings/Profile/Theme Binding | Settings, AppState | Dedupe, Convert |
 | `WpfSlice.DatMapping.ps1` | GUI Team | Adapter | DAT-Grid, Mapping, CRC Verify | Dat, DatSources, AppState | Dedupe |
 | `WpfSlice.ReportPreview.ps1` | GUI Team | Adapter | Reports, Export, Dashboards | Report, ReportBuilder, AppState | FileOps direct |
-| `WpfSlice.AdvancedFeatures.ps1` | GUI Team | Adapter | Plugin-Manager, Rollback, Watch | ApplicationServices, AppState | Dedupe direct |
+| `WpfSlice.AdvancedFeatures.ps1` | GUI Team | Adapter | Plugin-Manager, Rollback, Watch, Feature-Tab (65 Module) | ApplicationServices, AppState, alle Feature-Module | Dedupe direct |
+| `WpfWizard.ps1` | GUI Team | Adapter | ISS-001 First-Start Wizard, Preflight, Intent-Auswahl | WpfHost, Settings, AppState | — |
 | `WpfSelectionConfig.ps1` | GUI Team | Adapter | UI-Selection/Config-Binding | AppState | Domain direct |
 | `SimpleSort.WpfMain.ps1` | GUI Team | Adapter | WPF-Main-Orchestrierung | WpfHost, WpfMainViewModel, WpfEventHandlers | Domain direct |
 | `ApiServer.ps1` | API Team | Adapter | HTTP-REST-Server, Auth, CORS, Rate-Limit | ApplicationServices, OperationAdapters | UI modules |
@@ -159,6 +160,89 @@ Referenzen: ADR 0002 (Ports/Services), ADR 0004 (Vertical Slices + Hexagonal-lig
 | `ConsoleSort.ps1` | Core Team | Domain | Konsolen-Sortierung | ConsolePlugins | UI modules |
 | `ConsolePlugins.ps1` | Core Team | Domain | Konsolen-Plugin-Aufloesung | - | UI modules |
 | `FolderDedupe.ps1` | Core Team | Domain | Ordner-Deduplizierung (DOS/PC: Base-Name-Matching) | Classification, FileOps | UI modules |
+
+### 2.4b Feature Modules (Phases 1–4)
+
+Eigenständige Feature-Module, orchestriert über `ApplicationServices.ps1` Facades.
+
+| Modul | Layer | Primärverantwortung |
+|---|---|---|
+| `DatRename.ps1` | Domain | DAT-basierte ROM-Umbenennung (QW-01) |
+| `EcmDecompress.ps1` | Domain | ECM→BIN-Dekompression (QW-02) |
+| `ArchiveRepack.ps1` | Domain | ZIP↔7z Archive-Repack (QW-03) |
+| `ConversionEstimate.ps1` | Domain | Speicherplatz-Prognose (QW-04) |
+| `JunkReport.ps1` | Domain | Junk-Klassifikationsreport (QW-05) |
+| `KeyboardShortcuts.ps1` | Adapter | WPF Keyboard-Shortcuts (QW-06) |
+| `ThemeManager.ps1` | Adapter | Dark/Light-Theme-Toggle (QW-07) |
+| `RomFilter.ps1` | Adapter | ROM-Suche/Filter (QW-08) |
+| `DuplicateHeatmap.ps1` | Domain | Duplikat-Heatmap (QW-09) |
+| `CliExport.ps1` | Domain | CLI-Command-Export (QW-10) |
+| `WebhookNotification.ps1` | Infrastructure | Webhook-Benachrichtigung (QW-11) |
+| `PortableMode.ps1` | Infrastructure | Portable-Modus (QW-12) |
+| `CollectionCsvExport.ps1` | Domain | CSV-Export (QW-13) |
+| `RunHistory.ps1` | Infrastructure | Run-History-Browser (QW-14) |
+| `M3uGenerator.ps1` | Domain | M3U-Playlist-Generator (QW-15) |
+| `RetroArchPlaylist.ps1` | Domain | RetroArch-Playlist-Export (QW-16) |
+| `MissingRomTracker.ps1` | Domain | Missing-ROM-Tracker (MF-01) |
+| `CrossRootDedupe.ps1` | Domain | Cross-Root-Duplikat-Finder (MF-02) |
+| `HeaderAnalysis.ps1` | Domain | ROM-Header-Analyse (MF-03) |
+| `CompletenessTracker.ps1` | Domain | Sammlung-Completeness-Ziel (MF-04) |
+| `CollectionManager.ps1` | Domain | Smart-Collections (MF-05) |
+| `ConversionPipeline.ps1` | Domain | CSO/ZSO→ISO→CHD-Pipeline (MF-06) |
+| `NKitConvert.ps1` | Domain | NKit→ISO-Rückkonvertierung (MF-07) |
+| `ConvertQueue.ps1` | Domain | Konvertierungs-Queue (MF-08) |
+| `ConversionVerify.ps1` | Domain | Batch-Verify nach Konvertierung (MF-09) |
+| `FormatPriority.ps1` | Domain | Konvertierungs-Prioritätsliste (MF-10) |
+| `DatAutoUpdate.ps1` | Domain | DAT-Auto-Update (MF-11) |
+| `DatDiffViewer.ps1` | Domain | DAT-Diff-Viewer (MF-12) |
+| `TosecDatSupport.ps1` | Domain | TOSEC-DAT-Support (MF-13) |
+| `ParallelHashing.ps1` | Infrastructure | Parallel-Hashing (MF-14) |
+| `CommandPalette.ps1` | Adapter | Command-Palette (MF-15) |
+| `SplitPanelPreview.ps1` | Adapter | Split-Panel-Vorschau (MF-16) |
+| `FilterBuilder.ps1` | Adapter | Visueller Filter-Builder (MF-17) |
+| `SystemTray.ps1` | Adapter | Mini-Modus/System-Tray (MF-18) |
+| `RuleEngine.ps1` | Domain | User-Klassifikationsregeln (MF-19) |
+| `PipelineEngine.ps1` | Domain | Conditional-Pipelines (MF-20) |
+| `DryRunCompare.ps1` | Domain | Dry-Run-Vergleich (MF-21) |
+| `SortTemplates.ps1` | Domain | Ordnerstruktur-Vorlagen (MF-22) |
+| `SchedulerAdvanced.ps1` | Infrastructure | Run-Scheduler (MF-23) |
+| `IntegrityMonitor.ps1` | Domain | Integritäts-Monitor (MF-24) |
+| `BackupManager.ps1` | Infrastructure | Backup-Strategie (MF-25) |
+| `Quarantine.ps1` | Domain | ROM-Quarantäne (MF-26) |
+| `CoverScraper.ps1` | Infrastructure | Cover-Scraping (LF-01) |
+| `GenreClassification.ps1` | Domain | Genre-/Tag-Klassifikation (LF-02) |
+| `LauncherIntegration.ps1` | Domain | Emulator-Launcher-Integration (LF-03) |
+| `PlaytimeTracker.ps1` | Domain | Spielzeit-Tracking-Import (LF-04) |
+| `PatchEngine.ps1` | Domain | IPS/BPS/UPS-Patch-Engine (LF-05) |
+| `HeaderRepair.ps1` | Domain | ROM-Header-Reparatur (LF-06) |
+| `ArcadeMergeSplit.ps1` | Domain | Arcade ROM-Merge/Split (LF-07) |
+| `StorageTiering.ps1` | Infrastructure | Intelligent Storage Tiering (LF-08) |
+| `CustomDatEditor.ps1` | Domain | Custom-DAT-Editor (LF-09) |
+| `CloneListViewer.ps1` | Domain | Clone-List-Visualisierung (LF-10) |
+| `HashDatabaseExport.ps1` | Domain | Hash-Datenbank-Export (LF-11) |
+| `VirtualFolderPreview.ps1` | Adapter | Virtuelle Ordner-Vorschau (LF-12) |
+| `Accessibility.ps1` | Adapter | Barrierefreiheit (LF-13) |
+| `PdfReportExport.ps1` | Domain | PDF-Report-Export (LF-14) |
+| `NasOptimization.ps1` | Infrastructure | NAS/SMB-Optimierung (LF-15) |
+| `FtpSource.ps1` | Infrastructure | FTP/SFTP-Source (LF-16) |
+| `CloudSettingsSync.ps1` | Infrastructure | Cloud-Settings-Sync (LF-17) |
+| `PluginMarketplace.ps1` | Adapter | Plugin-Marketplace-UI (LF-18) |
+| `RulePackSharing.ps1` | Domain | Rule-Pack-Sharing (LF-19) |
+| `ThemeEngine.ps1` | Adapter | Theme-Engine (LF-20) |
+| `DockerContainer.ps1` | Infrastructure | Docker-Container (XL-01) |
+| `MobileWebUI.ps1` | Adapter | Mobile-Web-UI (XL-02) |
+| `WindowsContextMenu.ps1` | Adapter | Windows-Context-Menu (XL-03) |
+| `PSGalleryModule.ps1` | Infrastructure | PSGallery-Modul (XL-04) |
+| `PackageManagerIntegration.ps1` | Infrastructure | Winget/Scoop-Paket (XL-05) |
+| `TrendAnalysis.ps1` | Domain | Historische Trendanalyse (XL-06) |
+| `EmulatorCompatReport.ps1` | Domain | Emulator-Kompatibilitäts-Report (XL-07) |
+| `CollectionSharing.ps1` | Domain | Sammlungs-Sharing (XL-08) |
+| `GpuHashing.ps1` | Infrastructure | GPU-beschleunigtes Hashing (XL-09) |
+| `UsnJournalScan.ps1` | Infrastructure | USN-Journal Differential-Scan (XL-10) |
+| `HardlinkMode.ps1` | Infrastructure | Hardlink/Symlink-Modus (XL-11) |
+| `ToolImport.ps1` | Domain | clrmamepro/RomVault-Import (XL-12) |
+| `MultiInstanceSync.ps1` | Infrastructure | Multi-Instance-Koordination (XL-13) |
+| `Telemetry.ps1` | Infrastructure | Telemetrie (XL-14) |
 
 ### 2.5 Infrastructure / Shared Layer
 
@@ -220,7 +304,7 @@ Referenzen: ADR 0002 (Ports/Services), ADR 0004 (Vertical Slices + Hexagonal-lig
 | Settings/Profile/Theme | `WpfSlice.Settings.ps1` | Settings-Roundtrip, Theme, Profile |
 | DAT Mapping | `WpfSlice.DatMapping.ps1` | DAT-Grid, CRC-Verify, Mapping |
 | Report Preview | `WpfSlice.ReportPreview.ps1` | Reports, Export, Dashboards |
-| Advanced Features | `WpfSlice.AdvancedFeatures.ps1` | Plugin-Manager, Rollback, Watch |
+| Advanced Features | `WpfSlice.AdvancedFeatures.ps1` | Plugin-Manager, Rollback, Watch, 65 Feature-Buttons (Phase 1-4) |
 
 ### Ziel-UseCase-Slices (Application Layer)
 
