@@ -80,7 +80,11 @@ public sealed class ScanIndexService
             Directory.CreateDirectory(dir);
 
         var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(indexPath, json, System.Text.Encoding.UTF8);
+
+        // Atomic write: write to temp file first, then rename to prevent corruption on crash
+        var tmpPath = indexPath + ".tmp";
+        File.WriteAllText(tmpPath, json, System.Text.Encoding.UTF8);
+        File.Move(tmpPath, indexPath, overwrite: true);
     }
 
     /// <summary>

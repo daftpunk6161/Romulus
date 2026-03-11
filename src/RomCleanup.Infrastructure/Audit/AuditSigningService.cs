@@ -195,10 +195,20 @@ public sealed class AuditSigningService
             eligible++;
 
             // Safety: check the current location (newPath) is within allowed roots
+            var fullNewPath = Path.GetFullPath(newPath);
+            var fullOldPath = Path.GetFullPath(oldPath);
             var inAllowedCurrent = allowedCurrentRoots.Any(r =>
-                newPath.StartsWith(r, StringComparison.OrdinalIgnoreCase));
+            {
+                var normalizedRoot = Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar)
+                                     + Path.DirectorySeparatorChar;
+                return fullNewPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+            });
             var inAllowedRestore = allowedRestoreRoots.Any(r =>
-                oldPath.StartsWith(r, StringComparison.OrdinalIgnoreCase));
+            {
+                var normalizedRoot = Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar)
+                                     + Path.DirectorySeparatorChar;
+                return fullOldPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+            });
 
             if (!inAllowedCurrent || !inAllowedRestore)
             {

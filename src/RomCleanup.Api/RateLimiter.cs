@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace RomCleanup.Api;
 
 /// <summary>
-/// Per-client sliding window rate limiter.
+/// Per-client fixed-window rate limiter with automatic bucket eviction.
 /// Port of API rate limiting from ApiServer.ps1.
 /// </summary>
 public sealed class RateLimiter
@@ -11,6 +11,7 @@ public sealed class RateLimiter
     private readonly int _maxRequests;
     private readonly TimeSpan _window;
     private readonly ConcurrentDictionary<string, ClientBucket> _buckets = new();
+    private DateTime _lastEviction = DateTime.UtcNow;
 
     public RateLimiter(int maxRequestsPerWindow, TimeSpan window)
     {
@@ -38,7 +39,24 @@ public sealed class RateLimiter
                 return false;
 
             bucket.Count++;
-            return true;
+        }
+
+        // Periodic eviction of stale buckets (every 5 minutes)
+        if (now - _lastEviction > TimeSpan.FromMinutes(5))
+        {
+            _lastEviction = now;
+            EvictStaleBuckets(now);
+        }
+
+        return true;
+    }
+
+    private void EvictStaleBuckets(DateTime now)
+    {
+        foreach (var (key, bucket) in _buckets)
+        {
+            if (now - bucket.WindowStart > _window + _window)
+                _buckets.TryRemove(key, out _);
         }
     }
 

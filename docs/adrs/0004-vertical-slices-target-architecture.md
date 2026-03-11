@@ -1,82 +1,105 @@
-# ADR 0004: Zielarchitektur Vertical Slices + Hexagonal-light
+# ADR 0004: Zielarchitektur Clean Architecture (Ports & Adapters)
 
 ## Status
-Accepted
+Accepted — Vollständig umgesetzt in C# .NET 10 (2026-03-11)
 
-**Reviewed by:** Core Team, GUI Team, Platform Team
+**Reviewed by:** Core Team
 **Approval date:** 2026-03-02
-**Last updated:** 2026-03-02
+**Last updated:** 2026-03-11 (C#-Migration abgeschlossen)
 
 ## Kontext
-Die Codebasis ist funktional stark, leidet jedoch unter zentralisierten Orchestrierungsdateien mit hoher Änderungs- und Regressionsgefahr. Besonders UI-Ereignislogik und Infrastrukturpfade sind eng gekoppelt.
+Die ursprüngliche PowerShell-Codebasis litt unter zentralisierten Orchestrierungsdateien mit hoher Änderungs- und Regressionsgefahr. Die Entscheidung fiel auf eine vollständige Migration nach C# .NET 10 mit Clean Architecture.
 
 ## Entscheidung
-Wir führen schrittweise eine Zielarchitektur ein:
+Clean Architecture (Ports & Adapters) als .NET Solution mit 7 Projekten:
 
-1. **Domain Layer**
-   - reine, deterministische Logik
-   - keine UI/Dateisystem/Prozessaufrufe
+1. **Contracts** (`RomCleanup.Contracts`)
+   - Port-Interfaces (`IFileSystem`, `IAuditStore`, `IDatRepository`, `IToolRunner`, `IFormatConverter`, `IAppState`)
+   - Models (Records/DTOs)
+   - Error-Contracts (`OperationError`, `ErrorClassifier`)
 
-2. **Application Layer (Use Cases)**
-   - orchestriert Domain + Ports
-   - kapselt Flows: `Run`, `Preflight`, `Convert`, `Rollback`, `Reporting`
+2. **Core** (`RomCleanup.Core`)
+   - Reine, deterministische Domain-Logik — keine I/O-Abhängigkeiten
+   - `GameKeys/` — GameKeyNormalizer (LRU-Cache, Tag-Parsing, Region-Scoring)
+   - `Regions/` — RegionDetector
+   - `Scoring/` — FormatScorer, VersionScorer
+   - `Classification/` — ConsoleDetector, FileClassifier, ExtensionNormalizer, DiscHeaderDetector
+   - `Deduplication/` — DeduplicationEngine (deterministische Winner-Selection)
+   - `SetParsing/` — CueSetParser, GdiSetParser, CcdSetParser, M3uPlaylistParser
+   - `Rules/` — RuleEngine
+   - `Caching/` — LruCache<TKey,TValue>
 
-3. **Adapter Layer**
-   - WPF, CLI, API, Filesystem, Toolrunner, Plugin-Host
-   - nur Adapter kennen Infrastrukturdetails
+3. **Infrastructure** (`RomCleanup.Infrastructure`)
+   - `Orchestration/` — RunOrchestrator, ExecutionHelpers
+   - `FileSystem/` — FileSystemAdapter (Path-Traversal-Schutz, Reparse-Blocking)
+   - `Audit/` — AuditCsvStore, AuditSigningService
+   - `Dat/` — DatRepositoryAdapter, DatSourceService
+   - `Hashing/` — FileHashService, Crc32, ArchiveHashService, ParallelHasher
+   - `Conversion/` — FormatConverterAdapter, ConversionPipeline
+   - `Tools/` — ToolRunnerAdapter
+   - `Logging/` — JsonlLogWriter
+   - `Reporting/` — ReportGenerator (HTML, CSV)
+   - `Configuration/` — SettingsLoader
+   - `Safety/` — SafetyValidator
+   - `Sorting/` — ConsoleSorter, ZipSorter
+   - `Deduplication/` — CrossRootDeduplicator, FolderDeduplicator
+   - `Events/` — EventBus
+   - `Pipeline/` — PipelineEngine
+   - `Quarantine/` — QuarantineService
+   - `History/` — RunHistoryService, ScanIndexService
+   - `Metrics/` — PhaseMetricsCollector
+   - `Linking/` — HardlinkService
+   - `Analytics/` — InsightsEngine
+   - `Diagnostics/` — CatchGuardService
+   - `State/` — AppStateStore
+   - `Services/` — ApplicationServiceFacade
+   - `Version/` — VersionHelper
 
-4. **Observability Layer (querliegend)**
-   - strukturierte Fehlerverträge
-   - CorrelationId durchgängig
-   - standardisierte Security-/Audit-Events
+4. **Entry Points**
+   - `RomCleanup.CLI` — Headless (Exit-Codes: 0/1/2/3)
+   - `RomCleanup.Api` — ASP.NET Core Minimal API (127.0.0.1, API-Key, Rate-Limiting, SSE)
+   - `RomCleanup.UI.Wpf` — WPF GUI (MVVM, Dark-Theme, net10.0-windows)
+
+5. **Tests** (`RomCleanup.Tests`)
+   - 789+ xUnit-Tests in 46 Testdateien
+
+## Dependency-Richtung
+
+```
+Entry Points (CLI, Api, UI.Wpf) → Infrastructure → Core → Contracts
+                                                          (nie umgekehrt)
+```
 
 ## Technische Leitplanken
-- Neue Features dürfen nicht direkt in `WpfEventHandlers.ps1` als Monolith wachsen.
-- Jeder neue Flow wird als eigener UseCase mit Input/Output-Contract implementiert.
-- Kein stilles `catch {}` in Domain/Application/API/IO (Ausnahmen nur UI-Kosmetik/Dispose mit Verbose).
-- Plugin-Ausführung unterliegt Trust-Policy (`compat`, `trusted-only`, `signed-only`).
-
-## Migrationsstrategie
-
-### Phase A (kurzfristig)
-- Sicherheits-Härtungen (API-Key fixed-time, CORS Profile, Plugin Trust Mode)
-- Dead-Code-Kandidaten in produktiven Pfad integrieren oder entfernen
-- Catch/Logging-Governance aktivieren
-
-### Phase B (mittelfristig)
-- `WpfEventHandlers.ps1` in vertikale Feature-Slices zerlegen
-- Shared Runspace-Lifecycle helper für Dedupe/Convert
-- UseCase-Contracts für Run/Preflight/Convert/Rollback
-
-### Phase C (langfristig, Q3 2026)
-- Vollständige Trennung Application↔Adapter
-- Telemetrie-/Audit-Events vereinheitlichen
-- PR-Gates für Architekturregeln und Komplexitätsgrenzen
-- Zeitrahmen: 2026-06 bis 2026-08
+- Core-Logik muss pure sein — keine I/O-Abhängigkeiten
+- Alle Services über Konstruktor-Injection, Interfaces aus `Contracts/Ports/`
+- Kein stilles `catch {}` in Domain/Application/IO
+- Drei Fehlerklassen: `Transient`, `Recoverable`, `Critical`
 
 ## Migrationsfortschritt
 
-| Phase | Status | Fortschritt | Referenz |
-|-------|--------|-------------|----------|
-| A | ✅ Done | 100% | API-Key, CORS, Plugin-Trust, Dead-Code-Cleanup |
-| B | ✅ Done | 100% | 6/6 Slices done, Runspace-Helper done, UseCase-Contracts v1 implementiert, Dependency-Boundary-Tests aktiv, 76 Feature-Module mit 22 Service-Facades, Features-Tab (65 Buttons), ISS-001 Wizard |
-| C | 🔄 In Progress | 25% | Governance-Gate implementiert, Architektur-Map dokumentiert, ModuleDependencyBoundary-Tests aktiv, CatchGuard-Compliance, Enforcement ab M3 |
+| Phase | Status | Beschreibung |
+|-------|--------|-------------|
+| PowerShell → C# Core | ✅ Done | Alle Domain-Algorithmen portiert |
+| PowerShell → C# Infrastructure | ✅ Done | Alle I/O-Adapter portiert |
+| PowerShell → C# CLI | ✅ Done | Vollständiger CLI Entry Point |
+| PowerShell → C# API | ✅ Done | REST-API mit Auth, Rate-Limiting, SSE |
+| PowerShell → C# GUI | ✅ Done | WPF-GUI (MVVM, Dark-Theme) |
+| PowerShell → C# Tests | ✅ Done | 789+ xUnit-Tests |
+| Plugin-System (C#) | ⏳ Backlog | Neuimplementierung ausstehend |
 
 ## Konsequenzen
 
 ### Positiv
-- Niedrigere Regressionsrate bei Feature-Ausbau
-- Bessere Testbarkeit und schnellere Diagnose
-- Klarere Ownership je Modul
+- Klar getrennte Projekte mit expliziten Abhängigkeiten
+- 789+ Tests sichern Regressionssicherheit
+- Drei unabhängige Entry Points (CLI, API, GUI) teilen einen Kern
+- .NET 10 bietet native Async, starke Typisierung, Cross-Platform-Readiness
 
 ### Negativ
-- Anfangsinvestition für Refactoring und Umschulung
-- Temporäre Doppelstrukturen während Migrationsphasen
+- PowerShell-Plugins nicht direkt übertragbar (Neuimplementierung nötig)
 
 ## Verknüpfungen
-- ADR 0002 (Ports/Services)
-- ADR 0003 (Externalized WPF XAML)
-- `docs/implementation/TECH_DEBT_REGISTER.md`
-- `docs/implementation/REFACTORING_ROADMAP_2026Q2-Q3.md` (terminierter Umsetzungsplan)
-- `docs/implementation/WPF_EVENTHANDLERS_SLICE_TICKETS.md` (Slice-Tickets 1–3)
-- `dev/tools/Invoke-GovernanceGate.ps1` (Governance-Enforcement)
+- ADR 0002 (Ports/Services) — aktiv, in C# umgesetzt
+- ADR 0001 (Module-Loader) — superseded durch .NET DI
+- ADR 0003 (Externalized XAML) — superseded durch native WPF-Projektstruktur

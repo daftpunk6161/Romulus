@@ -1,62 +1,66 @@
-# PR-Review-Checklist — Naming, Struktur & Hygiene-Gates
+# PR-Review-Checklist — C# .NET 10
 
-> Stand: 2026-03-02 | Ref: OPEN_ITEMS_CONSOLIDATED §2.3, NAMING_GUIDE.md
+> Stand: 2026-03-11 | Ref: `.github/copilot-instructions.md`, `docs/ARCHITECTURE_MAP.md`
 
 ---
 
 ## Vor jedem PR: Autor prüft
 
 ### 1 Naming & Sprache
-- [ ] Funktionsnamen nutzen PowerShell-Approved-Verben (`Get-Verb`)
+- [ ] PascalCase für Methoden/Properties, camelCase für lokale Variablen/Parameter
 - [ ] Keine deutschen Funktions- oder Variablennamen
 - [ ] Neue Log-Nachrichten sind auf Englisch
 - [ ] UI-Texte verwenden i18n-Keys aus `data/i18n/de.json`
-- [ ] Parameter sind PascalCase, lokale Variablen camelCase
 
-### 2 Struktur & Größe
-- [ ] Keine Datei überschreitet 2000 LOC (Warn) / 4000 LOC (Hard)
-- [ ] Keine Funktion überschreitet 200 LOC (Warn) / 500 LOC (Hard)
-- [ ] Neue Module sind in `ModuleFileList.ps1` registriert
-- [ ] Modulabhängigkeiten respektieren Schichtengrenzen (ADR-0004)
+### 2 Struktur & Architektur
+- [ ] Dependency-Richtung eingehalten: Entry Points → Infrastructure → Core → Contracts (nie umgekehrt)
+- [ ] Core-Logik ist pure (keine I/O-Abhängigkeiten in `RomCleanup.Core`)
+- [ ] Neue Services über Konstruktor-Injection, Interfaces aus `Contracts/Ports/`
+- [ ] Datenstrukturen als C# records oder Modelle in `Contracts/Models/`
 
 ### 3 Dead Code & Duplikate
-- [ ] Keine ungenutzten öffentlichen Funktionen eingeführt
-- [ ] Keine Kopien bestehender Patterns — stattdessen Shared-Utility nutzen
-- [ ] Kein Inline-XAML geändert ohne Sync mit `wpf/MainWindow.xaml`
-- [ ] Catch-Blöcke sind nicht leer — mindestens `Write-CatchGuardLog` oder Kommentar
+- [ ] Keine ungenutzten öffentlichen Methoden eingeführt
+- [ ] Keine Kopien bestehender Patterns — stattdessen vorhandene Services nutzen
+- [ ] Catch-Blöcke sind nicht leer — mindestens Logging oder Kommentar
 
 ### 4 Tests
-- [ ] Unit-Tests für neue/geänderte Funktionen vorhanden
-- [ ] `Invoke-TestPipeline.ps1 -Stage unit` grün
-- [ ] ModuleDependencyBoundary-Tests grün
-- [ ] Governance-Gate bestanden (`Invoke-GovernanceGate.ps1`)
+- [ ] xUnit-Tests für neue/geänderte Klassen vorhanden
+- [ ] `dotnet test src/RomCleanup.sln` grün
+- [ ] Testbenennung: `<Klasse>Tests.cs`
+- [ ] Kein Alibi-Test (`Assert.True(true)` etc.)
 
 ### 5 Fehlerbehandlung
-- [ ] Keine neuen silent catches in Domain-/Application-/IO-Pfaden
-- [ ] Fehler haben mindestens eine der Klassen: `Transient`, `Recoverable`, `Critical`
-- [ ] Legacy-Pfade nicht erweitert — stattdessen aktuelle API nutzen
+- [ ] Fehler verwenden `OperationError` mit Fehlerklasse (`Transient`, `Recoverable`, `Critical`)
+- [ ] Fehler-Code-Namespaces beachtet: `GUI-*`, `DAT-*`, `IO-*`, `SEC-*`, `RUN-*`
+- [ ] Keine rohen Strings als Fehler geworfen
 
-### 6 Dokumentation
+### 6 Sicherheit
+- [ ] Path-Traversal-Schutz via `FileSystemAdapter.ResolveChildPathWithinRoot` vor Move/Copy/Delete
+- [ ] Kein direktes Löschen ohne explizite Bestätigung — Standard ist Move in Trash + Audit
+- [ ] CSV-Injection verhindert (keine führenden `=`, `+`, `-`, `@`)
+- [ ] HTML-Encoding in Report-Outputs
+- [ ] Tool-Hash-Verifizierung bei externen Tool-Aufrufen
+- [ ] Reparse Points (Symlinks/Junctions) explizit behandelt
+
+### 7 Dokumentation
 - [ ] ADR geschrieben bei architekturrelevanten Entscheidungen
-- [ ] ARCHITECTURE_MAP.md aktualisiert bei neuem Modul
-- [ ] OPEN_ITEMS_CONSOLIDATED.md aktualisiert bei erledigtem Punkt
+- [ ] `docs/ARCHITECTURE_MAP.md` aktualisiert bei neuem Modul/Projekt
 
 ---
 
 ## Für Reviewer
 
 ### Quick-Gates (Block-Kriterien)
+
 | Gate | Tool | Automatisiert? |
 |------|------|----------------|
-| Dateigröße | `Invoke-GovernanceGate.ps1` | ✅ Ja |
-| PSScriptAnalyzer | `PSScriptAnalyzerSettings.psd1` | ✅ Ja |
-| Unit-Tests | `Invoke-TestPipeline.ps1 -Stage unit` | ✅ Ja |
-| Dependency-Boundary | `ModuleDependencyBoundary.Tests.ps1` | ✅ Ja |
-| XAML-Sync | Manuell (bis XAML-SYNC-GATE CI implementiert) | ❌ Nein |
+| Build | `dotnet build src/RomCleanup.sln` | ✅ CI |
+| Unit-Tests | `dotnet test src/RomCleanup.sln` | ✅ CI |
+| Coverage ≥ 50% | CI Coverage-Gate | ✅ CI |
 | Naming-Policy | Manuell (Review) | ❌ Nein |
 
 ### Review-Fokus
-1. **Schichtverletzungen:** Greift UI-Code auf Domain zu? Greift Domain auf WPF zu?
+1. **Schichtverletzungen:** Referenziert Core ein Infrastructure-Projekt? UI-Code in Domain?
 2. **Silent Catches:** Neuer Catch ohne Logging → nachhaken
-3. **Duplikation:** Pattern schon in Shared-Utility? → Konsolidieren
-4. **Legacy-Erweiterung:** Wird ein Legacy-Shim erweitert statt ersetzt? → Hinterfragen
+3. **Port-Nutzung:** Neue I/O-Zugriffe gehen über Port-Interfaces (`Contracts/Ports/`)
+4. **Sicherheit:** Path-Traversal- und Injection-Schutz bei File-Ops und Reports

@@ -1,6 +1,7 @@
 # ROM Cleanup – Test-Strategie
 
-**Datum:** 2026-03-10  
+**Stand:** 2026-03-11  
+**Framework:** xUnit (.NET 10, `src/RomCleanup.Tests/`)  
 **Grundsatz:** Kein Alibi-Test. Jeder Test hat eine **Failure-First-Anforderung** – er muss ohne den zu testenden Code rot werden.
 
 ---
@@ -9,227 +10,166 @@
 
 ```
         ┌──────────────────┐
-        │   E2E (GUI-Live) │  ~1 E2E-Testdatei – echte Dateisystem-Ops
+        │   Integration    │  RunOrchestrator, API-RunManager, FileSystem-Ops
         ├──────────────────┤
-        │ Integration      │  ~2 Integration-Testdateien – mehrere Module zusammen
-        ├──────────────────┤
-        │ Unit             │  ~183 Testdateien (137 unit/ + 46 Root-Level)
+        │   Unit           │  44 Testdateien, 789+ Tests
         └──────────────────┘
-        Gesamt: ~1300+ Tests (Passed: ~1307, Skipped: ~3)
+        Gesamt: 789+ Tests (xUnit, alle grün)
 ```
 
 ---
 
 ## 2. Testdateien-Übersicht
 
-### 2.1 Core-/Engine-Tests (Root-Level `dev/tests/`)
+Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 44 Testdateien):
 
-| Datei | Stage | Zweck |
-|---|---|---|
-| `RomCleanup.Tests.ps1` | unit | Hauptintegrations-Smoke (~3174 Zeilen) |
-| `Core.Tests.ps1` | unit | GameKey-Generierung, Region-Scoring |
-| `Dedupe.Tests.ps1` | unit | Region-Dedupe-Logik |
-| `Dedupe.Coverage.Tests.ps1` | unit | Erweiterte Dedupe-Coverage |
-| `Classification.Tests.ps1` | unit | Konsolen-Erkennung |
-| `Convert.Tests.ps1` | unit | Format-Konvertierung Mocks |
-| `Convert.Strategy.Tests.ps1` | unit | Konvertierungs-Strategie-Map |
-| `Convert.Coverage.Tests.ps1` | unit | Erweiterte Convert-Coverage |
-| `Dat.Tests.ps1` | unit | DAT-XML- und CLRmamePro-Parser |
-| `DatSources.Tests.ps1` | unit | DAT-Download/Install |
-| `FormatScoring.Tests.ps1` | unit | Prioritäts-Score-Berechnung |
-| `SetParsing.Tests.ps1` | unit | CUE/GDI/M3U-Parser |
-| `FileOps.Tests.ps1` | unit | Move/Link-Operationen |
-| `Tools.Tests.ps1` | unit | Werkzeug-Wrappers, Hash-Prüfung |
-| `Report.Tests.ps1` | unit | HTML/CSV-Reportgenerierung |
-| `Settings.BugFinder.Tests.ps1` | unit | Settings-Schema-Validierung |
-| `Modules.Tests.ps1` | unit | Modulexistenz + Parse-Check |
-| `ZipSort.Tests.ps1` | unit | ZIP-Sortierlogik |
-
-### 2.2 Architektur-/Governance-Tests (Root-Level)
-
-| Datei | Stage | Zweck |
-|---|---|---|
-| `PortInterfaces.Unit.Tests.ps1` | unit | Port-Contract-Validierung |
-| `OperationAdapters.Ports.Tests.ps1` | unit | Adapter-Port-Integration |
-| `ErrorContracts.Tests.ps1` | unit | Fehlerklassen/Contracts |
-| `EventBus.Tests.ps1` | unit | Pub/Sub-Events |
-| `PluginContractValidation.Tests.ps1` | unit | Plugin-Manifest-Validierung |
-| `OperationPlugins.Tests.ps1` | unit | Operation-Plugin-Lifecycle |
-| `Security.Tests.ps1` | unit | Sicherheitsregeln |
-| `Preflight.Tests.ps1` | unit | Preflight-Checks |
-| `Startup.Tests.ps1` | unit | Modul-Startup-Reihenfolge |
-| `ApiServer.Unit.Tests.ps1` | unit | API-Server-Logik |
-| `Api.OpenApiDrift.Tests.ps1` | unit | OpenAPI-Spec-Drift-Erkennung |
-| `LruCache.Tests.ps1` | unit | LRU-Cache-Logik |
-| `Benchmark.Tests.ps1` | unit | Performance-Baseline |
-
-### 2.3 GUI-/WPF-Tests (Root-Level)
-
-| Datei | Stage | Zweck |
-|---|---|---|
-| `WpfEventHandlers.Coverage.Tests.ps1` | unit | WPF-Event-Handler-Coverage |
-| `UiSmoke.Tests.ps1` | unit | UI-Smoke-Tests |
-| `ConsoleDetection.Tests.ps1` | unit | Konsolen-Erkennungs-Pipeline |
-
-### 2.4 Regressions- & Bug-Tests (Root-Level)
-
-| Datei | Stage | Zweck |
-|---|---|---|
-| `BugRegression.Tests.ps1` | unit | Bug-Regressions Batch 1 |
-| `BugRegression2.Tests.ps1` | unit | Bug-Regressions Batch 2 |
-| `RuleRegressionPack.Tests.ps1` | unit | Regel-Regressions |
-| `FaultInjection.Tests.ps1` | unit | Fehler-Injektion |
-| `GameKey.Tests.ps1` | unit | GameKey-Konsistenz |
-| `GameKey.Fuzz.Tests.ps1` | unit | GameKey-Fuzzing |
-| `RegionDedupe.Tests.ps1` | unit | Region-Dedupe-Regression |
-| `OneGameOneRom.Tests.ps1` | unit | 1G1R-Logik |
-| `Phase2Smoke.Tests.ps1` | unit | Phase-2-Smoke |
-| `Phase3Smoke.Tests.ps1` | unit | Phase-3-Smoke |
-| `ParallelConvert.Tests.ps1` | unit | Parallele Konvertierung |
-
-### 2.5 Unit-Tests (`dev/tests/unit/`) — 137 Dateien
-
-Alle 76 Feature-Module haben eigene Tests:
-
-| Kategorie | Testdateien (Beispiele) |
-|---|---|
-| **Quick Wins (QW-01–QW-16)** | `DatRename.Tests.ps1`, `EcmDecompress.Tests.ps1`, `ArchiveRepack.Tests.ps1`, `ConversionEstimate.Tests.ps1`, `JunkReport.Tests.ps1`, `KeyboardShortcuts.Tests.ps1`, `DuplicateHeatmap.Tests.ps1`, `CliExport.Tests.ps1`, `PortableMode.Tests.ps1`, `CollectionCsvExport.Tests.ps1`, `M3uGenerator.Tests.ps1`, `RetroArchPlaylist.Tests.ps1` |
-| **Medium Features (MF-01–MF-26)** | `MissingRomTracker.Tests.ps1`, `CrossRootDedupe.Tests.ps1`, `HeaderAnalysis.Tests.ps1`, `CompletenessTracker.Tests.ps1`, `CollectionManager.Tests.ps1`, `ConversionPipeline.Tests.ps1`, `NKitConvert.Tests.ps1`, `ConvertQueue.Tests.ps1`, `ConversionVerify.Tests.ps1`, `FormatPriority.Tests.ps1`, `DatAutoUpdate.Tests.ps1`, `DatDiffViewer.Tests.ps1`, `TosecDatSupport.Tests.ps1`, `ParallelHashing.Tests.ps1`, `CommandPalette.Tests.ps1`, `FilterBuilder.Tests.ps1`, `RuleEngine.Tests.ps1`, `PipelineEngine.Tests.ps1`, `DryRunCompare.Tests.ps1`, `SortTemplates.Tests.ps1`, `IntegrityMonitor.Tests.ps1`, `BackupManager.Tests.ps1`, `Quarantine.Tests.ps1` |
-| **Large Features (LF-01–LF-20)** | `CoverScraper.Tests.ps1`, `GenreClassification.Tests.ps1`, `LauncherIntegration.Tests.ps1`, `PlaytimeTracker.Tests.ps1`, `PatchEngine.Tests.ps1`, `HeaderRepair.Tests.ps1`, `ArcadeMergeSplit.Tests.ps1`, `StorageTiering.Tests.ps1`, `CustomDatEditor.Tests.ps1`, `CloneListViewer.Tests.ps1`, `HashDatabaseExport.Tests.ps1`, `Accessibility.Tests.ps1`, `PdfReportExport.Tests.ps1`, `NasOptimization.Tests.ps1`, `FtpSource.Tests.ps1`, `CloudSettingsSync.Tests.ps1`, `PluginMarketplace.Tests.ps1`, `RulePackSharing.Tests.ps1`, `ThemeEngine.Tests.ps1` |
-| **XL Features (XL-01–XL-14)** | `DockerContainer.Tests.ps1`, `MobileWebUI.Tests.ps1`, `WindowsContextMenu.Tests.ps1`, `PSGalleryModule.Tests.ps1`, `PackageManagerIntegration.Tests.ps1`, `TrendAnalysis.Tests.ps1`, `EmulatorCompatReport.Tests.ps1`, `CollectionSharing.Tests.ps1`, `GpuHashing.Tests.ps1`, `UsnJournalScan.Tests.ps1`, `HardlinkMode.Tests.ps1`, `ToolImport.Tests.ps1`, `MultiInstanceSync.Tests.ps1`, `Telemetry.Tests.ps1` |
-| **Infrastruktur & Architektur** | `BackgroundOps.Tests.ps1`, `MemoryGuard.Tests.ps1`, `PhaseMetrics.Tests.ps1`, `LruCache.Perf.Tests.ps1`, `CatchGuard.Tests.ps1`, `Governance.Tests.ps1`, `ModuleDependencyBoundary.Tests.ps1`, `ArchitectureMap.Sync.Tests.ps1`, `PortContractValidation.Tests.ps1`, `AppStore.Configuration.Tests.ps1`, `ConfigProfiles.Tests.ps1`, `ConfigMerge.Tests.ps1` |
-| **Konsolen-/Erkennung** | `ConsoleDetection.Determinism.Tests.ps1`, `ConsoleDetection.Fuzz.Tests.ps1`, `ConsoleDetection.FolderCache.Tests.ps1`, `ConsoleDetection.DolphinGcWii.Tests.ps1`, `ConsoleDetection.PipelineCoverage.Tests.ps1`, `ConsoleSort.Core.Tests.ps1`, `ConsoleSort.UnknownReasons.Tests.ps1`, `ConsolesJsonConsistency.Tests.ps1`, `ConsoleTypeSource.Tests.ps1` |
-| **Bug-Fixes** | `BugFix.Batch1.Tests.ps1`, `BugFix.Batch2.Tests.ps1`, `BugFix.Batch3.Tests.ps1`, `BugFix.Batch4.Tests.ps1` |
-| **Edge Cases & Archiv** | `EdgeCases.Tests.ps1`, `NegativeTests.Tests.ps1`, `ArchiveSecurity.Tests.ps1`, `ArchiveRepack.Tests.ps1`, `ArchiveMixedContent.Tests.ps1`, `ArchiveDiscSet.Tests.ps1` |
-| **DAT & Hash** | `Dat.IndexCache.Tests.ps1`, `Dat.BomStrip.Tests.ps1`, `ChdHeaderCache.Tests.ps1`, `Determinism.Tests.ps1` |
-| **WPF/ISS-001** | `WpfWizard.Tests.ps1`, `WpfTrashSettings.Tests.ps1` (39 Wizard-Tests) |
-
-### 2.6 Integration-Tests (`dev/tests/integration/`)
+### 2.1 Core-/Engine-Tests
 
 | Datei | Zweck |
 |---|---|
-| `WpfSmoke.Tests.ps1` | WPF-Fenster instanziierbar, XAML-Parse, Control-Binding |
-| `PluginIntegration.Tests.ps1` | Plugin-Discovery, Trust-Modus, Lifecycle |
+| `GameKeyNormalizerTests.cs` | GameKey-Generierung, ASCII-Fold, Tag-Parsing, Alias-Map |
+| `RegionDetectorTests.cs` | Region-Erkennung aus Dateinamen |
+| `DeduplicationEngineTests.cs` | Winner-Selection (deterministisch), 1G1R, BIOS/Junk |
+| `FormatScorerTests.cs` | Format-Score-Berechnung (CHD, ISO, ZIP etc.) |
+| `VersionScorerTests.cs` | Versions-/Revisions-Scoring |
+| `VersionHelperTests.cs` | Versions-Parsing-Hilfsfunktionen |
+| `FileClassifierTests.cs` | BIOS/Junk/Game-Klassifikation |
+| `ConsoleDetectorTests.cs` | Konsolen-Erkennung (Ordner, Extension, DAT) |
+| `ExtensionNormalizerTests.cs` | Dateiendungs-Normalisierung |
+| `SetParsingTests.cs` | CUE/GDI/CCD/M3U-Parser |
+| `RuleEngineTests.cs` | Regelanwendung auf ROM-Kandidaten |
+| `InsightsEngineTests.cs` | Analyse-/Statistik-Engine |
 
-### 2.7 E2E-Tests (`dev/tests/e2e/`)
+### 2.2 Infrastructure-Tests
 
 | Datei | Zweck |
 |---|---|
-| `E2E.Tests.ps1` | Vollständiger Dedupe-Durchlauf mit Fixtures |
+| `FileSystemAdapterTests.cs` | Path-Traversal-Schutz, Reparse-Point-Blocking, Move/Scan |
+| `AuditCsvStoreTests.cs` | Audit-CSV-Erzeugung, CSV-Injection-Schutz, Rollback |
+| `AuditSigningServiceTests.cs` | SHA256-Signierung von Audit-CSVs |
+| `JsonlLogWriterTests.cs` | JSONL-Logging, Rotation, Felder |
+| `SettingsLoaderTests.cs` | Settings-Laden/Validierung/Defaults |
+| `FileHashServiceTests.cs` | SHA1/SHA256/MD5-Hashing, LRU-Cache |
+| `Crc32Tests.cs` | CRC32-Berechnung |
+| `ArchiveHashServiceTests.cs` | Hash-Extraktion aus Archiven |
+| `ParallelHasherTests.cs` | Paralleles Hashing |
+| `DatRepositoryAdapterTests.cs` | DAT-XML-Parsing, XXE-Schutz, Parent/Clone |
+| `DatSourceServiceTests.cs` | DAT-Download, SHA256-Sidecar-Verifizierung |
+| `ReportGeneratorTests.cs` | HTML/CSV-Reports, CSP-Header, HTML-Encoding |
+| `FormatConverterAdapterTests.cs` | Format-Konvertierung (CHD/RVZ/ZIP) |
+| `ConversionPipelineTests.cs` | Konvertierungs-Pipeline |
+| `SortingTests.cs` | Konsolen-Sortierung |
+| `LruCacheTests.cs` | LRU-Cache (Thread-Safety, Eviction) |
+| `AppStateStoreTests.cs` | App-State, Undo/Redo, Watch-Pattern |
+
+### 2.3 Orchestrierung & API-Tests
+
+| Datei | Zweck |
+|---|---|
+| `RunOrchestratorTests.cs` | Full Pipeline (Preflight→Scan→Dedupe→Sort→Move) |
+| `RunManagerTests.cs` | API-RunManager, Singleton-Run, Cancel |
+| `RateLimiterTests.cs` | Rate-Limiting (120/min sliding window) |
+| `ExecutionHelpersTests.cs` | Ausführungshelfer |
+| `SafetyValidatorTests.cs` | Safety-Checks vor Operationen |
+
+### 2.4 Erweiterte Services
+
+| Datei | Zweck |
+|---|---|
+| `EventBusTests.cs` | Pub/Sub-Events, Wildcard-Topics |
+| `PipelineEngineTests.cs` | Conditional-Step-Chains |
+| `QuarantineServiceTests.cs` | ROM-Quarantäne |
+| `PhaseMetricsCollectorTests.cs` | Phasen-Zeitmessung |
+| `HistoryAndIndexTests.cs` | Run-History, Scan-Index |
+| `CrossRootAndHardlinkTests.cs` | Cross-Root-Deduplizierung, Hardlinks |
+| `FolderDeduplicatorTests.cs` | Ordner-Deduplizierung |
+| `DiscHeaderDetectorTests.cs` | Disc-Header-Erkennung (PS1/PS2/Saturn etc.) |
+| `CatchGuardServiceTests.cs` | Silent-Catch-Governance |
+| `ErrorClassifierTests.cs` | Fehlerklassen (Transient/Recoverable/Critical) |
 
 ---
 
 ## 3. Test-Konventionen
 
-### 3.1 Modul-Loading
-
-Jeder Test-File lädt seine Abhängigkeiten explizit via Dot-Source:
-
-```powershell
-BeforeAll {
-    $root = $PSScriptRoot
-    while ($root -and -not (Test-Path (Join-Path $root 'simple_sort.ps1'))) {
-        $root = Split-Path -Parent $root
-    }
-    . (Join-Path $root 'dev\modules\Settings.ps1')
-    . (Join-Path $root 'dev\modules\ZuTestendesModul.ps1')
-}
-```
-
-**Warum:** Kein globaler Import-Module-Overhead. Tests sind isoliert. Reihenfolge ist deterministisch.
-
-### 3.2 Naming
+### 3.1 Naming
 
 ```
-<Modul>.<Thema>.Tests.ps1       # Unit
-<Feature>.Tests.ps1             # Integration
-<Feature>.E2E.Tests.ps1         # E2E
+<Klasse>Tests.cs    # z.B. GameKeyNormalizerTests.cs, DeduplicationEngineTests.cs
 ```
 
-### 3.3 Skipped-Tests statt Lügen
+### 3.2 Test-Methoden-Naming
 
-Wenn ein Test auf nicht verfügbare Infrastruktur trifft (STA-Thread, echte Dateipfade):
+```csharp
+[Fact]
+public void SelectWinner_SameInputs_ReturnsSameWinner()  // Determinismus
 
-```powershell
-if (-not $script:isSta) {
-    Set-ItResult -Skipped -Because 'STA-Thread erforderlich'
-    return
-}
+[Theory]
+[InlineData("EU", 1000)]
+[InlineData("US", 999)]
+public void GetRegionScore_PreferredRegion_ReturnsExpectedScore(string region, int expected)
 ```
 
-**Verboten:** `Should -BeTrue` auf `$true` (Alibi-Test), `try/catch` das immer grün macht.
-
-### 3.4 Mock-Strategie
+### 3.3 Fixture-Strategie
 
 | Situation | Empfohlen |
 |---|---|
-| Externe Tools (chdman, 7z) | `Mock` via Pester 5 oder Dummy-Wrapper-Skripte in `dev/tests/fixtures/` |
-| Dateisystem | `New-TemporaryFile` / `New-Item -TempDir` + cleanup in `AfterAll` |
-| `$Log`-Callback | `$captured = [List]::new()` + `{ param($msg) $captured.Add($msg) }` |
-| GUI-Controls | Mock-`$ctx`: `@{ btnRunGlobal = New-Object AnyMockType }` im Test |
+| Dateisystem | `Path.GetTempPath()` + `Directory.CreateTempSubdirectory()` + cleanup in `Dispose` |
+| Externe Tools (chdman, 7z) | Mock via Interface (`IToolRunner`) |
+| Port-Interfaces | Eigene Test-Implementierungen oder Mocks |
+| Große Dateien (>500 MB) | Überspringen mit `Skip` oder künstliche Stubs |
 
-### 3.5 Benchmark-Gate (`tests: benchmark gate`)
+### 3.4 Pflicht-Invarianten
 
-Der separate CI-Stage prüft Leistungsregression via `CacheBenchmark.Tests.ps1` + `LruCache.Perf.Tests.ps1`. **Beides muss bestehen bevor ein Merge erfolgt.**
+Jeder Test muss einen echten Fehler finden können. Typische Invarianten:
+
+- **Winner-Selection ist deterministisch** — gleiche Inputs = gleicher Winner
+- **Kein Move außerhalb der Root** — Path-Traversal-Versuche müssen scheitern
+- **Keine leeren Keys** — GameKey-Normalisierung darf keine leeren Strings liefern
+- **CSV-Injection-Schutz** — führende `=`, `+`, `-`, `@` werden escaped
+
+### 3.5 Verboten
+
+- `Assert.True(true)` (Alibi-Test)
+- `try/catch` das Tests immer grün macht
+- Tests ohne Assertions
 
 ---
 
 ## 4. Coverage-Ziel
 
-| Modul | Minimal-Coverage |
+CI-Pipeline prüft einen globalen **Minimum-Schwellwert von 50%**.
+
+| Bereich | Minimal-Coverage |
 |---|---|
-| `Tools.ps1` | 70% |
-| `Dedupe.ps1` | 65% |
-| `Core.ps1` | 60% |
-| `Classification.ps1` | 55% |
-| `WpfShims.ps1` | 80% |
-| `WpfHost.ps1` | 50% |
-| `WpfEventHandlers.ps1` | 40% (GUI-Handling ist schwer vollständig zu covern) |
-
-Task `tests: coverage` prüft aktuell einen globalen **Interim-Schwellwert von 34%** (`-CoverageTarget 34`).
-Das **Sprintziel bleibt 50%** (wird nach Ausbau der Harness-Tests wieder als Gate gesetzt).
+| Core-Domain-Logik | 70% |
+| Infrastructure-Adapter | 50% |
+| API/CLI Entry Points | 40% |
 
 ---
 
-## 5. E2E-Tests
+## 5. CI-Pipeline (`.github/workflows/test-pipeline.yml`)
 
-E2E-Tests (`dev/tests/e2e/`) nutzen synthetische ROM-Verzeichnisse aus `dev/tests/fixtures/` mit Dummy-Dateien (bekannte Hashes, 0-Byte-Stubs). Sie verifizieren End-to-End:
-
-1. Modul-Initialisierung ohne Fehler
-2. `Invoke-RegionDedupe` mit DryRun-Modus
-3. Report-Generierung (CSV + HTML vorhanden nach Lauf)
-4. Keine echten Dateibewegungen ohne `Mode=Move`
-
----
-
-## 6. CI-Pipeline-Stages
-
-| Stage | Trigger | Was wird getestet |
+| Job | Gate | Bei Fehler |
 |---|---|---|
-| `unit` | jeder Commit | ~183 Unit-Testdateien, < 60s |
-| `integration` | PR | Unit + Integration (WpfSmoke, Plugins, DAT-Index) |
-| `e2e` | vor Release | Vollständiger Durchlauf mit Fixtures |
-| `benchmark gate` | vor Release | Performance-Benchmarks (LRU, Cache) |
-| `coverage` | vor Release | Coverage ≥ 50% |
-| `governance` | jeder Commit | Modul-Grenzen, Komplexitätslimits, LOC-Gates |
-| `catch-compliance` | jeder Commit | TD-002: Keine Silent-Catches außer WPF |
-| `mutation` | vor Release | Mutation-Testing (Reporting only) |
+| Unit-Tests + Coverage | 50% Minimum | Fail |
+| Governance | Modul-Grenzen, Komplexität | Warn only |
+| Mutation-Testing | Reporting only | continue-on-error |
+| Benchmark-Gate | Regression-Erkennung | continue-on-error |
+
+Trigger: Push/PR auf `dev/**`, `.github/**`
 
 ### Testausführung
 
-```powershell
-# Vollständige Pipeline
-pwsh -NoProfile -File ./dev/tools/pipeline/Invoke-TestPipeline.ps1 -Stage all
+```bash
+# Alle Tests
+dotnet test src/RomCleanup.sln
 
-# Einzelne Stufe
-pwsh -NoProfile -File ./dev/tools/pipeline/Invoke-TestPipeline.ps1 -Stage unit
+# Einzelnes Testprojekt
+dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj
 
-# Mit Coverage-Gate
-pwsh -NoProfile -File ./dev/tools/pipeline/Invoke-TestPipeline.ps1 -Stage unit -Coverage -CoverageTarget 50
+# Mit Filter
+dotnet test src/RomCleanup.sln --filter "FullyQualifiedName~GameKey"
 
-# Einzelne Testdatei direkt
-Invoke-Pester -Path ./dev/tests/unit/Core.Tests.ps1 -Output Detailed
-
-# Mit Flaky-Retry
-pwsh -NoProfile -File ./dev/tools/pipeline/Invoke-TestPipeline.ps1 -Stage unit -FlakyRetries 2
+# Mit Coverage
+dotnet test src/RomCleanup.sln --collect:"XPlat Code Coverage"
 ```

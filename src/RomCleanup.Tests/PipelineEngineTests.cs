@@ -67,7 +67,7 @@ public class PipelineEngineTests
         var ctx = new PipelineStepContext { Mode = "Move" };
         Assert.Throws<Exception>(() => PipelineEngine.ExecuteStep(step, ctx));
         Assert.Equal("Failed", step.Status);
-        Assert.Equal("boom", step.Error);
+        Assert.Contains("boom", step.Error);
     }
 
     [Fact]

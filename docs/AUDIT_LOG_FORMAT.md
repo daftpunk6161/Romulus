@@ -1,6 +1,7 @@
 # Audit-Log-Format
 
-> ROM Cleanup erzeugt bei jeder Operation ein Audit-CSV in `audit-logs/`.
+> ROM Cleanup erzeugt bei jeder Operation ein Audit-CSV.
+> Implementierung: `src/RomCleanup.Infrastructure/Audit/AuditCsvStore.cs`
 
 ## Dateiname
 
@@ -18,7 +19,7 @@ Beispiel: `audit-dedupe-20260306-120000.csv`
 | `Action` | String | Art der Aktion (siehe unten) |
 | `Source` | Pfad | Ursprungspfad der Datei |
 | `Dest` | Pfad | Zielpfad (bei Move) oder leer |
-| `SizeBytes` | Integer / leer | Dateigroesse in Bytes |
+| `SizeBytes` | Integer / leer | Dateigröße in Bytes |
 
 ## Action-Werte
 
@@ -27,7 +28,7 @@ Beispiel: `audit-dedupe-20260306-120000.csv`
 | `MOVE` | Datei wurde verschoben |
 | `TRASH` | Datei wurde in den Papierkorb verschoben |
 | `KEEP` | Datei wurde behalten (Winner) |
-| `SKIP` | Datei wurde uebersprungen |
+| `SKIP` | Datei wurde übersprungen |
 | `ERROR` | Fehler bei der Verarbeitung |
 | `PERF-METRIC` | Performance-Metrik (Source = `metric:Name`, Dest = Wert) |
 
@@ -44,20 +45,18 @@ Neben jeder Audit-CSV wird eine `.meta.json` erzeugt mit:
 }
 ```
 
-## Maschinelle Auswertung
+## Maschinelle Auswertung (C#)
 
-```powershell
-# CSV laden
-$audit = Import-Csv -Path 'audit-logs/audit-dedupe-20260306-120000.csv'
-
-# Nur Moves filtern
-$moves = $audit | Where-Object { $_.Action -eq 'MOVE' }
-
-# Gesamtgroesse berechnen
-$totalBytes = ($moves | Measure-Object -Property SizeBytes -Sum).Sum
+```csharp
+// Audit-CSV lesen
+var lines = File.ReadAllLines("audit-dedupe-20260306-120000.csv");
+var moves = lines.Skip(1) // Header überspringen
+    .Select(l => l.Split(','))
+    .Where(cols => cols.Length > 1 && cols[1] == "MOVE");
 ```
 
 ## Sicherheit
 
-- CSV-Werte werden gegen Excel-Injection-Angriffe bereinigt (keine Formeln mit `=`, `+`, `-`, `@` am Anfang)
-- Pfade werden mit `ConvertTo-SafeCsvValue` escaped
+- CSV-Werte werden gegen CSV-Injection-Angriffe bereinigt (keine Formeln mit `=`, `+`, `-`, `@` am Anfang)
+- Implementiert in `AuditCsvStore.SanitizeCsvField()`
+- SHA256-Signierung via `AuditSigningService`

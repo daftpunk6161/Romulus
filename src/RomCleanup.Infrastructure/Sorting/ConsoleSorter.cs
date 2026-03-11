@@ -100,24 +100,125 @@ public sealed class ConsoleSorter
                     continue;
                 }
 
-                // Move file
-                if (MoveFile(root, filePath, expectedDir, fileName, dryRun))
-                    moved++;
-
-                // Move set members
+                // Move file (with atomic set-move + rollback for multi-file sets)
                 if (setPrimaryToMembers.TryGetValue(filePath, out var members))
                 {
-                    foreach (var member in members)
+                    // Atomic set-move: primary + all members succeed, or all roll back
+                    if (dryRun)
                     {
-                        var memberName = Path.GetFileName(member);
-                        if (MoveFile(root, member, expectedDir, memberName, dryRun))
-                            setMembersMoved++;
+                        moved++;
+                        setMembersMoved += members.Count;
                     }
+                    else
+                    {
+                        var (primaryMoved, membersMoved) = MoveSetAtomically(
+                            root, filePath, members, expectedDir, dryRun);
+                        if (primaryMoved) moved++;
+                        setMembersMoved += membersMoved;
+                    }
+                }
+                else
+                {
+                    // Standalone file — no set members
+                    if (MoveFile(root, filePath, expectedDir, fileName, dryRun))
+                        moved++;
                 }
             }
         }
 
         return new ConsoleSortResult(total, moved, setMembersMoved, skipped, unknown, unknownReasons);
+    }
+
+    /// <summary>
+    /// Moves a primary file and all its set members atomically.
+    /// If any member fails to move, all previously moved files are rolled back.
+    /// </summary>
+    private (bool PrimaryMoved, int MembersMoved) MoveSetAtomically(
+        string root,
+        string primaryPath,
+        List<string> members,
+        string destDir,
+        bool dryRun)
+    {
+        if (dryRun) return (true, members.Count);
+
+        // Track all moves so we can roll back on partial failure
+        var completedMoves = new List<(string Source, string Dest)>();
+
+        try
+        {
+            // Move primary first
+            var primaryDest = ResolveMoveDestination(root, primaryPath, destDir);
+            if (primaryDest is null) return (false, 0);
+            _fs.EnsureDirectory(destDir);
+            _fs.MoveItemSafely(primaryPath, primaryDest);
+            completedMoves.Add((primaryPath, primaryDest));
+
+            // Move each member
+            foreach (var member in members)
+            {
+                var memberDest = ResolveMoveDestination(root, member, destDir);
+                if (memberDest is null)
+                    throw new InvalidOperationException(
+                        $"Path traversal blocked for set member: {member}");
+
+                _fs.MoveItemSafely(member, memberDest);
+                completedMoves.Add((member, memberDest));
+            }
+
+            return (true, members.Count);
+        }
+        catch
+        {
+            // Roll back all completed moves in reverse order
+            foreach (var (source, dest) in completedMoves.AsEnumerable().Reverse())
+            {
+                try
+                {
+                    // Find the actual file at dest (may have been renamed with __DUP suffix)
+                    var actualDest = FindActualDestination(dest);
+                    if (actualDest is not null && File.Exists(actualDest))
+                        File.Move(actualDest, source);
+                }
+                catch
+                {
+                    // Best-effort rollback — don't let rollback failures mask the original error
+                }
+            }
+
+            return (false, 0);
+        }
+    }
+
+    private string? ResolveMoveDestination(string root, string sourcePath, string destDir)
+    {
+        var fileName = Path.GetFileName(sourcePath);
+        return _fs.ResolveChildPathWithinRoot(root, Path.Combine(
+            Path.GetFileName(destDir), fileName));
+    }
+
+    /// <summary>
+    /// Finds the actual file on disk, accounting for __DUP collision renaming.
+    /// Returns the exact path if found, or null.
+    /// </summary>
+    private static string? FindActualDestination(string intendedDest)
+    {
+        if (File.Exists(intendedDest))
+            return intendedDest;
+
+        // Check for __DUP renamed versions
+        var dir = Path.GetDirectoryName(intendedDest) ?? "";
+        var baseName = Path.GetFileNameWithoutExtension(intendedDest);
+        var ext = Path.GetExtension(intendedDest);
+
+        for (int i = 1; i <= 100; i++)
+        {
+            var dupPath = Path.Combine(dir, $"{baseName}__DUP{i}{ext}");
+            if (File.Exists(dupPath))
+                return dupPath;
+        }
+
+        return null;
     }
 
     private bool MoveFile(string root, string sourcePath, string destDir, string fileName, bool dryRun)

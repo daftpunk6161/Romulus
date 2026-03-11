@@ -11,6 +11,7 @@ public static class M3uPlaylistParser
 
     /// <summary>
     /// Returns all file paths referenced in an M3U playlist (recursive).
+    /// Only includes files that exist on disk.
     /// </summary>
     public static IReadOnlyList<string> GetRelatedFiles(string m3uPath)
     {
@@ -20,14 +21,27 @@ public static class M3uPlaylistParser
         var result = new List<string>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        ResolveRecursive(m3uPath, result, visited, 0);
+        ResolveRecursive(m3uPath, result, visited, 0, existingOnly: true);
 
         return result;
     }
 
+    public static IReadOnlyList<string> GetMissingFiles(string m3uPath)
+    {
+        if (string.IsNullOrWhiteSpace(m3uPath) || !File.Exists(m3uPath))
+            return Array.Empty<string>();
+
+        var result = new List<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        ResolveRecursive(m3uPath, result, visited, 0, existingOnly: false);
+
+        return result.Where(f => !File.Exists(f)).ToList();
+    }
+
     private static void ResolveRecursive(
         string m3uPath, List<string> result,
-        HashSet<string> visited, int depth)
+        HashSet<string> visited, int depth, bool existingOnly)
     {
         if (depth >= MaxDepth) return;
 
@@ -47,28 +61,25 @@ public static class M3uPlaylistParser
                 ? line
                 : Path.GetFullPath(Path.Combine(dir, line));
 
-            // Path traversal guard
-            if (!refPath.StartsWith(dir, StringComparison.OrdinalIgnoreCase))
+            // Path traversal guard: must stay within M3U directory
+            var normalizedDir = dir.TrimEnd(Path.DirectorySeparatorChar)
+                                + Path.DirectorySeparatorChar;
+            if (!refPath.StartsWith(normalizedDir, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             // Recursive M3U
             if (refPath.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) ||
                 refPath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase))
             {
-                ResolveRecursive(refPath, result, visited, depth + 1);
+                ResolveRecursive(refPath, result, visited, depth + 1, existingOnly);
                 continue;
             }
 
-            if (!visited.Contains(refPath))
+            if (!visited.Contains(refPath) && (!existingOnly || File.Exists(refPath)))
             {
                 visited.Add(refPath);
                 result.Add(refPath);
             }
         }
-    }
-
-    public static IReadOnlyList<string> GetMissingFiles(string m3uPath)
-    {
-        return GetRelatedFiles(m3uPath).Where(f => !File.Exists(f)).ToList();
     }
 }

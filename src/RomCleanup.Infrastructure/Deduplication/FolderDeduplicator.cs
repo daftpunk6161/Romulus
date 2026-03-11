@@ -66,10 +66,8 @@ public sealed class FolderDeduplicator
             found = true;
             try
             {
-                using var stream = File.OpenRead(filePath);
-                var hash = md5.ComputeHash(stream);
-                // Accumulate: feed each file's hash bytes as additional data
-                md5.TransformBlock(hash, 0, hash.Length, null, 0);
+                var fileBytes = File.ReadAllBytes(filePath);
+                md5.TransformBlock(fileBytes, 0, fileBytes.Length, null, 0);
             }
             catch { /* skip unreadable files */ }
         }

@@ -30,12 +30,8 @@ public sealed class ToolRunnerAdapter : IToolRunner
 
         var name = toolName.ToLowerInvariant();
 
-        // 1. Check PATH via where.exe
-        var pathResult = FindOnPath(name + ".exe");
-        if (pathResult is not null)
-            return pathResult;
-
-        // 2. Search known safe locations (never user-writable)
+        // 1. Search known safe locations first (never user-writable) to prevent
+        //    tool-hijacking via PATH poisoning with a rogue executable.
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
@@ -67,6 +63,11 @@ public sealed class ToolRunnerAdapter : IToolRunner
             if (File.Exists(c))
                 return c;
         }
+
+        // 2. Fallback: check PATH (lower priority — user-writable dirs may be in PATH)
+        var pathResult = FindOnPath(name + ".exe");
+        if (pathResult is not null)
+            return pathResult;
 
         return null;
     }
@@ -102,7 +103,6 @@ public sealed class ToolRunnerAdapter : IToolRunner
             var psi = new ProcessStartInfo
             {
                 FileName = exePath,
-                Arguments = string.Join(" ", arguments),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -110,14 +110,28 @@ public sealed class ToolRunnerAdapter : IToolRunner
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
+            // Use ArgumentList instead of Arguments string to prevent argument injection
+            // via filenames containing quotes, spaces, or shell metacharacters.
+            foreach (var arg in arguments)
+                psi.ArgumentList.Add(arg);
+
             using var process = Process.Start(psi);
             if (process is null)
                 return new ToolResult(-1, $"{label}: failed to start process", false);
 
-            // Read output streams (avoid deadlock by reading both)
+            // Read stderr asynchronously to avoid pipe deadlock when buffer fills (>4KB).
+            // Sequential ReadToEnd on both streams can deadlock if the child blocks on stderr
+            // while the parent blocks reading stdout.
+            string? stderr = null;
+            var stderrTask = Task.Run(() => stderr = process.StandardError.ReadToEnd());
             var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            stderrTask.Wait();
+
+            if (!process.WaitForExit(TimeSpan.FromMinutes(30)))
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return new ToolResult(-1, $"{label}: process timed out after 30 minutes", false);
+            }
 
             var output = string.IsNullOrEmpty(stderr) ? stdout : $"{stdout}\n{stderr}".Trim();
             var success = process.ExitCode == 0;

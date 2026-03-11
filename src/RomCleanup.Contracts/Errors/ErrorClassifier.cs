@@ -26,12 +26,20 @@ public static class ErrorClassifier
         if (exception is null)
             return defaultKind;
 
-        // Transient: retry-eligible
+        // Transient: retry-eligible (only lock/sharing IOExceptions, not FileNotFound)
         if (exception is TimeoutException
             or System.Net.WebException
-            or IOException
             or OperationCanceledException)
             return ErrorKind.Transient;
+
+        // IOException: differentiate between transient (lock/sharing) and non-transient (file not found)
+        if (exception is IOException ioEx)
+        {
+            // FileNotFoundException and DirectoryNotFoundException are NOT transient
+            if (ioEx is FileNotFoundException or DirectoryNotFoundException)
+                return defaultKind;
+            return ErrorKind.Transient;
+        }
 
         // Critical: abort immediately
         if (exception is UnauthorizedAccessException

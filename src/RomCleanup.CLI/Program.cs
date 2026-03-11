@@ -22,15 +22,6 @@ namespace RomCleanup.CLI;
 /// </summary>
 internal static class Program
 {
-    private static readonly string[] DefaultExtensions =
-    {
-        ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
-        ".rvz", ".gcz", ".wbfs", ".nsp", ".xci", ".nes", ".snes",
-        ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
-        ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
-        ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
-    };
-
     private static readonly string[] DefaultRegions = { "EU", "US", "WORLD", "JP" };
 
     private static int Main(string[] args)
@@ -40,8 +31,9 @@ internal static class Program
             var options = ParseArgs(args);
             if (options is null)
             {
+                // --help or invalid mode: print usage, exit with 0 for help
                 PrintUsage();
-                return 3;
+                return 0;
             }
 
             return Run(options);
@@ -61,6 +53,13 @@ internal static class Program
 
     private static int Run(CliOptions opts)
     {
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true; // Prevent immediate process kill
+            cts.Cancel();
+        };
+
         var fs = new FileSystemAdapter();
         var audit = new AuditCsvStore();
 
@@ -172,7 +171,7 @@ internal static class Program
         var orchestrator = new RunOrchestrator(fs, audit, consoleDetector, hashService,
             converter, datIndex, onProgress: msg => Console.WriteLine($"[{msg}]"));
 
-        var result = orchestrator.Execute(runOptions);
+        var result = orchestrator.Execute(runOptions, cts.Token);
 
         // Output results
         log?.Info("CLI", "scan-complete", $"{result.TotalFilesScanned} files scanned", "scan");
@@ -377,7 +376,15 @@ internal static class Program
 
                 case "-mode" or "--mode":
                     if (++i < args.Length)
-                        opts.Mode = args[i];
+                    {
+                        var modeVal = args[i];
+                        if (modeVal != "DryRun" && modeVal != "Move")
+                        {
+                            Console.Error.WriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
+                            return null;
+                        }
+                        opts.Mode = modeVal;
+                    }
                     break;
 
                 case "-prefer" or "--prefer" or "-preferregions":
@@ -508,7 +515,7 @@ Exit codes:
         public string[] Roots { get; set; } = Array.Empty<string>();
         public string Mode { get; set; } = "DryRun";
         public string[] PreferRegions { get; set; } = DefaultRegions;
-        public HashSet<string> Extensions { get; set; } = new(DefaultExtensions, StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> Extensions { get; set; } = new(RunOptions.DefaultExtensions, StringComparer.OrdinalIgnoreCase);
         public string? TrashRoot { get; set; }
         public bool RemoveJunk { get; set; }
         public bool AggressiveJunk { get; set; }

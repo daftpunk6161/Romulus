@@ -20,15 +20,6 @@ namespace RomCleanup.UI.Wpf;
 
 public partial class MainWindow : Window
 {
-    private static readonly string[] DefaultExtensions =
-    [
-        ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
-        ".rvz", ".gcz", ".wbfs", ".nsp", ".xci", ".nes", ".snes",
-        ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
-        ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
-        ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
-    ];
-
     private readonly MainViewModel _vm;
     private readonly ThemeService _theme;
     private readonly SettingsService _settings = new();
@@ -75,6 +66,25 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // P0-VULN-B1: Prevent window close if operation is running
+        if (_vm.IsBusy)
+        {
+            var result = MessageBox.Show(
+                "Ein Lauf ist aktiv. Abbrechen und beenden?",
+                "Lauf aktiv",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.No)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            // User chose to close — cancel the operation
+            _vm.CancelCommand.Execute(null);
+        }
+
         _settings.SaveFrom(_vm);
     }
 
@@ -116,114 +126,133 @@ public partial class MainWindow : Window
 
     private async void OnRunRequested(object? sender, EventArgs e)
     {
+        // P0-003: Confirm before destructive Move operations
+        if (!_vm.DryRun && _vm.ConfirmMove)
+        {
+            var confirmed = DialogService.Confirm(
+                $"Modus 'Move' verschiebt Dateien in den Papierkorb.\n"
+                + $"Roots: {string.Join(", ", _vm.Roots)}\n\nFortfahren?",
+                "Move bestätigen");
+            if (!confirmed)
+            {
+                _vm.IsBusy = false;
+                return;
+            }
+        }
+
         var ct = _vm.CreateRunCancellation();
         try
         {
             _vm.AddLog("Initialisierung…", "INFO");
 
-            // Build infrastructure
-            var fs = new FileSystemAdapter();
-            var audit = new AuditCsvStore();
-
-            // Data directory resolution
-            var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data");
-            if (!Directory.Exists(dataDir))
-                dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
-
-            // ToolRunner
-            var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
-            var toolRunner = new ToolRunnerAdapter(File.Exists(toolHashesPath) ? toolHashesPath : null);
-
-            // ConsoleDetector
-            ConsoleDetector? consoleDetector = null;
-            var discHeaderDetector = new DiscHeaderDetector();
-            var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
-            if (File.Exists(consolesJsonPath))
+            // Move all blocking I/O (file reads, DAT loading) off the UI thread
+            var (orchestrator, runOptions, auditPath, reportPath) = await Task.Run(() =>
             {
-                var consolesJson = File.ReadAllText(consolesJsonPath);
-                consoleDetector = ConsoleDetector.LoadFromJson(consolesJson, discHeaderDetector);
-            }
+                // Build infrastructure
+                var fs = new FileSystemAdapter();
+                var audit = new AuditCsvStore();
 
-            // DAT setup
-            DatIndex? datIndex = null;
-            FileHashService? hashService = null;
-            if (_vm.UseDat && !string.IsNullOrWhiteSpace(_vm.DatRoot) && Directory.Exists(_vm.DatRoot))
-            {
-                var datRepo = new DatRepositoryAdapter();
-                hashService = new FileHashService();
-                // Build console→DAT mapping by scanning datRoot for .dat files
-                var consoleMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var datFile in Directory.GetFiles(_vm.DatRoot, "*.dat"))
+                // Data directory resolution
+                var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data");
+                if (!Directory.Exists(dataDir))
+                    dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
+
+                // ToolRunner
+                var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
+                var toolRunner = new ToolRunnerAdapter(File.Exists(toolHashesPath) ? toolHashesPath : null);
+
+                // ConsoleDetector
+                ConsoleDetector? consoleDetector = null;
+                var discHeaderDetector = new DiscHeaderDetector();
+                var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
+                if (File.Exists(consolesJsonPath))
                 {
-                    var key = Path.GetFileNameWithoutExtension(datFile);
-                    consoleMap.TryAdd(key, datFile);
+                    var consolesJson = File.ReadAllText(consolesJsonPath);
+                    consoleDetector = ConsoleDetector.LoadFromJson(consolesJson, discHeaderDetector);
                 }
-                if (consoleMap.Count > 0)
+
+                // DAT setup
+                DatIndex? datIndex = null;
+                FileHashService? hashService = null;
+                if (_vm.UseDat && !string.IsNullOrWhiteSpace(_vm.DatRoot) && Directory.Exists(_vm.DatRoot))
                 {
-                    datIndex = datRepo.GetDatIndex(_vm.DatRoot, consoleMap, _vm.DatHashType);
-                    Dispatcher.Invoke(() =>
-                        _vm.AddLog($"DAT geladen: {datIndex.TotalEntries} Hashes für {datIndex.ConsoleCount} Konsolen", "INFO"));
+                    var datRepo = new DatRepositoryAdapter();
+                    hashService = new FileHashService();
+                    var consoleMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var datFile in Directory.GetFiles(_vm.DatRoot, "*.dat"))
+                    {
+                        var key = Path.GetFileNameWithoutExtension(datFile);
+                        consoleMap.TryAdd(key, datFile);
+                    }
+                    if (consoleMap.Count > 0)
+                    {
+                        datIndex = datRepo.GetDatIndex(_vm.DatRoot, consoleMap, _vm.DatHashType);
+                        Dispatcher.InvokeAsync(() =>
+                            _vm.AddLog($"DAT geladen: {datIndex.TotalEntries} Hashes für {datIndex.ConsoleCount} Konsolen", "INFO"));
+                    }
                 }
-            }
 
-            // FormatConverter (optional)
-            FormatConverterAdapter? converter = null;
-            if (_vm.ConvertEnabled)
-                converter = new FormatConverterAdapter(toolRunner);
+                // FormatConverter (optional)
+                FormatConverterAdapter? converter = null;
+                if (_vm.ConvertEnabled)
+                    converter = new FormatConverterAdapter(toolRunner);
 
-            // Audit path
-            string? auditPath = null;
-            if (!_vm.DryRun && _vm.Roots.Count > 0)
-            {
-                var auditDir = !string.IsNullOrWhiteSpace(_vm.AuditRoot)
-                    ? _vm.AuditRoot
-                    : Path.Combine(_vm.Roots[0], "..", "audit-logs");
-                auditDir = Path.GetFullPath(auditDir);
-                auditPath = Path.Combine(auditDir, $"audit-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-            }
-
-            // Report path
-            string? reportPath = null;
-            if (_vm.Roots.Count > 0)
-            {
-                var reportDir = Path.Combine(_vm.Roots[0], "..", "reports");
-                reportDir = Path.GetFullPath(reportDir);
-                Directory.CreateDirectory(reportDir);
-                reportPath = Path.Combine(reportDir, $"report-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-            }
-
-            // Build RunOptions
-            var runOptions = new RunOptions
-            {
-                Roots = _vm.Roots.ToList(),
-                Mode = _vm.DryRun ? "DryRun" : "Move",
-                PreferRegions = _vm.GetPreferredRegions(),
-                Extensions = DefaultExtensions,
-                RemoveJunk = true,
-                AggressiveJunk = _vm.AggressiveJunk,
-                SortConsole = _vm.SortConsole,
-                EnableDat = _vm.UseDat,
-                HashType = _vm.DatHashType,
-                ConvertFormat = _vm.ConvertEnabled ? "auto" : null,
-                TrashRoot = string.IsNullOrWhiteSpace(_vm.TrashRoot) ? null : _vm.TrashRoot,
-                AuditPath = auditPath,
-                ReportPath = reportPath
-            };
-
-            // Build and run orchestrator
-            var orchestrator = new RunOrchestrator(
-                fs, audit, consoleDetector, hashService, converter, datIndex,
-                onProgress: msg => Dispatcher.Invoke(() =>
+                // Audit path
+                string? ap = null;
+                if (!_vm.DryRun && _vm.Roots.Count > 0)
                 {
-                    _vm.ProgressText = msg;
-                    _vm.AddLog(msg, "INFO");
-                }));
+                    var auditDir = !string.IsNullOrWhiteSpace(_vm.AuditRoot)
+                        ? _vm.AuditRoot
+                        : Path.Combine(_vm.Roots[0], "..", "audit-logs");
+                    auditDir = Path.GetFullPath(auditDir);
+                    ap = Path.Combine(auditDir, $"audit-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+                }
+
+                // Report path
+                string? rp = null;
+                if (_vm.Roots.Count > 0)
+                {
+                    var reportDir = Path.Combine(_vm.Roots[0], "..", "reports");
+                    reportDir = Path.GetFullPath(reportDir);
+                    Directory.CreateDirectory(reportDir);
+                    rp = Path.Combine(reportDir, $"report-{DateTime.Now:yyyyMMdd-HHmmss}.html");
+                }
+
+                // Build RunOptions
+                var ro = new RunOptions
+                {
+                    Roots = _vm.Roots.ToList(),
+                    Mode = _vm.DryRun ? "DryRun" : "Move",
+                    PreferRegions = _vm.GetPreferredRegions(),
+                    Extensions = RunOptions.DefaultExtensions,
+                    RemoveJunk = true,
+                    AggressiveJunk = _vm.AggressiveJunk,
+                    SortConsole = _vm.SortConsole,
+                    EnableDat = _vm.UseDat,
+                    HashType = _vm.DatHashType,
+                    ConvertFormat = _vm.ConvertEnabled ? "auto" : null,
+                    TrashRoot = string.IsNullOrWhiteSpace(_vm.TrashRoot) ? null : _vm.TrashRoot,
+                    AuditPath = ap,
+                    ReportPath = rp
+                };
+
+                // Build orchestrator
+                var orch = new RunOrchestrator(
+                    fs, audit, consoleDetector, hashService, converter, datIndex,
+                    onProgress: msg => Dispatcher.InvokeAsync(() =>
+                    {
+                        _vm.ProgressText = msg;
+                        _vm.AddLog(msg, "INFO");
+                    }));
+
+                return (orch, ro, ap, rp);
+            }, ct);
 
             await Task.Run(() =>
             {
                 var result = orchestrator.Execute(runOptions, ct);
 
-                Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     _vm.Progress = 100;
                     _vm.DashWinners = result.WinnerCount.ToString();
@@ -329,7 +358,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRollbackRequested(object? sender, EventArgs e)
+    private async void OnRollbackRequested(object? sender, EventArgs e)
     {
         if (!DialogService.Confirm("Letzten Lauf rückgängig machen?", "Rollback bestätigen"))
             return;
@@ -342,9 +371,13 @@ public partial class MainWindow : Window
 
         try
         {
-            var audit = new AuditCsvStore();
+            var auditPathCopy = _lastAuditPath;
             var roots = _vm.Roots.ToArray();
-            var restored = audit.Rollback(_lastAuditPath, roots, roots, dryRun: false);
+            var restored = await Task.Run(() =>
+            {
+                var audit = new AuditCsvStore();
+                return audit.Rollback(auditPathCopy, roots, roots, dryRun: false);
+            });
             _vm.AddLog($"Rollback: {restored.Count} Dateien wiederhergestellt.", "INFO");
             _vm.CanRollback = false;
             _vm.ShowMoveCompleteBanner = false;

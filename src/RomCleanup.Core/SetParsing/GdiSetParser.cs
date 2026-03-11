@@ -8,8 +8,20 @@ public static class GdiSetParser
 {
     /// <summary>
     /// Returns all track file paths referenced in a GDI file.
+    /// Only includes files that exist on disk.
     /// </summary>
     public static IReadOnlyList<string> GetRelatedFiles(string gdiPath)
+    {
+        return ParseReferencedPaths(gdiPath, existingOnly: true);
+    }
+
+    public static IReadOnlyList<string> GetMissingFiles(string gdiPath)
+    {
+        return ParseReferencedPaths(gdiPath, existingOnly: false)
+            .Where(f => !File.Exists(f)).ToList();
+    }
+
+    private static IReadOnlyList<string> ParseReferencedPaths(string gdiPath, bool existingOnly)
     {
         if (string.IsNullOrWhiteSpace(gdiPath) || !File.Exists(gdiPath))
             return Array.Empty<string>();
@@ -39,18 +51,13 @@ public static class GdiSetParser
                 ? fileName
                 : Path.GetFullPath(Path.Combine(dir, fileName));
 
-            if (!fullPath.StartsWith(dir, StringComparison.OrdinalIgnoreCase))
+            if (!fullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            if (seen.Add(fullPath))
+            if (seen.Add(fullPath) && (!existingOnly || File.Exists(fullPath)))
                 result.Add(fullPath);
         }
 
         return result;
-    }
-
-    public static IReadOnlyList<string> GetMissingFiles(string gdiPath)
-    {
-        return GetRelatedFiles(gdiPath).Where(f => !File.Exists(f)).ToList();
     }
 }

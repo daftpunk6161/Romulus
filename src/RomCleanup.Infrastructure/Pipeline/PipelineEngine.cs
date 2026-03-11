@@ -36,7 +36,7 @@ public sealed class PipelineEngine
         catch (Exception ex)
         {
             step.Status = "Failed";
-            step.Error = ex.Message;
+            step.Error = ex.ToString();
             throw;
         }
     }

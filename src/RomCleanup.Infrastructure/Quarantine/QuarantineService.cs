@@ -202,14 +202,26 @@ public sealed class QuarantineService
         if (!_fs.TestPath(quarantinePath, "Leaf"))
             return new QuarantineRestoreResult { Status = "Error", Reason = "QuarantineFileNotFound" };
 
+        // Path-traversal guard: reject paths with traversal components
+        var fullOriginal = Path.GetFullPath(originalPath);
+        if (fullOriginal != originalPath && !Path.IsPathRooted(originalPath))
+            return new QuarantineRestoreResult { Status = "Error", Reason = "PathTraversalBlocked" };
+
         if (mode == "DryRun")
-            return new QuarantineRestoreResult { Status = "DryRun", From = quarantinePath, To = originalPath };
+            return new QuarantineRestoreResult { Status = "DryRun", From = quarantinePath, To = fullOriginal };
 
-        var dir = Path.GetDirectoryName(originalPath);
-        if (!string.IsNullOrEmpty(dir))
-            _fs.EnsureDirectory(dir);
+        try
+        {
+            var dir = Path.GetDirectoryName(fullOriginal);
+            if (!string.IsNullOrEmpty(dir))
+                _fs.EnsureDirectory(dir);
 
-        _fs.MoveItemSafely(quarantinePath, originalPath);
-        return new QuarantineRestoreResult { Status = "Restored", From = quarantinePath, To = originalPath };
+            _fs.MoveItemSafely(quarantinePath, fullOriginal);
+            return new QuarantineRestoreResult { Status = "Restored", From = quarantinePath, To = fullOriginal };
+        }
+        catch (Exception ex)
+        {
+            return new QuarantineRestoreResult { Status = "Error", Reason = ex.Message };
+        }
     }
 }

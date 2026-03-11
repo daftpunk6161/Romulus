@@ -3,18 +3,15 @@ info:
   title: ROM Cleanup API
   version: 1.0.0
   description: |
-    Lokale REST-API für ROM Cleanup (localhost-only), API-Key geschützt.
+    Lokale REST-API für ROM Cleanup (ASP.NET Core Minimal API, localhost-only).
+    Authentifizierung via X-Api-Key Header (Wert aus ROM_CLEANUP_API_KEY Env-Variable).
+    Rate-Limiting: 120 Requests/Minute (Sliding Window).
 servers:
   - url: http://127.0.0.1:7878
 security:
   - ApiKeyAuth: []
 paths:
   /health:
-    options:
-      summary: CORS Preflight
-      responses:
-        '200':
-          description: OK
     get:
       summary: Health-Status
       responses:
@@ -40,12 +37,19 @@ paths:
           description: Unauthorized
         '429':
           description: Too many requests
-  /runs:
-    options:
-      summary: CORS Preflight
+  /openapi:
+    get:
+      summary: OpenAPI-Spezifikation (JSON)
       responses:
         '200':
-          description: OK
+          description: OpenAPI JSON
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Unauthorized
+  /runs:
     post:
       summary: Startet einen Lauf
       parameters:
@@ -91,7 +95,7 @@ paths:
                 type: object
                 properties:
                   run:
-                    $ref: '#/components/schemas/RunStatus'
+                    $ref: '#/components/schemas/RunRecord'
         '401':
           description: Unauthorized
         '404':
@@ -110,6 +114,15 @@ paths:
       responses:
         '200':
           description: Run-Resultat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: '#/components/schemas/RunRecord'
+                  result:
+                    $ref: '#/components/schemas/RunResult'
         '401':
           description: Unauthorized
         '404':
@@ -119,11 +132,6 @@ paths:
         '429':
           description: Too many requests
   /runs/{runId}/cancel:
-    options:
-      summary: CORS Preflight
-      responses:
-        '200':
-          description: OK
     post:
       summary: Lauf abbrechen
       parameters:
@@ -143,6 +151,31 @@ paths:
           description: Run not running
         '429':
           description: Too many requests
+  /runs/{runId}/stream:
+    get:
+      summary: SSE-Fortschrittsstream
+      description: |
+        Server-Sent Events Stream. Sendet Events: ready, status, completed, error, timeout.
+        Timeout nach 300 Sekunden.
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE Stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+        '404':
+          description: Run not found
+        '429':
+          description: Too many requests
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -154,52 +187,22 @@ components:
       type: object
       required: [roots]
       properties:
-        mode:
-          type: string
-          enum: [DryRun, Move]
-          default: DryRun
         roots:
           type: array
           items:
             type: string
-        prefer:
+          description: ROM-Verzeichnispfade (mindestens 1, keine Systemverzeichnisse, keine Laufwerks-Roots)
+        mode:
+          type: string
+          enum: [DryRun, Move]
+          default: DryRun
+        preferRegions:
           type: array
           items:
             type: string
-        extensions:
-          type: array
-          items:
-            type: string
-        sortConsole:
-          type: boolean
-        useDat:
-          type: boolean
-        datFallback:
-          type: boolean
-        convert:
-          type: boolean
-        removeJunk:
-          type: boolean
-        aggressiveJunk:
-          type: boolean
-        aliasEditionKeying:
-          type: boolean
-        separateBios:
-          type: boolean
-        use1g1r:
-          type: boolean
-        datRoot:
-          type: string
-        datHashType:
-          type: string
-          enum: [SHA1, MD5, CRC32]
-        auditRoot:
-          type: string
-        trashRoot:
-          type: string
-        notifyAfterRun:
-          type: boolean
-    RunStatus:
+          description: Bevorzugte Regionen (z.B. ["EU", "US", "JP"])
+          default: ["EU", "US", "WORLD", "JP"]
+    RunRecord:
       type: object
       properties:
         runId:
@@ -207,6 +210,17 @@ components:
         status:
           type: string
           enum: [running, completed, failed, cancelled]
+        mode:
+          type: string
+          enum: [DryRun, Move]
+        roots:
+          type: array
+          items:
+            type: string
+        preferRegions:
+          type: array
+          items:
+            type: string
         startedUtc:
           type: string
           format: date-time
@@ -214,8 +228,31 @@ components:
           type: string
           format: date-time
           nullable: true
-        processId:
+        progressMessage:
+          type: string
+          nullable: true
+        result:
+          $ref: '#/components/schemas/RunResult'
+          nullable: true
+    RunResult:
+      type: object
+      properties:
+        status:
+          type: string
+        exitCode:
           type: integer
+          description: "0=Erfolg, 1=Fehler, 2=Abgebrochen, 3=Preflight fehlgeschlagen"
+        totalFiles:
+          type: integer
+        groups:
+          type: integer
+        keep:
+          type: integer
+        move:
+          type: integer
+        durationMs:
+          type: integer
+          format: int64
         error:
           type: string
           nullable: true

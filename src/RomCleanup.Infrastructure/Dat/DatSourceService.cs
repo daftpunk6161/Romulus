@@ -35,6 +35,11 @@ public sealed class DatSourceService : IDisposable
         if (string.IsNullOrWhiteSpace(url))
             return null;
 
+        // Path-traversal guard: localFileName must not escape datRoot
+        if (localFileName.Contains("..") || Path.IsPathRooted(localFileName)
+            || localFileName.IndexOfAny(new[] { '/', '\\' }) >= 0)
+            return null;
+
         Directory.CreateDirectory(_datRoot);
         var localPath = Path.Combine(_datRoot, localFileName);
 
@@ -91,7 +96,7 @@ public sealed class DatSourceService : IDisposable
         try
         {
             var shaUrl = sourceUrl + ".sha256";
-            var shaText = _http.GetStringAsync(shaUrl).GetAwaiter().GetResult();
+            var shaText = Task.Run(() => _http.GetStringAsync(shaUrl)).GetAwaiter().GetResult();
 
             if (string.IsNullOrWhiteSpace(shaText))
                 return false; // Fail-closed

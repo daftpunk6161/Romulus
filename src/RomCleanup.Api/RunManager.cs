@@ -11,18 +11,11 @@ namespace RomCleanup.Api;
 /// </summary>
 public sealed class RunManager
 {
-    private static readonly string[] DefaultExtensions =
-    {
-        ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
-        ".rvz", ".gcz", ".wbfs", ".nsp", ".xci", ".nes", ".snes",
-        ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
-        ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
-        ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
-    };
-
     private readonly ConcurrentDictionary<string, RunRecord> _runs = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _activeLock = new();
+    private const int MaxRunHistory = 100;
     private string? _activeRunId;
+    private Task? _activeTask;
 
     public RunRecord? TryCreate(RunRequest request, string mode)
     {
@@ -45,7 +38,7 @@ public sealed class RunManager
             _runs[runId] = record;
             _activeRunId = runId;
 
-            Task.Run(() => ExecuteRun(record));
+            _activeTask = Task.Run(() => ExecuteRun(record));
 
             return record;
         }
@@ -76,6 +69,29 @@ public sealed class RunManager
         }
     }
 
+    /// <summary>
+    /// Cancel any active run and wait for completion. Called during host shutdown.
+    /// </summary>
+    public async Task ShutdownAsync()
+    {
+        string? activeId;
+        Task? task;
+        lock (_activeLock)
+        {
+            activeId = _activeRunId;
+            task = _activeTask;
+        }
+
+        if (activeId is not null)
+            Cancel(activeId);
+
+        if (task is not null)
+        {
+            try { await task.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch { /* timeout or already completed */ }
+        }
+    }
+
     private void ExecuteRun(RunRecord run)
     {
         try
@@ -92,7 +108,7 @@ public sealed class RunManager
                 Roots = run.Roots,
                 Mode = run.Mode,
                 PreferRegions = run.PreferRegions,
-                Extensions = DefaultExtensions
+                Extensions = RunOptions.DefaultExtensions
             };
 
             var result = orchestrator.Execute(options, ct);
@@ -114,20 +130,34 @@ public sealed class RunManager
             run.Status = "cancelled";
             run.Result = new RunResult { Status = "cancelled", ExitCode = 2 };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             run.Status = "failed";
-            run.Result = new RunResult { Status = "failed", ExitCode = 1, Error = ex.Message };
+            run.Result = new RunResult { Status = "failed", ExitCode = 1, Error = "Internal error during run execution." };
         }
         finally
         {
             run.CompletedUtc = DateTime.UtcNow;
+            run.CancellationSource.Dispose();
             lock (_activeLock)
             {
                 if (_activeRunId == run.RunId)
                     _activeRunId = null;
             }
+            EvictOldRuns();
         }
+    }
+
+    private void EvictOldRuns()
+    {
+        if (_runs.Count <= MaxRunHistory) return;
+        var oldest = _runs.Values
+            .Where(r => r.Status != "running")
+            .OrderBy(r => r.StartedUtc)
+            .Take(_runs.Count - MaxRunHistory)
+            .ToList();
+        foreach (var old in oldest)
+            _runs.TryRemove(old.RunId, out _);
     }
 }
 

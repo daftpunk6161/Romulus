@@ -13,8 +13,23 @@ public static class CueSetParser
 
     /// <summary>
     /// Returns all file paths referenced in a CUE sheet (resolved relative to the CUE directory).
+    /// Only includes files that exist on disk.
     /// </summary>
     public static IReadOnlyList<string> GetRelatedFiles(string cuePath)
+    {
+        return ParseReferencedPaths(cuePath, existingOnly: true);
+    }
+
+    /// <summary>
+    /// Returns referenced files that do NOT exist on disk.
+    /// </summary>
+    public static IReadOnlyList<string> GetMissingFiles(string cuePath)
+    {
+        return ParseReferencedPaths(cuePath, existingOnly: false)
+            .Where(f => !File.Exists(f)).ToList();
+    }
+
+    private static IReadOnlyList<string> ParseReferencedPaths(string cuePath, bool existingOnly)
     {
         if (string.IsNullOrWhiteSpace(cuePath) || !File.Exists(cuePath))
             return Array.Empty<string>();
@@ -34,21 +49,15 @@ public static class CueSetParser
                 : Path.GetFullPath(Path.Combine(dir, refPath));
 
             // Path traversal guard: must stay within CUE directory
-            if (!fullPath.StartsWith(dir, StringComparison.OrdinalIgnoreCase))
+            var normalizedDir = dir.TrimEnd(Path.DirectorySeparatorChar)
+                                + Path.DirectorySeparatorChar;
+            if (!fullPath.StartsWith(normalizedDir, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            if (seen.Add(fullPath))
+            if (seen.Add(fullPath) && (!existingOnly || File.Exists(fullPath)))
                 result.Add(fullPath);
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// Returns referenced files that do NOT exist on disk.
-    /// </summary>
-    public static IReadOnlyList<string> GetMissingFiles(string cuePath)
-    {
-        return GetRelatedFiles(cuePath).Where(f => !File.Exists(f)).ToList();
     }
 }

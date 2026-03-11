@@ -87,7 +87,7 @@ app.MapGet("/health", (RunManager mgr) =>
     {
         status = "ok",
         serverRunning = true,
-        activeRunId = activeRun?.RunId,
+        hasActiveRun = activeRun is not null,
         utc = DateTime.UtcNow.ToString("o")
     });
 });
@@ -140,8 +140,10 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
         };
         foreach (var sys in systemDirs)
         {
-            if (!string.IsNullOrEmpty(sys) &&
-                full.Equals(sys.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(sys)) continue;
+            var normalizedSys = sys.TrimEnd(Path.DirectorySeparatorChar);
+            if (full.Equals(normalizedSys, StringComparison.OrdinalIgnoreCase) ||
+                full.StartsWith(normalizedSys + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 return Results.BadRequest(new { error = $"System directory not allowed: {root}" });
         }
         // Block drive root
@@ -161,8 +163,23 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
 
     if (waitSync)
     {
-        // Block until run completes
-        await mgr.WaitForCompletion(run.RunId);
+        // Block until run completes, respecting client disconnect and 10-minute timeout
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+        cts.CancelAfter(TimeSpan.FromMinutes(10));
+        try
+        {
+            while (true)
+            {
+                var current = mgr.Get(run.RunId);
+                if (current is null || current.Status != "running")
+                    break;
+                await Task.Delay(250, cts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(504); // Gateway Timeout
+        }
         var completedRun = mgr.Get(run.RunId);
         return Results.Ok(new { run = completedRun, result = completedRun?.Result });
     }
@@ -223,39 +240,57 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
     var start = DateTime.UtcNow;
     string? lastHash = null;
 
-    while (DateTime.UtcNow - start < timeout)
+    try
     {
-        if (ctx.RequestAborted.IsCancellationRequested)
-            break;
-
-        var current = mgr.Get(runId);
-        if (current is null)
+        while (DateTime.UtcNow - start < timeout)
         {
-            await WriteSseEvent(writer, encoding, "error", new { error = "Run not found.", runId });
-            break;
-        }
+            if (ctx.RequestAborted.IsCancellationRequested)
+                break;
 
-        var json = JsonSerializer.Serialize(current);
-        var hash = Convert.ToHexString(SHA256.HashData(encoding.GetBytes(json)));
-
-        if (hash != lastHash)
-        {
-            lastHash = hash;
-            if (current.Status != "running")
+            var current = mgr.Get(runId);
+            if (current is null)
             {
-                await WriteSseEvent(writer, encoding, "completed", new { run = current, result = current.Result });
+                await WriteSseEvent(writer, encoding, "error", new { error = "Run not found.", runId });
                 break;
             }
-            await WriteSseEvent(writer, encoding, "status", current);
+
+            var json = JsonSerializer.Serialize(current);
+            var hash = Convert.ToHexString(SHA256.HashData(encoding.GetBytes(json)));
+
+            if (hash != lastHash)
+            {
+                lastHash = hash;
+                if (current.Status != "running")
+                {
+                    await WriteSseEvent(writer, encoding, "completed", new { run = current, result = current.Result });
+                    break;
+                }
+                await WriteSseEvent(writer, encoding, "status", current);
+            }
+
+            await Task.Delay(250, ctx.RequestAborted).ContinueWith(_ => { });
         }
 
-        await Task.Delay(250, ctx.RequestAborted).ContinueWith(_ => { });
+        if (DateTime.UtcNow - start >= timeout)
+        {
+            await WriteSseEvent(writer, encoding, "timeout", new { runId, seconds = 300 });
+        }
     }
-
-    if (DateTime.UtcNow - start >= timeout)
+    catch (IOException)
     {
-        await WriteSseEvent(writer, encoding, "timeout", new { runId, seconds = 300 });
+        // Client disconnected — expected for SSE streams
     }
+    catch (OperationCanceledException)
+    {
+        // Client disconnected via RequestAborted
+    }
+});
+
+// Graceful shutdown: cancel active runs before process exits
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    var mgr = app.Services.GetRequiredService<RunManager>();
+    mgr.ShutdownAsync().GetAwaiter().GetResult();
 });
 
 app.Run();
@@ -265,8 +300,11 @@ app.Run();
 static bool FixedTimeEquals(string expected, string? actual)
 {
     if (actual is null) return false;
-    var a = Encoding.UTF8.GetBytes(expected);
-    var b = Encoding.UTF8.GetBytes(actual);
+    // HMAC both values to normalize length before comparison,
+    // eliminating the length oracle from FixedTimeEquals.
+    var key = Encoding.UTF8.GetBytes(expected);
+    var a = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(expected));
+    var b = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(actual));
     return CryptographicOperations.FixedTimeEquals(a, b);
 }
 

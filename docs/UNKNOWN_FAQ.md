@@ -1,13 +1,15 @@
 # Warum werden Dateien als UNBEKANNT eingestuft? (FAQ)
 
+> Implementierung: `src/RomCleanup.Core/Classification/ConsoleDetector.cs`
+
 ## 1. Keine DAT-Dateien konfiguriert
 
 **Problem:** Ohne DAT-Dateien kann kein Hash-Abgleich stattfinden (hoechste Erkennungssicherheit: 100%).
 
 **Loesung:** Laden Sie DAT-Dateien fuer Ihre Konsolen herunter:
-- **No-Intro** (Cartridge-basierte Systeme): https://no-intro.org
-- **Redump** (Disc-basierte Systeme): http://redump.org
-- Konfigurieren Sie den DAT-Ordner unter **Einstellungen > DAT-Dateien**
+- **No-Intro** (Cartridge-basierte Systeme)
+- **Redump** (Disc-basierte Systeme)
+- Konfigurieren Sie den DAT-Ordner in `settings.json` unter `dat.datRoot`
 
 ## 2. Mehrdeutige Dateiendung
 
@@ -43,7 +45,7 @@ Die Ordner-Erkennung ordnet Dateien anhand des Ordnernamens zu.
 
 **Problem:** Archive (`.zip`, `.7z`) koennen nur mit dem 7z-Tool analysiert werden. Ohne 7z werden Archive als UNBEKANNT eingestuft.
 
-**Loesung:** Installieren Sie 7-Zip und konfigurieren Sie den Pfad unter **Einstellungen > Werkzeuge > 7z-Pfad**.
+**Loesung:** Installieren Sie 7-Zip und konfigurieren Sie den Pfad in `settings.json` unter `toolPaths.7z`.
 
 ## 5. DolphinTool fehlt (GameCube/Wii)
 

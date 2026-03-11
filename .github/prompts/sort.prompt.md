@@ -1,7 +1,7 @@
 ---
 name: RomCleanup-Workspace-Standards
 description: Projektweite Workspace-Instructions für durchgängige Qualität: Architektur, GUI/UX (WPF/XAML), Sicherheit, Performance, Test-Qualität (keine Alibi-Tests), Refactoring-Disziplin, Release-Readiness, Tracking-Checklists
-argument-hint: Optional: Repo-Root, Haupt-Entry-Points, Zielplattform(en), PowerShell-Version(en), UI-Technologie, Packaging/Release-Setup, Constraints (muss 100% kompatibel bleiben).
+argument-hint: Optional: Repo-Root, Haupt-Entry-Points, Zielplattform(en), .NET-Version, UI-Technologie, Packaging/Release-Setup, Constraints.
 agent: agent
 tools:
   - agent
@@ -35,11 +35,11 @@ Deine Aufgabe ist es, bei jeder Arbeit im Projekt:
 
 <always_on_quality_bar>
 ## A) Architektur & Code-Organisation (immer)
-- Trenne klar: **UI** / **Core Engine** / **IO & Filesystem Safety** / **Reports** / **DAT & Hashing** / **External Tools Integration**.
-- Bevorzugte Richtung: **Core-Logik “pure”** (deterministisch, ohne UI/DoEvents/Global-State), damit sie testbar ist.
-- Reduziere globalen Zustand ($script:) und Seiteneffekte. Wo nötig: zentralisieren, dokumentieren, kapseln.
-- Einheitliche Helpers/Utilities (Quoting, Temp-Files, Process-Exec, Path-Safety, Logging, Encoding).
+- Clean Architecture (Ports & Adapters): **Contracts** (Ports/Models) → **Core** (pure Domain) → **Infrastructure** (I/O-Adapter) → **Entry Points** (CLI/API/WPF).
+- Bevorzugte Richtung: **Core-Logik "pure"** (deterministisch, keine I/O-Deps in `RomCleanup.Core`), damit sie testbar ist.
+- **Dependency Injection** über Konstruktor-Injection, Interfaces aus `Contracts/Ports/`.
 - Keine doppelten Implementierungen: gleiche Logik = ein Ort, gut getestet.
+- DTOs als C# Records/Models in `Contracts/Models/`.
 
 ## B) GUI/UX Standards (WPF/XAML-first)
 - Ziel: **selbsterklärend, nicht überladen, klare Flows, klare Prioritäten**.
@@ -67,8 +67,8 @@ Deine Aufgabe ist es, bei jeder Arbeit im Projekt:
 ## D) Performance & Skalierung (immer)
 - Große Libraries: Enumeration iterativ, Caching wo sinnvoll (FileInfo, Archive entries, Hash results).
 - Regex: compiled & sparsam; Hotspots messen (Stopwatch/Profiling).
-- Hashing: Streaming/Thresholds; UI darf nicht freezen (Background Worker/Async Patterns bei WPF).
-- UI Responsiveness: keine DoEvents-Spaghetti; klare Progress/Cancel Mechanik.
+- Hashing: Streaming/Thresholds; UI darf nicht freezen (async/await, Dispatcher.Invoke bei WPF).
+- UI Responsiveness: keine DoEvents; lange Tasks off-UI-thread, klare Progress/Cancel Mechanik.
 
 ## E) Tests & Qualität (keine Alibi-Tests)
 - Test-Pyramide:
@@ -80,7 +80,7 @@ Deine Aufgabe ist es, bei jeder Arbeit im Projekt:
   - negative tests (invalid inputs, missing tracks, corrupted archives, weird filenames)
   - invariants (z.B. niemals außerhalb Root; niemals leere Keys gruppieren; deterministisches Winner-Result)
   - realistische Daten: große Mengen, gemischte Extensions
-- CI/Automation: Fail-fast, reproduzierbar, klare Test-Kommandos.
+- CI/Automation: `dotnet test src/RomCleanup.sln`, Coverage ≥ 50%, fail-fast.
 
 ## F) Refactoring-Disziplin
 - Kein Refactor “auf Verdacht”: immer mit Ziel (Bug, UX, Wartbarkeit, Performance, Sicherheit).
@@ -110,7 +110,7 @@ Diese Phasen gelten projektweit für jede nicht-triviale Arbeit (auch kleine Fix
 
 ## 2. Alignment
 - Wenn Unklarheiten bestehen: #tool:vscode/askQuestions nutzen.
-- Constraints festnageln: PS-Version, Windows-only, UI-Tech, Packaging, Kompatibilität.
+- Constraints festnageln: .NET-Version, Windows-only, UI-Tech (WPF), Packaging, Kompatibilität.
 - Entscheide “Minimal Risk Path” vs “Strategischer Umbau”.
 
 ## 3. Design (Plan)

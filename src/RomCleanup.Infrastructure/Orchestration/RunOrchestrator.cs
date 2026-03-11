@@ -12,7 +12,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 /// <summary>
 /// Central pipeline orchestrator for ROM cleanup operations.
 /// Port of Invoke-CliRunAdapter / RunHelpers.Execution.ps1.
-/// Encapsulates: Preflight → Scan → Dedupe → Sort → Convert → Move → Report.
+/// Encapsulates: Preflight → Scan → Dedupe → JunkRemoval → Move → Sort → Convert → Report.
 /// Used by both CLI and API entry points.
 /// </summary>
 public sealed class RunOrchestrator
@@ -95,7 +95,7 @@ public sealed class RunOrchestrator
     }
 
     /// <summary>
-    /// Execute the full pipeline: Scan → Dedupe → (optional Sort) → (optional Convert) → Move → Report.
+    /// Execute the full pipeline: Scan → Dedupe → JunkRemoval → Move → Sort → (optional Convert) → Report.
     /// </summary>
     public RunResult Execute(RunOptions options, CancellationToken cancellationToken = default)
     {
@@ -140,23 +140,47 @@ public sealed class RunOrchestrator
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Phase 4: Console Sort (optional, Move mode only)
+        // Phase 3b: Remove junk (if enabled)
+        // Junk files that are the sole representative of their GameKey become "winners"
+        // and would never appear in any group's Losers list. This phase catches them.
+        if (options.RemoveJunk && options.Mode == "Move")
+        {
+            _onProgress?.Invoke("Removing junk files...");
+            var junkResult = ExecuteJunkRemovalPhase(candidates, groups, options, cancellationToken);
+            result.JunkRemovedCount = junkResult.MoveCount;
+            result.MoveResult = junkResult; // will be merged below if dedupe move also runs
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Phase 4: Move (if Mode=Move)
+        // Must run BEFORE Console Sort so that MainPath references remain valid for the move.
+        if (options.Mode == "Move")
+        {
+            _onProgress?.Invoke("Moving files...");
+            var moveResult = ExecuteMovePhase(groups, options, cancellationToken);
+
+            // Merge with junk removal result if both ran
+            if (result.MoveResult is not null)
+            {
+                moveResult = new MovePhaseResult(
+                    result.MoveResult.MoveCount + moveResult.MoveCount,
+                    result.MoveResult.FailCount + moveResult.FailCount,
+                    result.MoveResult.SavedBytes + moveResult.SavedBytes);
+            }
+            result.MoveResult = moveResult;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Phase 5: Console Sort (optional, Move mode only)
+        // Runs after Move so that moved losers are already in trash and won't be sorted.
         if (options.SortConsole && options.Mode == "Move" && _consoleDetector is not null)
         {
             _onProgress?.Invoke("Sorting by console...");
             var sorter = new ConsoleSorter(_fs, _consoleDetector);
             result.ConsoleSortResult = sorter.Sort(
                 options.Roots, options.Extensions, dryRun: false, cancellationToken);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // Phase 5: Move (if Mode=Move)
-        if (options.Mode == "Move")
-        {
-            _onProgress?.Invoke("Moving files...");
-            var moveResult = ExecuteMovePhase(groups, options, cancellationToken);
-            result.MoveResult = moveResult;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -254,6 +278,64 @@ public sealed class RunOrchestrator
     }
 
     /// <summary>
+    /// Move standalone junk files (sole members of their GameKey group) to trash.
+    /// These are never in any Losers list because deduplication only makes losers
+    /// when there are multiple candidates for the same GameKey.
+    /// </summary>
+    private MovePhaseResult ExecuteJunkRemovalPhase(
+        IReadOnlyList<RomCandidate> allCandidates,
+        IReadOnlyList<DedupeResult> groups,
+        RunOptions options,
+        CancellationToken ct)
+    {
+        // Collect all junk candidates: JUNK winners that are the sole member of their group,
+        // plus any JUNK losers (already handled by ExecuteMovePhase, but we also catch solo junk here).
+        var junkToRemove = groups
+            .Where(g => g.Losers.Count == 0 && g.Winner.Category == "JUNK")
+            .Select(g => g.Winner)
+            .ToList();
+
+        int moveCount = 0, failCount = 0;
+        long savedBytes = 0;
+
+        foreach (var junk in junkToRemove)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var root = FindRootForPath(junk.MainPath, options.Roots);
+            if (root is null) { failCount++; continue; }
+
+            var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
+            var trashDir = Path.Combine(trashBase, "_TRASH_JUNK");
+            _fs.EnsureDirectory(trashDir);
+
+            var fileName = Path.GetFileName(junk.MainPath);
+            var destPath = _fs.ResolveChildPathWithinRoot(
+                trashBase, Path.Combine("_TRASH_JUNK", fileName));
+
+            if (destPath is null) { failCount++; continue; }
+
+            if (_fs.MoveItemSafely(junk.MainPath, destPath))
+            {
+                moveCount++;
+                savedBytes += junk.SizeBytes;
+
+                if (!string.IsNullOrEmpty(options.AuditPath))
+                {
+                    _audit.AppendAuditRow(options.AuditPath, root, junk.MainPath, destPath,
+                        "Move", "JUNK", "", "junk-removal");
+                }
+            }
+            else
+            {
+                failCount++;
+            }
+        }
+
+        return new MovePhaseResult(moveCount, failCount, savedBytes);
+    }
+
+    /// <summary>
     /// Move losers/junk to trash with incremental audit flush.
     /// Port of Invoke-MovePhase from RunHelpers.Execution.ps1.
     /// </summary>
@@ -319,18 +401,33 @@ public sealed class RunOrchestrator
 
     private static string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
     {
+        var fullPath = Path.GetFullPath(filePath);
         foreach (var root in roots)
         {
-            if (filePath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar)
+                                 + Path.DirectorySeparatorChar;
+            if (fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
                 return root;
         }
-        return roots.Count > 0 ? roots[0] : null;
+        return null;
     }
 }
 
 /// <summary>Options for a run execution.</summary>
 public sealed class RunOptions
 {
+    /// <summary>
+    /// Default file extensions for ROM scanning. Shared across CLI, API, and WPF entry points.
+    /// </summary>
+    public static readonly string[] DefaultExtensions =
+    {
+        ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
+        ".rvz", ".gcz", ".wbfs", ".nsp", ".xci", ".nes", ".snes",
+        ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
+        ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
+        ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
+    };
+
     public IReadOnlyList<string> Roots { get; init; } = Array.Empty<string>();
     public string Mode { get; init; } = "DryRun";
     public string[] PreferRegions { get; init; } = { "EU", "US", "WORLD", "JP" };
@@ -359,6 +456,7 @@ public sealed class RunResult
     public int LoserCount { get; set; }
     public MovePhaseResult? MoveResult { get; set; }
     public ConsoleSortResult? ConsoleSortResult { get; set; }
+    public int JunkRemovedCount { get; set; }
     public int ConvertedCount { get; set; }
     public long DurationMs { get; set; }
 
