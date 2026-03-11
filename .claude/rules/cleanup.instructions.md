@@ -1,16 +1,14 @@
 ---
-description: Projektweite Instructions für RomCleanup (PowerShell + WPF/XAML). Laden für alle Dateien im Repo, insbesondere Scripts, UI und Tests.
+description: Projektweite Instructions für RomCleanup (C# .NET 10 + WPF/XAML). Laden für alle Dateien im Repo, insbesondere C#-Code, UI und Tests.
 paths:
-  - "**/*.ps1"
-  - "**/*.psm1"
-  - "**/*.psd1"
-  - "**/*.xaml"
   - "**/*.cs"
+  - "**/*.xaml"
+  - "**/*.csproj"
+  - "**/*.sln"
   - "**/*.json"
   - "**/*.md"
   - "**/*.yml"
   - "**/*.yaml"
-  - "tests/**/*"
   - "src/**/*"
 ---
 Provide coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
@@ -19,6 +17,8 @@ Provide coding guidelines that AI should follow when generating code, answering 
 
 Diese Regeln gelten **projektweit und dauerhaft**. Sie sind **nicht task-spezifisch**.  
 Ziel ist ein **release-fähiges**, **sicheres**, **wartbares** und **testbares** Tool mit **modernem, retro-stylischem, selbsterklärendem GUI/UX** (primär **WPF/XAML**).
+
+> **Hinweis:** Die PowerShell-Version wurde vollständig nach C# .NET 10 migriert. PS-Code liegt im `archive/powershell/` Ordner als Referenz. Aktive Entwicklung erfolgt ausschließlich in `src/`.
 
 ## 1) Grundprinzipien (Quality Bar)
 - **Stabilität vor Feature-Hype:** Keine Änderung ohne klaren Nutzen, Risikoabschätzung und Verifikation.

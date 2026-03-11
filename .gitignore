@@ -18,10 +18,6 @@ reports/
 
 # ── Audit-Logs: runtime-generated, never commit ──
 audit-logs/
-dev/audit-logs/
-
-# ── Dev reports: generated output ──
-dev/reports/
 
 # ── Generated docs ──
 docs/openapi.generated.json
