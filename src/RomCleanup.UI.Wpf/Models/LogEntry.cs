@@ -71,6 +71,9 @@ public sealed class ToolItem : INotifyPropertyChanged
     public required string Icon { get; init; }
     public bool RequiresRunResult { get; init; }
 
+    /// <summary>Bound to the templated Button in the Werkzeuge tab. Set after FeatureCommands are registered.</summary>
+    public System.Windows.Input.ICommand? Command { get; set; }
+
     private bool _isVisible = true;
     public bool IsVisible
     {

@@ -487,644 +487,469 @@
         </ScrollViewer>
       </TabItem>
 
-      <!-- ═══ KONFIGURATION ═══════════════════════════════════════════════ -->
-      <TabItem Header="Konfiguration">
-        <TabControl>
+      <!-- ═══ ERGEBNIS (RD-001) ════════════════════════════════════════════ -->
+      <!-- moved earlier — see above -->
 
-          <!-- ── REGELN ─────────────────────────────────────────────────── -->
-          <TabItem Header="Regeln">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-              <StackPanel>
-                <Expander Header="Sortieroptionen" IsExpanded="True" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="SORTIEROPTIONEN" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel>
-                        <CheckBox Content="Ordner nach Konsole strukturieren" Margin="0,4,24,4"
-                                  IsChecked="{Binding SortConsole}" ToolTip="Erstellt Unterordner pro Konsole"/>
-                        <CheckBox Content="Offensichtliche Junk-Dateien stärker filtern" Margin="0,4,24,4"
-                                  IsChecked="{Binding AggressiveJunk}" ToolTip="Entfernt zusätzliche Beta/Proto/Sample-Dateien"/>
-                        <CheckBox Content="Spielnamen vereinheitlichen" Margin="0,4,24,4"
-                                  IsChecked="{Binding AliasKeying}" ToolTip="Gleicht bekannte Namensvarianten auf denselben Titel ab"/>
-                      </WrapPanel>
-                      <TextBlock Text="ℹ Diese Optionen sind optional. Für Standardläufe reicht der Sortieren-Tab."
-                                 Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+      <!-- ═══ WERKZEUGE (RD-004: kategorisierte, filterbare Liste) ═════════ -->
+      <TabItem Header="Werkzeuge">
+        <DockPanel>
+          <!-- Filter bar -->
+          <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurfaceAlt}"
+                  BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="12,8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                         Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
+              <TextBox Grid.Column="1" Text="{Binding ToolFilterText, UpdateSourceTrigger=PropertyChanged}"
+                       MinWidth="200" VerticalAlignment="Center"
+                       ToolTip="Werkzeuge filtern (Name, Kategorie, Beschreibung)"
+                       AutomationProperties.Name="Werkzeuge-Filter"/>
+              <TextBlock Grid.Column="2" Text="{Binding ToolItems.Count, StringFormat='{}{0} Werkzeuge'}"
+                         Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" Margin="{DynamicResource SpaceLeftSM}" FontSize="11"/>
+            </Grid>
+          </Border>
 
-                      <Expander Header="Erweiterte Sortierung &amp; Sicherheit" Margin="{DynamicResource SpaceTopLG}" IsExpanded="False">
-                        <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                CornerRadius="8" Padding="12" Margin="0,8,0,0">
-                          <StackPanel>
-                            <!-- Region Priority -->
-                            <Grid Margin="{DynamicResource SpaceBottomSM}">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="*"/>
-                              </Grid.ColumnDefinitions>
-                              <Label Grid.Column="0" Content="Region-Prio:" VerticalAlignment="Top" Margin="0,2,0,0"/>
-                              <StackPanel Grid.Column="1">
-                                <WrapPanel>
-                                  <CheckBox Content="EU"    Margin="0,0,12,4" IsChecked="{Binding PreferEU}"    ToolTip="Europa (EUR/PAL)"/>
-                                  <CheckBox Content="US"    Margin="0,0,12,4" IsChecked="{Binding PreferUS}"    ToolTip="USA (NTSC)"/>
-                                  <CheckBox Content="WORLD" Margin="0,0,12,4" IsChecked="{Binding PreferWORLD}" ToolTip="World-/Export-Versionen"/>
-                                  <CheckBox Content="JP"    Margin="0,0,12,4" IsChecked="{Binding PreferJP}"    ToolTip="Japan"/>
-                                </WrapPanel>
-                                <Expander Header="Weitere Regionen" IsExpanded="False" Margin="0,2,0,0">
-                                  <WrapPanel Margin="0,4,0,0">
-                                    <CheckBox Content="DE"   Margin="0,0,12,4" IsChecked="{Binding PreferDE}"   ToolTip="Deutschland"/>
-                                    <CheckBox Content="FR"   Margin="0,0,12,4" IsChecked="{Binding PreferFR}"   ToolTip="Frankreich"/>
-                                    <CheckBox Content="IT"   Margin="0,0,12,4" IsChecked="{Binding PreferIT}"   ToolTip="Italien"/>
-                                    <CheckBox Content="ES"   Margin="0,0,12,4" IsChecked="{Binding PreferES}"   ToolTip="Spanien"/>
-                                    <CheckBox Content="AU"   Margin="0,0,12,4" IsChecked="{Binding PreferAU}"   ToolTip="Australien"/>
-                                    <CheckBox Content="ASIA" Margin="0,0,12,4" IsChecked="{Binding PreferASIA}" ToolTip="Asien"/>
-                                    <CheckBox Content="KR"   Margin="0,0,12,4" IsChecked="{Binding PreferKR}"   ToolTip="Südkorea"/>
-                                    <CheckBox Content="CN"   Margin="0,0,12,4" IsChecked="{Binding PreferCN}"   ToolTip="China"/>
-                                    <CheckBox Content="BR"   Margin="0,0,12,4" IsChecked="{Binding PreferBR}"   ToolTip="Brasilien"/>
-                                    <CheckBox Content="NL"   Margin="0,0,12,4" IsChecked="{Binding PreferNL}"   ToolTip="Niederlande"/>
-                                    <CheckBox Content="SE"   Margin="0,0,12,4" IsChecked="{Binding PreferSE}"   ToolTip="Schweden"/>
-                                    <CheckBox Content="SCAN" Margin="0,0,12,4" IsChecked="{Binding PreferSCAN}" ToolTip="Skandinavien"/>
-                                  </WrapPanel>
-                                </Expander>
-                              </StackPanel>
-                            </Grid>
-                            <TextBlock Text="Aktivierte Regionen werden bevorzugt behalten. Nicht aktivierte Regionen werden als Duplikat behandelt."
-                                       Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
-
-                            <!-- File type filters (UX-004: VM-bound via ExtensionFilters collection) -->
-                            <TextBlock Text="Dateitypen (keine Auswahl = alle Dateitypen scannen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
-                            <ItemsControl ItemsSource="{Binding ExtensionFiltersView}" Margin="{DynamicResource SpaceBottomSM}">
-                              <ItemsControl.GroupStyle>
-                                <GroupStyle>
-                                  <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                      <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
-                                    </DataTemplate>
-                                  </GroupStyle.HeaderTemplate>
-                                  <GroupStyle.Panel>
-                                    <ItemsPanelTemplate>
-                                      <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                  </GroupStyle.Panel>
-                                </GroupStyle>
-                              </ItemsControl.GroupStyle>
-                              <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                  <CheckBox Content="{Binding Extension}" IsChecked="{Binding IsChecked}"
-                                            ToolTip="{Binding ToolTip}" Margin="0,0,12,4"/>
-                                </DataTemplate>
-                              </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <!-- Console filters (VM-bound via ConsoleFiltersView) -->
-                            <TextBlock Text="Konsolen (keine Auswahl = alle Konsolen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
-                            <ItemsControl ItemsSource="{Binding ConsoleFiltersView}">
-                              <ItemsControl.GroupStyle>
-                                <GroupStyle>
-                                  <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                      <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
-                                    </DataTemplate>
-                                  </GroupStyle.HeaderTemplate>
-                                  <GroupStyle.Panel>
-                                    <ItemsPanelTemplate>
-                                      <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                  </GroupStyle.Panel>
-                                </GroupStyle>
-                              </ItemsControl.GroupStyle>
-                              <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                  <CheckBox Content="{Binding DisplayName}"
-                                            IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                            Margin="0,0,12,4"/>
-                                </DataTemplate>
-                              </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <!-- Safety mode -->
-                            <TextBlock Text="SICHERHEITSMODUS" Style="{StaticResource SectionHeader}" Margin="0,12,0,8"/>
-                            <CheckBox Content="Sicherheitsmodus aktiv (strikt + Rückfragen)" Margin="{DynamicResource SpaceBottomSM}"
-                                      IsChecked="{Binding SafetyStrict}"
-                                      ToolTip="Kombiniert strikte Sicherheitsregeln und zusätzliche Move-Bestätigungen."/>
-                            <Grid Margin="0,2,0,0">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="*"/>
-                              </Grid.ColumnDefinitions>
-                              <Label Grid.Column="0" Content="Sicherheitsbereich:" VerticalAlignment="Center"/>
-                              <TextBox Grid.Column="1" Text="{Binding ProtectedPaths, UpdateSourceTrigger=PropertyChanged}"
-                                       ToolTip="Semikolon-getrennte Pfade für geschützte Bereiche"
-                                       AutomationProperties.Name="Geschützte Pfade"/>
-                            </Grid>
-                            <CheckBox Content="JP-Keep nur für ausgewählte Konsolen" Margin="0,4,0,0"
-                                      IsChecked="{Binding JpOnlySelected}"
-                                      ToolTip="JP-Versionen nur für die unten definierten Konsolen bevorzugen."/>
-                            <Grid Margin="0,8,0,0">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="*"/>
-                              </Grid.ColumnDefinitions>
-                              <Label Grid.Column="0" Content="JP-Keep-Konsolen:" VerticalAlignment="Center"/>
-                              <TextBox Grid.Column="1" Text="{Binding JpKeepConsoles, UpdateSourceTrigger=PropertyChanged}"
-                                       ToolTip="Kommagetrennt: PS1,PS2"
-                                       AutomationProperties.Name="JP-Keep-Konsolen"/>
-                            </Grid>
-                          </StackPanel>
-                        </Border>
-                      </Expander>
+          <!-- Categorized tool list -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+            <ItemsControl ItemsSource="{Binding ToolItemsView}">
+              <ItemsControl.GroupStyle>
+                <GroupStyle>
+                  <GroupStyle.HeaderTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding Name}" Style="{StaticResource SectionHeader}" Margin="0,16,0,6"/>
+                    </DataTemplate>
+                  </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+              </ItemsControl.GroupStyle>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Margin="0,0,8,6" Padding="10,8" HorizontalContentAlignment="Left" MinWidth="220" MaxWidth="360"
+                          Command="{Binding Command}"
+                          ToolTip="{Binding Description}"
+                          AutomationProperties.Name="{Binding DisplayName}"
+                          Tag="{Binding Key}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                 Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBlock Text="{Binding Description}" Style="{StaticResource CaptionText}" TextTrimming="CharacterEllipsis" MaxWidth="260"/>
+                      </StackPanel>
                     </StackPanel>
-                  </Border>
-                </Expander>
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
 
-          <!-- ── TOOLS &amp; DAT ──────────────────────────────────────────── -->
-          <TabItem Header="Tools &amp; DAT">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-              <StackPanel>
+      <!-- ═══ EINSTELLUNGEN (RD-001/RD-002: Accordion statt verschachtelte Expander) ═ -->
+      <TabItem Header="Einstellungen">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+          <StackPanel>
 
-                <!-- Tools -->
-                <Expander Header="Tools" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <Expander Header="Externe Tools (optional)" IsExpanded="False">
-                        <StackPanel Margin="0,8,0,0">
-                          <TextBlock Text="EXTERNE TOOLS" Style="{StaticResource SectionHeader}"/>
-                          <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="100"/>
-                              <ColumnDefinition Width="*"/>
-                              <ColumnDefinition Width="38"/>
-                              <ColumnDefinition Width="70"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                              <RowDefinition Height="Auto"/>
-                              <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
-                              <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
-                              <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
-                              <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" Content="chdman:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ToolChdman, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                    AutomationProperties.Name="chdman-Pfad"/>
-                            <Button x:Name="btnBrowseChdman" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                    AutomationProperties.Name="chdman durchsuchen"/>
-                            <TextBlock x:Name="lblChdmanStatus" Grid.Row="0" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
+            <!-- Accordion Section: Sortieroptionen -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Sortieroptionen" IsExpanded="True">
+                <StackPanel Margin="0,8,0,0">
+                  <WrapPanel>
+                    <CheckBox Content="Ordner nach Konsole strukturieren" Margin="0,4,24,4"
+                              IsChecked="{Binding SortConsole}" ToolTip="Erstellt Unterordner pro Konsole"/>
+                    <CheckBox Content="Offensichtliche Junk-Dateien stärker filtern" Margin="0,4,24,4"
+                              IsChecked="{Binding AggressiveJunk}" ToolTip="Entfernt zusätzliche Beta/Proto/Sample-Dateien"/>
+                    <CheckBox Content="Spielnamen vereinheitlichen" Margin="0,4,24,4"
+                              IsChecked="{Binding AliasKeying}" ToolTip="Gleicht bekannte Namensvarianten auf denselben Titel ab"/>
+                  </WrapPanel>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                            <Label Grid.Row="2" Grid.Column="0" Content="dolphintool:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ToolDolphin, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                    AutomationProperties.Name="dolphintool-Pfad"/>
-                            <Button x:Name="btnBrowseDolphin" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                    AutomationProperties.Name="dolphintool durchsuchen"/>
-                            <TextBlock x:Name="lblDolphinStatus" Grid.Row="2" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
+            <!-- Accordion Section: Dateityp- & Konsolen-Filter -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Dateityp- &amp; Konsolen-Filter" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <TextBlock Text="Dateitypen (keine Auswahl = alle Dateitypen scannen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
+                  <ItemsControl ItemsSource="{Binding ExtensionFiltersView}" Margin="{DynamicResource SpaceBottomSM}">
+                    <ItemsControl.GroupStyle>
+                      <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
+                          </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                        <GroupStyle.Panel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel/>
+                          </ItemsPanelTemplate>
+                        </GroupStyle.Panel>
+                      </GroupStyle>
+                    </ItemsControl.GroupStyle>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <CheckBox Content="{Binding Extension}" IsChecked="{Binding IsChecked}"
+                                  ToolTip="{Binding ToolTip}" Margin="0,0,12,4"/>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
 
-                            <Label Grid.Row="4" Grid.Column="0" Content="7-Zip (7z):" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tool7z, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                    AutomationProperties.Name="7-Zip-Pfad"/>
-                            <Button x:Name="btnBrowse7z" Grid.Row="4" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                    AutomationProperties.Name="7-Zip durchsuchen"/>
-                            <TextBlock x:Name="lbl7zStatus" Grid.Row="4" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
+                  <TextBlock Text="Konsolen (keine Auswahl = alle Konsolen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
+                  <ItemsControl ItemsSource="{Binding ConsoleFiltersView}">
+                    <ItemsControl.GroupStyle>
+                      <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
+                          </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                        <GroupStyle.Panel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel/>
+                          </ItemsPanelTemplate>
+                        </GroupStyle.Panel>
+                      </GroupStyle>
+                    </ItemsControl.GroupStyle>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <CheckBox Content="{Binding DisplayName}"
+                                  IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                  Margin="0,0,12,4"/>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                            <Label Grid.Row="6" Grid.Column="0" Content="psxtract:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ToolPsxtract, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                    AutomationProperties.Name="psxtract-Pfad"/>
-                            <Button x:Name="btnBrowsePsxtract" Grid.Row="6" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                    AutomationProperties.Name="psxtract durchsuchen"/>
-                            <TextBlock x:Name="lblPsxtractStatus" Grid.Row="6" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
+            <!-- Accordion Section: Sicherheitsmodus -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Sicherheitsmodus" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <CheckBox Content="Sicherheitsmodus aktiv (strikt + Rückfragen)" Margin="{DynamicResource SpaceBottomSM}"
+                            IsChecked="{Binding SafetyStrict}"
+                            ToolTip="Kombiniert strikte Sicherheitsregeln und zusätzliche Move-Bestätigungen."/>
+                  <Grid Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Sicherheitsbereich:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding ProtectedPaths, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Semikolon-getrennte Pfade für geschützte Bereiche"
+                             AutomationProperties.Name="Geschützte Pfade"/>
+                  </Grid>
+                  <CheckBox Content="JP-Keep nur für ausgewählte Konsolen" Margin="0,4,0,0"
+                            IsChecked="{Binding JpOnlySelected}"
+                            ToolTip="JP-Versionen nur für die unten definierten Konsolen bevorzugen."/>
+                  <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="JP-Keep-Konsolen:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding JpKeepConsoles, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Kommagetrennt: PS1,PS2"
+                             AutomationProperties.Name="JP-Keep-Konsolen"/>
+                  </Grid>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                            <Label Grid.Row="8" Grid.Column="0" Content="ciso:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ToolCiso, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                    AutomationProperties.Name="ciso-Pfad"/>
-                            <Button x:Name="btnBrowseCiso" Grid.Row="8" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                    AutomationProperties.Name="ciso durchsuchen"/>
-                            <TextBlock x:Name="lblCisoStatus" Grid.Row="8" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
-                          </Grid>
-                          <Button x:Name="btnAutoFindTools" Content="Tools auto-entdecken"
-                                  ToolTip="Sucht bekannte Konvertierungstools automatisch im System"
-                                  Width="200" HorizontalAlignment="Left" Margin="{DynamicResource SpaceTopLG}"
-                                  AutomationProperties.Name="Externe Tools automatisch suchen"/>
-                        </StackPanel>
-                      </Expander>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+            <!-- Accordion Section: Externe Tools -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Externe Tools" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="100"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="38"/>
+                      <ColumnDefinition Width="70"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="chdman:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ToolChdman, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="chdman-Pfad"/>
+                    <Button x:Name="btnBrowseChdman" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="chdman durchsuchen"/>
+                    <TextBlock x:Name="lblChdmanStatus" Grid.Row="0" Grid.Column="3" Text="–"
+                               Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
-                <!-- DAT Settings -->
-                <Expander Header="DAT &amp; Hashes" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="DAT-EINSTELLUNGEN" Style="{StaticResource SectionHeader}"/>
-                      <CheckBox Content="DAT-Verifikation aktivieren" Margin="0,0,0,12"
-                                IsChecked="{Binding UseDat}"
-                                ToolTip="Vergleicht Dateien mit DAT-Datenbankeinträgen (Hashes)."/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="120"/>
-                          <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="38"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                          <RowDefinition Height="Auto"/>
-                          <RowDefinition Height="6"/>
-                          <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="DAT-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DatRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                AutomationProperties.Name="DAT-Root-Verzeichnis"/>
-                        <Button x:Name="btnBrowseDat" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                AutomationProperties.Name="DAT-Verzeichnis durchsuchen"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="Hash-Typ:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbDatHash" Grid.Row="2" Grid.Column="1"
-                                  SelectedValue="{Binding DatHashType, Mode=TwoWay}"
-                                  SelectedValuePath="Content"
-                                  AutomationProperties.Name="Hash-Typ">
-                          <ComboBoxItem Content="SHA1"/>
-                          <ComboBoxItem Content="MD5"/>
-                          <ComboBoxItem Content="CRC32"/>
-                        </ComboBox>
-                      </Grid>
-                      <WrapPanel Margin="0,12,0,0">
-                        <CheckBox Content="DAT-Fallback aktivieren" Margin="0,0,24,0"
-                                  IsChecked="{Binding DatFallback}"
-                                  ToolTip="Wenn kein exakter Treffer gefunden wird, alternative DAT-Zuordnung versuchen."/>
-                        <CheckBox Content="Basis-CRC bei Scan/Konvertierung" Margin="0,0,24,0"
-                                  IsChecked="{Binding CrcVerifyScan}"
-                                  ToolTip="Basis-CRC-Prüfung auf Datei-Ebene (unabhängig von DAT)."/>
-                      </WrapPanel>
-                      <TextBlock Text="ℹ DAT + CRC erhöhen Genauigkeit, können den Lauf aber deutlich verlangsamen."
-                                 Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+                    <Label Grid.Row="2" Grid.Column="0" Content="dolphintool:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ToolDolphin, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="dolphintool-Pfad"/>
+                    <Button x:Name="btnBrowseDolphin" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="dolphintool durchsuchen"/>
+                    <TextBlock x:Name="lblDolphinStatus" Grid.Row="2" Grid.Column="3" Text="–"
+                               Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
-                <!-- DAT Mapping -->
-                <Expander Header="DAT-Mapping" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="KONSOLEN → DAT-MAPPING" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-                      <TextBlock Text="Ordnet Konsolen manuell ihren DAT-Dateien zu. Ohne Zuordnung wird Auto-Erkennung verwendet."
-                                 Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
-                      <DataGrid MinHeight="200" MaxHeight="400"
-                                ItemsSource="{Binding DatMappings}"
-                                AutoGenerateColumns="False"
-                                CanUserAddRows="True" CanUserDeleteRows="True"
-                                SelectionMode="Single"
-                                VirtualizingPanel.IsVirtualizing="True"
-                                VirtualizingPanel.VirtualizationMode="Recycling"
-                                ScrollViewer.CanContentScroll="True"
-                                AutomationProperties.Name="DAT-Konsolen-Zuordnung">
-                        <DataGrid.Resources>
-                          <x:Array x:Key="DatConsoleItems" Type="{x:Type sys:String}">
-                            <sys:String>PS1</sys:String>
-                            <sys:String>PS2</sys:String>
-                            <sys:String>PSP</sys:String>
-                            <sys:String>DC</sys:String>
-                            <sys:String>SAT</sys:String>
-                            <sys:String>GC</sys:String>
-                            <sys:String>WII</sys:String>
-                          </x:Array>
-                        </DataGrid.Resources>
-                        <DataGrid.Columns>
-                          <DataGridComboBoxColumn Header="Konsole"
-                                                  SelectedItemBinding="{Binding Console}"
-                                                  ItemsSource="{StaticResource DatConsoleItems}"
-                                                  Width="130"/>
-                          <DataGridTextColumn Header="DAT-Datei" Binding="{Binding DatFile}" Width="*"/>
-                        </DataGrid.Columns>
-                      </DataGrid>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
+                    <Label Grid.Row="4" Grid.Column="0" Content="7-Zip (7z):" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tool7z, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="7-Zip-Pfad"/>
+                    <Button x:Name="btnBrowse7z" Grid.Row="4" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="7-Zip durchsuchen"/>
+                    <TextBlock x:Name="lbl7zStatus" Grid.Row="4" Grid.Column="3" Text="–"
+                               Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
-          <!-- ── PROFILE ──────────────────────────────────────────────────── -->
-          <TabItem Header="Profile">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-              <StackPanel>
-                <Expander Header="Profile" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="PROFILE" Style="{StaticResource SectionHeader}"/>
-                      <Grid Margin="{DynamicResource SpaceBottomSM}">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="130"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Label Grid.Column="0" Content="Profilname:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbConfigProfile" Grid.Column="1" IsEditable="True"
-                                  AutomationProperties.Name="Profilname"/>
-                      </Grid>
-                      <WrapPanel Margin="0,4,0,0">
-                        <Button x:Name="btnProfileSave"   Content="Speichern"   Width="110" Margin="0,0,4,4" ToolTip="Aktuelle Einstellungen speichern" AutomationProperties.Name="Profil speichern"/>
-                        <Button x:Name="btnProfileLoad"   Content="Laden"       Width="110" Margin="0,0,4,4" ToolTip="Gespeichertes Profil laden" AutomationProperties.Name="Profil laden"/>
-                        <Button x:Name="btnProfileDelete" Content="Löschen"     Width="110" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="Profil löschen" AutomationProperties.Name="Profil löschen"/>
-                        <Button x:Name="btnProfileImport" Content="Importieren" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="Profil importieren" AutomationProperties.Name="Profil importieren"/>
-                        <Button x:Name="btnConfigDiff"    Content="Config-Diff" Width="110" Margin="0,0,4,4" ToolTip="Unterschiede anzeigen" AutomationProperties.Name="Config-Diff anzeigen"/>
-                      </WrapPanel>
-                      <TextBlock Text="Profile speichern alle Einstellungen und können zwischen verschiedenen Sammlungen gewechselt werden."
-                                 Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+                    <Label Grid.Row="6" Grid.Column="0" Content="psxtract:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ToolPsxtract, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="psxtract-Pfad"/>
+                    <Button x:Name="btnBrowsePsxtract" Grid.Row="6" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="psxtract durchsuchen"/>
+                    <TextBlock x:Name="lblPsxtractStatus" Grid.Row="6" Grid.Column="3" Text="–"
+                               Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
-                <Expander Header="Allgemein" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="ALLGEMEIN" Style="{StaticResource SectionHeader}"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="130"/>
-                          <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="38"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                          <RowDefinition Height="Auto"/>
-                          <RowDefinition Height="6"/>
-                          <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="Papierkorb:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrashRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                 ToolTip="Verzeichnis in das Duplikate verschoben werden (_TRASH)"
-                                 AutomationProperties.Name="Papierkorb-Verzeichnis"/>
-                        <Button x:Name="btnBrowseTrash" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                AutomationProperties.Name="Papierkorb-Ordner durchsuchen"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="Log-Level:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbLogLevel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
-                                  SelectedValue="{Binding LogLevel, Mode=TwoWay}"
-                                  SelectedValuePath="Content"
-                                  AutomationProperties.Name="Log-Level">
-                          <ComboBoxItem Content="Debug"/>
-                          <ComboBoxItem Content="Info"/>
-                          <ComboBoxItem Content="Warning"/>
-                          <ComboBoxItem Content="Error"/>
-                        </ComboBox>
-                      </Grid>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
+                    <Label Grid.Row="8" Grid.Column="0" Content="ciso:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ToolCiso, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="ciso-Pfad"/>
+                    <Button x:Name="btnBrowseCiso" Grid.Row="8" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="ciso durchsuchen"/>
+                    <TextBlock x:Name="lblCisoStatus" Grid.Row="8" Grid.Column="3" Text="–"
+                               Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
+                  </Grid>
+                  <Button x:Name="btnAutoFindTools" Content="Tools auto-entdecken"
+                          ToolTip="Sucht bekannte Konvertierungstools automatisch im System"
+                          Width="200" HorizontalAlignment="Left" Margin="{DynamicResource SpaceTopLG}"
+                          AutomationProperties.Name="Externe Tools automatisch suchen"/>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-          <!-- ── ERWEITERT ──────────────────────────────────────────────── -->
-          <TabItem Header="Erweitert">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-              <StackPanel>
-                <Expander Header="Audit &amp; System" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="AUDIT &amp; SYSTEM" Style="{StaticResource SectionHeader}"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="130"/>
-                          <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="38"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                          <RowDefinition Height="Auto"/>
-                          <RowDefinition Height="6"/>
-                          <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="Audit-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                 AutomationProperties.Name="Audit-Root-Verzeichnis"/>
-                        <Button x:Name="btnBrowseAudit" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                AutomationProperties.Name="Audit-Verzeichnis durchsuchen"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="PS3 Dupes-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Ps3DupesRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
-                                 AutomationProperties.Name="PS3 Dupes-Verzeichnis"/>
-                        <Button x:Name="btnBrowsePs3" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
-                                AutomationProperties.Name="PS3 Dupes-Verzeichnis durchsuchen"/>
-                      </Grid>
+            <!-- Accordion Section: DAT & Hashes -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="DAT &amp; Hashes" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <CheckBox Content="DAT-Verifikation aktivieren" Margin="0,0,0,12"
+                            IsChecked="{Binding UseDat}"
+                            ToolTip="Vergleicht Dateien mit DAT-Datenbankeinträgen (Hashes)."/>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="120"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="38"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="6"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="DAT-Root:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DatRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                            AutomationProperties.Name="DAT-Root-Verzeichnis"/>
+                    <Button x:Name="btnBrowseDat" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="DAT-Verzeichnis durchsuchen"/>
+                    <Label Grid.Row="2" Grid.Column="0" Content="Hash-Typ:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbDatHash" Grid.Row="2" Grid.Column="1"
+                              SelectedValue="{Binding DatHashType, Mode=TwoWay}"
+                              SelectedValuePath="Content"
+                              AutomationProperties.Name="Hash-Typ">
+                      <ComboBoxItem Content="SHA1"/>
+                      <ComboBoxItem Content="MD5"/>
+                      <ComboBoxItem Content="CRC32"/>
+                    </ComboBox>
+                  </Grid>
+                  <WrapPanel Margin="0,12,0,0">
+                    <CheckBox Content="DAT-Fallback aktivieren" Margin="0,0,24,0"
+                              IsChecked="{Binding DatFallback}"
+                              ToolTip="Wenn kein exakter Treffer gefunden wird, alternative DAT-Zuordnung versuchen."/>
+                    <CheckBox Content="Basis-CRC bei Scan/Konvertierung" Margin="0,0,24,0"
+                              IsChecked="{Binding CrcVerifyScan}"
+                              ToolTip="Basis-CRC-Prüfung auf Datei-Ebene (unabhängig von DAT)."/>
+                  </WrapPanel>
+                  <TextBlock Text="ℹ DAT + CRC erhöhen Genauigkeit, können den Lauf aber deutlich verlangsamen."
+                             Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                      <TextBlock Text="GAMEKEY-VORSCHAU" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="130"/>
-                          <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="120"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                          <RowDefinition Height="Auto"/>
-                          <RowDefinition Height="6"/>
-                          <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="Titel:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameKeyPreviewInput, UpdateSourceTrigger=PropertyChanged}"
-                                 Margin="{DynamicResource SpaceRightSM}" ToolTip="Beispieltitel für die GameKey-Normalisierung"
-                                 AutomationProperties.Name="GameKey-Vorschau Titel"/>
-                        <Button Grid.Row="0" Grid.Column="2" Command="{Binding GameKeyPreviewCommand}" Content="Vorschau" Width="110"
-                                AutomationProperties.Name="GameKey-Vorschau berechnen"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="GameKey:" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
-                                   Text="{Binding GameKeyPreviewOutput}" Foreground="{DynamicResource BrushAccentCyan}" TextTrimming="CharacterEllipsis"/>
-                      </Grid>
+            <!-- Accordion Section: DAT-Mapping -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="DAT-Mapping" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <TextBlock Text="Ordnet Konsolen manuell ihren DAT-Dateien zu. Ohne Zuordnung wird Auto-Erkennung verwendet."
+                             Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
+                  <DataGrid MinHeight="200" MaxHeight="400"
+                            ItemsSource="{Binding DatMappings}"
+                            AutoGenerateColumns="False"
+                            CanUserAddRows="True" CanUserDeleteRows="True"
+                            SelectionMode="Single"
+                            VirtualizingPanel.IsVirtualizing="True"
+                            VirtualizingPanel.VirtualizationMode="Recycling"
+                            ScrollViewer.CanContentScroll="True"
+                            AutomationProperties.Name="DAT-Konsolen-Zuordnung">
+                    <DataGrid.Resources>
+                      <x:Array x:Key="DatConsoleItems" Type="{x:Type sys:String}">
+                        <sys:String>PS1</sys:String>
+                        <sys:String>PS2</sys:String>
+                        <sys:String>PSP</sys:String>
+                        <sys:String>DC</sys:String>
+                        <sys:String>SAT</sys:String>
+                        <sys:String>GC</sys:String>
+                        <sys:String>WII</sys:String>
+                      </x:Array>
+                    </DataGrid.Resources>
+                    <DataGrid.Columns>
+                      <DataGridComboBoxColumn Header="Konsole"
+                                              SelectedItemBinding="{Binding Console}"
+                                              ItemsSource="{StaticResource DatConsoleItems}"
+                                              Width="130"/>
+                      <DataGridTextColumn Header="DAT-Datei" Binding="{Binding DatFile}" Width="*"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                      <TextBlock Text="KONFIGURATION" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
-                      <WrapPanel>
-                        <Button x:Name="btnExportUnified" Content="Exportieren…" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration" AutomationProperties.Name="Konfiguration exportieren"/>
-                        <Button x:Name="btnConfigImport" Content="Konfig importieren" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konfiguration importieren"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
+            <!-- Accordion Section: Profile -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Profile" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <Grid Margin="{DynamicResource SpaceBottomSM}">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="130"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Profilname:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbConfigProfile" Grid.Column="1" IsEditable="True"
+                              AutomationProperties.Name="Profilname"/>
+                  </Grid>
+                  <WrapPanel Margin="0,4,0,0">
+                    <Button x:Name="btnProfileSave"   Content="Speichern"   Width="110" Margin="0,0,4,4" ToolTip="Aktuelle Einstellungen speichern" AutomationProperties.Name="Profil speichern"/>
+                    <Button x:Name="btnProfileLoad"   Content="Laden"       Width="110" Margin="0,0,4,4" ToolTip="Gespeichertes Profil laden" AutomationProperties.Name="Profil laden"/>
+                    <Button x:Name="btnProfileDelete" Content="Löschen"     Width="110" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="Profil löschen" AutomationProperties.Name="Profil löschen"/>
+                    <Button x:Name="btnProfileImport" Content="Importieren" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="Profil importieren" AutomationProperties.Name="Profil importieren"/>
+                    <Button x:Name="btnConfigDiff"    Content="Config-Diff" Width="110" Margin="0,0,4,4" ToolTip="Unterschiede anzeigen" AutomationProperties.Name="Config-Diff anzeigen"/>
+                  </WrapPanel>
+                  <TextBlock Text="Profile speichern alle Einstellungen und können zwischen verschiedenen Sammlungen gewechselt werden."
+                             Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-          <!-- ── FEATURES ─────────────────────────────────────────────── -->
-          <TabItem Header="Features">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-              <StackPanel>
+            <!-- Accordion Section: Allgemein -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Allgemein" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="130"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="38"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="6"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="Papierkorb:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrashRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                             ToolTip="Verzeichnis in das Duplikate verschoben werden (_TRASH)"
+                             AutomationProperties.Name="Papierkorb-Verzeichnis"/>
+                    <Button x:Name="btnBrowseTrash" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="Papierkorb-Ordner durchsuchen"/>
+                    <Label Grid.Row="2" Grid.Column="0" Content="Log-Level:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbLogLevel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                              SelectedValue="{Binding LogLevel, Mode=TwoWay}"
+                              SelectedValuePath="Content"
+                              AutomationProperties.Name="Log-Level">
+                      <ComboBoxItem Content="Debug"/>
+                      <ComboBoxItem Content="Info"/>
+                      <ComboBoxItem Content="Warning"/>
+                      <ComboBoxItem Content="Error"/>
+                    </ComboBox>
+                  </Grid>
+                  <WrapPanel Margin="0,12,0,0">
+                    <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
+                    <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4"
+                              SelectedValuePath="Content"
+                              SelectedValue="{Binding Locale, Mode=TwoWay}"
+                              AutomationProperties.Name="Sprache">
+                      <ComboBoxItem Content="de"/>
+                      <ComboBoxItem Content="en"/>
+                      <ComboBoxItem Content="fr"/>
+                    </ComboBox>
+                    <Button x:Name="btnApplyLocale" Content="Sprache anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sprache anwenden"/>
+                  </WrapPanel>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                <Expander Header="Analyse &amp; Berichte" IsExpanded="True" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="ANALYSE &amp; BERICHTE" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)" AutomationProperties.Name="Quick-Preview"/>
-                        <Button x:Name="btnHealthScore" Content="Health-Score" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen" AutomationProperties.Name="Health-Score" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" MinWidth="140" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen" AutomationProperties.Name="Collection-Diff"/>
-                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate untersuchen" AutomationProperties.Name="Duplikat-Inspektor" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" MinWidth="190" Padding="8,2" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen" AutomationProperties.Name="Konvertierungs-Schätzung" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht" AutomationProperties.Name="Junk-Bericht" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnRomFilter" Content="ROM-Filter" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen" AutomationProperties.Name="ROM-Filter" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikatverteilung visualisieren" AutomationProperties.Name="Duplikat-Heatmap" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Fehlende ROMs ermitteln" AutomationProperties.Name="Fehlende ROMs" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" MinWidth="170" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate über mehrere Roots finden" AutomationProperties.Name="Cross-Root-Duplikate" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Header analysieren" AutomationProperties.Name="Header-Analyse" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Vollständigkeitsbericht" AutomationProperties.Name="Vollständigkeitsbericht" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Zwei DryRun-Ergebnisse vergleichen" AutomationProperties.Name="DryRun-Vergleich"/>
-                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Historische Trends" AutomationProperties.Name="Trend-Analyse"/>
-                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" MinWidth="185" Padding="8,2" Margin="0,0,8,4" ToolTip="Kompatibilitätsmatrix" AutomationProperties.Name="Emulator-Kompatibilität"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+            <!-- Accordion Section: Audit & System -->
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
+              <Expander Header="Audit &amp; System" IsExpanded="False">
+                <StackPanel Margin="0,8,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="130"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="38"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="6"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="Audit-Root:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                             AutomationProperties.Name="Audit-Root-Verzeichnis"/>
+                    <Button x:Name="btnBrowseAudit" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="Audit-Verzeichnis durchsuchen"/>
+                    <Label Grid.Row="2" Grid.Column="0" Content="PS3 Dupes-Root:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Ps3DupesRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                             AutomationProperties.Name="PS3 Dupes-Verzeichnis"/>
+                    <Button x:Name="btnBrowsePs3" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
+                            AutomationProperties.Name="PS3 Dupes-Verzeichnis durchsuchen"/>
+                  </Grid>
 
-                <Expander Header="Konvertierung &amp; Hashing" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="KONVERTIERUNG &amp; HASHING" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" MinWidth="185" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvertierungs-Pipeline"/>
-                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="NKit-Konvertierung"/>
-                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" MinWidth="170" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvert-Warteschlange"/>
-                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" MinWidth="185" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvertierung verifizieren"/>
-                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Format-Priorität"/>
-                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Parallel-Hashing"/>
-                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="GPU-Hashing"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+                  <TextBlock Text="GAMEKEY-VORSCHAU" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="130"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="6"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="Titel:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameKeyPreviewInput, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="{DynamicResource SpaceRightSM}" ToolTip="Beispieltitel für die GameKey-Normalisierung"
+                             AutomationProperties.Name="GameKey-Vorschau Titel"/>
+                    <Button Grid.Row="0" Grid.Column="2" Command="{Binding GameKeyPreviewCommand}" Content="Vorschau" Width="110"
+                            AutomationProperties.Name="GameKey-Vorschau berechnen"/>
+                    <Label Grid.Row="2" Grid.Column="0" Content="GameKey:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                               Text="{Binding GameKeyPreviewOutput}" Foreground="{DynamicResource BrushAccentCyan}" TextTrimming="CharacterEllipsis"/>
+                  </Grid>
 
-                <Expander Header="DAT &amp; Verifizierung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="DAT &amp; VERIFIZIERUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="DAT Auto-Update"/>
-                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="DAT-Diff-Viewer"/>
-                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" MinWidth="110" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="TOSEC-DAT"/>
-                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Custom-DAT-Editor"/>
-                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Hash-Datenbank exportieren"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
+                  <TextBlock Text="KONFIGURATION" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
+                  <WrapPanel>
+                    <Button x:Name="btnExportUnified" Content="Exportieren…" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration" AutomationProperties.Name="Konfiguration exportieren"/>
+                    <Button x:Name="btnConfigImport" Content="Konfig importieren" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konfiguration importieren"/>
+                  </WrapPanel>
+                </StackPanel>
+              </Expander>
+            </Border>
 
-                <Expander Header="Sammlungsverwaltung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="SAMMLUNGSVERWALTUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnCollectionManager" Content="Smart Collection" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Smart Collection"/>
-                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Clone-Liste"/>
-                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cover-Scraper"/>
-                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Genre-Klassifikation"/>
-                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Spielzeit-Tracker"/>
-                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sammlung teilen"/>
-                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Virtuelle Ordner"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-
-                <Expander Header="Sicherheit &amp; Integrität" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="SICHERHEIT &amp; INTEGRITÄT" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Integritäts-Monitor"/>
-                        <Button x:Name="btnBackupManager" Content="Backup-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Backup-Manager"/>
-                        <Button x:Name="btnQuarantine" Content="Quarantäne" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Quarantäne"/>
-                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Regel-Engine"/>
-                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Patch-Engine"/>
-                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Header-Reparatur"/>
-                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Schnell-Rollback"/>
-                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Rollback Undo"/>
-                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Rollback Redo"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-
-                <Expander Header="Workflow &amp; Automatisierung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="WORKFLOW &amp; AUTOMATISIERUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnCommandPalette" Content="Command-Palette" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Command-Palette"/>
-                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Split-Panel"/>
-                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Filter-Builder"/>
-                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sort-Templates"/>
-                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Pipeline-Engine"/>
-                        <Button x:Name="btnSystemTray" Content="System-Tray" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="System-Tray"/>
-                        <Button x:Name="btnSchedulerAdvanced" Content="Cron-Tester" MinWidth="110" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cron-Tester"/>
-                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Regel-Pakete"/>
-                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Arcade Merge/Split"/>
-                        <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4"
-                                  IsChecked="{Binding IsWatchModeActive, Mode=TwoWay}"
-                                  ToolTip="Überwacht ROM-Roots automatisch"/>
-                        <Button x:Name="btnWatchApply" Content="Watch anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Watch anwenden"/>
-                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Auto-Profil"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-
-                <Expander Header="Export &amp; Integration" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="EXPORT &amp; INTEGRATION" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnPdfReport" Content="PDF-Report" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="PDF-Report"/>
-                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" MinWidth="165" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Launcher-Integration"/>
-                        <Button x:Name="btnToolImport" Content="Tool-Import" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Tool-Import"/>
-                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Duplikate exportieren" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnExportCsv" Content="CSV Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="CSV Export" IsEnabled="{Binding HasRunResult}"/>
-                        <Button x:Name="btnExportExcel" Content="Excel Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Excel Export" IsEnabled="{Binding HasRunResult}"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-
-                <Expander Header="Infrastruktur &amp; Deployment" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="INFRASTRUKTUR &amp; DEPLOYMENT" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Storage-Tiering"/>
-                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="NAS-Optimierung"/>
-                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="FTP-Quelle"/>
-                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cloud-Sync"/>
-                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz (Geplant)" MinWidth="145" Padding="8,2" Margin="0,0,8,4" ToolTip="Das Plugin-System ist in Planung und noch nicht funktionsfähig." AutomationProperties.Name="Plugin-Marktplatz"/>
-                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Plugin-Manager"/>
-                        <Button x:Name="btnPortableMode" Content="Portable Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Portable Modus"/>
-                        <Button x:Name="btnDockerContainer" Content="Docker" MinWidth="100" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Docker"/>
-                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Mobile Web UI"/>
-                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Kontextmenü"/>
-                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Hardlink-Modus"/>
-                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Multi-Instanz"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-
-                <Expander Header="UI &amp; Erscheinungsbild" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="UI &amp; ERSCHEINUNGSBILD" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
-                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Barrierefreiheit"/>
-                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Theme-Engine"/>
-                        <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
-                        <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4"
-                                  SelectedValuePath="Content"
-                                  SelectedValue="{Binding Locale, Mode=TwoWay}"
-                                  AutomationProperties.Name="Sprache">
-                          <ComboBoxItem Content="de"/>
-                          <ComboBoxItem Content="en"/>
-                          <ComboBoxItem Content="fr"/>
-                        </ComboBox>
-                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sprache anwenden"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
-              </StackPanel>
-            </ScrollViewer>
-          </TabItem>
-
-        </TabControl>
+          </StackPanel>
+        </ScrollViewer>
       </TabItem>
 
       <!-- ═══ ERGEBNIS (RD-001: Tab 2 = ehemals Protokoll) ═══════════════ -->

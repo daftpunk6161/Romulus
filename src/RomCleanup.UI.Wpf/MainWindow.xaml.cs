@@ -21,9 +21,6 @@ public partial class MainWindow : Window, IWindowHost
     // System tray service
     private TrayService? _trayService;
 
-    // Watch-mode service
-    private readonly WatchService _watchService = new();
-
     // Detached API process from Mobile Web UI
     private Process? _apiProcess;
     // Guard against recursive OnClosing calls
@@ -80,54 +77,24 @@ public partial class MainWindow : Window, IWindowHost
         btnProfileLoad.Command = _vm.LoadSettingsCommand;
 
         // ── Quick actions + misc ────────────────────────────────────────
-        btnQuickPreview.Command = _vm.QuickPreviewCommand;
         btnStartMove.Command = _vm.StartMoveCommand;
-        btnRollbackQuick.Command = _vm.RollbackCommand;
-        btnWatchApply.Click += OnWatchApply;
 
         // ── Feature tab buttons ─────────────────────────────────────────
         var featureCommands = new FeatureCommandService(_vm, _settings, new WpfDialogService(), this);
         featureCommands.RegisterCommands();
+        _vm.WireToolItemCommands();
         AutoWireFeatureButtons();
     }
 
-    /// <summary>Wire ALL feature command buttons (config-tab + feature-tab) using naming convention: btn{Key} → FeatureCommands[Key].</summary>
+    /// <summary>Wire remaining named buttons (Einstellungen tab) using naming convention: btn{Key} → FeatureCommands[Key].</summary>
     private void AutoWireFeatureButtons()
     {
         string[] keys =
         [
-            // Config-tab buttons
+            // Einstellungen tab named buttons
             "ExportLog", "AutoFindTools",
             "ProfileDelete", "ProfileImport", "ConfigDiff", "ExportUnified", "ConfigImport",
-            "HealthScore", "CollectionDiff", "DuplicateInspector", "DuplicateExport",
-            "ExportCsv", "ExportExcel", "RollbackUndo", "RollbackRedo",
-            "ApplyLocale", "PluginManager", "AutoProfile",
-            // Analyse & Berichte
-            "ConversionEstimate", "JunkReport", "RomFilter", "DuplicateHeatmap",
-            "MissingRom", "CrossRootDupe", "HeaderAnalysis", "Completeness",
-            "DryRunCompare", "TrendAnalysis", "EmulatorCompat",
-            // Konvertierung & Hashing
-            "ConversionPipeline", "NKitConvert", "ConvertQueue", "ConversionVerify",
-            "FormatPriority", "ParallelHashing", "GpuHashing",
-            // DAT & Verifizierung
-            "DatAutoUpdate", "DatDiffViewer", "TosecDat", "CustomDatEditor", "HashDatabaseExport",
-            // Sammlungsverwaltung
-            "CollectionManager", "CloneListViewer", "CoverScraper", "GenreClassification",
-            "PlaytimeTracker", "CollectionSharing", "VirtualFolderPreview",
-            // Sicherheit & Integrität
-            "IntegrityMonitor", "BackupManager", "Quarantine", "RuleEngine",
-            "PatchEngine", "HeaderRepair",
-            // Workflow & Automatisierung
-            "CommandPalette", "SplitPanelPreview", "FilterBuilder", "SortTemplates",
-            "PipelineEngine", "SystemTray", "SchedulerAdvanced", "RulePackSharing", "ArcadeMergeSplit",
-            // Export & Integration
-            "PdfReport", "LauncherIntegration", "ToolImport",
-            // Infrastruktur & Deployment
-            "StorageTiering", "NasOptimization", "FtpSource", "CloudSync",
-            "PluginMarketplaceFeature", "PortableMode", "DockerContainer", "MobileWebUI",
-            "WindowsContextMenu", "HardlinkMode", "MultiInstanceSync",
-            // UI & Erscheinungsbild
-            "Accessibility", "ThemeEngine",
+            "ApplyLocale",
         ];
 
         foreach (var key in keys)
@@ -232,8 +199,8 @@ public partial class MainWindow : Window, IWindowHost
         try { _apiProcess?.Dispose(); } catch { }
         _apiProcess = null;
 
-        // Dispose file watchers
-        _watchService.Dispose();
+        // Dispose file watchers (owned by VM)
+        _vm.CleanupWatchers();
     }
 
     // ═══ DRAG & DROP ════════════════════════════════════════════════════
@@ -263,98 +230,16 @@ public partial class MainWindow : Window, IWindowHost
 
     private async void OnRunRequested(object? sender, EventArgs e)
     {
-        var task = RunCoreAsync();
-        _activeRunTask = task;
-        try { await task; }
+        _activeRunTask = ExecuteAndRefreshAsync();
+        try { await _activeRunTask; }
         finally { _activeRunTask = null; }
     }
 
-    private async Task RunCoreAsync()
+    private async Task ExecuteAndRefreshAsync()
     {
-        // P0-003: Confirm before destructive Move operations
-        if (!_vm.DryRun && _vm.ConfirmMove)
-        {
-            if (!_vm.ConfirmMoveDialog())
-            {
-                _vm.CurrentRunState = RunState.Idle;
-                return;
-            }
-        }
-
-        var ct = _vm.CreateRunCancellation();
-        try
-        {
-            _vm.AddLog("Initialisierung…", "INFO");
-
-            // Move all blocking I/O (file reads, DAT loading) off the UI thread
-            var (orchestrator, runOptions, auditPath, reportPath) = await Task.Run(() =>
-            {
-                // Throttled progress callback (max 1 update/100ms)
-                DateTime lastProgressUpdate = DateTime.MinValue;
-                return RunService.BuildOrchestrator(_vm, msg =>
-                {
-                    var now = DateTime.UtcNow;
-                    if ((now - lastProgressUpdate).TotalMilliseconds < 100) return;
-                    lastProgressUpdate = now;
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        _vm.ProgressText = msg;
-                        if (msg.StartsWith("[") && msg.Contains(']'))
-                        {
-                            var phase = msg[..(msg.IndexOf(']') + 1)];
-                            _vm.PerfPhase = $"Phase: {phase}";
-                            var rest = msg[(msg.IndexOf(']') + 1)..].Trim();
-                            if (rest.Length > 0) _vm.PerfFile = $"Datei: {rest}";
-                        }
-                        _vm.AddLog(msg, "INFO");
-                    });
-                });
-            }, ct);
-
-            // Run pipeline on background thread, return result to UI thread
-            var svcResult = await Task.Run(
-                () => RunService.ExecuteRun(orchestrator, runOptions, auditPath, reportPath, ct), ct);
-
-            // All UI updates on the UI thread — no fire-and-forget Dispatcher.InvokeAsync
-            var result = svcResult.Result;
-            _vm.ApplyRunResult(result);
-
-            _vm.LastAuditPath = auditPath;
-
-            if (!_vm.DryRun && auditPath is not null && File.Exists(auditPath))
-                _vm.PushRollbackUndo(auditPath);
-
-            if (svcResult.ReportPath is not null)
-                _vm.AddLog($"Report: {svcResult.ReportPath}", "INFO");
-
-            if (!ct.IsCancellationRequested)
-            {
-                _vm.AddLog("Lauf abgeschlossen.", "INFO");
-                _vm.CompleteRun(true, reportPath);
-                RefreshReportPreview();
-                _vm.PopulateErrorSummary();
-            }
-            else
-            {
-                _vm.AddLog("Lauf abgebrochen.", "WARN");
-                _vm.CompleteRun(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            _vm.AddLog("Lauf abgebrochen.", "WARN");
-            _vm.CompleteRun(false);
-        }
-        catch (Exception ex)
-        {
-            _vm.AddLog($"Fehler: {ex.Message}", "ERROR");
-            _vm.CompleteRun(false);
-        }
-        finally
-        {
-            // Process queued watch-mode events
-            _watchService.FlushPendingIfNeeded();
-        }
+        await _vm.ExecuteRunAsync();
+        if (_vm.CurrentRunState is RunState.Completed or RunState.CompletedDryRun)
+            RefreshReportPreview();
     }
 
     // ═══ FUNCTIONAL BUTTON HANDLERS ═════════════════════════════════════
@@ -405,40 +290,6 @@ public partial class MainWindow : Window, IWindowHost
         catch (Exception ex)
         {
             _vm.AddLog($"WebView2-Runtime nicht verf\u00fcgbar: {ex.Message}", "ERROR");
-        }
-    }
-
-    private void OnWatchApply(object sender, RoutedEventArgs e)
-    {
-        if (_vm.Roots.Count == 0)
-        { _vm.AddLog("Keine Root-Ordner für Watch-Mode.", "WARN"); return; }
-
-        _watchService.IsBusyCheck = () => _vm.IsBusy;
-        _watchService.RunTriggered -= OnWatchRunTriggered;
-        _watchService.RunTriggered += OnWatchRunTriggered;
-
-        var count = _watchService.Start(_vm.Roots);
-        if (count == 0)
-        {
-            // Toggled off
-            _vm.AddLog("Watch-Mode deaktiviert.", "INFO");
-            DialogService.Info("Watch-Mode wurde deaktiviert.\n\nDateiüberwachung gestoppt.", "Watch-Mode");
-        }
-        else
-        {
-            _vm.AddLog($"Watch-Mode aktiviert für {count} Ordner. Änderungen werden überwacht.", "INFO");
-            DialogService.Info($"Watch-Mode ist aktiv!\n\nÜberwachte Ordner:\n{string.Join("\n", _vm.Roots)}\n\nBei Dateiänderungen wird automatisch ein DryRun gestartet.\n\nErneut klicken zum Deaktivieren.",
-                "Watch-Mode");
-        }
-    }
-
-    private void OnWatchRunTriggered()
-    {
-        if (_vm.Roots.Count > 0)
-        {
-            _vm.AddLog("Watch-Mode: Änderungen erkannt, starte DryRun…", "INFO");
-            _vm.DryRun = true;
-            _vm.RunCommand.Execute(null);
         }
     }
 

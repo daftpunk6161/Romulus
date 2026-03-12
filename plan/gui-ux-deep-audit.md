@@ -18,8 +18,8 @@ tags: [gui, ux, ui, wpf, mvvm, audit, refactoring, design-system, accessibility]
 | Datei | Zeilen (ca.) | Rolle |
 |-------|-------------|-------|
 | `MainWindow.xaml` | ~1400 | Gesamtes Layout in einer Datei |
-| `MainWindow.xaml.cs` | **~497** | Code-behind: 7 verbleibende Handler (Lifecycle, Run, DragDrop, Watch, Report) |
-| `ViewModels/MainViewModel.cs` | ~1020 | INPC, Commands, Status, Bindings, Rollback, Settings, ApplyRunResult |
+| `MainWindow.xaml.cs` | **~348** | Code-behind: 5 verbleibende Handler (Lifecycle, Run-Trigger, DragDrop, Report/WebView2) |
+| `ViewModels/MainViewModel.cs` | ~1328 | INPC, Commands, Status, Bindings, Rollback, Settings, RunPipeline, WatchMode |
 | `Services/ThemeService.cs` | ~50 | Theme-Swap Dark/Light |
 | `Services/DialogService.cs` | ~180 | Dialoge, InputBox, thread-safe marshalling |
 | `Services/SettingsService.cs` | ~200 | JSON Persistence |
@@ -638,7 +638,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 ## 7) Tracking Checklist
 
 ### P0 Fixes
-- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 497 Zeilen** (von ~3370 auf 497 reduziert, 85% Reduktion). Rollback-Execution + ConfirmMoveDialog + Profile Save/Load ins VM migriert. SettingsService in VM injiziert. RollbackRequested-Event eliminiert. Verbleibende 7 Handler: OnLoaded, OnClosing, OnRunRequested/RunCoreAsync, OnRefreshReportPreview, OnWatchApply, OnWatchRunTriggered + DragDrop. Alle genuinely UI-gekoppelt (Dispatcher, WebView2, DragDrop, Window-Lifecycle). ≤200 erfordert Sub-VM-Architektur (RF-001).
+- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 348 Zeilen** (von ~3370 auf 348 reduziert, 90% Reduktion). RunCoreAsync komplett ins VM migriert (ExecuteRunAsync mit SynchronizationContext). WatchService komplett ins VM migriert (ToggleWatchMode, WatchApplyCommand). Verbleibende 5 Handler: OnLoaded, OnClosing/CleanupResources, OnRunRequested (thin wrapper), RefreshReportPreview/WebView2, DragDrop. Alle genuinely UI-gekoppelt (Window-Lifecycle, WebView2, DragDrop). ≤200 erfordert Sub-VM-Architektur (RF-001).
 - [x] **UX-002**: RunState-Enum einführen, State Machine implementieren
 - [x] **UX-003**: Features-Tab redesignen (HasRunResult-Bindings auf 13 Buttons, Console-Filter → VM)
 
@@ -679,6 +679,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] **RF-012**: IWindowHost-Interface + Extraktion: 5 UI-gekoppelte Handler (CommandPalette, SystemTray, MobileWebUI, Accessibility, ThemeEngine) über IWindowHost-Abstraction nach FeatureCommandService migriert. 4 redundante Code-behind-Felder eliminiert → VM-Properties nutzen. PopulateErrorSummary + ApplyRunResult in VM konsolidiert. 809→601 Zeilen.
 - [x] **RF-013**: AutoWire + VM-Commands: 78 BindFeatureCommand-Calls durch AutoWireFeatureButtons (Konventions-Loop btn{Key}→Key) ersetzt. Browse-Buttons (9) über BrowseToolPathCommand/BrowseFolderPathCommand ins VM. QuickPreview/StartMove/RollbackQuick als VM-Commands. 6 unbenutzte usings entfernt. 601→451 Zeilen. 10 neue Tests (1215 gesamt).
 - [x] **RF-014**: VM-Migrations: Rollback-Execution komplett ins VM (async, IDialogService statt static). ConfirmMoveDialog ins VM. Profile Save/Load als VM-Commands (SaveSettingsCommand/LoadSettingsCommand). SettingsService in VM injiziert. RollbackRequested-Event eliminiert. OnAddRoot nutzt _dialog statt static DialogService. 451→497 Zeilen (4 Zeilen Netto-Anstieg durch ConfirmMoveDialog-Methode, aber 25 Zeilen Handler + Event entfernt).
+- [x] **RF-015**: RunCoreAsync + WatchService ins VM migriert: ExecuteRunAsync() mit SynchronizationContext.Post statt Dispatcher.InvokeAsync. WatchApplyCommand + ToggleWatchMode() + OnWatchRunTriggered() + CleanupWatchers() ins VM. Zwei static DialogService.Info → _dialog.Info. 497→348 Zeilen Code-behind (−90% von Original).
 
 ### Migration Tasks (WPF modernisieren)
 - [x] **MIG-001**: WebBrowser → WebView2 (Edge Chromium) — siehe UX-011

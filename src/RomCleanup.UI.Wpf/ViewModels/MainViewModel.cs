@@ -27,6 +27,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ThemeService _theme;
     private readonly IDialogService _dialog;
     private readonly SettingsService _settings;
+    private readonly SynchronizationContext? _syncContext;
+    private readonly WatchService _watchService = new();
     private CancellationTokenSource? _cts;
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
@@ -36,6 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _theme = theme;
         _dialog = dialog;
         _settings = settings ?? new SettingsService();
+        _syncContext = SynchronizationContext.Current;
 
         // Wire collection changes to status refresh
         Roots.CollectionChanged += OnRootsChanged;
@@ -63,6 +66,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // Settings commands
         SaveSettingsCommand = new RelayCommand(OnSaveSettings);
         LoadSettingsCommand = new RelayCommand(OnLoadSettings);
+        WatchApplyCommand = new RelayCommand(ToggleWatchMode, () => !IsBusy);
 
         // Quick workflow commands
         QuickPreviewCommand = new RelayCommand(
@@ -83,6 +87,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         // Feature commands (TASK-111: replaces Click event handlers)
         InitFeatureCommands();
+
+        // Wire watch-mode auto-run trigger
+        _watchService.RunTriggered += OnWatchRunTriggered;
     }
 
     // ═══ COMMANDS ═══════════════════════════════════════════════════════
@@ -104,6 +111,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand StartMoveCommand { get; }
     public ICommand SaveSettingsCommand { get; }
     public ICommand LoadSettingsCommand { get; }
+    public ICommand WatchApplyCommand { get; }
 
     // ═══ RUN RESULT STATE (moved from code-behind for MVVM command access) ═══
     private IReadOnlyList<RomCandidate> _lastCandidates = Array.Empty<RomCandidate>();
@@ -367,6 +375,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return item.DisplayName.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase)
             || item.Category.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase)
             || item.Description.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Assigns FeatureCommands to matching ToolItems. Call after FeatureCommandService.RegisterCommands().</summary>
+    public void WireToolItemCommands()
+    {
+        foreach (var item in ToolItems)
+        {
+            if (FeatureCommands.TryGetValue(item.Key, out var cmd))
+                item.Command = cmd;
+        }
     }
 
     // ═══ PATH PROPERTIES (persisted) ════════════════════════════════════
@@ -1068,6 +1086,126 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Save settings (called from code-behind on close / timer).</summary>
     public void SaveSettings() => _settings.SaveFrom(this, LastAuditPath);
+
+    // ═══ RUN PIPELINE EXECUTION ═════════════════════════════════════════
+
+    /// <summary>Execute the full run pipeline (scan, dedupe, sort, convert, move).
+    /// Called from code-behind after RunRequested event fires.</summary>
+    public async Task ExecuteRunAsync()
+    {
+        if (!DryRun && ConfirmMove && !ConfirmMoveDialog())
+        {
+            CurrentRunState = RunState.Idle;
+            return;
+        }
+
+        var ct = CreateRunCancellation();
+        try
+        {
+            AddLog("Initialisierung…", "INFO");
+
+            var (orchestrator, runOptions, auditPath, reportPath) = await Task.Run(() =>
+            {
+                DateTime lastProgressUpdate = DateTime.MinValue;
+                return RunService.BuildOrchestrator(this, msg =>
+                {
+                    var now = DateTime.UtcNow;
+                    if ((now - lastProgressUpdate).TotalMilliseconds < 100) return;
+                    lastProgressUpdate = now;
+                    _syncContext?.Post(_ =>
+                    {
+                        ProgressText = msg;
+                        if (msg.StartsWith("[") && msg.Contains(']'))
+                        {
+                            var phase = msg[..(msg.IndexOf(']') + 1)];
+                            PerfPhase = $"Phase: {phase}";
+                            var rest = msg[(msg.IndexOf(']') + 1)..].Trim();
+                            if (rest.Length > 0) PerfFile = $"Datei: {rest}";
+                        }
+                        AddLog(msg, "INFO");
+                    }, null);
+                });
+            }, ct);
+
+            var svcResult = await Task.Run(
+                () => RunService.ExecuteRun(orchestrator, runOptions, auditPath, reportPath, ct), ct);
+
+            ApplyRunResult(svcResult.Result);
+            LastAuditPath = auditPath;
+
+            if (!DryRun && auditPath is not null && File.Exists(auditPath))
+                PushRollbackUndo(auditPath);
+
+            if (svcResult.ReportPath is not null)
+                AddLog($"Report: {svcResult.ReportPath}", "INFO");
+
+            if (!ct.IsCancellationRequested)
+            {
+                AddLog("Lauf abgeschlossen.", "INFO");
+                CompleteRun(true, reportPath);
+                PopulateErrorSummary();
+            }
+            else
+            {
+                AddLog("Lauf abgebrochen.", "WARN");
+                CompleteRun(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            AddLog("Lauf abgebrochen.", "WARN");
+            CompleteRun(false);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Fehler: {ex.Message}", "ERROR");
+            CompleteRun(false);
+        }
+        finally
+        {
+            _watchService.FlushPendingIfNeeded();
+        }
+    }
+
+    // ═══ WATCH-MODE ════════════════════════════════════════════════════
+
+    private void ToggleWatchMode()
+    {
+        if (Roots.Count == 0)
+        { AddLog("Keine Root-Ordner für Watch-Mode.", "WARN"); return; }
+
+        _watchService.IsBusyCheck = () => IsBusy;
+
+        var count = _watchService.Start(Roots);
+        if (count == 0)
+        {
+            AddLog("Watch-Mode deaktiviert.", "INFO");
+            _dialog.Info("Watch-Mode wurde deaktiviert.\n\nDateiüberwachung gestoppt.", "Watch-Mode");
+        }
+        else
+        {
+            AddLog($"Watch-Mode aktiviert für {count} Ordner. Änderungen werden überwacht.", "INFO");
+            _dialog.Info($"Watch-Mode ist aktiv!\n\nÜberwachte Ordner:\n{string.Join("\n", Roots)}\n\nBei Dateiänderungen wird automatisch ein DryRun gestartet.\n\nErneut klicken zum Deaktivieren.",
+                "Watch-Mode");
+        }
+    }
+
+    private void OnWatchRunTriggered()
+    {
+        if (Roots.Count > 0)
+        {
+            AddLog("Watch-Mode: Änderungen erkannt, starte DryRun…", "INFO");
+            DryRun = true;
+            RunCommand.Execute(null);
+        }
+    }
+
+    /// <summary>Dispose watch-mode resources. Called from code-behind on window close.</summary>
+    public void CleanupWatchers()
+    {
+        _watchService.RunTriggered -= OnWatchRunTriggered;
+        _watchService.Dispose();
+    }
 
     // ═══ EVENTS (for code-behind orchestration wiring) ══════════════════
     public event EventHandler? RunRequested;
