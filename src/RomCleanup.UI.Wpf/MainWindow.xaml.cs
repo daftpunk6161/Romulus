@@ -18,7 +18,6 @@ public partial class MainWindow : Window, IWindowHost
     private readonly SettingsService _settings = new();
     private readonly DispatcherTimer _settingsTimer;
     private Task? _activeRunTask;
-
     // System tray service
     private TrayService? _trayService;
 
@@ -35,14 +34,14 @@ public partial class MainWindow : Window, IWindowHost
     public MainWindow()
     {
         _theme = new ThemeService();
-        _vm = new MainViewModel(_theme, new WpfDialogService());
+        _vm = new MainViewModel(_theme, new WpfDialogService(), _settings);
         DataContext = _vm;
 
         InitializeComponent();
 
         // Periodic settings save every 5 minutes (P3-BUG-051 / UX-07)
         _settingsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-        _settingsTimer.Tick += (_, _) => _settings.SaveFrom(_vm, _vm.LastAuditPath);
+        _settingsTimer.Tick += (_, _) => _vm.SaveSettings();
         _settingsTimer.Start();
 
         Loaded += OnLoaded;
@@ -50,7 +49,6 @@ public partial class MainWindow : Window, IWindowHost
 
         // Wire orchestration events
         _vm.RunRequested += OnRunRequested;
-        _vm.RollbackRequested += OnRollbackRequested;
 
         // Drag-drop on root list
         listRoots.DragEnter += OnRootsDragEnter;
@@ -78,14 +76,8 @@ public partial class MainWindow : Window, IWindowHost
         btnRefreshReportPreview.Click += OnRefreshReportPreview;
 
         // ── Profile/Config buttons ──────────────────────────────────────
-        btnProfileSave.Click += (_, _) =>
-        {
-            if (_settings.SaveFrom(_vm, _vm.LastAuditPath))
-                _vm.AddLog("Einstellungen gespeichert.", "INFO");
-            else
-                _vm.AddLog("Einstellungen konnten nicht gespeichert werden.", "ERROR");
-        };
-        btnProfileLoad.Click += (_, _) => { _settings.LoadInto(_vm); _vm.RefreshStatus(); _vm.AddLog("Einstellungen geladen.", "INFO"); };
+        btnProfileSave.Command = _vm.SaveSettingsCommand;
+        btnProfileLoad.Command = _vm.LoadSettingsCommand;
 
         // ── Quick actions + misc ────────────────────────────────────────
         btnQuickPreview.Command = _vm.QuickPreviewCommand;
@@ -166,9 +158,7 @@ public partial class MainWindow : Window, IWindowHost
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _settings.LoadInto(_vm);
-        _vm.LastAuditPath = _settings.LastAuditPath;
-        _vm.RefreshStatus();
+        _vm.LoadInitialSettings();
 
         // Auto-scroll log to bottom on new entries
         _logScrollHandler = (_, _) =>
@@ -211,14 +201,14 @@ public partial class MainWindow : Window, IWindowHost
                 try { await runTask; } catch { /* already handled in RunCoreAsync */ }
             }
 
-            _settings.SaveFrom(_vm, _vm.LastAuditPath);
+            _vm.SaveSettings();
             CleanupResources();
             _isClosing = true;
             Close(); // Re-trigger close now that task is done
             return;
         }
 
-        _settings.SaveFrom(_vm, _vm.LastAuditPath);
+        _vm.SaveSettings();
         CleanupResources();
     }
 
@@ -230,7 +220,6 @@ public partial class MainWindow : Window, IWindowHost
 
         // Unsubscribe VM events to prevent leaks
         _vm.RunRequested -= OnRunRequested;
-        _vm.RollbackRequested -= OnRollbackRequested;
         if (_logScrollHandler is not null)
             _vm.LogEntries.CollectionChanged -= _logScrollHandler;
 
@@ -285,11 +274,7 @@ public partial class MainWindow : Window, IWindowHost
         // P0-003: Confirm before destructive Move operations
         if (!_vm.DryRun && _vm.ConfirmMove)
         {
-            var confirmed = DialogService.Confirm(
-                $"Modus 'Move' verschiebt Dateien in den Papierkorb.\n"
-                + $"Roots: {string.Join(", ", _vm.Roots)}\n\nFortfahren?",
-                "Move bestätigen");
-            if (!confirmed)
+            if (!_vm.ConfirmMoveDialog())
             {
                 _vm.CurrentRunState = RunState.Idle;
                 return;
@@ -372,45 +357,20 @@ public partial class MainWindow : Window, IWindowHost
         }
     }
 
-    private async void OnRollbackRequested(object? sender, EventArgs e)
-    {
-        if (!DialogService.Confirm("Letzten Lauf rückgängig machen?", "Rollback bestätigen"))
-            return;
-
-        if (string.IsNullOrEmpty(_vm.LastAuditPath) || !File.Exists(_vm.LastAuditPath))
-        {
-            _vm.AddLog("Keine Audit-Datei gefunden — Rollback nicht möglich.", "WARN");
-            return;
-        }
-
-        try
-        {
-            var auditPathCopy = _vm.LastAuditPath;
-            var roots = _vm.Roots.ToList();
-            var restored = await Task.Run(() => RollbackService.Execute(auditPathCopy, roots));
-            _vm.AddLog($"Rollback: {restored.Count} Dateien wiederhergestellt.", "INFO");
-            _vm.CanRollback = false;
-            _vm.ShowMoveCompleteBanner = false;
-        }
-        catch (Exception ex)
-        {
-            _vm.AddLog($"Rollback-Fehler: {ex.Message}", "ERROR");
-        }
-    }
-
     // ═══ FUNCTIONAL BUTTON HANDLERS ═════════════════════════════════════
 
     private void OnRefreshReportPreview(object sender, RoutedEventArgs e) => RefreshReportPreview();
 
-    /// <summary>Load the last report into the WebBrowser preview and update error summary.
-    /// NOTE: WebBrowser.Navigate() is a direct UI call — WPF WebBrowser has no bindable Source property.
+    /// <summary>Load the last report into the WebView2 preview and update error summary.
+    /// NOTE: WebView2 navigation is a direct UI call — no bindable Source property.
     /// This is an acceptable MVVM exception per ADR-0003.</summary>
-    private void RefreshReportPreview()
+    private async void RefreshReportPreview()
     {
         if (string.IsNullOrEmpty(_vm.LastReportPath) || !File.Exists(_vm.LastReportPath))
         {
             _vm.ErrorSummaryItems.Clear();
             _vm.ErrorSummaryItems.Add("Kein Report vorhanden.");
+            await EnsureWebView2Initialized();
             webReportPreview.NavigateToString(
                 "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
                 "<p>Kein Report vorhanden. Erst einen Lauf starten.</p></body></html>");
@@ -420,7 +380,8 @@ public partial class MainWindow : Window, IWindowHost
         try
         {
             var fullPath = Path.GetFullPath(_vm.LastReportPath);
-            webReportPreview.Navigate(new Uri(fullPath));
+            await EnsureWebView2Initialized();
+            webReportPreview.Source = new Uri(fullPath);
             _vm.PopulateErrorSummary();
             _vm.AddLog($"Report-Vorschau geladen: {Path.GetFileName(fullPath)}", "INFO");
         }
@@ -429,6 +390,21 @@ public partial class MainWindow : Window, IWindowHost
             _vm.ErrorSummaryItems.Clear();
             _vm.ErrorSummaryItems.Add($"Fehler: {ex.Message}");
             _vm.AddLog($"Report-Vorschau fehlgeschlagen: {ex.Message}", "ERROR");
+        }
+    }
+
+    /// <summary>Ensure the WebView2 runtime is initialized before first navigation.
+    /// CoreWebView2 is null until EnsureCoreWebView2Async completes.</summary>
+    private async Task EnsureWebView2Initialized()
+    {
+        if (webReportPreview.CoreWebView2 is not null) return;
+        try
+        {
+            await webReportPreview.EnsureCoreWebView2Async();
+        }
+        catch (Exception ex)
+        {
+            _vm.AddLog($"WebView2-Runtime nicht verf\u00fcgbar: {ex.Message}", "ERROR");
         }
     }
 

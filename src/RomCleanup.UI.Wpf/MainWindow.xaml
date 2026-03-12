@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:conv="clr-namespace:RomCleanup.UI.Wpf.Converters"
+    xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     Title="ROM Cleanup"
     Width="960" Height="720"
     MinWidth="800" MinHeight="600"
@@ -429,8 +430,39 @@
                               AutomationProperties.Name="Letzten Move-Lauf rückgängig machen"/>
                     </StackPanel>
                   </Border>
-                  <TextBlock Text="Tipp: Erweiterte Sortier- und Sicherheitsoptionen findest du im Tab 'Konfiguration'."
+                  <TextBlock Text="Tipp: Erweiterte Optionen findest du im Tab 'Einstellungen'."
                              Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+
+              <!-- RD-003: Region Preferences directly in Expert Sortieren tab -->
+              <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                  <TextBlock Text="REGION-PRIORITÄT" Style="{StaticResource SectionHeader}"/>
+                  <TextBlock Text="Aktivierte Regionen werden bei Duplikaten bevorzugt behalten."
+                             Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
+                  <WrapPanel>
+                    <CheckBox Content="EU"    Margin="0,0,12,4" IsChecked="{Binding PreferEU}"    ToolTip="Europa (EUR/PAL)"/>
+                    <CheckBox Content="US"    Margin="0,0,12,4" IsChecked="{Binding PreferUS}"    ToolTip="USA (NTSC)"/>
+                    <CheckBox Content="WORLD" Margin="0,0,12,4" IsChecked="{Binding PreferWORLD}" ToolTip="World-/Export-Versionen"/>
+                    <CheckBox Content="JP"    Margin="0,0,12,4" IsChecked="{Binding PreferJP}"    ToolTip="Japan"/>
+                  </WrapPanel>
+                  <Expander Header="Weitere Regionen" IsExpanded="False" Margin="0,2,0,0">
+                    <WrapPanel Margin="0,4,0,0">
+                      <CheckBox Content="DE"   Margin="0,0,12,4" IsChecked="{Binding PreferDE}"   ToolTip="Deutschland"/>
+                      <CheckBox Content="FR"   Margin="0,0,12,4" IsChecked="{Binding PreferFR}"   ToolTip="Frankreich"/>
+                      <CheckBox Content="IT"   Margin="0,0,12,4" IsChecked="{Binding PreferIT}"   ToolTip="Italien"/>
+                      <CheckBox Content="ES"   Margin="0,0,12,4" IsChecked="{Binding PreferES}"   ToolTip="Spanien"/>
+                      <CheckBox Content="AU"   Margin="0,0,12,4" IsChecked="{Binding PreferAU}"   ToolTip="Australien"/>
+                      <CheckBox Content="ASIA" Margin="0,0,12,4" IsChecked="{Binding PreferASIA}" ToolTip="Asien"/>
+                      <CheckBox Content="KR"   Margin="0,0,12,4" IsChecked="{Binding PreferKR}"   ToolTip="Südkorea"/>
+                      <CheckBox Content="CN"   Margin="0,0,12,4" IsChecked="{Binding PreferCN}"   ToolTip="China"/>
+                      <CheckBox Content="BR"   Margin="0,0,12,4" IsChecked="{Binding PreferBR}"   ToolTip="Brasilien"/>
+                      <CheckBox Content="NL"   Margin="0,0,12,4" IsChecked="{Binding PreferNL}"   ToolTip="Niederlande"/>
+                      <CheckBox Content="SE"   Margin="0,0,12,4" IsChecked="{Binding PreferSE}"   ToolTip="Schweden"/>
+                      <CheckBox Content="SCAN" Margin="0,0,12,4" IsChecked="{Binding PreferSCAN}" ToolTip="Skandinavien"/>
+                    </WrapPanel>
+                  </Expander>
                 </StackPanel>
               </Border>
 
@@ -1095,8 +1127,8 @@
         </TabControl>
       </TabItem>
 
-      <!-- ═══ PROTOKOLL ═══════════════════════════════════════════════════ -->
-      <TabItem Header="Protokoll">
+      <!-- ═══ ERGEBNIS (RD-001: Tab 2 = ehemals Protokoll) ═══════════════ -->
+      <TabItem Header="Ergebnis">
         <DockPanel Background="{DynamicResource BrushBackground}">
           <!-- Dashboard -->
           <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurfaceAlt}"
@@ -1229,9 +1261,9 @@
                              AutomationProperties.Name="Fehler-Summary"/>
                   </StackPanel>
                 </Border>
-                <WebBrowser x:Name="webReportPreview" MinHeight="80"
-                           AutomationProperties.Name="HTML-Berichtsvorschau"
-                           AutomationProperties.HelpText="Zeigt den generierten HTML-Report als Vorschau an."/>
+                <wv2:WebView2 x:Name="webReportPreview" MinHeight="80"
+                             AutomationProperties.Name="HTML-Berichtsvorschau"
+                             AutomationProperties.HelpText="Zeigt den generierten HTML-Report als Vorschau an."/>
               </DockPanel>
             </Border>
           </Grid>

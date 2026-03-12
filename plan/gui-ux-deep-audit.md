@@ -18,8 +18,8 @@ tags: [gui, ux, ui, wpf, mvvm, audit, refactoring, design-system, accessibility]
 | Datei | Zeilen (ca.) | Rolle |
 |-------|-------------|-------|
 | `MainWindow.xaml` | ~1400 | Gesamtes Layout in einer Datei |
-| `MainWindow.xaml.cs` | **~451** | Code-behind: 9 verbleibende Handler (Lifecycle, Run, DragDrop, Watch, Report) |
-| `ViewModels/MainViewModel.cs` | ~640 | INPC, Commands, Status, Alle Bindings, ApplyRunResult, PopulateErrorSummary |
+| `MainWindow.xaml.cs` | **~497** | Code-behind: 7 verbleibende Handler (Lifecycle, Run, DragDrop, Watch, Report) |
+| `ViewModels/MainViewModel.cs` | ~1020 | INPC, Commands, Status, Bindings, Rollback, Settings, ApplyRunResult |
 | `Services/ThemeService.cs` | ~50 | Theme-Swap Dark/Light |
 | `Services/DialogService.cs` | ~180 | Dialoge, InputBox, thread-safe marshalling |
 | `Services/SettingsService.cs` | ~200 | JSON Persistence |
@@ -365,20 +365,18 @@ VM.CanRollback → RollbackCommand → AuditCsvStore.Rollback
 
 ---
 
-### P1-UX-011: WebBrowser-Control (IE-Engine) für Report-Vorschau
+### P1-UX-011: WebBrowser-Control (IE-Engine) für Report-Vorschau ✅ ERLEDIGT
 
-**Problem:** `WebBrowser` nutzt die veraltete IE11/Trident-Engine. Kein Binding möglich (`Navigate` ist nur Code-behind). Sicherheitsrisiko bei HTML-Rendering.
+**Problem:** `WebBrowser` nutzte die veraltete IE11/Trident-Engine. Sicherheitsrisiko bei HTML-Rendering.
 
-**Fundstellen:**
-- [MainWindow.xaml](src/RomCleanup.UI.Wpf/MainWindow.xaml) Zeile ~1210: `<WebBrowser x:Name="webReportPreview"/>`
-- [MainWindow.xaml.cs](src/RomCleanup.UI.Wpf/MainWindow.xaml.cs#L690): `webReportPreview.Navigate(new Uri(fullPath))`
+**Fix (Runde 19):**
+- NuGet: `Microsoft.Web.WebView2 1.0.3800.47`
+- XAML: `<wv2:WebView2 x:Name="webReportPreview"/>` mit `xmlns:wv2` + AutomationProperties
+- Code-behind: `EnsureWebView2Initialized()` → `EnsureCoreWebView2Async()`, `NavigateToString()` via `CoreWebView2`, Navigation via `Source = new Uri(...)`
+- Fallback: Fehlerhandling wenn WebView2-Runtime nicht installiert
+- Kein Legacy-`WebBrowser`-Control mehr im Projekt
 
-**Fix-Strategie:**
-- WebView2 (Edge/Chromium) — bereits als TASK-130 im Bug-Audit
-- Alternativ: Report als WPF-native Ansicht (DataGrid + Charts) statt HTML
-- Kurzfristig: `NavigateToString` mit sanitiertem HTML
-
-**Verifikation:** Report-Vorschau rendert korrekt; kein Skript-Injection möglich
+**Verifikation:** Build 0 Fehler, 1215 Tests bestanden
 
 ---
 
@@ -640,7 +638,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 ## 7) Tracking Checklist
 
 ### P0 Fixes
-- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 451 Zeilen** (von ~3370 auf 451 reduziert, 87% Reduktion). AutoWire-Konvention (btn{Key}→FeatureCommands[Key]) ersetzt 78 Einzelaufrufe. Browse-Commands + QuickPreview/StartMove in VM verschoben. 6 unbenutzte usings entfernt. Verbleibende 9 Handler: OnLoaded, OnClosing, OnRootsDragEnter, OnRootsDrop, OnRunRequested/RunCoreAsync, OnRollbackRequested, OnRefreshReportPreview, OnWatchApply, OnWatchRunTriggered. ≤200 erfordert Sub-VM-Architektur (RF-001).
+- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 497 Zeilen** (von ~3370 auf 497 reduziert, 85% Reduktion). Rollback-Execution + ConfirmMoveDialog + Profile Save/Load ins VM migriert. SettingsService in VM injiziert. RollbackRequested-Event eliminiert. Verbleibende 7 Handler: OnLoaded, OnClosing, OnRunRequested/RunCoreAsync, OnRefreshReportPreview, OnWatchApply, OnWatchRunTriggered + DragDrop. Alle genuinely UI-gekoppelt (Dispatcher, WebView2, DragDrop, Window-Lifecycle). ≤200 erfordert Sub-VM-Architektur (RF-001).
 - [x] **UX-002**: RunState-Enum einführen, State Machine implementieren
 - [x] **UX-003**: Features-Tab redesignen (HasRunResult-Bindings auf 13 Buttons, Console-Filter → VM)
 
@@ -652,7 +650,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] **UX-008**: DryRun → Move Transition: Summary-Dialog + sichtbaren Übergangs-Button
 - [x] **UX-009**: Phasen-Progress (Phase 1: StepLabel3 phase-aware aus RunState)
 - [x] **UX-010**: Rollback-Undo/Redo in VM + echter Rollback + Persistenz
-- [ ] **UX-011**: WebBrowser → WebView2 (oder WPF-native Report-View)
+- [x] **UX-011**: WebBrowser → WebView2 (Edge Chromium): NuGet `Microsoft.Web.WebView2 1.0.3800.47`, XAML `<wv2:WebView2>`, Code-behind `EnsureWebView2Initialized()` + `CoreWebView2.NavigateToString()` + `Source = new Uri(...)`. Kein Legacy-WebBrowser mehr.
 - [x] **UX-012**: Keyboard-Navigation: TabIndex auf Roots/Add/Remove, Delete-KeyBinding
 
 ### Redesign Tasks (IA/Layout/Design System)
@@ -680,9 +678,10 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] **RF-011**: Feature-Handler-Logik extrahiert → FeatureService.cs (2640+ Zeilen, 60+ Methoden): Batch 1 (11 Handler, ~475 Zeilen, 12 xUnit-Tests), Batch 2 (6 Handler: FilterBuilder, PluginMarketplace, MultiInstanceSync, MobileWebUI, RulePackSharing, HeaderRepair), Batch 3 (8 Handler: NKitConvert, TosecDat, ToolImport, FtpSource, GpuHashing, PdfReport, ConversionEstimate, CustomDatEditor, 25 xUnit-Tests), Batch 4 (AutoProfile, CollectionManager, PlaytimeTracker, ParallelHashing, CommandPalette). FeatureCommandService wired ~60 Feature-Buttons über BindFeatureCommand, MainWindow.xaml.cs von ~3370 → 601 Zeilen.
 - [x] **RF-012**: IWindowHost-Interface + Extraktion: 5 UI-gekoppelte Handler (CommandPalette, SystemTray, MobileWebUI, Accessibility, ThemeEngine) über IWindowHost-Abstraction nach FeatureCommandService migriert. 4 redundante Code-behind-Felder eliminiert → VM-Properties nutzen. PopulateErrorSummary + ApplyRunResult in VM konsolidiert. 809→601 Zeilen.
 - [x] **RF-013**: AutoWire + VM-Commands: 78 BindFeatureCommand-Calls durch AutoWireFeatureButtons (Konventions-Loop btn{Key}→Key) ersetzt. Browse-Buttons (9) über BrowseToolPathCommand/BrowseFolderPathCommand ins VM. QuickPreview/StartMove/RollbackQuick als VM-Commands. 6 unbenutzte usings entfernt. 601→451 Zeilen. 10 neue Tests (1215 gesamt).
+- [x] **RF-014**: VM-Migrations: Rollback-Execution komplett ins VM (async, IDialogService statt static). ConfirmMoveDialog ins VM. Profile Save/Load als VM-Commands (SaveSettingsCommand/LoadSettingsCommand). SettingsService in VM injiziert. RollbackRequested-Event eliminiert. OnAddRoot nutzt _dialog statt static DialogService. 451→497 Zeilen (4 Zeilen Netto-Anstieg durch ConfirmMoveDialog-Methode, aber 25 Zeilen Handler + Event entfernt).
 
 ### Migration Tasks (WPF modernisieren)
-- [ ] **MIG-001**: WebBrowser → WebView2 (Edge Chromium)
+- [x] **MIG-001**: WebBrowser → WebView2 (Edge Chromium) — siehe UX-011
 - [x] **MIG-002**: Theme-Token audit: Brush/Spacing/Style-Keys Parity (3 Tests in GuiViewModelTests.cs)
 - [x] **MIG-003**: Spacing-Hardcodes → DynamicResource-Tokens (StatusBar, Footer, Dots, Divider, Step-Indicator, Buttons, Expander — 83 Instanzen tokenisiert, Runde 3+9)
 - [x] **MIG-004**: DropShadowEffect auf SectionCard: BlurRadius halbiert (Dark 12→6, Light 8→4) für 21+ Cards

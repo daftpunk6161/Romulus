@@ -57,3 +57,31 @@ public sealed class ConsoleFilterItem : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }
+
+/// <summary>
+/// Bindable tool/feature item for the Werkzeuge tab (RD-004).
+/// Category is used for visual grouping and filtering.
+/// </summary>
+public sealed class ToolItem : INotifyPropertyChanged
+{
+    public required string Key { get; init; }
+    public required string DisplayName { get; init; }
+    public required string Category { get; init; }
+    public required string Description { get; init; }
+    public required string Icon { get; init; }
+    public bool RequiresRunResult { get; init; }
+
+    private bool _isVisible = true;
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set
+        {
+            if (_isVisible == value) return;
+            _isVisible = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsVisible)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}

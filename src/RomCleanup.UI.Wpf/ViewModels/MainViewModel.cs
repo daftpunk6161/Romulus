@@ -26,14 +26,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private readonly ThemeService _theme;
     private readonly IDialogService _dialog;
+    private readonly SettingsService _settings;
     private CancellationTokenSource? _cts;
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
-    public MainViewModel(ThemeService theme, IDialogService dialog)
+    public MainViewModel(ThemeService theme, IDialogService dialog, SettingsService? settings = null)
     {
         _theme = theme;
         _dialog = dialog;
+        _settings = settings ?? new SettingsService();
 
         // Wire collection changes to status refresh
         Roots.CollectionChanged += OnRootsChanged;
@@ -58,6 +60,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BrowseToolPathCommand = new RelayCommand(OnBrowseToolPath);
         BrowseFolderPathCommand = new RelayCommand(OnBrowseFolderPath);
 
+        // Settings commands
+        SaveSettingsCommand = new RelayCommand(OnSaveSettings);
+        LoadSettingsCommand = new RelayCommand(OnLoadSettings);
+
         // Quick workflow commands
         QuickPreviewCommand = new RelayCommand(
             () => { DryRun = true; RunCommand.Execute(null); },
@@ -71,6 +77,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         // Console filter collection (Runde 7: replaces 30 x:Name checkboxes)
         InitConsoleFilters();
+
+        // Tool items collection (RD-004: Werkzeuge tab)
+        InitToolItems();
 
         // Feature commands (TASK-111: replaces Click event handlers)
         InitFeatureCommands();
@@ -93,6 +102,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand BrowseFolderPathCommand { get; }
     public ICommand QuickPreviewCommand { get; }
     public ICommand StartMoveCommand { get; }
+    public ICommand SaveSettingsCommand { get; }
+    public ICommand LoadSettingsCommand { get; }
 
     // ═══ RUN RESULT STATE (moved from code-behind for MVVM command access) ═══
     private IReadOnlyList<RomCandidate> _lastCandidates = Array.Empty<RomCandidate>();
@@ -227,6 +238,135 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         ConsoleFiltersView = CollectionViewSource.GetDefaultView(ConsoleFilters);
         ConsoleFiltersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConsoleFilterItem.Category)));
+    }
+
+    // ═══ TOOL ITEMS (RD-004: Werkzeuge tab with categorized, filterable list) ═══
+    public ObservableCollection<ToolItem> ToolItems { get; } = [];
+
+    /// <summary>Grouped view for XAML binding with category headers.</summary>
+    public ICollectionView ToolItemsView { get; private set; } = null!;
+
+    private string _toolFilterText = "";
+    public string ToolFilterText
+    {
+        get => _toolFilterText;
+        set
+        {
+            if (SetField(ref _toolFilterText, value))
+                ToolItemsView?.Refresh();
+        }
+    }
+
+    private void InitToolItems()
+    {
+        var items = new (string key, string display, string cat, string desc, string icon, bool needsResult)[]
+        {
+            // Analyse & Berichte
+            ("QuickPreview",       "Quick-Preview",              "Analyse & Berichte",        "Schnelle ROM-Vorschau (DryRun)",               "\xE8A7", false),
+            ("HealthScore",        "Health-Score",               "Analyse & Berichte",        "Sammlungsqualität prüfen",                     "\xE8CB", true),
+            ("CollectionDiff",     "Collection-Diff",            "Analyse & Berichte",        "Sammlungen vergleichen",                       "\xE8F1", false),
+            ("DuplicateInspector", "Duplikat-Inspektor",         "Analyse & Berichte",        "Duplikate untersuchen",                        "\xE71D", true),
+            ("ConversionEstimate", "Konvertierungs-Schätzung",   "Analyse & Berichte",        "Speicherersparnis berechnen",                  "\xE8EF", true),
+            ("JunkReport",         "Junk-Bericht",               "Analyse & Berichte",        "Detaillierter Junk-Bericht",                   "\xE74D", true),
+            ("RomFilter",          "ROM-Filter",                 "Analyse & Berichte",        "ROM-Sammlung durchsuchen",                     "\xE721", true),
+            ("DuplicateHeatmap",   "Duplikat-Heatmap",           "Analyse & Berichte",        "Duplikatverteilung visualisieren",             "\xEB05", true),
+            ("MissingRom",         "Fehlende ROMs",              "Analyse & Berichte",        "Fehlende ROMs ermitteln",                      "\xE783", true),
+            ("CrossRootDupe",      "Cross-Root-Duplikate",       "Analyse & Berichte",        "Duplikate über mehrere Roots finden",          "\xE8B9", true),
+            ("HeaderAnalysis",     "Header-Analyse",             "Analyse & Berichte",        "ROM-Header analysieren",                       "\xE9D9", true),
+            ("Completeness",       "Vollständigkeit",            "Analyse & Berichte",        "Vollständigkeitsbericht",                      "\xE73E", true),
+            ("DryRunCompare",      "DryRun-Vergleich",           "Analyse & Berichte",        "Zwei DryRun-Ergebnisse vergleichen",           "\xE8F1", false),
+            ("TrendAnalysis",      "Trend-Analyse",              "Analyse & Berichte",        "Historische Trends",                           "\xE9D2", false),
+            ("EmulatorCompat",     "Emulator-Kompatibilität",    "Analyse & Berichte",        "Kompatibilitätsmatrix",                        "\xE7FC", false),
+
+            // Konvertierung & Hashing
+            ("ConversionPipeline", "Konvertierungs-Pipeline",    "Konvertierung & Hashing",   "Konvertierungspipeline starten",               "\xE8AB", false),
+            ("NKitConvert",        "NKit-Konvertierung",         "Konvertierung & Hashing",   "NKit-Images konvertieren",                     "\xE8AB", false),
+            ("ConvertQueue",       "Konvert-Warteschlange",      "Konvertierung & Hashing",   "Warteschlange anzeigen",                       "\xE8CB", false),
+            ("ConversionVerify",   "Konvertierung verifizieren", "Konvertierung & Hashing",   "Konvertierte Dateien prüfen",                  "\xE73E", false),
+            ("FormatPriority",     "Format-Priorität",           "Konvertierung & Hashing",   "Format-Prioritätsliste anzeigen",              "\xE8CB", false),
+            ("ParallelHashing",    "Parallel-Hashing",           "Konvertierung & Hashing",   "Hash-Threading konfigurieren",                 "\xE8CB", false),
+            ("GpuHashing",         "GPU-Hashing",                "Konvertierung & Hashing",   "GPU-beschleunigtes Hashing",                   "\xE8CB", false),
+
+            // DAT & Verifizierung
+            ("DatAutoUpdate",      "DAT Auto-Update",            "DAT & Verifizierung",       "Lokale DAT-Dateien prüfen",                    "\xE895", false),
+            ("DatDiffViewer",      "DAT-Diff-Viewer",            "DAT & Verifizierung",       "DAT-Versionen vergleichen",                    "\xE8F1", false),
+            ("TosecDat",           "TOSEC-DAT",                  "DAT & Verifizierung",       "TOSEC-DAT importieren",                        "\xE8B5", false),
+            ("CustomDatEditor",    "Custom-DAT-Editor",          "DAT & Verifizierung",       "Eigene DAT-Einträge erstellen",                "\xE70F", false),
+            ("HashDatabaseExport", "Hash-Datenbank",             "DAT & Verifizierung",       "Hash-Datenbank exportieren",                   "\xE792", true),
+
+            // Sammlungsverwaltung
+            ("CollectionManager",  "Smart Collection",           "Sammlungsverwaltung",       "Sammlung intelligent verwalten",               "\xE8F1", true),
+            ("CloneListViewer",    "Clone-Liste",                "Sammlungsverwaltung",       "Clone-/Parent-Beziehungen",                    "\xE8B9", true),
+            ("CoverScraper",       "Cover-Scraper",              "Sammlungsverwaltung",       "Cover-Bilder zuordnen",                        "\xE8B9", true),
+            ("GenreClassification","Genre-Klassifikation",       "Sammlungsverwaltung",       "ROMs nach Genre einordnen",                    "\xE8CB", true),
+            ("PlaytimeTracker",    "Spielzeit-Tracker",          "Sammlungsverwaltung",       "RetroArch-Spielzeiten auslesen",               "\xE916", false),
+            ("CollectionSharing",  "Sammlung teilen",            "Sammlungsverwaltung",       "Sammlungsliste exportieren",                   "\xE72D", true),
+            ("VirtualFolderPreview","Virtuelle Ordner",          "Sammlungsverwaltung",       "Virtuelle Ordnerstruktur planen",              "\xE8B7", true),
+
+            // Sicherheit & Integrität
+            ("IntegrityMonitor",   "Integritäts-Monitor",        "Sicherheit & Integrität",   "Baseline erstellen/prüfen",                    "\xE72E", true),
+            ("BackupManager",      "Backup-Manager",             "Sicherheit & Integrität",   "Winner-Dateien sichern",                       "\xE8F1", true),
+            ("Quarantine",         "Quarantäne",                 "Sicherheit & Integrität",   "Verdächtige Dateien isolieren",                "\xE7BA", true),
+            ("RuleEngine",         "Regel-Engine",               "Sicherheit & Integrität",   "Aktive Regeln anzeigen",                       "\xE713", false),
+            ("PatchEngine",        "Patch-Engine",               "Sicherheit & Integrität",   "ROM-Patches anwenden",                         "\xE70F", false),
+            ("HeaderRepair",       "Header-Reparatur",           "Sicherheit & Integrität",   "ROM-Header reparieren",                        "\xE90F", false),
+            ("RollbackQuick",      "Schnell-Rollback",           "Sicherheit & Integrität",   "Letzten Lauf rückgängig machen",               "\xE777", false),
+            ("RollbackUndo",       "Rollback Undo",              "Sicherheit & Integrität",   "Rollback rückgängig machen",                   "\xE7A7", false),
+            ("RollbackRedo",       "Rollback Redo",              "Sicherheit & Integrität",   "Rollback wiederherstellen",                    "\xE7A6", false),
+
+            // Workflow & Automatisierung
+            ("CommandPalette",     "Command-Palette",            "Workflow & Automatisierung", "Befehle suchen und ausführen",                 "\xE721", false),
+            ("SplitPanelPreview",  "Split-Panel",                "Workflow & Automatisierung", "Winner/Loser-Vergleich",                       "\xE8A0", true),
+            ("FilterBuilder",      "Filter-Builder",             "Workflow & Automatisierung", "Erweiterte Filter erstellen",                  "\xE71C", true),
+            ("SortTemplates",      "Sort-Templates",             "Workflow & Automatisierung", "Sortierungs-Vorlagen",                         "\xE8CB", false),
+            ("PipelineEngine",     "Pipeline-Engine",            "Workflow & Automatisierung", "Pipeline-Status anzeigen",                     "\xE8CB", false),
+            ("SystemTray",         "System-Tray",                "Workflow & Automatisierung", "System-Tray ein-/ausschalten",                 "\xE8CB", false),
+            ("SchedulerAdvanced",  "Cron-Tester",                "Workflow & Automatisierung", "Cron-Expressions testen",                     "\xE787", false),
+            ("RulePackSharing",    "Regel-Pakete",               "Workflow & Automatisierung", "Regeln importieren/exportieren",               "\xE72D", false),
+            ("ArcadeMergeSplit",   "Arcade Merge/Split",         "Workflow & Automatisierung", "Arcade-Sets analysieren",                     "\xE8CB", false),
+            ("AutoProfile",        "Auto-Profil",                "Workflow & Automatisierung", "Profil automatisch erkennen",                  "\xE713", false),
+
+            // Export & Integration
+            ("PdfReport",          "PDF-Report",                 "Export & Integration",       "HTML-Report für PDF-Druck",                    "\xE8A5", true),
+            ("LauncherIntegration","Launcher-Integration",       "Export & Integration",       "RetroArch-Playlist exportieren",               "\xE768", true),
+            ("ToolImport",         "Tool-Import",                "Export & Integration",       "DAT-Dateien importieren",                      "\xE8B5", false),
+            ("DuplicateExport",    "Duplikate exportieren",      "Export & Integration",       "Duplikatliste als CSV speichern",              "\xE792", true),
+            ("ExportCsv",          "CSV Export",                 "Export & Integration",       "Sammlung als CSV exportieren",                 "\xE792", true),
+            ("ExportExcel",        "Excel Export",               "Export & Integration",       "Sammlung als Excel-XML exportieren",           "\xE792", true),
+
+            // Infrastruktur & Deployment
+            ("StorageTiering",     "Storage-Tiering",            "Infrastruktur",              "Speicher-Analyse",                             "\xE8CB", true),
+            ("NasOptimization",    "NAS-Optimierung",            "Infrastruktur",              "NAS-Pfad-Infos anzeigen",                     "\xE8CB", false),
+            ("FtpSource",          "FTP-Quelle",                 "Infrastruktur",              "FTP/SFTP-Quelle konfigurieren",               "\xE774", false),
+            ("CloudSync",          "Cloud-Sync",                 "Infrastruktur",              "Cloud-Status prüfen",                          "\xE753", false),
+            ("PluginMarketplaceFeature","Plugin-Marktplatz",     "Infrastruktur",              "Plugin-System (geplant)",                      "\xE71B", false),
+            ("PluginManager",      "Plugin-Manager",             "Infrastruktur",              "Installierte Plugins verwalten",               "\xE71B", false),
+            ("PortableMode",       "Portable Modus",             "Infrastruktur",              "Portable-Modus Status",                        "\xE8CB", false),
+            ("DockerContainer",    "Docker",                     "Infrastruktur",              "Docker-Dateien generieren",                    "\xE8CB", false),
+            ("MobileWebUI",        "Mobile Web UI",              "Infrastruktur",              "REST API starten",                             "\xE774", false),
+            ("WindowsContextMenu", "Kontextmenü",                "Infrastruktur",              "Windows-Kontextmenü registrieren",             "\xE8CB", false),
+            ("HardlinkMode",       "Hardlink-Modus",             "Infrastruktur",              "Hardlink-Schätzung berechnen",                 "\xE8CB", true),
+            ("MultiInstanceSync",  "Multi-Instanz",              "Infrastruktur",              "Lock-Dateien verwalten",                       "\xE8CB", false),
+
+            // UI & Erscheinungsbild
+            ("Accessibility",      "Barrierefreiheit",           "UI & Erscheinungsbild",      "Schriftgröße/Kontrast anpassen",               "\xE7F8", false),
+            ("ThemeEngine",        "Theme-Engine",               "UI & Erscheinungsbild",      "Theme-Optionen",                               "\xE771", false),
+        };
+        foreach (var (key, display, cat, desc, icon, needsResult) in items)
+            ToolItems.Add(new ToolItem { Key = key, DisplayName = display, Category = cat, Description = desc, Icon = icon, RequiresRunResult = needsResult });
+
+        ToolItemsView = CollectionViewSource.GetDefaultView(ToolItems);
+        ToolItemsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ToolItem.Category)));
+        ToolItemsView.Filter = ToolItemFilter;
+    }
+
+    private bool ToolItemFilter(object obj)
+    {
+        if (obj is not ToolItem item) return false;
+        if (string.IsNullOrWhiteSpace(_toolFilterText)) return true;
+        return item.DisplayName.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase)
+            || item.Category.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase)
+            || item.Description.Contains(_toolFilterText, StringComparison.OrdinalIgnoreCase);
     }
 
     // ═══ PATH PROPERTIES (persisted) ════════════════════════════════════
@@ -591,6 +731,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     // ═══ PUBLIC METHODS ═════════════════════════════════════════════════
 
+    /// <summary>Confirm before destructive Move operations (uses injected IDialogService).</summary>
+    public bool ConfirmMoveDialog()
+    {
+        return _dialog.Confirm(
+            $"Modus 'Move' verschiebt Dateien in den Papierkorb.\n"
+            + $"Roots: {string.Join(", ", Roots)}\n\nFortfahren?",
+            "Move bestätigen");
+    }
+
     /// <summary>Build the preferred regions array from all boolean flags.</summary>
     public string[] GetPreferredRegions()
     {
@@ -735,14 +884,35 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BusyHint = "Abbruch angefordert…";
     }
 
-    private void OnRollback()
+    private async void OnRollback()
     {
-        RollbackRequested?.Invoke(this, EventArgs.Empty);
+        if (!_dialog.Confirm("Letzten Lauf rückgängig machen?", "Rollback bestätigen"))
+            return;
+
+        if (string.IsNullOrEmpty(LastAuditPath) || !File.Exists(LastAuditPath))
+        {
+            AddLog("Keine Audit-Datei gefunden — Rollback nicht möglich.", "WARN");
+            return;
+        }
+
+        try
+        {
+            var auditPathCopy = LastAuditPath;
+            var roots = Roots.ToList();
+            var restored = await Task.Run(() => RollbackService.Execute(auditPathCopy, roots));
+            AddLog($"Rollback: {restored.Count} Dateien wiederhergestellt.", "INFO");
+            CanRollback = false;
+            ShowMoveCompleteBanner = false;
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Rollback-Fehler: {ex.Message}", "ERROR");
+        }
     }
 
     private void OnAddRoot()
     {
-        var folder = DialogService.BrowseFolder("ROM-Ordner auswählen");
+        var folder = _dialog.BrowseFolder("ROM-Ordner auswählen");
         if (folder is not null && !Roots.Contains(folder))
         {
             Roots.Add(folder);
@@ -873,9 +1043,34 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CurrentRunState = newState;
     }
 
+    private void OnSaveSettings()
+    {
+        if (_settings.SaveFrom(this, LastAuditPath))
+            AddLog("Einstellungen gespeichert.", "INFO");
+        else
+            AddLog("Einstellungen konnten nicht gespeichert werden.", "ERROR");
+    }
+
+    private void OnLoadSettings()
+    {
+        _settings.LoadInto(this);
+        RefreshStatus();
+        AddLog("Einstellungen geladen.", "INFO");
+    }
+
+    /// <summary>Load settings into VM on startup (called from code-behind OnLoaded).</summary>
+    public void LoadInitialSettings()
+    {
+        _settings.LoadInto(this);
+        LastAuditPath = _settings.LastAuditPath;
+        RefreshStatus();
+    }
+
+    /// <summary>Save settings (called from code-behind on close / timer).</summary>
+    public void SaveSettings() => _settings.SaveFrom(this, LastAuditPath);
+
     // ═══ EVENTS (for code-behind orchestration wiring) ══════════════════
     public event EventHandler? RunRequested;
-    public event EventHandler? RollbackRequested;
 
     /// <summary>
     /// Build the error summary items for the protocol tab.
