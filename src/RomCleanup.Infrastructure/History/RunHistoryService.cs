@@ -33,7 +33,7 @@ public sealed class RunHistoryService
                 var entry = new RunHistoryEntry
                 {
                     FileName = Path.GetFileName(file),
-                    Date = File.GetLastWriteTime(file)
+                    Date = File.GetLastWriteTimeUtc(file)
                 };
 
                 if (root.TryGetProperty("Roots", out var rootsEl) && rootsEl.ValueKind == JsonValueKind.Array)

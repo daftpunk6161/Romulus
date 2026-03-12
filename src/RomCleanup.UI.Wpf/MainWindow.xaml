@@ -5,7 +5,7 @@
     xmlns:conv="clr-namespace:RomCleanup.UI.Wpf.Converters"
     Title="ROM Cleanup"
     Width="960" Height="720"
-    MinWidth="720" MinHeight="520"
+    MinWidth="800" MinHeight="600"
     WindowStartupLocation="CenterScreen"
     FontFamily="Segoe UI" FontSize="13"
     Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushTextPrimary}"
@@ -18,6 +18,7 @@
     <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
     <conv:StatusLevelToBrushConverter x:Key="StatusToBrush"/>
     <conv:LogLevelToBrushConverter x:Key="LogLevelToBrush"/>
+    <conv:StepActiveBrushConverter x:Key="StepToBrush"/>
 
     <!-- ═══ DATA TEMPLATES ════════════════════════════════════════════════ -->
     <DataTemplate x:Key="LogEntryTemplate">
@@ -41,6 +42,12 @@
     <KeyBinding Key="Escape" Command="{Binding CancelCommand}"/>
     <KeyBinding Key="R" Modifiers="Control" Command="{Binding OpenReportCommand}"/>
     <KeyBinding Key="Z" Modifiers="Control" Command="{Binding RollbackCommand}"/>
+    <KeyBinding Key="O" Modifiers="Control" Command="{Binding AddRootCommand}"/>
+    <KeyBinding Key="L" Modifiers="Control" Command="{Binding ClearLogCommand}"/>
+    <KeyBinding Key="T" Modifiers="Control" Command="{Binding ThemeToggleCommand}"/>
+    <KeyBinding Key="G" Modifiers="Control" Command="{Binding GameKeyPreviewCommand}"/>
+    <KeyBinding Key="D1" Modifiers="Control" Command="{Binding PresetSafeDryRunCommand}"/>
+    <KeyBinding Key="D2" Modifiers="Control" Command="{Binding PresetFullSortCommand}"/>
   </Window.InputBindings>
 
   <DockPanel LastChildFill="True">
@@ -52,7 +59,12 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
           <ComboBox x:Name="cmbQuickProfile" Width="160" Margin="4,0,4,0"
-                    ToolTip="Konfigurationsprofil schnell wechseln" IsEditable="False"/>
+                    ToolTip="Konfigurationsprofil schnell wechseln" IsEditable="False">
+            <ComboBoxItem Content="Standard" IsSelected="True"/>
+            <ComboBoxItem Content="Disc (CHD)"/>
+            <ComboBoxItem Content="Cartridge (ZIP)"/>
+            <ComboBoxItem Content="Gemischt"/>
+          </ComboBox>
           <Button Command="{Binding OpenReportCommand}" ToolTip="Letzten Bericht öffnen (Ctrl+R)" Margin="4,0,8,0"
                   AutomationProperties.Name="Letzten Bericht öffnen">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -101,7 +113,8 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
           <ProgressBar MinWidth="120" Width="200" Height="8" Maximum="100"
-                       Value="{Binding Progress}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                       Value="{Binding Progress}" Margin="8,0,0,0" VerticalAlignment="Center"
+                       AutomationProperties.Name="Fortschritt" AutomationProperties.LiveSetting="Polite"/>
           <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource BrushTextMuted}"
                      VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
         </StackPanel>
@@ -164,7 +177,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot1" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=1}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="1 · Ordner" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StepLabel1}" Style="{StaticResource CaptionText}"/>
@@ -174,7 +187,7 @@
                         Background="{DynamicResource BrushBorder}" Margin="4,0"/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot2" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="2 · Optionen" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StepLabel2}" Style="{StaticResource CaptionText}"/>
@@ -184,7 +197,7 @@
                         Background="{DynamicResource BrushBorder}" Margin="4,0"/>
                 <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot3" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=3}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="3 · Starten" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StepLabel3}" Style="{StaticResource CaptionText}"/>
@@ -298,7 +311,8 @@
                 <StackPanel Margin="0,0,0,8">
                   <TextBlock Text="Region:" Margin="0,0,0,4" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
                   <ComboBox x:Name="cmbEinfachRegion" Width="220" HorizontalAlignment="Left"
-                            SelectedIndex="{Binding SimpleRegionIndex}">
+                            SelectedIndex="{Binding SimpleRegionIndex}"
+                            ToolTip="Bevorzugte Region: ROMs dieser Region werden bei Duplikaten bevorzugt.">
                     <ComboBoxItem Content="Europa (EU)"/>
                     <ComboBoxItem Content="Nordamerika (US)"/>
                     <ComboBoxItem Content="Japan (JP)"/>
@@ -307,9 +321,12 @@
                 </StackPanel>
                 <StackPanel Margin="0,0,0,8">
                   <TextBlock Text="Was soll passieren?" Margin="0,0,0,4" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
-                  <CheckBox Content="Duplikate erkennen und aussortieren" IsChecked="{Binding SimpleDupes}" Margin="0,2"/>
-                  <CheckBox Content="Junk-Dateien entfernen (Demos, Betas, Hacks)" IsChecked="{Binding SimpleJunk}" Margin="0,2"/>
-                  <CheckBox Content="In Konsolen-Ordner sortieren" IsChecked="{Binding SimpleSort}" Margin="0,2"/>
+                  <CheckBox Content="Duplikate erkennen und aussortieren" IsChecked="{Binding SimpleDupes}" Margin="0,2"
+                            ToolTip="Erkennt ROMs mit gleichem Spielnamen und behält nur die beste Version (Region, Format, Revision)."/>
+                  <CheckBox Content="Junk-Dateien entfernen (Demos, Betas, Hacks)" IsChecked="{Binding SimpleJunk}" Margin="0,2"
+                            ToolTip="Verschiebt Demos, Betas, Prototypen, Hacks und Homebrew in den Papierkorb-Ordner."/>
+                  <CheckBox Content="In Konsolen-Ordner sortieren" IsChecked="{Binding SimpleSort}" Margin="0,2"
+                            ToolTip="Sortiert ROMs automatisch in Unterordner nach erkannter Konsole (z.B. SNES, PS1, GBA)."/>
                 </StackPanel>
                 <TextBlock Text="Ordner oben hinzufügen, dann unten auf 'Sortierung starten' klicken."
                            Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
@@ -661,10 +678,12 @@
                         <Button x:Name="btnBrowseDat" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="DAT-Verzeichnis durchsuchen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="Hash-Typ:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbDatHash" Grid.Row="2" Grid.Column="1">
-                          <ComboBoxItem Content="sha1" IsSelected="True"/>
-                          <ComboBoxItem Content="md5"/>
-                          <ComboBoxItem Content="crc32"/>
+                        <ComboBox x:Name="cmbDatHash" Grid.Row="2" Grid.Column="1"
+                                  SelectedValue="{Binding DatHashType, Mode=TwoWay}"
+                                  SelectedValuePath="Content">
+                          <ComboBoxItem Content="SHA1"/>
+                          <ComboBoxItem Content="MD5"/>
+                          <ComboBoxItem Content="CRC32"/>
                         </ComboBox>
                       </Grid>
                       <WrapPanel Margin="0,12,0,0">
@@ -742,7 +761,7 @@
                         <Button x:Name="btnProfileSave"   Content="Speichern"   Width="110" Margin="0,0,4,4" ToolTip="Aktuelle Einstellungen speichern"/>
                         <Button x:Name="btnProfileLoad"   Content="Laden"       Width="110" Margin="0,0,4,4" ToolTip="Gespeichertes Profil laden"/>
                         <Button x:Name="btnProfileDelete" Content="Löschen"     Width="110" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="Profil löschen"/>
-                        <Button x:Name="btnProfileImport" Content="Importieren" Width="110" Margin="0,0,4,4" ToolTip="Profil importieren"/>
+                        <Button x:Name="btnProfileImport" Content="Importieren" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="Profil importieren"/>
                         <Button x:Name="btnConfigDiff"    Content="Config-Diff" Width="110" Margin="0,0,4,4" ToolTip="Unterschiede anzeigen"/>
                       </WrapPanel>
                       <TextBlock Text="Profile speichern alle Einstellungen und können zwischen verschiedenen Sammlungen gewechselt werden."
@@ -772,9 +791,11 @@
                         <Button x:Name="btnBrowseTrash" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="Papierkorb-Ordner durchsuchen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="Log-Level:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbLogLevel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2">
+                        <ComboBox x:Name="cmbLogLevel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                  SelectedValue="{Binding LogLevel, Mode=TwoWay}"
+                                  SelectedValuePath="Content">
                           <ComboBoxItem Content="Debug"/>
-                          <ComboBoxItem Content="Info" IsSelected="True"/>
+                          <ComboBoxItem Content="Info"/>
                           <ComboBoxItem Content="Warning"/>
                           <ComboBoxItem Content="Error"/>
                         </ComboBox>
@@ -839,8 +860,8 @@
 
                       <TextBlock Text="KONFIGURATION" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
                       <WrapPanel>
-                        <Button x:Name="btnExportUnified" Content="Exportieren…" Width="160" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration"/>
-                        <Button x:Name="btnConfigImport" Content="Konfig importieren" Width="160" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportUnified" Content="Exportieren…" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration"/>
+                        <Button x:Name="btnConfigImport" Content="Konfig importieren" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -859,21 +880,21 @@
                     <StackPanel>
                       <TextBlock Text="ANALYSE &amp; BERICHTE" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" Width="130" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)"/>
-                        <Button x:Name="btnHealthScore" Content="Health-Score" Width="120" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen"/>
-                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" Width="140" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen"/>
-                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" Width="160" Margin="0,0,8,4" ToolTip="Duplikate untersuchen"/>
-                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" Width="190" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen"/>
-                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" Width="130" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht"/>
-                        <Button x:Name="btnRomFilter" Content="ROM-Filter" Width="120" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen"/>
-                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" Width="150" Margin="0,0,8,4" ToolTip="Duplikatverteilung visualisieren"/>
-                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" Width="130" Margin="0,0,8,4" ToolTip="Fehlende ROMs ermitteln"/>
-                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" Width="170" Margin="0,0,8,4" ToolTip="Duplikate über mehrere Roots finden"/>
-                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" Width="130" Margin="0,0,8,4" ToolTip="ROM-Header analysieren"/>
-                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" Width="130" Margin="0,0,8,4" ToolTip="Vollständigkeitsbericht"/>
-                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" Width="150" Margin="0,0,8,4" ToolTip="Zwei DryRun-Ergebnisse vergleichen"/>
-                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" Width="130" Margin="0,0,8,4" ToolTip="Historische Trends"/>
-                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" Width="185" Margin="0,0,8,4" ToolTip="Kompatibilitätsmatrix"/>
+                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)"/>
+                        <Button x:Name="btnHealthScore" Content="Health-Score" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen"/>
+                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" MinWidth="140" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen"/>
+                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate untersuchen"/>
+                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" MinWidth="190" Padding="8,2" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen"/>
+                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht"/>
+                        <Button x:Name="btnRomFilter" Content="ROM-Filter" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen"/>
+                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikatverteilung visualisieren"/>
+                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Fehlende ROMs ermitteln"/>
+                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" MinWidth="170" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate über mehrere Roots finden"/>
+                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Header analysieren"/>
+                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Vollständigkeitsbericht"/>
+                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Zwei DryRun-Ergebnisse vergleichen"/>
+                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Historische Trends"/>
+                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" MinWidth="185" Padding="8,2" Margin="0,0,8,4" ToolTip="Kompatibilitätsmatrix"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -884,13 +905,13 @@
                     <StackPanel>
                       <TextBlock Text="KONVERTIERUNG &amp; HASHING" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" Width="185" Margin="0,0,8,4"/>
-                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" Width="155" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" Width="170" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" Width="185" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" Width="120" Margin="0,0,8,4"/>
+                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" MinWidth="185" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" MinWidth="170" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" MinWidth="185" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -901,11 +922,11 @@
                     <StackPanel>
                       <TextBlock Text="DAT &amp; VERIFIZIERUNG" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" Width="110" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" Width="155" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" MinWidth="110" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -916,13 +937,13 @@
                     <StackPanel>
                       <TextBlock Text="SAMMLUNGSVERWALTUNG" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnCollectionManager" Content="Smart Collection" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" Width="160" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCollectionManager" Content="Smart Collection" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -933,15 +954,15 @@
                     <StackPanel>
                       <TextBlock Text="SICHERHEIT &amp; INTEGRITÄT" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" Width="160" Margin="0,0,8,4"/>
-                        <Button x:Name="btnBackupManager" Content="Backup-Manager" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnQuarantine" Content="Quarantäne" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnBackupManager" Content="Backup-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnQuarantine" Content="Quarantäne" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -952,19 +973,21 @@
                     <StackPanel>
                       <TextBlock Text="WORKFLOW &amp; AUTOMATISIERUNG" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnCommandPalette" Content="Command-Palette" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSystemTray" Content="System-Tray" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSchedulerAdvanced" Content="Scheduler" Width="110" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" Width="155" Margin="0,0,8,4"/>
-                        <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4" ToolTip="Überwacht ROM-Roots automatisch"/>
-                        <Button x:Name="btnWatchApply" Content="Watch anwenden" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConflictPolicy" Content="Conflict-Policy" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCommandPalette" Content="Command-Palette" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnSystemTray" Content="System-Tray" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnSchedulerAdvanced" Content="Cron-Tester" MinWidth="110" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
+                        <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4"
+                                  IsChecked="{Binding IsWatchModeActive, Mode=TwoWay}"
+                                  ToolTip="Überwacht ROM-Roots automatisch"/>
+                        <Button x:Name="btnWatchApply" Content="Watch anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnConflictPolicy" Content="Conflict-Policy" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -975,12 +998,12 @@
                     <StackPanel>
                       <TextBlock Text="EXPORT &amp; INTEGRATION" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnPdfReport" Content="PDF-Report" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" Width="165" Margin="0,0,8,4"/>
-                        <Button x:Name="btnToolImport" Content="Tool-Import" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" Width="155" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportCsv" Content="CSV Export" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportExcel" Content="Excel Export" Width="120" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPdfReport" Content="PDF-Report" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" MinWidth="165" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnToolImport" Content="Tool-Import" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportCsv" Content="CSV Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportExcel" Content="Excel Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -991,18 +1014,18 @@
                     <StackPanel>
                       <TextBlock Text="INFRASTRUKTUR &amp; DEPLOYMENT" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz" Width="145" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPortableMode" Content="Portable Modus" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDockerContainer" Content="Docker" Width="100" Margin="0,0,8,4"/>
-                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" Width="130" Margin="0,0,8,4"/>
-                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" Width="120" Margin="0,0,8,4"/>
+                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz (Geplant)" MinWidth="145" Padding="8,2" Margin="0,0,8,4" ToolTip="Das Plugin-System ist in Planung und noch nicht funktionsfähig."/>
+                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPortableMode" Content="Portable Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnDockerContainer" Content="Docker" MinWidth="100" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1013,15 +1036,17 @@
                     <StackPanel>
                       <TextBlock Text="UI &amp; ERSCHEINUNGSBILD" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" Width="130" Margin="0,0,8,4"/>
+                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
                         <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
-                        <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4">
-                          <ComboBoxItem Content="de" IsSelected="True"/>
+                        <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4"
+                                  SelectedValuePath="Content"
+                                  SelectedValue="{Binding Locale, Mode=TwoWay}">
+                          <ComboBoxItem Content="de"/>
                           <ComboBoxItem Content="en"/>
                           <ComboBoxItem Content="fr"/>
                         </ComboBox>
-                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1097,12 +1122,9 @@
                 <!-- Performance Details -->
                 <Expander Header="Performance-Details" IsExpanded="False" Margin="0,0,0,2">
                   <WrapPanel Margin="0,4,0,0">
-                    <TextBlock x:Name="lblPerfProgress" Text="0%" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,12,0"/>
-                    <TextBlock x:Name="lblPerfThroughput" Text="– grp/s" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,12,0"/>
-                    <TextBlock x:Name="lblPerfEta" Text="ETA –" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,12,0"/>
-                    <TextBlock x:Name="lblPerfCache" Text="Cache: –" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,12,0"/>
-                    <TextBlock x:Name="lblPerfPhase" Text="Phase: –" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,12,0"/>
-                    <TextBlock x:Name="lblPerfFile" Text="Datei: –" Foreground="{DynamicResource BrushTextMuted}" TextTrimming="CharacterEllipsis" Width="240"/>
+                    <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,12,0"/>
+                    <TextBlock Text="{Binding PerfPhase}" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,12,0"/>
+                    <TextBlock Text="{Binding PerfFile}" Foreground="{DynamicResource BrushTextMuted}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                   </WrapPanel>
                 </Expander>
               </StackPanel>
@@ -1122,7 +1144,7 @@
                   BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,8">
             <StackPanel Orientation="Horizontal">
               <Button Command="{Binding ClearLogCommand}" Content="Log leeren" Width="118" Margin="0,0,8,0"/>
-              <Button x:Name="btnExportLog" Content="Log exportieren" Width="130"/>
+              <Button x:Name="btnExportLog" Content="Log exportieren" MinWidth="130" Padding="8,2"/>
             </StackPanel>
           </Border>
 
@@ -1133,7 +1155,7 @@
               <ColumnDefinition Width="8"/>
               <ColumnDefinition Width="*" MinWidth="120"/>
             </Grid.ColumnDefinitions>
-            <ListBox Grid.Column="0"
+            <ListBox x:Name="listLog" Grid.Column="0"
                      ItemsSource="{Binding LogEntries}"
                      Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushAccentCyan}"
                      FontFamily="Consolas" FontSize="11"
@@ -1159,6 +1181,7 @@
                   <StackPanel>
                     <TextBlock Text="FEHLER-SUMMARY" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
                     <ListBox x:Name="listErrorSummary" MinHeight="60"
+                             ItemsSource="{Binding ErrorSummaryItems}"
                              Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushWarning}"
                              BorderThickness="0" FontFamily="Consolas" FontSize="11"
                              VirtualizingPanel.IsVirtualizing="True"
@@ -1167,7 +1190,9 @@
                              ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                   </StackPanel>
                 </Border>
-                <WebBrowser x:Name="webReportPreview" MinHeight="80"/>
+                <WebBrowser x:Name="webReportPreview" MinHeight="80"
+                           AutomationProperties.Name="HTML-Berichtsvorschau"
+                           AutomationProperties.HelpText="Zeigt den generierten HTML-Report als Vorschau an."/>
               </DockPanel>
             </Border>
           </Grid>

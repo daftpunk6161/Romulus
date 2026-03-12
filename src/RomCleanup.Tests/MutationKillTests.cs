@@ -240,7 +240,7 @@ public sealed class MutationKillTests
         Assert.Equal(plain, nfr);
     }
 
-    // TEST-MUT-GK-13: Empty key returns GUID-based fallback
+    // TEST-MUT-GK-13: Empty key returns deterministic fallback
     [Fact]
     public void GK_EmptyInput_ReturnsFallback()
     {
@@ -248,7 +248,7 @@ public sealed class MutationKillTests
         var k2 = GameKeyNormalizer.Normalize("");
         Assert.StartsWith("__empty_key_", k1);
         Assert.StartsWith("__empty_key_", k2);
-        Assert.NotEqual(k1, k2); // unique per call
+        Assert.Equal(k1, k2); // deterministic: same input → same key
     }
 
     // TEST-MUT-GK-14: DOS mode removes trailing bracket tags

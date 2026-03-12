@@ -13,6 +13,32 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public sealed class DiscHeaderDetector
 {
+    private static readonly RegexOptions RxOpts = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(200);
+
+    // Pre-compiled patterns for ResolveConsoleFromText (TASK-001 ReDoS fix)
+    private static readonly Regex RxDreamcast = new(@"SEGA.SEGAKATANA|SEGA.?DREAMCAST|SEGA\s*KATANA|DREAMCAST", RxOpts, RxTimeout);
+    private static readonly Regex RxSaturn = new(@"SEGA.SATURN|SEGASATURN|SEGA\s*SATURN", RxOpts, RxTimeout);
+    private static readonly Regex RxSegaCd = new(@"SEGADISCSYSTEM|SEGA.MEGA.?CD|SEGA\s*CD", RxOpts, RxTimeout);
+    private static readonly Regex RxNeoGeo = new(@"NEOGEO\s*CD|NEO.?GEO", RxOpts, RxTimeout);
+    private static readonly Regex RxPcFx = new(@"PC-FX:Hu_CD|PC-FX|NEC.*PC-FX", RxOpts, RxTimeout);
+    private static readonly Regex RxPcEngine = new(@"PC\s*Engine|NEC\s*HOME\s*ELECTRONICS|TURBOGRAFX", RxOpts, RxTimeout);
+    private static readonly Regex RxJaguar = new(@"ATARI\s*JAGUAR", RxOpts, RxTimeout);
+    private static readonly Regex RxCd32 = new(@"AMIGA\s*BOOT|CDTV|CD32", RxOpts, RxTimeout);
+    private static readonly Regex RxFmTowns = new(@"FM\s*TOWNS", RxOpts, RxTimeout);
+    private static readonly Regex RxPlayStation = new(@"Sony\s*Computer\s*Entertainment|PLAYSTATION", RxOpts, RxTimeout);
+    private static readonly Regex RxPsp = new(@"PSP\s*GAME", RxOpts, RxTimeout);
+    private static readonly Regex RxPs2Boot = new(@"BOOT2\s*=|cdrom0:", RxOpts, RxTimeout);
+    private static readonly Regex RxPs2Name = new(@"playstation\s*2", RxOpts, RxTimeout);
+    private static readonly Regex RxXbox = new(@"MICROSOFT\*XBOX\*MEDIA", RxOpts, RxTimeout);
+
+    // ScanDiscImage patterns
+    private static readonly Regex RxIpDreamcast = new(@"SEGA.SEGAKATANA|SEGA.DREAMCAST", RxOpts, RxTimeout);
+    private static readonly Regex RxIpSaturn = new(@"SEGA.SATURN|SEGASATURN", RxOpts, RxTimeout);
+    private static readonly Regex RxIpSegaCd = new(@"SEGADISCSYSTEM|SEGA.MEGA.CD", RxOpts, RxTimeout);
+    private static readonly Regex RxPvdPlayStation = new(@"PLAYSTATION", RxOpts, RxTimeout);
+    private static readonly Regex RxPvdFmTowns = new(@"FM.?TOWNS", RxOpts, RxTimeout);
+
     private readonly LruCache<string, string?> _isoCache;
     private readonly LruCache<string, string?> _chdCache;
 
@@ -31,7 +57,8 @@ public sealed class DiscHeaderDetector
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return null;
 
-        if (_isoCache.TryGet(path, out var cached))
+        var normalizedPath = Path.GetFullPath(path);
+        if (_isoCache.TryGet(normalizedPath, out var cached))
             return cached;
 
         string? result = null;
@@ -42,7 +69,7 @@ public sealed class DiscHeaderDetector
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
 
-        _isoCache.Set(path, result);
+        _isoCache.Set(normalizedPath, result);
         return result;
     }
 
@@ -55,7 +82,8 @@ public sealed class DiscHeaderDetector
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return null;
 
-        if (_chdCache.TryGet(path, out var cached))
+        var normalizedPath = Path.GetFullPath(path);
+        if (_chdCache.TryGet(normalizedPath, out var cached))
             return cached;
 
         string? result = null;
@@ -66,7 +94,7 @@ public sealed class DiscHeaderDetector
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
 
-        _chdCache.Set(path, result);
+        _chdCache.Set(normalizedPath, result);
         return result;
     }
 
@@ -74,9 +102,10 @@ public sealed class DiscHeaderDetector
     /// Batch detect console for multiple files. Dispatches by extension.
     /// Returns a dictionary of path → console key (null if unknown).
     /// </summary>
-    public IReadOnlyDictionary<string, string?> DetectBatch(IEnumerable<string> paths)
+    public IReadOnlyDictionary<string, string?> DetectBatch(IEnumerable<string> paths, IProgress<int>? progress = null)
     {
         var results = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        int processed = 0;
         foreach (var path in paths)
         {
             if (string.IsNullOrWhiteSpace(path))
@@ -88,7 +117,12 @@ public sealed class DiscHeaderDetector
                 : ext is ".iso" or ".gcm" or ".img" or ".bin"
                     ? DetectFromDiscImage(path)
                     : null;
+
+            processed++;
+            if (processed % 50 == 0)
+                progress?.Report(processed);
         }
+        progress?.Report(processed);
         return results;
     }
 
@@ -101,45 +135,36 @@ public sealed class DiscHeaderDetector
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        // Sega disc systems (IP.BIN / header strings)
-        if (Regex.IsMatch(text, @"(?i)SEGA.SEGAKATANA|SEGA.?DREAMCAST|SEGA\s*KATANA|DREAMCAST"))
-            return "DC";
-        if (Regex.IsMatch(text, @"(?i)SEGA.SATURN|SEGASATURN|SEGA\s*SATURN"))
-            return "SAT";
-        if (Regex.IsMatch(text, @"(?i)SEGADISCSYSTEM|SEGA.MEGA.?CD|SEGA\s*CD"))
-            return "SCD";
-        // SNK Neo Geo CD
-        if (Regex.IsMatch(text, @"(?i)NEOGEO\s*CD|NEO.?GEO"))
-            return "NEOCD";
-        // NEC PC-FX (before PC Engine to avoid substring overlap)
-        if (Regex.IsMatch(text, @"(?i)PC-FX:Hu_CD|PC-FX|NEC.*PC-FX"))
-            return "PCFX";
-        // NEC PC Engine CD
-        if (Regex.IsMatch(text, @"(?i)PC\s*Engine|NEC\s*HOME\s*ELECTRONICS|TURBOGRAFX"))
-            return "PCECD";
-        // Atari Jaguar CD
-        if (Regex.IsMatch(text, @"(?i)ATARI\s*JAGUAR"))
-            return "JAGCD";
-        // Amiga CD32
-        if (Regex.IsMatch(text, @"(?i)AMIGA\s*BOOT|CDTV|CD32"))
-            return "CD32";
-        // Fujitsu FM Towns
-        if (Regex.IsMatch(text, @"(?i)FM\s*TOWNS"))
-            return "FMTOWNS";
-        // Sony PlayStation family
-        if (Regex.IsMatch(text, @"(?i)Sony\s*Computer\s*Entertainment|PLAYSTATION"))
+        try
         {
-            if (Regex.IsMatch(text, @"(?i)PSP\s*GAME"))
-                return "PSP";
-            if (Regex.IsMatch(text, @"(?i)BOOT2\s*=|cdrom0:"))
-                return "PS2";
-            if (Regex.IsMatch(text, @"(?i)playstation\s*2"))
-                return "PS2";
-            return "PS1";
+            // Sega disc systems (IP.BIN / header strings)
+            if (RxDreamcast.IsMatch(text)) return "DC";
+            if (RxSaturn.IsMatch(text)) return "SAT";
+            if (RxSegaCd.IsMatch(text)) return "SCD";
+            // SNK Neo Geo CD
+            if (RxNeoGeo.IsMatch(text)) return "NEOCD";
+            // NEC PC-FX (before PC Engine to avoid substring overlap)
+            if (RxPcFx.IsMatch(text)) return "PCFX";
+            // NEC PC Engine CD
+            if (RxPcEngine.IsMatch(text)) return "PCECD";
+            // Atari Jaguar CD
+            if (RxJaguar.IsMatch(text)) return "JAGCD";
+            // Amiga CD32
+            if (RxCd32.IsMatch(text)) return "CD32";
+            // Fujitsu FM Towns
+            if (RxFmTowns.IsMatch(text)) return "FMTOWNS";
+            // Sony PlayStation family
+            if (RxPlayStation.IsMatch(text))
+            {
+                if (RxPsp.IsMatch(text)) return "PSP";
+                if (RxPs2Boot.IsMatch(text)) return "PS2";
+                if (RxPs2Name.IsMatch(text)) return "PS2";
+                return "PS1";
+            }
+            // Microsoft Xbox
+            if (RxXbox.IsMatch(text)) return "XBOX";
         }
-        // Microsoft Xbox
-        if (Regex.IsMatch(text, @"(?i)MICROSOFT\*XBOX\*MEDIA"))
-            return "XBOX";
+        catch (RegexMatchTimeoutException) { }
 
         return null;
     }
@@ -152,9 +177,10 @@ public sealed class DiscHeaderDetector
         if (fs.Length < 32)
             return null;
 
-        // Pre-check: read first 32 bytes for magic-number detection (GC/Wii/3DO)
-        var preBuffer = new byte[32];
-        if (fs.Read(preBuffer, 0, 32) < 32)
+        // Pre-check: read first 80 bytes for magic-number detection (GC/Wii/3DO)
+        var preBuffer = new byte[80];
+        int preRead = fs.Read(preBuffer, 0, preBuffer.Length);
+        if (preRead < 32)
             return null;
 
         // GC magic at offset 0x1C: C2 33 9F 3D
@@ -168,16 +194,27 @@ public sealed class DiscHeaderDetector
             return "WII";
 
         // 3DO: Opera filesystem — record type 0x01 + five 0x5A sync bytes
+        // Additional check: offset 0x28 must be ASCII "CD-ROM" or offset 0x40 must contain "opera" label area
         if (preBuffer[0] == 0x01 && preBuffer[1] == 0x5A && preBuffer[2] == 0x5A &&
-            preBuffer[3] == 0x5A && preBuffer[4] == 0x5A && preBuffer[5] == 0x5A)
-            return "3DO";
+            preBuffer[3] == 0x5A && preBuffer[4] == 0x5A && preBuffer[5] == 0x5A &&
+            preBuffer.Length >= 0x50)
+        {
+            // Verify Opera FS volume structure: byte at offset 6 should be record version (0x01)
+            // and bytes 0x06-0x07 are typically 0x01 0x00 for standard Opera volumes
+            if (preBuffer[6] == 0x01 || preBuffer[6] == 0x02)
+                return "3DO";
+        }
 
         // No early match — read remaining bytes up to 128 KB for full scan
         int scanSize = (int)Math.Min(131072, fs.Length);
         var buffer = new byte[scanSize];
-        Array.Copy(preBuffer, 0, buffer, 0, 32);
-        if (scanSize > 32)
-            fs.ReadAtLeast(buffer.AsSpan(32, scanSize - 32), scanSize - 32, throwOnEndOfStream: false);
+        int preLen = Math.Min(preRead, scanSize);
+        Array.Copy(preBuffer, 0, buffer, 0, preLen);
+        if (scanSize > preLen)
+        {
+            int bytesRead = fs.ReadAtLeast(buffer.AsSpan(preLen, scanSize - preLen), scanSize - preLen, throwOnEndOfStream: false);
+            scanSize = preLen + bytesRead;
+        }
 
         // Xbox / Xbox 360: XDVDFS signature "MICROSOFT*XBOX*MEDIA" at offset 0x10000
         if (scanSize >= 0x10000 + 20)
@@ -194,11 +231,11 @@ public sealed class DiscHeaderDetector
             if (scanSize >= dataOff + 48)
             {
                 var ipStr = ExtractPrintableAscii(buffer, dataOff, 48);
-                if (Regex.IsMatch(ipStr, @"SEGA.SEGAKATANA|SEGA.DREAMCAST"))
+                if (RxIpDreamcast.IsMatch(ipStr))
                     return "DC";
-                if (Regex.IsMatch(ipStr, @"SEGA.SATURN|SEGASATURN"))
+                if (RxIpSaturn.IsMatch(ipStr))
                     return "SAT";
-                if (Regex.IsMatch(ipStr, @"SEGADISCSYSTEM|SEGA.MEGA.CD"))
+                if (RxIpSegaCd.IsMatch(ipStr))
                     return "SCD";
             }
         }
@@ -234,20 +271,20 @@ public sealed class DiscHeaderDetector
                     int sysIdLen = Math.Min(32, scanSize - (pvdOff + 8));
                     var sysId = Encoding.ASCII.GetString(buffer, pvdOff + 8, sysIdLen).Trim();
 
-                    if (Regex.IsMatch(sysId, @"(?i)PLAYSTATION"))
+                    if (RxPvdPlayStation.IsMatch(sysId))
                     {
                         // Scan remaining buffer for PS2/PSP distinguishing markers
                         int markerScanLen = Math.Min(scanSize - pvdOff, 65536);
                         var pvdText = Encoding.ASCII.GetString(buffer, pvdOff, markerScanLen);
-                        if (Regex.IsMatch(pvdText, @"(?i)PSP\s*GAME"))
+                        if (RxPsp.IsMatch(pvdText))
                             return "PSP";
-                        if (Regex.IsMatch(pvdText, @"(?i)BOOT2\s*=|cdrom0:"))
+                        if (RxPs2Boot.IsMatch(pvdText))
                             return "PS2";
                         return "PS1";
                     }
 
                     // FM Towns: PVD system identifier contains "FM TOWNS"
-                    if (Regex.IsMatch(sysId, @"(?i)FM.?TOWNS"))
+                    if (RxPvdFmTowns.IsMatch(sysId))
                         return "FMTOWNS";
                 }
             }
@@ -261,7 +298,7 @@ public sealed class DiscHeaderDetector
         using var fs = File.OpenRead(path);
         int scanSize = (int)Math.Min(65536, fs.Length);
         var raw = new byte[scanSize];
-        fs.ReadAtLeast(raw, scanSize, throwOnEndOfStream: false);
+        scanSize = fs.ReadAtLeast(raw, scanSize, throwOnEndOfStream: false);
 
         // Verify CHD magic "MComprHD"
         if (scanSize < 8)

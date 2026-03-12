@@ -208,19 +208,17 @@ public sealed class ConsoleSorter
         if (File.Exists(intendedDest))
             return intendedDest;
 
-        // Check for __DUP renamed versions
+        // Check for __DUP renamed versions using directory listing
         var dir = Path.GetDirectoryName(intendedDest) ?? "";
+        if (!Directory.Exists(dir))
+            return null;
+
         var baseName = Path.GetFileNameWithoutExtension(intendedDest);
         var ext = Path.GetExtension(intendedDest);
+        var pattern = $"{baseName}__DUP*{ext}";
 
-        for (int i = 1; i <= 10_000; i++)
-        {
-            var dupPath = Path.Combine(dir, $"{baseName}__DUP{i}{ext}");
-            if (File.Exists(dupPath))
-                return dupPath;
-        }
-
-        return null;
+        var matches = Directory.GetFiles(dir, pattern);
+        return matches.Length > 0 ? matches[0] : null;
     }
 
     private bool MoveFile(string root, string sourcePath, string destDir, string fileName, bool dryRun)

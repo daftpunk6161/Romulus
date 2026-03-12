@@ -161,7 +161,7 @@ public class ScanIndexServiceTests : IDisposable
         File.WriteAllText(file, "data");
         var fp = ScanIndexService.GetPathFingerprint(file);
         Assert.Contains("|", fp);
-        Assert.Contains("test.bin", fp);
+        Assert.Contains("TEST.BIN", fp);
     }
 
     [Fact]

@@ -96,6 +96,7 @@ public sealed class ParallelHasher
 
     /// <summary>
     /// Synchronous wrapper for parallel hashing.
+    /// Uses Task.Run to avoid deadlock on UI threads with SynchronizationContext.
     /// </summary>
     public static ParallelHashResult HashFiles(
         IReadOnlyList<string> files,
@@ -103,7 +104,7 @@ public sealed class ParallelHasher
         int maxThreads = 8,
         Action<int, int>? onProgress = null)
     {
-        return HashFilesAsync(files, algorithm, maxThreads, onProgress).GetAwaiter().GetResult();
+        return Task.Run(() => HashFilesAsync(files, algorithm, maxThreads, onProgress)).GetAwaiter().GetResult();
     }
 
     private static ParallelHashResult HashFilesSingleThread(

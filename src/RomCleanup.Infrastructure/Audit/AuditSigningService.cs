@@ -13,8 +13,8 @@ namespace RomCleanup.Infrastructure.Audit;
 /// </summary>
 public sealed class AuditSigningService
 {
-    private static byte[]? _persistedKey;
-    private static readonly object _keyLock = new();
+    private byte[]? _persistedKey;
+    private readonly object _keyLock = new();
     private readonly IFileSystem _fs;
     private readonly Action<string>? _log;
     private readonly string? _keyFilePath;
@@ -66,6 +66,27 @@ public sealed class AuditSigningService
                     if (!string.IsNullOrEmpty(dir))
                         Directory.CreateDirectory(dir);
                     File.WriteAllText(_keyFilePath, Convert.ToHexStringLower(key), Encoding.UTF8);
+
+                    // Restrict file permissions to current user only (Windows-only API)
+                    if (OperatingSystem.IsWindows())
+                    {
+                        try
+                        {
+                            var fi = new FileInfo(_keyFilePath);
+                            var security = fi.GetAccessControl();
+                            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                            var currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+                            security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                                currentUser,
+                                System.Security.AccessControl.FileSystemRights.FullControl,
+                                System.Security.AccessControl.AccessControlType.Allow));
+                            fi.SetAccessControl(security);
+                        }
+                        catch
+                        {
+                            _log?.Invoke("Could not restrict HMAC key file permissions — manual ACL recommended");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -255,7 +276,7 @@ public sealed class AuditSigningService
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             totalRows++;
-            var fields = ParseCsvLine(line);
+            var fields = AuditCsvParser.ParseCsvLine(line);
             if (fields.Length < 4) continue;
 
             // Fields: RootPath, OldPath, NewPath, Action, Category, Hash, Reason, Timestamp
@@ -356,8 +377,10 @@ public sealed class AuditSigningService
     {
         if (string.IsNullOrEmpty(value)) return value;
 
-        // Prefix with single quote if starts with dangerous characters
-        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@')
+        // Prefix with single quote if starts with dangerous characters (skip numeric negatives)
+        if (value.Length > 0 && value[0] is '=' or '+' or '@')
+            value = "'" + value;
+        else if (value.Length > 1 && value[0] == '-' && !char.IsDigit(value[1]))
             value = "'" + value;
 
         // Quote if contains comma, newline, or double-quote
@@ -372,51 +395,5 @@ public sealed class AuditSigningService
         var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var line = $"{SanitizeCsvField(timestamp)},{SanitizeCsvField(action)},{SanitizeCsvField(from)},{SanitizeCsvField(to)},{SanitizeCsvField(status)}\n";
         File.AppendAllText(path, line, Encoding.UTF8);
-    }
-
-    private static string[] ParseCsvLine(string line)
-    {
-        var fields = new List<string>();
-        bool inQuotes = false;
-        var current = new StringBuilder();
-
-        for (int i = 0; i < line.Length; i++)
-        {
-            char c = line[i];
-            if (inQuotes)
-            {
-                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    current.Append('"');
-                    i++;
-                }
-                else if (c == '"')
-                {
-                    inQuotes = false;
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-            else
-            {
-                if (c == '"')
-                {
-                    inQuotes = true;
-                }
-                else if (c == ',')
-                {
-                    fields.Add(current.ToString());
-                    current.Clear();
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-        }
-        fields.Add(current.ToString());
-        return fields.ToArray();
     }
 }

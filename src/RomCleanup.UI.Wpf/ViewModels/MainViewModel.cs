@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -64,6 +65,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<string> Roots { get; } = [];
     public ObservableCollection<LogEntry> LogEntries { get; } = [];
     public ObservableCollection<DatMapRow> DatMappings { get; } = [];
+    public ObservableCollection<string> ErrorSummaryItems { get; } = [];
 
     // ═══ PATH PROPERTIES (persisted) ════════════════════════════════════
     private string _trashRoot = "";
@@ -149,6 +151,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private string _locale = "de";
     public string Locale { get => _locale; set => SetField(ref _locale, value); }
+
+    private bool _isWatchModeActive;
+    public bool IsWatchModeActive { get => _isWatchModeActive; set => SetField(ref _isWatchModeActive, value); }
 
     private string _datHashType = "SHA1";
     public string DatHashType { get => _datHashType; set => SetField(ref _datHashType, value); }
@@ -246,6 +251,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _progressText = "";
     public string ProgressText { get => _progressText; set => SetField(ref _progressText, value); }
 
+    // ═══ PERFORMANCE DETAILS ════════════════════════════════════════════
+    private string _perfPhase = "Phase: –";
+    public string PerfPhase { get => _perfPhase; set => SetField(ref _perfPhase, value); }
+
+    private string _perfFile = "Datei: –";
+    public string PerfFile { get => _perfFile; set => SetField(ref _perfFile, value); }
+
     private string _busyHint = "";
     public string BusyHint { get => _busyHint; set => SetField(ref _busyHint, value); }
 
@@ -334,6 +346,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string HealthScore { get => _healthScore; set => SetField(ref _healthScore, value); }
 
     // ═══ STEP INDICATOR ═════════════════════════════════════════════════
+    private int _currentStep;
+    public int CurrentStep { get => _currentStep; set => SetField(ref _currentStep, value); }
+
     private string _stepLabel1 = "Keine Ordner";
     public string StepLabel1 { get => _stepLabel1; set => SetField(ref _stepLabel1, value); }
 
@@ -348,6 +363,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Build the preferred regions array from all boolean flags.</summary>
     public string[] GetPreferredRegions()
     {
+        // TASK-032: In simple mode, translate SimpleRegionIndex to region preferences
+        if (IsSimpleMode)
+        {
+            return SimpleRegionIndex switch
+            {
+                0 => ["EU", "DE", "WORLD", "US", "JP"],    // Europa
+                1 => ["US", "WORLD", "EU", "JP"],           // Nordamerika
+                2 => ["JP", "ASIA", "WORLD", "US", "EU"],   // Japan
+                3 => ["WORLD", "EU", "US", "JP"],            // Weltweit
+                _ => ["EU", "US", "WORLD", "JP"]
+            };
+        }
+
         var regions = new List<string>(16);
         if (PreferEU) regions.Add("EU");
         if (PreferUS) regions.Add("US");
@@ -392,18 +420,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
         StatusRoots = hasRoots ? $"Roots: {Roots.Count}" : "Roots: –";
         StepLabel1 = hasRoots ? $"{Roots.Count} Ordner" : "Keine Ordner";
 
-        // Tools
-        bool hasChdman = !string.IsNullOrWhiteSpace(ToolChdman);
-        bool has7z = !string.IsNullOrWhiteSpace(Tool7z);
+        // Tools — check that specified paths actually exist
+        bool hasChdman = !string.IsNullOrWhiteSpace(ToolChdman) && File.Exists(ToolChdman);
+        bool has7z = !string.IsNullOrWhiteSpace(Tool7z) && File.Exists(Tool7z);
+        bool anyToolSpecified = !string.IsNullOrWhiteSpace(ToolChdman) || !string.IsNullOrWhiteSpace(Tool7z);
         ToolsStatusLevel = (hasChdman || has7z) ? StatusLevel.Ok
-            : ConvertEnabled ? StatusLevel.Warning
+            : (anyToolSpecified || ConvertEnabled) ? StatusLevel.Warning
             : StatusLevel.Missing;
         StatusTools = ToolsStatusLevel == StatusLevel.Ok ? "Tools: OK"
             : ToolsStatusLevel == StatusLevel.Warning ? "Tools: ⚠" : "Tools: –";
 
-        // DAT
+        // DAT — validate directory exists when specified
+        bool datRootValid = !string.IsNullOrWhiteSpace(DatRoot) && Directory.Exists(DatRoot);
         DatStatusLevel = !UseDat ? StatusLevel.Missing
-            : !string.IsNullOrWhiteSpace(DatRoot) ? StatusLevel.Ok
+            : datRootValid ? StatusLevel.Ok
+            : !string.IsNullOrWhiteSpace(DatRoot) ? StatusLevel.Warning
             : StatusLevel.Warning;
         StatusDat = DatStatusLevel == StatusLevel.Ok ? "DAT: ✓"
             : DatStatusLevel == StatusLevel.Warning ? "DAT: ⚠" : "DAT: –";
@@ -419,6 +450,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             StatusLevel.Blocked => "Blockiert ✗",
             _ => "Status: –"
         };
+
+        // Step indicator: 0=no roots, 1=roots set, 2=running, 3=complete
+        CurrentStep = IsBusy ? 2 : hasRoots ? 1 : 0;
     }
 
     // ═══ COMMAND HANDLERS ═══════════════════════════════════════════════
@@ -430,6 +464,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         DashMode = DryRun ? "DryRun" : "Move";
         Progress = 0;
         ProgressText = "0%";
+        PerfPhase = "Phase: –";
+        PerfFile = "Datei: –";
         ShowMoveCompleteBanner = false;
 
         // Actual run orchestration is wired in MainWindow.xaml.cs
@@ -504,7 +540,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void OnPresetFullSort()
     {
-        DryRun = true;
         SortConsole = true;
         PreferEU = true; PreferUS = true; PreferJP = true; PreferWORLD = true;
         RefreshStatus();
@@ -535,9 +570,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Set up a new CancellationTokenSource for a run.</summary>
     public CancellationToken CreateRunCancellation()
     {
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
-        return _cts.Token;
+        var newCts = new CancellationTokenSource();
+        var oldCts = Interlocked.Exchange(ref _cts, newCts);
+        try { oldCts?.Dispose(); } catch (ObjectDisposedException) { }
+        return newCts.Token;
     }
 
     // ═══ EVENTS (for code-behind orchestration wiring) ══════════════════

@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -38,6 +41,11 @@ public partial class MainWindow : Window
 
     // System tray icon
     private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private IntPtr _trayIconHandle;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(IntPtr handle);
 
     // Conflict policy (Rename / Skip / Overwrite)
     private string _conflictPolicy = "Rename";
@@ -45,10 +53,17 @@ public partial class MainWindow : Window
     // Watch-mode watchers and debounce timer
     private readonly List<FileSystemWatcher> _watchers = new();
     private DispatcherTimer? _watchDebounceTimer;
+    private bool _watchPendingWhileBusy;
+    private DateTime _watchFirstChangeUtc = DateTime.MaxValue;
 
     // Rollback undo/redo stacks
     private readonly Stack<string> _rollbackUndoStack = new();
     private readonly Stack<string> _rollbackRedoStack = new();
+
+    // Detached API process from Mobile Web UI
+    private Process? _apiProcess;
+    // Guard against recursive OnClosing calls
+    private bool _isClosing;
 
     public MainWindow()
     {
@@ -220,6 +235,13 @@ public partial class MainWindow : Window
         _lastAuditPath = _settings.LastAuditPath;
         _vm.RefreshStatus();
 
+        // Auto-scroll log to bottom on new entries
+        _vm.LogEntries.CollectionChanged += (_, _) =>
+        {
+            if (listLog.Items.Count > 0)
+                listLog.ScrollIntoView(listLog.Items[^1]);
+        };
+
         // Auto-load last report preview if available
         if (!string.IsNullOrEmpty(_vm.LastReportPath) && File.Exists(_vm.LastReportPath))
             RefreshReportPreview();
@@ -227,16 +249,17 @@ public partial class MainWindow : Window
 
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Guard against recursive calls when Close() is called from within OnClosing
+        if (_isClosing) return;
+
         // P0-VULN-B1: Prevent window close if operation is running
         if (_vm.IsBusy)
         {
-            var result = MessageBox.Show(
+            var confirmed = DialogService.Confirm(
                 "Ein Lauf ist aktiv. Abbrechen und beenden?",
-                "Lauf aktiv",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+                "Lauf aktiv");
 
-            if (result == MessageBoxResult.No)
+            if (!confirmed)
             {
                 e.Cancel = true;
                 return;
@@ -253,6 +276,7 @@ public partial class MainWindow : Window
             }
 
             _settings.SaveFrom(_vm, _lastAuditPath);
+            _isClosing = true;
             Close(); // Re-trigger close now that task is done
             return;
         }
@@ -260,12 +284,23 @@ public partial class MainWindow : Window
         _settings.SaveFrom(_vm, _lastAuditPath);
         _trayIcon?.Dispose();
         _trayIcon = null;
+        if (_trayIconHandle != IntPtr.Zero)
+        {
+            DestroyIcon(_trayIconHandle);
+            _trayIconHandle = IntPtr.Zero;
+        }
+
+        // Kill detached API process if running
+        try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); } catch { }
+        _apiProcess = null;
 
         // Dispose file watchers
         DisposeWatchers();
     }
 
     // ═══ DRAG & DROP ════════════════════════════════════════════════════
+    // NOTE: WPF DragDrop API has no MVVM binding support — code-behind is the standard approach.
+    // This is an acceptable exception per ADR-0003.
 
     private void OnRootsDragEnter(object sender, DragEventArgs e)
     {
@@ -339,9 +374,7 @@ public partial class MainWindow : Window
                 var audit = new AuditCsvStore();
 
                 // Data directory resolution
-                var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data");
-                if (!Directory.Exists(dataDir))
-                    dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
+                var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
 
                 // ToolRunner
                 var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
@@ -405,12 +438,13 @@ public partial class MainWindow : Window
                 }
 
                 // Build RunOptions
+                var selectedExts = GetSelectedExtensions();
                 var ro = new RunOptions
                 {
                     Roots = _vm.Roots.ToList(),
                     Mode = _vm.DryRun ? "DryRun" : "Move",
                     PreferRegions = _vm.GetPreferredRegions(),
-                    Extensions = RunOptions.DefaultExtensions,
+                    Extensions = selectedExts.Length > 0 ? selectedExts : RunOptions.DefaultExtensions,
                     RemoveJunk = true,
                     AggressiveJunk = _vm.AggressiveJunk,
                     SortConsole = _vm.SortConsole,
@@ -419,7 +453,8 @@ public partial class MainWindow : Window
                     ConvertFormat = _vm.ConvertEnabled ? "auto" : null,
                     TrashRoot = string.IsNullOrWhiteSpace(_vm.TrashRoot) ? null : _vm.TrashRoot,
                     AuditPath = ap,
-                    ReportPath = rp
+                    ReportPath = rp,
+                    ConflictPolicy = _conflictPolicy
                 };
 
                 // Build orchestrator with throttled progress (max 1 update/100ms)
@@ -434,6 +469,14 @@ public partial class MainWindow : Window
                         Dispatcher.InvokeAsync(() =>
                         {
                             _vm.ProgressText = msg;
+                            // Extract phase/file info for performance panel
+                            if (msg.StartsWith("[") && msg.Contains(']'))
+                            {
+                                var phase = msg[..(msg.IndexOf(']') + 1)];
+                                _vm.PerfPhase = $"Phase: {phase}";
+                                var rest = msg[(msg.IndexOf(']') + 1)..].Trim();
+                                if (rest.Length > 0) _vm.PerfFile = $"Datei: {rest}";
+                            }
                             _vm.AddLog(msg, "INFO");
                         });
                     });
@@ -478,6 +521,13 @@ public partial class MainWindow : Window
                     }
 
                     _lastAuditPath = auditPath;
+
+                    // Push to undo stack for rollback support
+                    if (!_vm.DryRun && auditPath is not null && File.Exists(auditPath))
+                    {
+                        _rollbackUndoStack.Push(auditPath);
+                        _rollbackRedoStack.Clear();
+                    }
                 });
 
                 // Generate HTML report on background thread (not UI thread)
@@ -556,6 +606,16 @@ public partial class MainWindow : Window
             _vm.AddLog($"Fehler: {ex.Message}", "ERROR");
             _vm.CompleteRun(false);
         }
+        finally
+        {
+            // Process queued watch-mode events
+            if (_watchPendingWhileBusy && _watchers.Count > 0)
+            {
+                _watchPendingWhileBusy = false;
+                _watchDebounceTimer?.Stop();
+                _watchDebounceTimer?.Start();
+            }
+        }
     }
 
     private async void OnRollbackRequested(object? sender, EventArgs e)
@@ -616,13 +676,15 @@ public partial class MainWindow : Window
 
     private void OnRefreshReportPreview(object sender, RoutedEventArgs e) => RefreshReportPreview();
 
-    /// <summary>Load the last report into the WebBrowser preview and update error summary.</summary>
+    /// <summary>Load the last report into the WebBrowser preview and update error summary.
+    /// NOTE: WebBrowser.Navigate() is a direct UI call — WPF WebBrowser has no bindable Source property.
+    /// This is an acceptable MVVM exception per ADR-0003.</summary>
     private void RefreshReportPreview()
     {
         if (string.IsNullOrEmpty(_vm.LastReportPath) || !File.Exists(_vm.LastReportPath))
         {
-            listErrorSummary.Items.Clear();
-            listErrorSummary.Items.Add("Kein Report vorhanden.");
+            _vm.ErrorSummaryItems.Clear();
+            _vm.ErrorSummaryItems.Add("Kein Report vorhanden.");
             webReportPreview.NavigateToString(
                 "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
                 "<p>Kein Report vorhanden. Erst einen Lauf starten.</p></body></html>");
@@ -638,16 +700,16 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            listErrorSummary.Items.Clear();
-            listErrorSummary.Items.Add($"Fehler: {ex.Message}");
+            _vm.ErrorSummaryItems.Clear();
+            _vm.ErrorSummaryItems.Add($"Fehler: {ex.Message}");
             _vm.AddLog($"Report-Vorschau fehlgeschlagen: {ex.Message}", "ERROR");
         }
     }
 
-    /// <summary>Populate the error/warning summary ListBox from log entries and run results.</summary>
+    /// <summary>Populate the error/warning summary from log entries and run results.</summary>
     private void PopulateErrorSummary()
     {
-        listErrorSummary.Items.Clear();
+        _vm.ErrorSummaryItems.Clear();
 
         // Collect warnings and errors from log
         var issues = _vm.LogEntries
@@ -675,16 +737,16 @@ public partial class MainWindow : Window
 
         if (issues.Count == 0)
         {
-            listErrorSummary.Items.Add("✓ Keine Fehler oder Warnungen.");
+            _vm.ErrorSummaryItems.Add("✓ Keine Fehler oder Warnungen.");
             if (_lastRunResult is not null)
-                listErrorSummary.Items.Add($"Report geladen: {_lastRunResult.WinnerCount} Winner, {_lastRunResult.LoserCount} Dupes");
+                _vm.ErrorSummaryItems.Add($"Report geladen: {_lastRunResult.WinnerCount} Winner, {_lastRunResult.LoserCount} Dupes");
             return;
         }
 
         foreach (var issue in issues.Take(50))
-            listErrorSummary.Items.Add(issue);
+            _vm.ErrorSummaryItems.Add(issue);
         if (issues.Count > 50)
-            listErrorSummary.Items.Add($"… und {issues.Count - 50} weitere");
+            _vm.ErrorSummaryItems.Add($"… und {issues.Count - 50} weitere");
     }
 
     private async void OnAutoFindTools(object sender, RoutedEventArgs e)
@@ -737,13 +799,28 @@ public partial class MainWindow : Window
         if (path is null) return;
         try
         {
+            // Validate JSON before import
+            var json = File.ReadAllText(path);
+            JsonDocument.Parse(json).Dispose();
+
             var settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomCleanupRegionDedupe");
             Directory.CreateDirectory(settingsDir);
-            File.Copy(path, Path.Combine(settingsDir, "settings.json"), overwrite: true);
+            var settingsPath = Path.Combine(settingsDir, "settings.json");
+
+            // Create backup before overwriting
+            if (File.Exists(settingsPath))
+            {
+                var backupPath = settingsPath + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
+                File.Copy(settingsPath, backupPath, overwrite: false);
+            }
+
+            File.Copy(path, settingsPath, overwrite: true);
             _settings.LoadInto(_vm);
             _vm.RefreshStatus();
             _vm.AddLog($"Profil importiert: {Path.GetFileName(path)}", "INFO");
         }
+        catch (JsonException)
+        { _vm.AddLog("Import fehlgeschlagen: Ungültiges JSON-Format.", "ERROR"); }
         catch (Exception ex)
         { _vm.AddLog($"Import fehlgeschlagen: {ex.Message}", "ERROR"); }
     }
@@ -782,7 +859,7 @@ public partial class MainWindow : Window
         {
             var config = GetCurrentConfigMap();
             File.WriteAllText(path, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
-            _vm.AddLog($"Konfiguration exportiert: {path}", "INFO");
+            _vm.AddLog($"Konfiguration exportiert: {path} — Hinweis: Enthält lokale Pfade (Roots, ToolPaths). Vor dem Teilen prüfen.", "INFO");
         }
         catch (Exception ex)
         { _vm.AddLog($"Export fehlgeschlagen: {ex.Message}", "ERROR"); }
@@ -794,13 +871,29 @@ public partial class MainWindow : Window
         if (path is null) return;
         try
         {
+            // Validate JSON before import
+            var json = File.ReadAllText(path);
+            JsonDocument.Parse(json).Dispose();
+
             var settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomCleanupRegionDedupe");
             Directory.CreateDirectory(settingsDir);
-            File.Copy(path, Path.Combine(settingsDir, "settings.json"), overwrite: true);
+            var settingsPath = Path.Combine(settingsDir, "settings.json");
+
+            // Create backup of existing settings before overwriting
+            if (File.Exists(settingsPath))
+            {
+                var backupPath = settingsPath + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
+                File.Copy(settingsPath, backupPath, overwrite: false);
+                _vm.AddLog($"Settings-Backup erstellt: {Path.GetFileName(backupPath)}", "INFO");
+            }
+
+            File.Copy(path, settingsPath, overwrite: true);
             _settings.LoadInto(_vm);
             _vm.RefreshStatus();
             _vm.AddLog($"Konfiguration importiert: {Path.GetFileName(path)}", "INFO");
         }
+        catch (JsonException)
+        { _vm.AddLog("Import fehlgeschlagen: Ungültiges JSON-Format.", "ERROR"); }
         catch (Exception ex)
         { _vm.AddLog($"Import fehlgeschlagen: {ex.Message}", "ERROR"); }
     }
@@ -1011,6 +1104,19 @@ public partial class MainWindow : Window
     {
         Dispatcher.InvokeAsync(() =>
         {
+            // Track first change time for max-wait enforcement
+            if (_watchFirstChangeUtc == DateTime.MaxValue)
+                _watchFirstChangeUtc = DateTime.UtcNow;
+
+            // If max wait (30s) exceeded, fire immediately instead of resetting debounce
+            if ((DateTime.UtcNow - _watchFirstChangeUtc).TotalSeconds >= 30)
+            {
+                _watchDebounceTimer?.Stop();
+                _watchFirstChangeUtc = DateTime.MaxValue;
+                OnWatchDebounceTimerTick(null, EventArgs.Empty);
+                return;
+            }
+
             // Reset debounce timer on every change
             _watchDebounceTimer?.Stop();
             _watchDebounceTimer?.Start();
@@ -1020,7 +1126,14 @@ public partial class MainWindow : Window
     private void OnWatchDebounceTimerTick(object? sender, EventArgs e)
     {
         _watchDebounceTimer?.Stop();
-        if (!_vm.IsBusy && _vm.Roots.Count > 0)
+        _watchFirstChangeUtc = DateTime.MaxValue;
+        if (_vm.IsBusy)
+        {
+            // Queue for later — run will be triggered when IsBusy clears
+            _watchPendingWhileBusy = true;
+            return;
+        }
+        if (_vm.Roots.Count > 0)
         {
             _vm.AddLog("Watch-Mode: Änderungen erkannt, starte DryRun…", "INFO");
             _vm.DryRun = true;
@@ -1046,7 +1159,7 @@ public partial class MainWindow : Window
         var strings = FeatureService.LoadLocale(locale);
         if (strings.Count == 0)
         { _vm.AddLog($"Sprachdatei '{locale}' nicht gefunden.", "WARN"); return; }
-        _vm.AddLog($"Sprache gewechselt: {locale} ({strings.Count} Strings geladen)", "INFO");
+        _vm.AddLog($"Sprache gewechselt: {locale} ({strings.Count} Strings geladen). Hinweis: Aktuell wird nur der Fenstertitel lokalisiert.", "INFO");
         if (strings.TryGetValue("App.Title", out var title))
             Title = title;
     }
@@ -1094,18 +1207,22 @@ public partial class MainWindow : Window
             (true, true) => "Gemischt (Disc + Cartridge): Konvertierung empfohlen",
             (true, false) => "Disc-basiert: CHD-Konvertierung empfohlen, aggressive Deduplizierung",
             (false, true) => "Cartridge-basiert: ZIP-Komprimierung, leichte Deduplizierung",
-            _ => "Unbekannt: Standard-Profil verwenden"
+            _ => "Unbekannt: Keine erkannten ROM-Formate gefunden. Bitte überprüfen Sie die Root-Ordner."
         };
-        _vm.AddLog($"Auto-Profil: {profile}", "INFO");
-        DialogService.Info($"Auto-Profil-Empfehlung:\n\n{profile}", "Auto-Profil");
+        if (!hasDisc && !hasCartridge)
+            _vm.AddLog("Auto-Profil: Keine bekannten ROM-Formate erkannt – Standard-Profil wird empfohlen.", "WARN");
+        else
+            _vm.AddLog($"Auto-Profil: {profile}", "INFO");
+        DialogService.Info($"Auto-Profil-Empfehlung:\n\n{profile}\n\n" +
+            "Hinweis: Die Erkennung basiert auf Dateierweiterungen der ersten 200 Dateien pro Root-Ordner.", "Auto-Profil");
     }
 
     private void OnConflictPolicy(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var result = DialogService.YesNoCancel(
             "Wie sollen Dateinamenkollisionen behandelt werden?\n\n" +
             "JA = Umbenennen (Suffix _1, _2 …)\nNEIN = Überspringen\nAbbrechen = Überschreiben",
-            "Conflict-Policy", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            "Conflict-Policy");
         var policy = result switch
         {
             MessageBoxResult.Yes => "Rename",
@@ -1149,7 +1266,7 @@ public partial class MainWindow : Window
     {
         if (_lastCandidates.Count == 0)
         { _vm.AddLog("Keine ROM-Daten geladen.", "WARN"); return; }
-        var input = Microsoft.VisualBasic.Interaction.InputBox("Suchbegriff eingeben (Name, Region, Konsole, Format):", "ROM-Filter", "");
+        var input = DialogService.ShowInputBox("Suchbegriff eingeben (Name, Region, Konsole, Format):", "ROM-Filter", "");
         if (string.IsNullOrWhiteSpace(input)) return;
         var results = FeatureService.SearchRomCollection(_lastCandidates, input);
         var sb = new System.Text.StringBuilder();
@@ -1498,24 +1615,58 @@ public partial class MainWindow : Window
     {
         var cores = Environment.ProcessorCount;
         var optimal = Math.Max(1, cores - 1);
-        ShowTextDialog("Parallel-Hashing", $"Parallel-Hashing Konfiguration\n\n" +
-            $"CPU-Kerne: {cores}\nOptimale Threads: {optimal}\n\n" +
-            $"Parallel-Hashing ist standardmäßig aktiviert und\nnutzt bis zu {optimal} Threads für Hash-Berechnungen.");
+        var input = DialogService.ShowInputBox(
+            $"CPU-Kerne: {cores}\nAktuell: {optimal} Threads\n\n" +
+            "Gewünschte Thread-Anzahl eingeben (1-{cores}):",
+            "Parallel-Hashing Konfiguration", optimal.ToString());
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        if (int.TryParse(input, out var threads) && threads >= 1 && threads <= cores * 2)
+        {
+            Environment.SetEnvironmentVariable("ROMCLEANUP_HASH_THREADS", threads.ToString());
+            _vm.AddLog($"Parallel-Hashing: {threads} Threads konfiguriert (experimentell – wird in einer zukünftigen Version unterstützt)", "INFO");
+            ShowTextDialog("Parallel-Hashing", $"Parallel-Hashing Konfiguration\n\n" +
+                $"CPU-Kerne: {cores}\nThreads (neu): {threads}\n\n" +
+                "Die Änderung wird beim nächsten Hash-Vorgang wirksam.");
+        }
+        else
+        {
+            _vm.AddLog($"Ungültige Thread-Anzahl: {input} (erlaubt: 1-{cores * 2})", "WARN");
+        }
     }
 
     private void OnGpuHashing(object sender, RoutedEventArgs e)
     {
         var openCl = File.Exists(Path.Combine(Environment.SystemDirectory, "OpenCL.dll"));
+        var currentSetting = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
+        var isEnabled = currentSetting.Equals("on", StringComparison.OrdinalIgnoreCase);
+
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("GPU-Hashing Status\n");
+        sb.AppendLine("GPU-Hashing Konfiguration\n");
         sb.AppendLine($"  OpenCL verfügbar: {(openCl ? "Ja" : "Nein")}");
-        sb.AppendLine($"  CUDA verfügbar: (nvidia-smi prüfen)");
-        sb.AppendLine($"\n  CPU-Kerne: {Environment.ProcessorCount}");
-        sb.AppendLine("\n  Status: GPU-Hashing ist experimentell.");
-        sb.AppendLine("  Standardmäßig wird CPU-Parallel-Hashing verwendet.");
-        if (openCl)
-            sb.AppendLine("\n  OpenCL erkannt – GPU-Beschleunigung möglich (5-20× Speedup).");
+        sb.AppendLine($"  CPU-Kerne:        {Environment.ProcessorCount}");
+        sb.AppendLine($"  Aktueller Status: {(isEnabled ? "AKTIVIERT" : "Deaktiviert")}");
+
+        if (!openCl)
+        {
+            sb.AppendLine("\n  GPU-Hashing benötigt OpenCL-Treiber.");
+            sb.AppendLine("  Installiere aktuelle GPU-Treiber für Unterstützung.");
+            ShowTextDialog("GPU-Hashing", sb.ToString());
+            return;
+        }
+
+        sb.AppendLine("\n  GPU-Hashing kann SHA1/SHA256-Berechnungen");
+        sb.AppendLine("  um 5-20x beschleunigen (experimentell).");
+
         ShowTextDialog("GPU-Hashing", sb.ToString());
+
+        var toggle = isEnabled ? "deaktivieren" : "aktivieren";
+        if (DialogService.Confirm($"GPU-Hashing {toggle}?\n\nAktuell: {(isEnabled ? "AN" : "AUS")}", "GPU-Hashing"))
+        {
+            var newValue = isEnabled ? "off" : "on";
+            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", newValue);
+            _vm.AddLog($"GPU-Hashing: {(isEnabled ? "deaktiviert" : "aktiviert")} (experimentell – wird in einer zukünftigen Version unterstützt)", "INFO");
+        }
     }
 
     // ═══ DAT & VERIFIZIERUNG ════════════════════════════════════════════
@@ -1524,10 +1675,74 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(_vm.DatRoot))
         { _vm.AddLog("DAT-Root nicht konfiguriert.", "WARN"); return; }
-        _vm.AddLog("DAT Auto-Update: Prüfe auf Aktualisierungen…", "INFO");
-        DialogService.Info("DAT Auto-Update prüft No-Intro und Redump auf neue Versionen.\n\n" +
-            $"Aktueller DAT-Root: {_vm.DatRoot}\n\n" +
-            "Manuelle Downloads: https://datomatic.no-intro.org und http://redump.org", "DAT Auto-Update");
+
+        if (!Directory.Exists(_vm.DatRoot))
+        { _vm.AddLog($"DAT-Root existiert nicht: {_vm.DatRoot}", "ERROR"); return; }
+
+        _vm.AddLog("DAT Auto-Update: Prüfe lokale DAT-Dateien…", "INFO");
+
+        // Load catalog
+        var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("DAT Auto-Update");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  DAT-Root: {_vm.DatRoot}");
+
+        // Scan existing DAT files
+        var localDats = Directory.GetFiles(_vm.DatRoot, "*.dat", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(_vm.DatRoot, "*.xml", SearchOption.AllDirectories))
+            .ToList();
+
+        sb.AppendLine($"  Lokale DAT-Dateien: {localDats.Count}\n");
+
+        if (localDats.Count > 0)
+        {
+            sb.AppendLine("  Lokale Dateien (nach Alter sortiert):");
+            foreach (var dat in localDats.OrderBy(d => File.GetLastWriteTime(d)).Take(20))
+            {
+                var age = DateTime.Now - File.GetLastWriteTime(dat);
+                var ageStr = age.TotalDays > 365 ? $"{age.TotalDays / 365:0.0} Jahre"
+                    : age.TotalDays > 30 ? $"{age.TotalDays / 30:0.0} Monate"
+                    : $"{age.TotalDays:0} Tage";
+                sb.AppendLine($"    {Path.GetFileName(dat),-40} {ageStr} alt");
+            }
+            if (localDats.Count > 20)
+                sb.AppendLine($"    … und {localDats.Count - 20} weitere");
+        }
+
+        // Load catalog if available
+        if (File.Exists(catalogPath))
+        {
+            try
+            {
+                var catalogJson = File.ReadAllText(catalogPath);
+                using var doc = JsonDocument.Parse(catalogJson);
+                var entries = doc.RootElement.EnumerateArray().ToList();
+                var withUrl = entries.Count(e => e.TryGetProperty("Url", out var u) && u.GetString()?.Length > 0);
+                var groups = entries.GroupBy(e => e.TryGetProperty("Group", out var g) ? g.GetString() : "?");
+
+                sb.AppendLine($"\n  Katalog: {entries.Count} Einträge ({withUrl} mit Download-URL)");
+                foreach (var g in groups)
+                    sb.AppendLine($"    {g.Key}: {g.Count()} Systeme");
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"\n  Katalog-Fehler: {ex.Message}");
+            }
+        }
+        else
+        {
+            sb.AppendLine($"\n  Katalog nicht gefunden: {catalogPath}");
+        }
+
+        var oldDats = localDats.Where(d => (DateTime.Now - File.GetLastWriteTime(d)).TotalDays > 180).ToList();
+        if (oldDats.Count > 0)
+            sb.AppendLine($"\n  ⚠ {oldDats.Count} DATs sind älter als 6 Monate!");
+
+        ShowTextDialog("DAT Auto-Update", sb.ToString());
+        _vm.AddLog($"DAT-Status: {localDats.Count} lokale DATs, {(localDats.Count > 0 ? $"älteste: {(DateTime.Now - File.GetLastWriteTime(localDats.OrderBy(d => File.GetLastWriteTime(d)).First())).TotalDays:0} Tage" : "keine")}", "INFO");
     }
 
     private void OnDatDiffViewer(object sender, RoutedEventArgs e)
@@ -1540,50 +1755,34 @@ public partial class MainWindow : Window
 
         try
         {
-            var docA = XDocument.Load(fileA);
-            var docB = XDocument.Load(fileB);
-
-            var gamesA = new HashSet<string>(
-                docA.Descendants("game")
-                    .Select(g => g.Attribute("name")?.Value)
-                    .Where(n => n is not null)!,
-                StringComparer.OrdinalIgnoreCase);
-
-            var gamesB = new HashSet<string>(
-                docB.Descendants("game")
-                    .Select(g => g.Attribute("name")?.Value)
-                    .Where(n => n is not null)!,
-                StringComparer.OrdinalIgnoreCase);
-
-            var added = gamesB.Except(gamesA).OrderBy(n => n).ToList();
-            var removed = gamesA.Except(gamesB).OrderBy(n => n).ToList();
-            var unchanged = gamesA.Intersect(gamesB).Count();
+            var diff = FeatureService.CompareDatFiles(fileA, fileB);
 
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("DAT-Diff-Viewer (Logiqx XML)");
             sb.AppendLine(new string('═', 50));
-            sb.AppendLine($"\n  A: {Path.GetFileName(fileA)} ({gamesA.Count} Spiele)");
-            sb.AppendLine($"  B: {Path.GetFileName(fileB)} ({gamesB.Count} Spiele)");
-            sb.AppendLine($"\n  Gleich:       {unchanged}");
-            sb.AppendLine($"  Hinzugefügt:  {added.Count}");
-            sb.AppendLine($"  Entfernt:     {removed.Count}");
+            sb.AppendLine($"\n  A: {Path.GetFileName(fileA)}");
+            sb.AppendLine($"  B: {Path.GetFileName(fileB)}");
+            sb.AppendLine($"\n  Gleich:       {diff.UnchangedCount}");
+            sb.AppendLine($"  Geändert:     {diff.ModifiedCount}");
+            sb.AppendLine($"  Hinzugefügt:  {diff.Added.Count}");
+            sb.AppendLine($"  Entfernt:     {diff.Removed.Count}");
 
-            if (added.Count > 0)
+            if (diff.Added.Count > 0)
             {
-                sb.AppendLine($"\n  --- Hinzugefügt (erste {Math.Min(30, added.Count)}) ---");
-                foreach (var name in added.Take(30))
+                sb.AppendLine($"\n  --- Hinzugefügt (erste {Math.Min(30, diff.Added.Count)}) ---");
+                foreach (var name in diff.Added.Take(30))
                     sb.AppendLine($"    + {name}");
-                if (added.Count > 30)
-                    sb.AppendLine($"    … und {added.Count - 30} weitere");
+                if (diff.Added.Count > 30)
+                    sb.AppendLine($"    … und {diff.Added.Count - 30} weitere");
             }
 
-            if (removed.Count > 0)
+            if (diff.Removed.Count > 0)
             {
-                sb.AppendLine($"\n  --- Entfernt (erste {Math.Min(30, removed.Count)}) ---");
-                foreach (var name in removed.Take(30))
+                sb.AppendLine($"\n  --- Entfernt (erste {Math.Min(30, diff.Removed.Count)}) ---");
+                foreach (var name in diff.Removed.Take(30))
                     sb.AppendLine($"    - {name}");
-                if (removed.Count > 30)
-                    sb.AppendLine($"    … und {removed.Count - 30} weitere");
+                if (diff.Removed.Count > 30)
+                    sb.AppendLine($"    … und {diff.Removed.Count - 30} weitere");
             }
 
             ShowTextDialog("DAT-Diff-Viewer", sb.ToString());
@@ -1610,7 +1809,13 @@ public partial class MainWindow : Window
 
         try
         {
-            var targetPath = Path.Combine(_vm.DatRoot, Path.GetFileName(path));
+            var safeName = Path.GetFileName(path);
+            var targetPath = Path.GetFullPath(Path.Combine(_vm.DatRoot, safeName));
+            if (!targetPath.StartsWith(Path.GetFullPath(_vm.DatRoot), StringComparison.OrdinalIgnoreCase))
+            {
+                _vm.AddLog("TOSEC-DAT Import blockiert: Pfad außerhalb des DatRoot.", "ERROR");
+                return;
+            }
             File.Copy(path, targetPath, overwrite: true);
             _vm.AddLog($"TOSEC-DAT kopiert nach: {targetPath}", "INFO");
             DialogService.Info($"TOSEC-DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "TOSEC-DAT");
@@ -1623,17 +1828,21 @@ public partial class MainWindow : Window
 
     private void OnCustomDatEditor(object sender, RoutedEventArgs e)
     {
-        var gameName = Microsoft.VisualBasic.Interaction.InputBox("Spielname eingeben:", "Custom-DAT-Editor", "");
+        var gameName = DialogService.ShowInputBox("Spielname eingeben:", "Custom-DAT-Editor", "");
         if (string.IsNullOrWhiteSpace(gameName)) return;
 
-        var romName = Microsoft.VisualBasic.Interaction.InputBox("ROM-Dateiname eingeben:", "Custom-DAT-Editor", $"{gameName}.zip");
+        var romName = DialogService.ShowInputBox("ROM-Dateiname eingeben:", "Custom-DAT-Editor", $"{gameName}.zip");
         if (string.IsNullOrWhiteSpace(romName)) return;
 
-        var crc32 = Microsoft.VisualBasic.Interaction.InputBox("CRC32-Hash eingeben (hex):", "Custom-DAT-Editor", "00000000");
+        var crc32 = DialogService.ShowInputBox("CRC32-Hash eingeben (hex):", "Custom-DAT-Editor", "00000000");
         if (string.IsNullOrWhiteSpace(crc32)) return;
+        if (!Regex.IsMatch(crc32, @"^[0-9A-Fa-f]{8}$"))
+        { _vm.AddLog($"Ungültiger CRC32-Hash: '{crc32}' — erwartet: 8 Hex-Zeichen.", "WARN"); return; }
 
-        var sha1 = Microsoft.VisualBasic.Interaction.InputBox("SHA1-Hash eingeben (hex):", "Custom-DAT-Editor", "");
+        var sha1 = DialogService.ShowInputBox("SHA1-Hash eingeben (hex):", "Custom-DAT-Editor", "");
         if (string.IsNullOrWhiteSpace(sha1)) sha1 = "";
+        if (sha1.Length > 0 && !Regex.IsMatch(sha1, @"^[0-9A-Fa-f]{40}$"))
+        { _vm.AddLog($"Ungültiger SHA1-Hash: '{sha1}' — erwartet: 40 Hex-Zeichen.", "WARN"); return; }
 
         // Generate Logiqx XML entry
         var xmlEntry = $"  <game name=\"{System.Security.SecurityElement.Escape(gameName)}\">\n" +
@@ -1649,19 +1858,21 @@ public partial class MainWindow : Window
                 var customDatPath = Path.Combine(_vm.DatRoot, "custom.dat");
                 if (File.Exists(customDatPath))
                 {
-                    // Append before closing </datafile> tag
+                    // Append before closing </datafile> tag — atomic write via temp+move
                     var content = File.ReadAllText(customDatPath);
                     var closeTag = "</datafile>";
                     var idx = content.LastIndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
                     if (idx >= 0)
                     {
                         content = content[..idx] + xmlEntry + "\n" + closeTag;
-                        File.WriteAllText(customDatPath, content);
                     }
                     else
                     {
-                        File.AppendAllText(customDatPath, "\n" + xmlEntry);
+                        content += "\n" + xmlEntry;
                     }
+                    var tempPath = customDatPath + ".tmp";
+                    File.WriteAllText(tempPath, content);
+                    File.Move(tempPath, customDatPath, overwrite: true);
                 }
                 else
                 {
@@ -1728,12 +1939,63 @@ public partial class MainWindow : Window
 
     private void OnCoverScraper(object sender, RoutedEventArgs e)
     {
-        DialogService.Info("Cover-Scraper\n\n" +
-            "Lädt Cover-Bilder von ScreenScraper.fr und IGDB.\n\n" +
-            "Voraussetzungen:\n" +
-            "• ScreenScraper-Account (kostenlos)\n" +
-            "• Internetverbindung\n\n" +
-            "Cover werden im Cache gespeichert und können\noffline wiederverwendet werden.", "Cover-Scraper");
+        if (_lastCandidates.Count == 0)
+        { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
+
+        var coverDir = DialogService.BrowseFolder("Cover-Ordner wählen (enthält Cover-Bilder)");
+        if (coverDir is null) return;
+
+        var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
+        var coverFiles = Directory.GetFiles(coverDir, "*.*", SearchOption.AllDirectories)
+            .Where(f => imageExts.Contains(Path.GetExtension(f)))
+            .ToList();
+
+        if (coverFiles.Count == 0)
+        { DialogService.Info($"Keine Cover-Bilder gefunden in:\n{coverDir}", "Cover-Scraper"); return; }
+
+        // Match covers to games by normalized GameKey for fuzzy matching
+        var gameKeys = _lastCandidates
+            .Select(c => RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(
+                Path.GetFileNameWithoutExtension(c.MainPath)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var matched = new List<string>();
+        var unmatched = new List<string>();
+        foreach (var cover in coverFiles)
+        {
+            var coverName = Path.GetFileNameWithoutExtension(cover);
+            var normalizedCover = RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(coverName);
+            if (gameKeys.Contains(normalizedCover))
+                matched.Add(coverName);
+            else
+                unmatched.Add(coverName);
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Cover-Scraper Ergebnis\n");
+        sb.AppendLine($"  Cover-Ordner: {coverDir}");
+        sb.AppendLine($"  Gefundene Bilder: {coverFiles.Count}");
+        sb.AppendLine($"  ROMs in Sammlung: {gameKeys.Count}");
+        sb.AppendLine($"\n  Zugeordnet:    {matched.Count}");
+        sb.AppendLine($"  Nicht zugeordnet: {unmatched.Count}");
+        sb.AppendLine($"  Ohne Cover:    {gameKeys.Count - matched.Count}");
+
+        if (matched.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Zugeordnet (erste {Math.Min(15, matched.Count)}) ---");
+            foreach (var m in matched.Take(15))
+                sb.AppendLine($"    ✓ {m}");
+        }
+        if (unmatched.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Nicht zugeordnet (erste {Math.Min(15, unmatched.Count)}) ---");
+            foreach (var u in unmatched.Take(15))
+                sb.AppendLine($"    ? {u}");
+        }
+
+        ShowTextDialog("Cover-Scraper", sb.ToString());
+        _vm.AddLog($"Cover-Scan: {matched.Count} zugeordnet, {unmatched.Count} nicht zugeordnet", "INFO");
     }
 
     private void OnGenreClassification(object sender, RoutedEventArgs e)
@@ -1762,6 +2024,7 @@ public partial class MainWindow : Window
         { DialogService.Info("Keine .lrtl Spielzeit-Dateien gefunden.", "Spielzeit-Tracker"); return; }
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"Spielzeit-Tracker: {lrtlFiles.Length} Dateien\n");
+        sb.AppendLine("Hinweis: Es werden nur RetroArch .lrtl-Dateien unterstützt.\n");
         foreach (var f in lrtlFiles.Take(20))
         {
             var name = Path.GetFileNameWithoutExtension(f);
@@ -1797,10 +2060,10 @@ public partial class MainWindow : Window
         if (_lastCandidates.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
 
-        var result = MessageBox.Show("Integritäts-Baseline erstellen oder prüfen?\n\nJA = Neue Baseline erstellen\nNEIN = Gegen Baseline prüfen",
-            "Integritäts-Monitor", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var createBaseline = DialogService.Confirm("Integritäts-Baseline erstellen oder prüfen?\n\nJA = Neue Baseline erstellen\nNEIN = Gegen Baseline prüfen",
+            "Integritäts-Monitor");
 
-        if (result == MessageBoxResult.Yes)
+        if (createBaseline)
         {
             _vm.AddLog("Erstelle Integritäts-Baseline…", "INFO");
             var paths = _lastCandidates.Select(c => c.MainPath).ToList();
@@ -1865,9 +2128,7 @@ public partial class MainWindow : Window
 
     private void OnRuleEngine(object sender, RoutedEventArgs e)
     {
-        var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data");
-        if (!Directory.Exists(dataDir))
-            dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
         var rulesPath = Path.Combine(dataDir, "rules.json");
 
         if (File.Exists(rulesPath))
@@ -1945,6 +2206,8 @@ public partial class MainWindow : Window
         var path = DialogService.BrowseFile("ROM für Header-Reparatur wählen",
             "ROMs (*.nes;*.sfc;*.smc)|*.nes;*.sfc;*.smc|Alle (*.*)|*.*");
         if (path is null) return;
+        // Normalize path to prevent traversal
+        path = Path.GetFullPath(path);
         var header = FeatureService.AnalyzeHeader(path);
         if (header is null)
         { _vm.AddLog("Header nicht lesbar.", "ERROR"); return; }
@@ -1956,30 +2219,38 @@ public partial class MainWindow : Window
         {
             try
             {
-                var data = File.ReadAllBytes(path);
-                bool hasDirtyBytes = data.Length >= 16 &&
-                    (data[12] != 0 || data[13] != 0 || data[14] != 0 || data[15] != 0);
+                // Only read header (16 bytes) for dirty-byte check, not entire file
+                var headerBuf = new byte[16];
+                using (var hfs = File.OpenRead(path))
+                {
+                    if (hfs.Read(headerBuf, 0, 16) < 16)
+                    {
+                        _vm.AddLog("NES-Header: Datei zu klein.", "ERROR");
+                        return;
+                    }
+                }
+                bool hasDirtyBytes =
+                    (headerBuf[12] != 0 || headerBuf[13] != 0 || headerBuf[14] != 0 || headerBuf[15] != 0);
 
                 if (hasDirtyBytes)
                 {
                     var confirm = DialogService.Confirm(
                         $"NES-Header hat unsaubere Bytes (12-15).\n\n" +
                         $"Datei: {Path.GetFileName(path)}\n" +
-                        $"Byte 12-15: {data[12]:X2} {data[13]:X2} {data[14]:X2} {data[15]:X2}\n\n" +
+                        $"Byte 12-15: {headerBuf[12]:X2} {headerBuf[13]:X2} {headerBuf[14]:X2} {headerBuf[15]:X2}\n\n" +
                         "Bytes 12-15 auf 0x00 setzen?\n(Backup wird erstellt)",
                         "Header-Reparatur");
                     if (confirm)
                     {
-                        // Create backup
-                        var backupPath = path + ".bak";
-                        File.Copy(path, backupPath, overwrite: true);
+                        // Create timestamped backup
+                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
+                        File.Copy(path, backupPath, overwrite: false);
                         _vm.AddLog($"Backup erstellt: {backupPath}", "INFO");
 
-                        data[12] = 0;
-                        data[13] = 0;
-                        data[14] = 0;
-                        data[15] = 0;
-                        File.WriteAllBytes(path, data);
+                        // Patch only bytes 12-15 in place
+                        using var patchFs = File.OpenWrite(path);
+                        patchFs.Seek(12, SeekOrigin.Begin);
+                        patchFs.Write(new byte[4], 0, 4);
                         _vm.AddLog($"NES-Header repariert: Bytes 12-15 genullt.", "INFO");
                     }
                 }
@@ -2013,9 +2284,9 @@ public partial class MainWindow : Window
                         "Header-Reparatur");
                     if (confirm)
                     {
-                        // Create backup
-                        var backupPath = path + ".bak";
-                        File.Copy(path, backupPath, overwrite: true);
+                        // Create timestamped backup
+                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
+                        File.Copy(path, backupPath, overwrite: false);
                         _vm.AddLog($"Backup erstellt: {backupPath}", "INFO");
 
                         var data = File.ReadAllBytes(path);
@@ -2045,7 +2316,7 @@ public partial class MainWindow : Window
 
     private void OnCommandPalette(object sender, RoutedEventArgs e)
     {
-        var input = Microsoft.VisualBasic.Interaction.InputBox("Befehl suchen:", "Command-Palette", "");
+        var input = DialogService.ShowInputBox("Befehl suchen:", "Command-Palette", "");
         if (string.IsNullOrWhiteSpace(input)) return;
         var results = FeatureService.SearchCommands(input);
         if (results.Count == 0)
@@ -2072,7 +2343,7 @@ public partial class MainWindow : Window
             case "rollback": _vm.RollbackCommand.Execute(null); break;
             case "theme": _theme.Toggle(); break;
             case "clear-log": _vm.ClearLogCommand.Execute(null); break;
-            case "settings": break; // TODO: navigate to settings tab
+            case "settings": tabMain.SelectedIndex = 1; break;
             default: _vm.AddLog($"Befehl: {key}", "INFO"); break;
         }
     }
@@ -2089,7 +2360,7 @@ public partial class MainWindow : Window
         if (_lastCandidates.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
 
-        var input = Microsoft.VisualBasic.Interaction.InputBox(
+        var input = DialogService.ShowInputBox(
             "Filter-Ausdruck eingeben (Feld=Wert, Feld>Wert, Feld<Wert):\n\n" +
             "Beispiele:\n  region=US\n  category=JUNK\n  sizemb>100\n  extension=.chd\n  datmatch=true",
             "Filter-Builder", "region=US");
@@ -2273,7 +2544,9 @@ public partial class MainWindow : Window
             g.DrawString("R", font, brush, 2, 2);
         }
 
-        var icon = System.Drawing.Icon.FromHandle(bitmap.GetHicon());
+        var hicon = bitmap.GetHicon();
+        _trayIconHandle = hicon;
+        var icon = System.Drawing.Icon.FromHandle(hicon);
 
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Anzeigen", null, (_, _) =>
@@ -2325,6 +2598,8 @@ public partial class MainWindow : Window
             });
         };
 
+        // Avoid registering the handler multiple times
+        StateChanged -= OnWindowStateChanged;
         StateChanged += OnWindowStateChanged;
 
         _trayIcon.ShowBalloonTip(2000, "RomCleanup", "In den System-Tray minimiert.", System.Windows.Forms.ToolTipIcon.Info);
@@ -2342,30 +2617,28 @@ public partial class MainWindow : Window
 
     private void OnSchedulerAdvanced(object sender, RoutedEventArgs e)
     {
-        var input = Microsoft.VisualBasic.Interaction.InputBox(
+        var input = DialogService.ShowInputBox(
             "Cron-Expression eingeben (5 Felder: Min Std Tag Mon Wochentag):\n\n" +
             "Beispiele:\n0 3 * * * → Täglich um 3:00\n0 */6 * * * → Alle 6 Stunden\n0 0 * * 0 → Sonntags um Mitternacht",
-            "Scheduler", "0 3 * * *");
+            "Cron-Tester", "0 3 * * *");
         if (string.IsNullOrWhiteSpace(input)) return;
         var now = DateTime.Now;
         var matches = FeatureService.TestCronMatch(input, now);
-        _vm.AddLog($"Scheduler: '{input}' → aktuell {(matches ? "aktiv" : "nicht aktiv")}", "INFO");
+        _vm.AddLog($"Cron-Tester: '{input}' → aktuell {(matches ? "aktiv" : "nicht aktiv")}", "INFO");
         DialogService.Info($"Cron-Expression: {input}\n\nAktuelle Zeit: {now:HH:mm}\nMatch: {(matches ? "JA" : "Nein")}\n\n" +
-            "Der Scheduler führt DryRun oder Move zum geplanten Zeitpunkt aus.", "Scheduler");
+            "Hinweis: Dies ist ein Cron-Tester. Automatische Ausführung ist nicht implementiert.", "Cron-Tester");
     }
 
     private void OnRulePackSharing(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var doExport = DialogService.Confirm(
             "Regel-Pakete\n\nJA = Exportieren (rules.json speichern)\nNEIN = Importieren (rules.json laden)",
-            "Regel-Pakete", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            "Regel-Pakete");
 
-        var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data");
-        if (!Directory.Exists(dataDir))
-            dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
         var rulesPath = Path.Combine(dataDir, "rules.json");
 
-        if (result == MessageBoxResult.Yes)
+        if (doExport)
         {
             // Export
             if (!File.Exists(rulesPath))
@@ -2413,13 +2686,66 @@ public partial class MainWindow : Window
 
     private void OnArcadeMergeSplit(object sender, RoutedEventArgs e)
     {
-        ShowTextDialog("Arcade Merge/Split", "MAME/FBNEO Set-Verwaltung\n\n" +
-            "Set-Typen:\n" +
-            "  • Non-Merged: Vollständige Sets (größer, portabel)\n" +
-            "  • Split: Clones enthalten nur eigene ROMs\n" +
-            "  • Merged: Parent enthält alle Clone-ROMs\n\n" +
-            "Konvertierung erfordert MAME/FBNEO DAT-Dateien.\n" +
-            "Konfiguriere DAT-Root und starte einen Lauf.");
+        var datPath = DialogService.BrowseFile("MAME/FBNEO DAT wählen", "DAT (*.dat;*.xml)|*.dat;*.xml");
+        if (datPath is null) return;
+
+        _vm.AddLog($"Arcade Merge/Split: Analysiere {Path.GetFileName(datPath)}…", "INFO");
+
+        try
+        {
+            var doc = SafeLoadXDocument(datPath);
+            var games = doc.Descendants("game").ToList();
+            if (games.Count == 0)
+                games = doc.Descendants("machine").ToList(); // MAME format
+
+            var parents = games.Where(g => g.Attribute("cloneof") == null).ToList();
+            var clones = games.Where(g => g.Attribute("cloneof") != null).ToList();
+
+            // Group clones by parent
+            var cloneMap = clones.GroupBy(g => g.Attribute("cloneof")?.Value ?? "")
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var totalRoms = games.Sum(g => g.Descendants("rom").Count());
+            var largestParent = parents.OrderByDescending(p =>
+            {
+                var name = p.Attribute("name")?.Value ?? "";
+                return cloneMap.TryGetValue(name, out var c) ? c.Count : 0;
+            }).FirstOrDefault();
+            var largestName = largestParent?.Attribute("name")?.Value ?? "?";
+            var largestCloneCount = cloneMap.TryGetValue(largestName, out var lc) ? lc.Count : 0;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Arcade Merge/Split Analyse");
+            sb.AppendLine(new string('═', 50));
+            sb.AppendLine($"\n  DAT: {Path.GetFileName(datPath)}");
+            sb.AppendLine($"  Einträge gesamt: {games.Count}");
+            sb.AppendLine($"  Parents:         {parents.Count}");
+            sb.AppendLine($"  Clones:          {clones.Count}");
+            sb.AppendLine($"  ROMs gesamt:     {totalRoms}");
+            sb.AppendLine($"\n  Größte Familie: {largestName} ({largestCloneCount} Clones)");
+            sb.AppendLine($"\n  Set-Typ-Empfehlung:");
+            sb.AppendLine($"    Non-Merged: {parents.Count + clones.Count} Sets (portabel, groß)");
+            sb.AppendLine($"    Split:      {parents.Count + clones.Count} Sets (Clones nur diff)");
+            sb.AppendLine($"    Merged:     {parents.Count} Sets (Parents enthalten alles)");
+
+            // Show top 10 parents with most clones
+            var top10 = parents
+                .Select(p => new { Name = p.Attribute("name")?.Value ?? "?",
+                    Clones = cloneMap.TryGetValue(p.Attribute("name")?.Value ?? "", out var cc) ? cc.Count : 0 })
+                .OrderByDescending(x => x.Clones)
+                .Take(10);
+            sb.AppendLine($"\n  Top 10 Parents (meiste Clones):");
+            foreach (var p in top10)
+                sb.AppendLine($"    {p.Name,-30} {p.Clones} Clones");
+
+            ShowTextDialog("Arcade Merge/Split", sb.ToString());
+            _vm.AddLog($"Arcade-Analyse: {parents.Count} Parents, {clones.Count} Clones", "INFO");
+        }
+        catch (Exception ex)
+        {
+            _vm.AddLog($"Arcade Merge/Split Fehler: {ex.Message}", "ERROR");
+            DialogService.Error($"Fehler beim Parsen der DAT:\n\n{ex.Message}", "Arcade Merge/Split");
+        }
     }
 
     // ═══ EXPORT & INTEGRATION ═══════════════════════════════════════════
@@ -2485,7 +2811,13 @@ public partial class MainWindow : Window
 
         try
         {
-            var targetPath = Path.Combine(_vm.DatRoot, Path.GetFileName(path));
+            var safeName = Path.GetFileName(path);
+            var targetPath = Path.GetFullPath(Path.Combine(_vm.DatRoot, safeName));
+            if (!targetPath.StartsWith(Path.GetFullPath(_vm.DatRoot), StringComparison.OrdinalIgnoreCase))
+            {
+                _vm.AddLog("DAT-Import blockiert: Pfad außerhalb des DatRoot.", "ERROR");
+                return;
+            }
             File.Copy(path, targetPath, overwrite: true);
             _vm.AddLog($"DAT importiert nach: {targetPath}", "INFO");
             DialogService.Info($"DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "Tool-Import");
@@ -2514,11 +2846,53 @@ public partial class MainWindow : Window
 
     private void OnFtpSource(object sender, RoutedEventArgs e)
     {
-        var input = Microsoft.VisualBasic.Interaction.InputBox("FTP/SFTP-URL eingeben:", "FTP-Quelle", "ftp://");
+        var input = DialogService.ShowInputBox(
+            "FTP/SFTP-URL eingeben:\n\nFormat: ftp://host/pfad oder sftp://host/pfad",
+            "FTP-Quelle", "ftp://");
         if (string.IsNullOrWhiteSpace(input) || input == "ftp://") return;
+
         var isValid = input.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
                       input.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);
-        _vm.AddLog($"FTP-Quelle: {input} → {(isValid ? "gültig" : "ungültig")}", isValid ? "INFO" : "WARN");
+
+        if (!isValid)
+        {
+            _vm.AddLog($"Ungültige FTP-URL: {input} (muss mit ftp:// oder sftp:// beginnen)", "ERROR");
+            return;
+        }
+
+        // Warn about unencrypted FTP
+        if (input.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase))
+        {
+            var useSftp = DialogService.Confirm(
+                "⚠ FTP überträgt Daten unverschlüsselt.\n" +
+                "Zugangsdaten und Dateien können abgefangen werden.\n\n" +
+                "Empfehlung: Verwende SFTP (sftp://) stattdessen.\n\n" +
+                "Trotzdem mit unverschlüsseltem FTP fortfahren?",
+                "Sicherheitshinweis");
+            if (!useSftp) return;
+        }
+
+        // Parse URL to extract host and path
+        try
+        {
+            var uri = new Uri(input);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("FTP-Quelle konfiguriert\n");
+            sb.AppendLine($"  Protokoll: {uri.Scheme.ToUpperInvariant()}");
+            sb.AppendLine($"  Host:      {uri.Host}");
+            sb.AppendLine($"  Port:      {(uri.Port > 0 ? uri.Port : (uri.Scheme == "sftp" ? 22 : 21))}");
+            sb.AppendLine($"  Pfad:      {uri.AbsolutePath}");
+            sb.AppendLine("\n  ℹ FTP-Download ist noch nicht implementiert.");
+            sb.AppendLine("  Aktuell wird die URL nur registriert und angezeigt.");
+            sb.AppendLine("  Geplantes Feature: Dateien vor Verarbeitung lokal cachen.");
+
+            ShowTextDialog("FTP-Quelle", sb.ToString());
+            _vm.AddLog($"FTP-Quelle registriert: {uri.Host}{uri.AbsolutePath}", "INFO");
+        }
+        catch (Exception ex)
+        {
+            _vm.AddLog($"FTP-URL ungültig: {ex.Message}", "ERROR");
+        }
     }
 
     private void OnCloudSync(object sender, RoutedEventArgs e)
@@ -2529,18 +2903,76 @@ public partial class MainWindow : Window
         sb.AppendLine("Cloud-Sync Status\n");
         sb.AppendLine($"  OneDrive: {(Directory.Exists(oneDrive) ? "✓ Gefunden" : "✗ Nicht gefunden")}");
         sb.AppendLine($"  Dropbox:  {(Directory.Exists(dropbox) ? "✓ Gefunden" : "✗ Nicht gefunden")}");
-        sb.AppendLine("\n  Cloud-Sync synchronisiert nur Metadaten (Einstellungen, Profile).\n  Keine ROM-Dateien werden hochgeladen.");
-        ShowTextDialog("Cloud-Sync", sb.ToString());
+        sb.AppendLine("\n  ℹ Nur Statusanzeige – Cloud-Sync ist in Planung.");
+        sb.AppendLine("  Geplant: Metadaten-Sync (Einstellungen, Profile).\n  Keine ROM-Dateien werden hochgeladen.");
+        ShowTextDialog("Cloud-Sync (Vorschau)", sb.ToString());
     }
 
     private void OnPluginMarketplace(object sender, RoutedEventArgs e)
     {
-        DialogService.Info("Plugin-Marktplatz\n\n" +
-            "Durchsuche und installiere Community-Plugins:\n\n" +
-            "• Konsolen-Plugins (neue Systeme)\n" +
-            "• Format-Plugins (neue Dateiformate)\n" +
-            "• Report-Plugins (benutzerdefinierte Reports)\n\n" +
-            "Plugin-Verzeichnis: plugins/", "Plugin-Marktplatz");
+        var pluginDir = Path.Combine(AppContext.BaseDirectory, "plugins");
+        if (!Directory.Exists(pluginDir))
+        {
+            Directory.CreateDirectory(pluginDir);
+            _vm.AddLog($"Plugin-Verzeichnis erstellt: {pluginDir}", "INFO");
+        }
+
+        var manifests = Directory.GetFiles(pluginDir, "*.json", SearchOption.AllDirectories);
+        var dlls = Directory.GetFiles(pluginDir, "*.dll", SearchOption.AllDirectories);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Plugin-Manager (Coming Soon)\n");
+        sb.AppendLine("  ℹ Das Plugin-System ist in Planung und noch nicht funktionsfähig.");
+        sb.AppendLine($"  Plugin-Verzeichnis: {pluginDir}\n");
+        sb.AppendLine($"  Manifeste:   {manifests.Length}");
+        sb.AppendLine($"  DLLs:        {dlls.Length}\n");
+
+        if (manifests.Length == 0 && dlls.Length == 0)
+        {
+            sb.AppendLine("  Keine Plugins installiert.\n");
+            sb.AppendLine("  Plugin-Struktur:");
+            sb.AppendLine("    plugins/");
+            sb.AppendLine("      mein-plugin/");
+            sb.AppendLine("        manifest.json");
+            sb.AppendLine("        MeinPlugin.dll\n");
+            sb.AppendLine("  Manifest-Format:");
+            sb.AppendLine("    {");
+            sb.AppendLine("      \"name\": \"Mein Plugin\",");
+            sb.AppendLine("      \"version\": \"1.0.0\",");
+            sb.AppendLine("      \"type\": \"console|format|report\"");
+            sb.AppendLine("    }");
+        }
+        else
+        {
+            foreach (var manifest in manifests)
+            {
+                try
+                {
+                    var json = File.ReadAllText(manifest);
+                    using var doc = JsonDocument.Parse(json);
+                    var name = doc.RootElement.TryGetProperty("name", out var np) ? np.GetString() : Path.GetFileName(manifest);
+                    var ver = doc.RootElement.TryGetProperty("version", out var vp) ? vp.GetString() : "?";
+                    var type = doc.RootElement.TryGetProperty("type", out var tp) ? tp.GetString() : "?";
+                    sb.AppendLine($"  [{type}] {name} v{ver}");
+                    sb.AppendLine($"         {Path.GetDirectoryName(manifest)}");
+                }
+                catch
+                {
+                    sb.AppendLine($"  [?] {Path.GetFileName(manifest)} (manifest ungültig)");
+                }
+            }
+            if (dlls.Length > 0)
+            {
+                sb.AppendLine($"\n  DLLs:");
+                foreach (var dll in dlls)
+                    sb.AppendLine($"    {Path.GetFileName(dll)}");
+            }
+        }
+
+        // Offer to open plugin directory
+        ShowTextDialog("Plugin-Manager", sb.ToString());
+        if (DialogService.Confirm($"Plugin-Verzeichnis im Explorer öffnen?\n\n{pluginDir}", "Plugins"))
+            Process.Start(new ProcessStartInfo(pluginDir) { UseShellExecute = true });
     }
 
     private void OnPortableMode(object sender, RoutedEventArgs e)
@@ -2569,18 +3001,76 @@ public partial class MainWindow : Window
         sb.AppendLine("\n═══ docker-compose.yml ═══");
         sb.AppendLine(FeatureService.GenerateDockerCompose());
         ShowTextDialog("Docker", sb.ToString());
+
+        var savePath = DialogService.SaveFile("Docker-Dateien speichern", "Dockerfile|Dockerfile|YAML (*.yml)|*.yml", "Dockerfile");
+        if (savePath is not null)
+        {
+            var ext = Path.GetExtension(savePath).ToLowerInvariant();
+            var content = ext == ".yml" ? FeatureService.GenerateDockerCompose() : FeatureService.GenerateDockerfile();
+            File.WriteAllText(savePath, content);
+            _vm.AddLog($"Docker-Datei gespeichert: {savePath}", "INFO");
+        }
     }
 
     private void OnMobileWebUI(object sender, RoutedEventArgs e)
     {
-        DialogService.Info("Mobile Web UI\n\n" +
-            "Starte die REST API und öffne im Browser:\n\n" +
-            "  http://127.0.0.1:5000\n\n" +
-            "Responsive Breakpoints:\n" +
-            "  • Mobile (320-767px): 1 Spalte\n" +
-            "  • Tablet (768-1023px): 2 Spalten\n" +
-            "  • Desktop (1024+px): 3 Spalten\n\n" +
-            "REST API starten:\n  dotnet run --project src/RomCleanup.Api", "Mobile Web UI");
+        // Find the API project relative to the application
+        var baseDir = AppContext.BaseDirectory;
+        var apiProject = Path.Combine(baseDir, "..", "..", "..", "..", "..", "src", "RomCleanup.Api", "RomCleanup.Api.csproj");
+        if (!File.Exists(apiProject))
+            apiProject = Path.Combine(Directory.GetCurrentDirectory(), "src", "RomCleanup.Api", "RomCleanup.Api.csproj");
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Mobile Web UI\n");
+
+        if (File.Exists(apiProject))
+        {
+            sb.AppendLine($"  API-Projekt: {Path.GetFullPath(apiProject)}");
+            sb.AppendLine($"  URL: http://127.0.0.1:5000\n");
+
+            if (DialogService.Confirm("REST API starten und Browser öffnen?\n\nhttp://127.0.0.1:5000", "Mobile Web UI"))
+            {
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = "dotnet",
+                        Arguments = $"run --project \"{Path.GetFullPath(apiProject)}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = false,
+                    };
+                    // Kill previous API process if still running
+                    try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); } catch { }
+                    _apiProcess = Process.Start(psi);
+                    _vm.AddLog("REST API gestartet: http://127.0.0.1:5000", "INFO");
+
+                    // Give the API a moment to start, then open browser
+                    Task.Delay(2000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            try { Process.Start(new ProcessStartInfo("http://127.0.0.1:5000/health") { UseShellExecute = true }); }
+                            catch { /* browser launch failed */ }
+                        });
+                    });
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _vm.AddLog($"API-Start fehlgeschlagen: {ex.Message}", "ERROR");
+                }
+            }
+        }
+        else
+        {
+            sb.AppendLine("  API-Projekt nicht gefunden.\n");
+            sb.AppendLine("  Zum manuellen Start:");
+            sb.AppendLine("    dotnet run --project src/RomCleanup.Api\n");
+            sb.AppendLine("  Dann im Browser öffnen:");
+            sb.AppendLine("    http://127.0.0.1:5000");
+        }
+
+        ShowTextDialog("Mobile Web UI", sb.ToString());
     }
 
     private void OnWindowsContextMenu(object sender, RoutedEventArgs e)
@@ -2592,6 +3082,8 @@ public partial class MainWindow : Window
         _vm.AddLog($"Kontextmenü-Registry exportiert: {path}", "INFO");
         DialogService.Info($"Registry-Skript gespeichert:\n{path}\n\n" +
             "Doppelklicke die .reg-Datei, um das Kontextmenü zu installieren.\n\n" +
+            "⚠ Das Skript enthält den absoluten Pfad zur aktuellen EXE-Datei.\n" +
+            "Bei Verschiebung der Anwendung muss das Skript neu generiert werden.\n\n" +
             "Einträge:\n• ROM Cleanup – DryRun Scan\n• ROM Cleanup – Move Sort", "Kontextmenü");
     }
 
@@ -2600,7 +3092,21 @@ public partial class MainWindow : Window
         if (_lastDedupeGroups.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
         var estimate = FeatureService.GetHardlinkEstimate(_lastDedupeGroups);
-        var isNtfs = true; // TODO: check drive format
+        var firstRoot = _lastDedupeGroups.FirstOrDefault()?.Winner.MainPath;
+        var isNtfs = false;
+        if (firstRoot is not null)
+        {
+            try
+            {
+                var driveRoot = Path.GetPathRoot(firstRoot);
+                if (driveRoot is not null)
+                {
+                    var driveInfo = new DriveInfo(driveRoot);
+                    isNtfs = driveInfo.DriveFormat.Equals("NTFS", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch { /* DriveInfo may fail for network paths */ }
+        }
         ShowTextDialog("Hardlink-Modus", $"Hardlink-Modus\n\n{estimate}\n\n" +
             $"NTFS-Unterstützung: {(isNtfs ? "Verfügbar" : "Nicht verfügbar")}\n\n" +
             "Hardlinks teilen den Speicherplatz auf Dateisystemebene.\n" +
@@ -2609,12 +3115,64 @@ public partial class MainWindow : Window
 
     private void OnMultiInstanceSync(object sender, RoutedEventArgs e)
     {
-        ShowTextDialog("Multi-Instanz", "Multi-Instanz-Synchronisation\n\n" +
-            "Koordiniert mehrere RomCleanup-Instanzen:\n\n" +
-            "  • Sync-Manifeste verhindern Konflikte\n" +
-            "  • Lock-Dateien für aktive Operationen\n" +
-            "  • Merge-Strategien für parallele Läufe\n\n" +
-            "Nützlich für verteilte ROM-Sammlungen\nüber mehrere Rechner.");
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Multi-Instanz-Synchronisation");
+        sb.AppendLine(new string('═', 50));
+
+        // Check for lock files in all configured roots
+        var locks = new List<(string path, string content)>();
+        foreach (var root in _vm.Roots)
+        {
+            var lockFile = Path.Combine(root, ".romcleanup.lock");
+            if (File.Exists(lockFile))
+            {
+                try
+                {
+                    var content = File.ReadAllText(lockFile);
+                    locks.Add((lockFile, content));
+                }
+                catch { locks.Add((lockFile, "(nicht lesbar)")); }
+            }
+        }
+
+        sb.AppendLine($"\n  Konfigurierte Roots: {_vm.Roots.Count}");
+        sb.AppendLine($"  Aktive Locks:       {locks.Count}");
+
+        if (locks.Count > 0)
+        {
+            sb.AppendLine("\n  Gefundene Lock-Dateien:");
+            foreach (var (path, content) in locks)
+            {
+                sb.AppendLine($"    {path}");
+                sb.AppendLine($"      {content}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("\n  Keine aktiven Locks gefunden.");
+        }
+
+        // Create sync manifest for this instance
+        var currentPid = Environment.ProcessId;
+        var hostname = Environment.MachineName;
+        sb.AppendLine($"\n  Diese Instanz:");
+        sb.AppendLine($"    PID:      {currentPid}");
+        sb.AppendLine($"    Hostname: {hostname}");
+        sb.AppendLine($"    Status:   {(_vm.IsBusy ? "LÄUFT" : "Bereit")}");
+
+        ShowTextDialog("Multi-Instanz", sb.ToString());
+
+        // Offer to create or clear locks
+        if (locks.Count > 0 && DialogService.Confirm($"{locks.Count} Lock-Datei(en) gefunden.\n\nAbgelaufene Locks entfernen?", "Multi-Instanz"))
+        {
+            var removed = 0;
+            foreach (var (path, _) in locks)
+            {
+                try { File.Delete(path); removed++; }
+                catch { /* in use */ }
+            }
+            _vm.AddLog($"Multi-Instanz: {removed} Lock(s) entfernt", "INFO");
+        }
     }
 
     // ═══ UI & ERSCHEINUNGSBILD ══════════════════════════════════════════
@@ -2622,21 +3180,33 @@ public partial class MainWindow : Window
     private void OnAccessibility(object sender, RoutedEventArgs e)
     {
         var isHC = FeatureService.IsHighContrastActive();
-        ShowTextDialog("Barrierefreiheit", $"Barrierefreiheit\n\n" +
-            $"High-Contrast-Modus: {(isHC ? "AKTIV" : "Nicht aktiv")}\n\n" +
-            "Optionen:\n" +
-            "  • Font-Skalierung: Ctrl +/- oder Einstellungen\n" +
-            "  • High-Contrast: Windows-Einstellungen\n" +
-            "  • Farbenblind-Modi: Protanopia, Deuteranopia\n" +
-            "  • Screen-Reader: UI-Elemente haben AutomationProperties");
+        var currentSize = FontSize;
+
+        var input = DialogService.ShowInputBox(
+            $"Barrierefreiheit\n\n" +
+            $"High-Contrast: {(isHC ? "AKTIV" : "Inaktiv")}\n" +
+            $"Aktuelle Schriftgröße: {currentSize}\n\n" +
+            "Neue Schriftgröße eingeben (10-24):",
+            "Barrierefreiheit", currentSize.ToString("0"));
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        if (double.TryParse(input, System.Globalization.CultureInfo.InvariantCulture, out var newSize) && newSize >= 10 && newSize <= 24)
+        {
+            FontSize = newSize;
+            _vm.AddLog($"Schriftgröße geändert: {newSize}", "INFO");
+        }
+        else
+        {
+            _vm.AddLog($"Ungültige Schriftgröße: {input} (erlaubt: 10-24)", "WARN");
+        }
     }
 
     private void OnThemeEngine(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        var result = DialogService.YesNoCancel(
             $"Aktuelles Theme: {(_theme.IsDark ? "Dark" : "Light")}\n\n" +
             "JA = Dark Theme\nNEIN = Light Theme\nAbbrechen = High-Contrast",
-            "Theme-Engine", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            "Theme-Engine");
 
         switch (result)
         {
@@ -2658,15 +3228,17 @@ public partial class MainWindow : Window
 
     // ═══ HELPER METHODS ═════════════════════════════════════════════════
 
-    private static void ShowTextDialog(string title, string content)
+    private static void ShowTextDialog(string title, string content, UIElement? returnFocusTo = null)
     {
+        var app = Application.Current;
         var window = new Window
         {
             Title = title,
             Width = 700, Height = 500,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x2E)),
-            Owner = Application.Current.MainWindow
+            Background = app.TryFindResource("BrushBackground") as System.Windows.Media.Brush
+                ?? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x2E)),
+            Owner = app.MainWindow
         };
         var textBox = new TextBox
         {
@@ -2677,14 +3249,17 @@ public partial class MainWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             FontFamily = new System.Windows.Media.FontFamily("Consolas"),
             FontSize = 13,
-            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0x21, 0x3E)),
-            Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xEA, 0xEA, 0xEA)),
+            Background = app.TryFindResource("BrushSurface") as System.Windows.Media.Brush
+                ?? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0x21, 0x3E)),
+            Foreground = app.TryFindResource("BrushTextPrimary") as System.Windows.Media.Brush
+                ?? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xEA, 0xEA, 0xEA)),
             BorderThickness = new Thickness(0),
             Padding = new Thickness(16),
             Margin = new Thickness(8)
         };
         window.Content = textBox;
         window.ShowDialog();
+        returnFocusTo?.Focus();
     }
 
     private Dictionary<string, string> GetCurrentConfigMap()
@@ -2745,5 +3320,42 @@ public partial class MainWindow : Window
             return Path.Combine(fullRoot, siblingName);
 
         return Path.Combine(parent, siblingName);
+    }
+
+    /// <summary>
+    /// Collect checked extension checkboxes. Returns empty if none are checked (= use defaults).
+    /// TASK-031/084/085: Wire extension filter checkboxes to actual run options.
+    /// </summary>
+    private string[] GetSelectedExtensions()
+    {
+        var map = new (System.Windows.Controls.CheckBox cb, string ext)[]
+        {
+            (chkExtChd, ".chd"), (chkExtIso, ".iso"), (chkExtCue, ".cue"), (chkExtGdi, ".gdi"),
+            (chkExtImg, ".img"), (chkExtBin, ".bin"), (chkExtCso, ".cso"), (chkExtPbp, ".pbp"),
+            (chkExtZip, ".zip"), (chkExt7z, ".7z"),   (chkExtRar, ".rar"),
+            (chkExtNes, ".nes"), (chkExtGba, ".gba"), (chkExtNds, ".nds"), (chkExtNsp, ".nsp"),
+            (chkExtXci, ".xci"), (chkExtWbfs, ".wbfs"), (chkExtRvz, ".rvz"),
+        };
+
+        var selected = map
+            .Where(x => x.cb.IsChecked == true)
+            .Select(x => x.ext)
+            .ToArray();
+
+        return selected;
+    }
+
+    /// <summary>
+    /// Safely load an XDocument with XXE/DTD processing disabled.
+    /// </summary>
+    private static XDocument SafeLoadXDocument(string path)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null
+        };
+        using var reader = XmlReader.Create(path, settings);
+        return XDocument.Load(reader);
     }
 }

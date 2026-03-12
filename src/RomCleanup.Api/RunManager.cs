@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
-using RomCleanup.Infrastructure.Audit;
-using RomCleanup.Infrastructure.FileSystem;
+using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
 
 namespace RomCleanup.Api;
@@ -16,6 +15,14 @@ public sealed class RunManager
     private const int MaxRunHistory = 100;
     private string? _activeRunId;
     private Task? _activeTask;
+    private readonly IFileSystem _fs;
+    private readonly IAuditStore _audit;
+
+    public RunManager(IFileSystem fs, IAuditStore audit)
+    {
+        _fs = fs;
+        _audit = audit;
+    }
 
     public RunRecord? TryCreate(RunRequest request, string mode)
     {
@@ -97,11 +104,9 @@ public sealed class RunManager
     {
         try
         {
-            var fs = new FileSystemAdapter();
-            var audit = new AuditCsvStore();
             var ct = run.CancellationSource.Token;
 
-            var orchestrator = new RunOrchestrator(fs, audit,
+            var orchestrator = new RunOrchestrator(_fs, _audit,
                 onProgress: msg => run.ProgressMessage = msg);
 
             var options = new RunOptions
@@ -114,7 +119,7 @@ public sealed class RunManager
 
             var result = orchestrator.Execute(options, ct);
 
-            run.Result = new RunResult
+            run.Result = new ApiRunResult
             {
                 Status = result.Status,
                 ExitCode = result.ExitCode,
@@ -134,12 +139,12 @@ public sealed class RunManager
         catch (OperationCanceledException)
         {
             run.Status = "cancelled";
-            run.Result = new RunResult { Status = "cancelled", ExitCode = 2 };
+            run.Result = new ApiRunResult { Status = "cancelled", ExitCode = 2 };
         }
         catch (Exception)
         {
             run.Status = "failed";
-            run.Result = new RunResult { Status = "failed", ExitCode = 1, Error = "Internal error during run execution." };
+            run.Result = new ApiRunResult { Status = "failed", ExitCode = 1, Error = "Internal error during run execution." };
         }
         finally
         {
@@ -182,7 +187,7 @@ public sealed class RunRecord
     private readonly object _lock = new();
     private string _status = "running";
     private DateTime? _completedUtc;
-    private RunResult? _result;
+    private ApiRunResult? _result;
     private string? _progressMessage;
 
     public string RunId { get; init; } = "";
@@ -200,7 +205,7 @@ public sealed class RunRecord
         get { lock (_lock) return _completedUtc; }
         set { lock (_lock) _completedUtc = value; }
     }
-    public RunResult? Result
+    public ApiRunResult? Result
     {
         get { lock (_lock) return _result; }
         set { lock (_lock) _result = value; }
@@ -214,7 +219,7 @@ public sealed class RunRecord
     internal CancellationTokenSource CancellationSource { get; } = new();
 }
 
-public sealed class RunResult
+public sealed class ApiRunResult
 {
     public string Status { get; init; } = "";
     public int ExitCode { get; init; }

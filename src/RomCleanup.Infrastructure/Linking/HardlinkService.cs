@@ -81,6 +81,13 @@ public sealed class HardlinkService
             var targetDir = Path.Combine(config.TargetRoot, subDir);
             var targetPath = Path.Combine(targetDir, Path.GetFileName(filePath));
 
+            // TASK-196: Validate target path stays within TargetRoot
+            var fullTarget = Path.GetFullPath(targetPath);
+            var fullRoot = Path.GetFullPath(config.TargetRoot);
+            if (!fullTarget.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                && !fullTarget.Equals(fullRoot, StringComparison.OrdinalIgnoreCase))
+                continue; // skip path-traversal attempt
+
             operations.Add(new LinkOperation
             {
                 SourcePath = filePath,

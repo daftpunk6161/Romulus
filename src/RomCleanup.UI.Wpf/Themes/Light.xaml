@@ -127,6 +127,10 @@
             <Trigger Property="IsFocused" Value="True">
               <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
             </Trigger>
+            <Trigger Property="Validation.HasError" Value="True">
+              <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+              <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=(Validation.Errors)[0].ErrorContent}"/>
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -383,6 +387,16 @@
     </Setter>
   </Style>
 
+  <!-- ═══ TOOLTIP ═════════════════════════════════════════════════════════ -->
+  <Style TargetType="ToolTip">
+    <Setter Property="Background"      Value="{DynamicResource BrushSurface}"/>
+    <Setter Property="Foreground"      Value="{DynamicResource BrushTextPrimary}"/>
+    <Setter Property="BorderBrush"     Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding"         Value="8,4"/>
+    <Setter Property="FontSize"        Value="12"/>
+  </Style>
+
   <!-- ═══ PROGRESSBAR ════════════════════════════════════════════════════ -->
   <Style TargetType="ProgressBar">
     <Setter Property="Background"      Value="{DynamicResource BrushSurfaceAlt}"/>
@@ -406,16 +420,28 @@
 
   <!-- ═══ EXPANDER ═══════════════════════════════════════════════════════ -->
   <Style TargetType="Expander">
-    <Setter Property="Foreground"      Value="{DynamicResource BrushTextMuted}"/>
+    <Setter Property="Foreground"      Value="{DynamicResource BrushTextPrimary}"/>
     <Setter Property="BorderBrush"     Value="{DynamicResource BrushBorder}"/>
     <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="Background"      Value="Transparent"/>
+    <Setter Property="FontWeight"      Value="SemiBold"/>
+    <Setter Property="FontSize"        Value="12"/>
   </Style>
 
   <!-- ═══ SCROLLBAR ══════════════════════════════════════════════════════ -->
   <Style TargetType="ScrollBar">
     <Setter Property="Background" Value="{DynamicResource BrushSurfaceAlt}"/>
     <Setter Property="Width"      Value="8"/>
+    <Setter Property="MinWidth"   Value="8"/>
+  </Style>
+
+  <Style TargetType="Thumb">
+    <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentCyan}"/>
+      </Trigger>
+    </Style.Triggers>
   </Style>
 
   <!-- ═══ TYPOGRAPHY SCALE ═══════════════════════════════════════════════ -->

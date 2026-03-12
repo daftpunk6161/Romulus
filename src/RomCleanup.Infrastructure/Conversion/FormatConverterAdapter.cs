@@ -117,9 +117,18 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (ext == ".rvz")
         {
             // DolphinTool does not have a verify command.
-            // Verify by checking file existence and non-zero size.
+            // Verify by checking file existence, non-zero size, and RVZ magic bytes.
             var info = new FileInfo(targetPath);
-            return info.Exists && info.Length > 0;
+            if (!info.Exists || info.Length < 4) return false;
+            try
+            {
+                using var fs = File.OpenRead(targetPath);
+                Span<byte> magic = stackalloc byte[4];
+                if (fs.ReadAtLeast(magic, 4, throwOnEndOfStream: false) < 4) return false;
+                // RVZ magic: "RVZ\x01"
+                return magic[0] == 'R' && magic[1] == 'V' && magic[2] == 'Z' && magic[3] == 0x01;
+            }
+            catch { return false; }
         }
 
         if (ext == ".zip")

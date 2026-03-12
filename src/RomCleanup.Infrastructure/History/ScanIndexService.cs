@@ -95,6 +95,6 @@ public sealed class ScanIndexService
         var info = new FileInfo(filePath);
         if (!info.Exists)
             return $"{Path.GetFullPath(filePath)}|0|0";
-        return $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
+        return $"{Path.GetFullPath(filePath).ToUpperInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
     }
 }

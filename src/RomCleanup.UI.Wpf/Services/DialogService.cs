@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -99,6 +100,89 @@ public static class DialogService
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return true; // dummy return for InvokeOnUiThread<T>
+        });
+    }
+
+    /// <summary>Show a Yes/No/Cancel question dialog. Returns the MessageBoxResult.</summary>
+    public static MessageBoxResult YesNoCancel(string message, string title = "Frage", Window? owner = null)
+    {
+        return InvokeOnUiThread(() =>
+        {
+            var effectiveOwner = owner ?? GetMainWindow();
+            return MessageBox.Show(
+                effectiveOwner,
+                message, title,
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+        });
+    }
+
+    /// <summary>
+    /// Themed input dialog replacing Microsoft.VisualBasic.Interaction.InputBox.
+    /// Returns user input, or empty string if cancelled.
+    /// </summary>
+    public static string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "", Window? owner = null)
+    {
+        return InvokeOnUiThread(() =>
+        {
+            var dlg = new Window
+            {
+                Title = title,
+                Width = 420,
+                Height = 180,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = owner ?? GetMainWindow(),
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.ToolWindow,
+                Background = Application.Current.TryFindResource("BrushBackground") as System.Windows.Media.Brush
+                    ?? System.Windows.Media.Brushes.White,
+            };
+
+            var grid = new Grid { Margin = new Thickness(16) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var label = new TextBlock
+            {
+                Text = prompt,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8),
+                Foreground = Application.Current.TryFindResource("BrushTextPrimary") as System.Windows.Media.Brush
+                    ?? System.Windows.Media.Brushes.Black,
+            };
+            Grid.SetRow(label, 0);
+
+            var textBox = new TextBox
+            {
+                Text = defaultValue,
+                Margin = new Thickness(0, 0, 0, 12),
+                Padding = new Thickness(6, 4, 6, 4),
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+            };
+            Grid.SetRow(textBox, 1);
+
+            var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var btnOk = new Button { Content = "OK", Width = 80, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+            var btnCancel = new Button { Content = "Abbrechen", Width = 80, IsCancel = true };
+            buttonPanel.Children.Add(btnOk);
+            buttonPanel.Children.Add(btnCancel);
+            Grid.SetRow(buttonPanel, 2);
+
+            string result = "";
+            btnOk.Click += (_, _) => { result = textBox.Text; dlg.DialogResult = true; };
+            btnCancel.Click += (_, _) => { dlg.DialogResult = false; };
+
+            grid.Children.Add(label);
+            grid.Children.Add(textBox);
+            grid.Children.Add(buttonPanel);
+            dlg.Content = grid;
+
+            textBox.SelectAll();
+            textBox.Focus();
+
+            dlg.ShowDialog();
+            return result;
         });
     }
 

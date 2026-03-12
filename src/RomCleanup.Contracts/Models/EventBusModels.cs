@@ -17,5 +17,5 @@ public sealed class EventPayload
 {
     public string Topic { get; set; } = "";
     public object? Data { get; set; }
-    public string Timestamp { get; set; } = "";
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

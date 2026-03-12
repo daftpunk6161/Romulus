@@ -210,10 +210,10 @@ public sealed class QuarantineService
         if (!_fs.TestPath(quarantinePath, "Leaf"))
             return new QuarantineRestoreResult { Status = "Error", Reason = "QuarantineFileNotFound" };
 
-        // Path-traversal guard: reject paths with traversal components
+        // Path-traversal guard: compare resolved path with original
         var fullOriginal = Path.GetFullPath(originalPath);
-        // Reject if the path contains ".." traversal (regardless of whether it's rooted)
-        if (originalPath.Contains(".."))
+        // Reject if resolving changes the path (indicates traversal like ..)
+        if (!Path.GetFullPath(originalPath).Equals(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fullOriginal)!, Path.GetFileName(fullOriginal))), StringComparison.OrdinalIgnoreCase))
             return new QuarantineRestoreResult { Status = "Error", Reason = "PathTraversalBlocked" };
 
         if (mode == "DryRun")

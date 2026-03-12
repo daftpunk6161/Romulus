@@ -16,6 +16,13 @@ public sealed class DatRepositoryAdapter : IDatRepository
     /// <summary>Maximum DAT file size to parse (100 MB).</summary>
     private const long MaxDatFileSizeBytes = 100 * 1024 * 1024;
 
+    private readonly Action<string>? _log;
+
+    public DatRepositoryAdapter(Action<string>? log = null)
+    {
+        _log = log;
+    }
+
     public DatIndex GetDatIndex(string datRoot, IDictionary<string, string> consoleMap,
                                 string hashType = "SHA1")
     {
@@ -126,7 +133,7 @@ public sealed class DatRepositoryAdapter : IDatRepository
             var fileSize = new FileInfo(datPath).Length;
             if (fileSize > MaxDatFileSizeBytes)
             {
-                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' exceeds {MaxDatFileSizeBytes / (1024 * 1024)}MB limit ({fileSize / (1024 * 1024)}MB). Skipped.");
+                _log?.Invoke($"[Warning] DAT file '{datPath}' exceeds {MaxDatFileSizeBytes / (1024 * 1024)}MB limit ({fileSize / (1024 * 1024)}MB). Skipped.");
                 return games;
             }
         }
@@ -139,13 +146,13 @@ public sealed class DatRepositoryAdapter : IDatRepository
             var firstChar = probe.Read();
             if (firstChar == -1)
             {
-                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' is empty. Skipped.");
+                _log?.Invoke($"[Warning] DAT file '{datPath}' is empty. Skipped.");
                 return games;
             }
             // Valid XML must start with '<' (possibly after BOM/whitespace)
             if (firstChar != '<' && !char.IsWhiteSpace((char)firstChar))
             {
-                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' is not valid XML (starts with '{(char)firstChar}'). Skipped.");
+                _log?.Invoke($"[Warning] DAT file '{datPath}' is not valid XML (starts with '{(char)firstChar}'). Skipped.");
                 return games;
             }
         }
@@ -194,14 +201,17 @@ public sealed class DatRepositoryAdapter : IDatRepository
                         }
                     }
 
-                    games[gameName] = roms;
+                    if (games.TryGetValue(gameName, out var existing))
+                        existing.AddRange(roms);
+                    else
+                        games[gameName] = roms;
                 }
             }
         }
         catch (XmlException ex)
         {
             // Malformed DAT file — return partial results with warning
-            Console.Error.WriteLine($"[Warning] Malformed DAT file '{datPath}': {ex.Message}. Partial results returned.");
+            _log?.Invoke($"[Warning] Malformed DAT file '{datPath}': {ex.Message}. Partial results returned.");
         }
 
         return games;

@@ -212,7 +212,7 @@ public static class GameKeyNormalizer
         string? consoleType = null)
     {
         if (string.IsNullOrWhiteSpace(baseName))
-            return "__empty_key_" + Guid.NewGuid().ToString("N")[..8];
+            return "__empty_key_null";
 
         var s = AsciiFold(baseName);
 
@@ -245,7 +245,7 @@ public static class GameKeyNormalizer
             key = baseName.Trim().ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(key))
-            key = "__empty_key_" + Guid.NewGuid().ToString("N")[..8];
+            key = "__empty_key_" + baseName.GetHashCode().ToString("x8");
 
         return key;
     }
@@ -262,8 +262,8 @@ public static class GameKeyNormalizer
         // Remove trailing bracket tags: [anything]
         var value = MsDosTrailingBracketRegex.Replace(text, " ");
 
-        // Remove trailing non-disc parenthesized tags
-        while (MsDosTrailingParenRegex.IsMatch(value))
+        // Remove trailing non-disc parenthesized tags (limit iterations to prevent infinite loop)
+        for (int i = 0; i < 20 && MsDosTrailingParenRegex.IsMatch(value); i++)
         {
             value = MsDosTrailingParenRegex.Replace(value, " ");
         }

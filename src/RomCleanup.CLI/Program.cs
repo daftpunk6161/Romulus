@@ -72,15 +72,24 @@ internal static class Program
         }
 
         // Load settings (defaults.json → user settings → CLI overrides)
-        var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data");
-        if (!Directory.Exists(dataDir))
-            dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data");
+           var dataDir = ResolveDataDir();
         var defaultsPath = Path.Combine(dataDir, "defaults.json");
         var settings = SettingsLoader.Load(File.Exists(defaultsPath) ? defaultsPath : null);
 
         if (opts.PreferRegions.Length > 0)
             settings.General.PreferredRegions = new List<string>(opts.PreferRegions);
         settings.General.AggressiveJunk = opts.AggressiveJunk;
+
+        // Merge extensions from settings if not explicitly set via CLI
+        if (!opts.ExtensionsExplicit && !string.IsNullOrWhiteSpace(settings.General.Extensions))
+        {
+            var settingsExts = settings.General.Extensions.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(e => e.Trim())
+                .Where(e => e.Length > 0)
+                .Select(e => e.StartsWith('.') ? e : "." + e);
+            foreach (var ext in settingsExts)
+                opts.Extensions.Add(ext);
+        }
 
         // ToolRunner
         var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
@@ -399,6 +408,7 @@ internal static class Program
                         opts.Extensions = new HashSet<string>(
                             exts.Select(e => e.StartsWith(".") ? e : "." + e),
                             StringComparer.OrdinalIgnoreCase);
+                        opts.ExtensionsExplicit = true;
                     }
                     break;
 
@@ -486,9 +496,23 @@ internal static class Program
                 Console.Error.WriteLine("[Error] Empty root path provided.");
                 return (null, 3);
             }
-            if (!Directory.Exists(root))
+
+            // Path-traversal validation: resolve to absolute path
+            var fullRoot = Path.GetFullPath(root);
+            var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            var progDir = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if ((!string.IsNullOrEmpty(winDir) && fullRoot.StartsWith(winDir, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(sysDir) && fullRoot.StartsWith(sysDir, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(progDir) && fullRoot.StartsWith(progDir, StringComparison.OrdinalIgnoreCase)))
             {
-                Console.Error.WriteLine($"[Error] Root directory not found: {root}");
+                Console.Error.WriteLine($"[Error] Root directory is in a protected system path: {fullRoot}");
+                return (null, 3);
+            }
+
+            if (!Directory.Exists(fullRoot))
+            {
+                Console.Error.WriteLine($"[Error] Root directory not found: {fullRoot}");
                 return (null, 3);
             }
         }
@@ -543,6 +567,7 @@ Exit codes:
         public string Mode { get; set; } = "DryRun";
         public string[] PreferRegions { get; set; } = DefaultRegions;
         public HashSet<string> Extensions { get; set; } = new(RunOptions.DefaultExtensions, StringComparer.OrdinalIgnoreCase);
+        public bool ExtensionsExplicit { get; set; }
         public string? TrashRoot { get; set; }
         public bool RemoveJunk { get; set; }
         public bool AggressiveJunk { get; set; }
@@ -628,6 +653,30 @@ Exit codes:
         public string System { get; set; } = "";
         public string Id { get; set; } = "";
         public string ConsoleKey { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Resolve the data/ directory by searching multiple candidate locations.
+    /// Priority: next to executable → workspace root → current working directory.
+    /// </summary>
+    private static string ResolveDataDir()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "data"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data"),
+            Path.Combine(Directory.GetCurrentDirectory(), "data")
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var full = Path.GetFullPath(candidate);
+            if (Directory.Exists(full))
+                return full;
+        }
+
+        // Fallback: return the first candidate path even if it doesn't exist
+        return Path.GetFullPath(candidates[0]);
     }
 
     /// <summary>

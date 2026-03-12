@@ -20,9 +20,10 @@ public sealed class SafetyValidator
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
             }.Where(p => !string.IsNullOrEmpty(p)).ToArray(),
-            ProtectedPathsText = "Windows, ProgramFiles, ProgramFiles(x86), UserProfile"
+            ProtectedPathsText = "Windows, ProgramFiles, ProgramFiles(x86), Desktop, Dokumente"
         },
         ["Balanced"] = new SafetyProfile
         {

@@ -112,7 +112,12 @@ public sealed class DatSourceService : IDisposable
         try
         {
             var shaUrl = sourceUrl + ".sha256";
-            var shaText = Task.Run(() => _http.GetStringAsync(shaUrl)).GetAwaiter().GetResult();
+            using var request = new HttpRequestMessage(HttpMethod.Get, shaUrl);
+            using var response = Task.Run(() => _http.SendAsync(request)).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+                return false; // Fail-closed
+
+            var shaText = Task.Run(() => response.Content.ReadAsStringAsync()).GetAwaiter().GetResult();
 
             if (string.IsNullOrWhiteSpace(shaText))
                 return false; // Fail-closed

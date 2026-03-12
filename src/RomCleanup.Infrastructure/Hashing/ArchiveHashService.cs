@@ -32,6 +32,22 @@ public sealed class ArchiveHashService
         _toolRunner = toolRunner;
         _maxArchiveSizeBytes = maxArchiveSizeBytes;
         _cache = new LruCache<string, string[]>(maxEntries, StringComparer.OrdinalIgnoreCase);
+        CleanupStaleTempDirs();
+    }
+
+    /// <summary>Remove leftover temp directories from previous crashed runs.</summary>
+    private static void CleanupStaleTempDirs()
+    {
+        try
+        {
+            var tempRoot = Path.GetTempPath();
+            foreach (var dir in Directory.GetDirectories(tempRoot, "romcleanup_7z_*"))
+            {
+                try { Directory.Delete(dir, recursive: true); }
+                catch { /* best effort */ }
+            }
+        }
+        catch { /* temp path inaccessible — ignore */ }
     }
 
     /// <summary>

@@ -35,9 +35,9 @@ public static class ErrorClassifier
         // IOException: differentiate between transient (lock/sharing) and non-transient (file not found)
         if (exception is IOException ioEx)
         {
-            // FileNotFoundException and DirectoryNotFoundException are NOT transient
-            if (ioEx is FileNotFoundException or DirectoryNotFoundException)
-                return defaultKind;
+            // FileNotFoundException, DirectoryNotFoundException and PathTooLongException are NOT transient
+            if (ioEx is FileNotFoundException or DirectoryNotFoundException or PathTooLongException)
+                return ErrorKind.Recoverable;
             return ErrorKind.Transient;
         }
 

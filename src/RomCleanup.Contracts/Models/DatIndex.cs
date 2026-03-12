@@ -11,34 +11,34 @@ namespace RomCleanup.Contracts.Models;
 public sealed class DatIndex
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> _data = new(StringComparer.OrdinalIgnoreCase);
+    private int _totalEntries;
+
+    /// <summary>Maximum entries per console to prevent OOM from malicious DATs. 0 = unlimited.</summary>
+    public int MaxEntriesPerConsole { get; init; }
 
     /// <summary>Number of consoles indexed.</summary>
     public int ConsoleCount => _data.Count;
 
     /// <summary>Total number of hash entries across all consoles.</summary>
-    public int TotalEntries
-    {
-        get
-        {
-            int count = 0;
-            foreach (var console in _data.Values)
-                count += console.Count;
-            return count;
-        }
-    }
+    public int TotalEntries => Volatile.Read(ref _totalEntries);
 
     /// <summary>Add or update a hash→gameName mapping for a console.</summary>
     public void Add(string consoleKey, string hash, string gameName)
     {
         var hashMap = _data.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        hashMap[hash.ToLowerInvariant()] = gameName;
+        if (MaxEntriesPerConsole > 0 && hashMap.Count >= MaxEntriesPerConsole)
+            return;
+        if (hashMap.TryAdd(hash, gameName))
+            Interlocked.Increment(ref _totalEntries);
+        else
+            hashMap[hash] = gameName;
     }
 
     /// <summary>Look up a game name by console key and hash.</summary>
     public string? Lookup(string consoleKey, string hash)
     {
         if (_data.TryGetValue(consoleKey, out var hashMap) &&
-            hashMap.TryGetValue(hash.ToLowerInvariant(), out var name))
+            hashMap.TryGetValue(hash, out var name))
             return name;
         return null;
     }
@@ -52,6 +52,6 @@ public sealed class DatIndex
         return _data.TryGetValue(consoleKey, out var hashMap) ? hashMap : null;
     }
 
-    /// <summary>Get all indexed console keys.</summary>
-    public IEnumerable<string> ConsoleKeys => _data.Keys;
+    /// <summary>Get all indexed console keys (snapshot).</summary>
+    public IReadOnlyCollection<string> ConsoleKeys => _data.Keys.ToArray();
 }

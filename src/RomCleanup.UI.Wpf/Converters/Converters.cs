@@ -86,3 +86,23 @@ public sealed class LogLevelToBrushConverter : IValueConverter
         return b;
     }
 }
+
+/// <summary>Converts CurrentStep (int) + ConverterParameter (step number string) to a Fill Brush.
+/// Parameter is the step's 1-based index. If CurrentStep >= step, returns accent; otherwise transparent.</summary>
+public sealed class StepActiveBrushConverter : IValueConverter
+{
+    private static readonly SolidColorBrush Active = FreezeColor(Color.FromRgb(0x00, 0xF5, 0xFF));
+    private static readonly SolidColorBrush Inactive = FreezeColor(Colors.Transparent);
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int current && parameter is string s && int.TryParse(s, out var step))
+            return current >= step ? Active : Inactive;
+        return Inactive;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+
+    private static SolidColorBrush FreezeColor(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+}

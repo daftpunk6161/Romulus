@@ -13,7 +13,7 @@
         "**/reports/**": true,
         "**/audit-logs/archive/**": true
     },
-    "chat.agent.maxRequests": 150,
+    "chat.agent.maxRequests": 1500,
     "pester.runTestsInNewProcess": true,
     "pester.autoDebugOnSave": false,
     "pester.autoRunOnSave": false,

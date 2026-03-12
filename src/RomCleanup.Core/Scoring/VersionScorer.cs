@@ -16,6 +16,12 @@ public sealed class VersionScorer
 
     private static readonly TimeSpan RxTimeout = TimeSpan.FromSeconds(2);
 
+    // Pre-compiled patterns for revision parsing (TASK-154)
+    private static readonly Regex RxPureLetters = new(@"^[a-z]+$", RegexOptions.Compiled, RxTimeout);
+    private static readonly Regex RxNumericSuffix = new(@"^(\d+)([a-z]+)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
+    private static readonly Regex RxLeadingDigits = new(@"^\d+", RegexOptions.Compiled, RxTimeout);
+    private static readonly Regex RxDigits = new(@"\d+", RegexOptions.Compiled, RxTimeout);
+
     /// <summary>
     /// Default patterns matching data/rules.json.
     /// </summary>
@@ -56,7 +62,7 @@ public sealed class VersionScorer
         {
             var rev = revMatch.Groups[1].Value.ToLowerInvariant();
 
-            if (Regex.IsMatch(rev, @"^[a-z]+$"))
+            if (RxPureLetters.IsMatch(rev))
             {
                 // Pure letter revision: a=1, b=2, ..., z=26, aa=27 etc.
                 long letterScore = 0;
@@ -66,9 +72,9 @@ public sealed class VersionScorer
                 }
                 score += letterScore * 10;
             }
-            else if (Regex.IsMatch(rev, @"^(\d+)([a-z]+)?$", RegexOptions.IgnoreCase))
+            else if (RxNumericSuffix.IsMatch(rev))
             {
-                var numericMatch = Regex.Match(rev, @"^(\d+)([a-z]+)?$", RegexOptions.IgnoreCase);
+                var numericMatch = RxNumericSuffix.Match(rev);
                 var numeric = int.Parse(numericMatch.Groups[1].Value);
                 var suffix = numericMatch.Groups[2].Value;
                 long suffixScore = 0;
@@ -81,9 +87,9 @@ public sealed class VersionScorer
                 }
                 score += (numeric * 100L) + suffixScore;
             }
-            else if (Regex.IsMatch(rev, @"^\d+"))
+            else if (RxLeadingDigits.IsMatch(rev))
             {
-                var digitMatch = Regex.Match(rev, @"^\d+");
+                var digitMatch = RxLeadingDigits.Match(rev);
                 score += int.Parse(digitMatch.Value) * 10L;
             }
         }
@@ -93,7 +99,7 @@ public sealed class VersionScorer
         if (verMatch.Success)
         {
             var segments = new List<int>();
-            foreach (Match seg in Regex.Matches(verMatch.Value, @"\d+"))
+            foreach (Match seg in RxDigits.Matches(verMatch.Value))
             {
                 segments.Add(int.Parse(seg.Value));
             }

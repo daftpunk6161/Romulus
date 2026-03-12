@@ -26,7 +26,8 @@ public sealed class SafetyValidatorTests
     {
         var profile = SafetyValidator.GetProfile("Conservative");
         Assert.True(profile.Strict);
-        Assert.Contains("UserProfile", profile.ProtectedPathsText);
+        Assert.Contains("Desktop", profile.ProtectedPathsText);
+        Assert.Contains("Dokumente", profile.ProtectedPathsText);
     }
 
     [Fact]

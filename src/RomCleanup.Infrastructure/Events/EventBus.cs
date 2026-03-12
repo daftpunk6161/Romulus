@@ -13,16 +13,18 @@ public sealed class EventBus
     private readonly Dictionary<string, List<EventSubscription>> _subscriptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
     private int _sequence;
+    private Action<string, Exception>? _onError;
 
     /// <summary>
     /// Resets the event bus (new session).
     /// </summary>
-    public void Initialize()
+    public void Initialize(Action<string, Exception>? onError = null)
     {
         lock (_lock)
         {
             _subscriptions.Clear();
             _sequence = 0;
+            _onError = onError;
         }
     }
 
@@ -33,7 +35,7 @@ public sealed class EventBus
     {
         lock (_lock)
         {
-            var id = $"sub-{Interlocked.Increment(ref _sequence)}";
+            var id = $"sub-{++_sequence}";
             var subscription = new EventSubscription { Id = id, Topic = topic, Handler = handler };
 
             if (!_subscriptions.TryGetValue(topic, out var list))
@@ -77,7 +79,7 @@ public sealed class EventBus
         {
             Topic = topic,
             Data = data,
-            Timestamp = DateTime.UtcNow.ToString("o")
+            Timestamp = DateTime.UtcNow
         };
 
         var handlers = CollectHandlers(topic);
@@ -90,9 +92,9 @@ public sealed class EventBus
                 handler(payload);
                 delivered++;
             }
-            catch
+            catch (Exception ex)
             {
-                // Continue to remaining subscribers (mirrors PS behavior)
+                _onError?.Invoke(topic, ex);
             }
         }
 

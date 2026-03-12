@@ -4,6 +4,7 @@ using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Reporting;
@@ -17,6 +18,20 @@ namespace RomCleanup.UI.Wpf.Services;
 /// </summary>
 public static class FeatureService
 {
+    /// <summary>
+    /// Safely load an XDocument with XXE/DTD processing disabled.
+    /// </summary>
+    private static XDocument SafeLoadXDocument(string path)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null
+        };
+        using var reader = XmlReader.Create(path, settings);
+        return XDocument.Load(reader);
+    }
+
     // ═══ CONVERSION ESTIMATE ════════════════════════════════════════════
     // Port of ConversionEstimate.ps1
 
@@ -97,9 +112,9 @@ public static class FeatureService
 
     private static string DetectConsoleFromPath(string path)
     {
-        var parts = path.Replace('\\', '/').Split('/');
+        var parts = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
         // Typically: root/ConsoleName/game.ext → take second-to-last dir
-        return parts.Length >= 3 ? parts[^2] : "Unbekannt";
+        return parts.Length >= 2 ? parts[^2] : "Unbekannt";
     }
 
     // ═══ DUPLICATE INSPECTOR ════════════════════════════════════════════
@@ -111,7 +126,7 @@ public static class FeatureService
             return [];
 
         var dirCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in File.ReadLines(auditPath).Skip(1)) // skip header
+        foreach (var line in File.ReadLines(auditPath, Encoding.UTF8).Skip(1)) // skip header
         {
             var fields = ParseCsvLine(line);
             if (fields.Length < 5) continue;
@@ -399,7 +414,11 @@ public static class FeatureService
             if (header.Length >= 0x8000)
             {
                 var snesTitle = Encoding.ASCII.GetString(header, 0x7FC0, 21).TrimEnd('\0', ' ');
-                if (snesTitle.Length > 0 && snesTitle.All(c => c >= 0x20 && c <= 0x7E))
+                // Validate SNES checksum complement: checksum + complement must equal 0xFFFF
+                int checksum = header[0x7FDE] | (header[0x7FDF] << 8);
+                int complement = header[0x7FDC] | (header[0x7FDD] << 8);
+                if (snesTitle.Length > 0 && snesTitle.All(c => c >= 0x20 && c <= 0x7E) &&
+                    (checksum + complement) == 0xFFFF)
                     return new RomHeaderInfo("SNES", "LoROM", $"Title={snesTitle}");
             }
 
@@ -407,7 +426,10 @@ public static class FeatureService
             if (header.Length >= 0x10000)
             {
                 var snesTitle = Encoding.ASCII.GetString(header, 0xFFC0, 21).TrimEnd('\0', ' ');
-                if (snesTitle.Length > 0 && snesTitle.All(c => c >= 0x20 && c <= 0x7E))
+                int checksum = header[0xFFDE] | (header[0xFFDF] << 8);
+                int complement = header[0xFFDC] | (header[0xFFDD] << 8);
+                if (snesTitle.Length > 0 && snesTitle.All(c => c >= 0x20 && c <= 0x7E) &&
+                    (checksum + complement) == 0xFFFF)
                     return new RomHeaderInfo("SNES", "HiROM", $"Title={snesTitle}");
             }
 
@@ -469,6 +491,8 @@ public static class FeatureService
 
     // ═══ INTEGRITY MONITOR ══════════════════════════════════════════════
     // Port of IntegrityMonitor.ps1
+    // NOTE: Baseline uses absolute paths. The baseline is not portable across machines.
+    //       A future version could store paths relative to ROM roots.
 
     private static readonly string BaselinePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -477,27 +501,31 @@ public static class FeatureService
     public static async Task<Dictionary<string, IntegrityEntry>> CreateBaseline(
         IReadOnlyList<string> filePaths, IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        var baseline = new Dictionary<string, IntegrityEntry>(StringComparer.OrdinalIgnoreCase);
-        int i = 0;
-        foreach (var path in filePaths)
-        {
-            ct.ThrowIfCancellationRequested();
-            if (!File.Exists(path)) continue;
-            var fi = new FileInfo(path);
-            progress?.Report($"Baseline: {++i}/{filePaths.Count} – {Path.GetFileName(path)}");
-            var hash = await Task.Run(() => ComputeSha256(path), ct);
-            baseline[path] = new IntegrityEntry(hash, fi.Length, fi.LastWriteTimeUtc);
-        }
+        var baseline = new System.Collections.Concurrent.ConcurrentDictionary<string, IntegrityEntry>(StringComparer.OrdinalIgnoreCase);
+        int completed = 0;
+        var total = filePaths.Count;
 
+        await Parallel.ForEachAsync(filePaths, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = ct },
+            async (path, token) =>
+            {
+                if (!File.Exists(path)) return;
+                var fi = new FileInfo(path);
+                var count = Interlocked.Increment(ref completed);
+                progress?.Report($"Baseline: {count}/{total} – {Path.GetFileName(path)}");
+                var hash = await Task.Run(() => ComputeSha256(path), token);
+                baseline[path] = new IntegrityEntry(hash, fi.Length, fi.LastWriteTimeUtc);
+            });
+
+        var result = new Dictionary<string, IntegrityEntry>(baseline, StringComparer.OrdinalIgnoreCase);
         Directory.CreateDirectory(Path.GetDirectoryName(BaselinePath)!);
-        File.WriteAllText(BaselinePath, JsonSerializer.Serialize(baseline, new JsonSerializerOptions { WriteIndented = true }));
-        return baseline;
+        File.WriteAllText(BaselinePath, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+        return result;
     }
 
     public static async Task<IntegrityCheckResult> CheckIntegrity(IProgress<string>? progress = null, CancellationToken ct = default)
     {
         if (!File.Exists(BaselinePath))
-            return new IntegrityCheckResult([], [], [], false);
+            return new IntegrityCheckResult([], [], [], false, "Keine Baseline vorhanden. Erstellen Sie zuerst eine Baseline über 'Integrity-Baseline speichern'.");
 
         var baseline = JsonSerializer.Deserialize<Dictionary<string, IntegrityEntry>>(File.ReadAllText(BaselinePath))
             ?? [];
@@ -535,27 +563,55 @@ public static class FeatureService
         var sessionDir = Path.Combine(backupRoot, $"{DateTime.Now:yyyyMMdd-HHmmss}_{label}");
         Directory.CreateDirectory(sessionDir);
 
+        // Find common root to preserve relative directory structure
+        var commonRoot = FindCommonRoot(filePaths);
+
         foreach (var path in filePaths)
         {
             if (!File.Exists(path)) continue;
-            var dest = Path.Combine(sessionDir, Path.GetFileName(path));
+            var relativePath = commonRoot is not null
+                ? Path.GetRelativePath(commonRoot, path)
+                : Path.GetFileName(path);
+            var dest = Path.Combine(sessionDir, relativePath);
+            var destDir = Path.GetDirectoryName(dest);
+            if (destDir is not null) Directory.CreateDirectory(destDir);
             File.Copy(path, dest, overwrite: false);
         }
         return sessionDir;
     }
 
-    public static int CleanupOldBackups(string backupRoot, int retentionDays)
+    private static string? FindCommonRoot(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0) return null;
+        var dirs = paths.Select(p => Path.GetDirectoryName(Path.GetFullPath(p)) ?? "").ToList();
+        if (dirs.Count == 0) return null;
+        var common = dirs[0];
+        foreach (var dir in dirs.Skip(1))
+        {
+            while (!dir.StartsWith(common + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(dir, common, StringComparison.OrdinalIgnoreCase))
+            {
+                common = Path.GetDirectoryName(common) ?? "";
+                if (common.Length == 0) return null;
+            }
+        }
+        return common;
+    }
+
+    public static int CleanupOldBackups(string backupRoot, int retentionDays, Func<int, bool>? confirmDelete = null)
     {
         if (!Directory.Exists(backupRoot)) return 0;
-        int removed = 0;
         var cutoff = DateTime.Now.AddDays(-retentionDays);
-        foreach (var dir in Directory.GetDirectories(backupRoot))
+        var expired = Directory.GetDirectories(backupRoot)
+            .Where(dir => Directory.GetCreationTime(dir) < cutoff)
+            .ToList();
+        if (expired.Count == 0) return 0;
+        if (confirmDelete is not null && !confirmDelete(expired.Count)) return 0;
+        int removed = 0;
+        foreach (var dir in expired)
         {
-            if (Directory.GetCreationTime(dir) < cutoff)
-            {
-                Directory.Delete(dir, recursive: true);
-                removed++;
-            }
+            Directory.Delete(dir, recursive: true);
+            removed++;
         }
         return removed;
     }
@@ -665,9 +721,9 @@ public static class FeatureService
 
     public static Dictionary<string, string> LoadLocale(string locale)
     {
-        var dataDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data", "i18n");
-        if (!Directory.Exists(dataDir))
-            dataDir = Path.Combine(Directory.GetCurrentDirectory(), "data", "i18n");
+        var dataDir = ResolveDataDirectory("i18n");
+        if (dataDir is null)
+            return new Dictionary<string, string>();
 
         var path = Path.Combine(dataDir, $"{locale}.json");
         if (!File.Exists(path))
@@ -685,8 +741,37 @@ public static class FeatureService
         catch { return new Dictionary<string, string>(); }
     }
 
+    /// <summary>Resolve the data/ subdirectory, probing from BaseDirectory upward (max 5 levels).</summary>
+    internal static string? ResolveDataDirectory(string? subFolder = null)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "data"),
+            Path.Combine(AppContext.BaseDirectory, "data"),
+        };
+
+        // Also probe upward from BaseDirectory (for dev layouts)
+        var dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 5 && dir is not null; i++)
+        {
+            var probe = Path.Combine(dir, "data");
+            if (Directory.Exists(probe))
+                return subFolder is not null ? Path.Combine(probe, subFolder) : probe;
+            dir = Path.GetDirectoryName(dir);
+        }
+
+        foreach (var c in candidates)
+            if (Directory.Exists(c))
+                return subFolder is not null ? Path.Combine(c, subFolder) : c;
+
+        return null;
+    }
+
     // ═══ PORTABLE MODE CHECK ════════════════════════════════════════════
     // Port of PortableMode.ps1
+    // NOTE: The marker file ".portable" is checked relative to AppContext.BaseDirectory,
+    // which is the directory containing the executable (e.g. bin/Debug/net10.0-windows/).
+    // Place ".portable" next to the .exe, NOT the workspace root.
 
     public static bool IsPortableMode()
     {
@@ -709,8 +794,8 @@ public static class FeatureService
 
         foreach (var c in candidates)
         {
-            if (!File.Exists(c.MainPath)) continue;
             var fi = new FileInfo(c.MainPath);
+            if (!fi.Exists) continue;
             var daysSince = (now - fi.LastAccessTime).TotalDays;
             if (daysSince <= hotThresholdDays)
             { hotSize += c.SizeBytes; hotCount++; }
@@ -908,18 +993,21 @@ public static class FeatureService
         if (string.IsNullOrWhiteSpace(query))
             return PaletteCommands.Select(c => (c.key, c.name, c.shortcut, 0)).ToList();
 
+        // Limit query length to prevent excessive Levenshtein matrix allocation
+        var safeQuery = query.Length > 50 ? query[..50] : query;
+
         var results = new List<(string key, string name, string shortcut, int score)>();
         foreach (var cmd in PaletteCommands)
         {
             // Substring match = best score
-            if (cmd.name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                cmd.key.Contains(query, StringComparison.OrdinalIgnoreCase))
+            if (cmd.name.Contains(safeQuery, StringComparison.OrdinalIgnoreCase) ||
+                cmd.key.Contains(safeQuery, StringComparison.OrdinalIgnoreCase))
             {
                 results.Add((cmd.key, cmd.name, cmd.shortcut, 0));
                 continue;
             }
             // Levenshtein fuzzy match
-            var dist = LevenshteinDistance(query.ToLowerInvariant(), cmd.key.ToLowerInvariant());
+            var dist = LevenshteinDistance(safeQuery.ToLowerInvariant(), cmd.key.ToLowerInvariant());
             if (dist <= 3)
                 results.Add((cmd.key, cmd.name, cmd.shortcut, dist + 2));
         }
@@ -965,8 +1053,25 @@ public static class FeatureService
             if (part.Contains('/'))
             {
                 var segments = part.Split('/');
-                if (segments.Length == 2 && int.TryParse(segments[1], out var step) && step > 0 && value % step == 0)
-                    return true;
+                if (segments.Length == 2 && int.TryParse(segments[1], out var step) && step > 0)
+                {
+                    // Support range/step syntax like "10-30/5"
+                    int lo = 0;
+                    if (segments[0].Contains('-'))
+                    {
+                        var range = segments[0].Split('-');
+                        if (int.TryParse(range[0], out var rLo) && int.TryParse(range[1], out var rHi))
+                        {
+                            if (value >= rLo && value <= rHi && (value - rLo) % step == 0)
+                                return true;
+                        }
+                    }
+                    else if (segments[0] == "*" || int.TryParse(segments[0], out lo))
+                    {
+                        if ((value - lo) % step == 0 && value >= lo)
+                            return true;
+                    }
+                }
             }
             else if (part.Contains('-'))
             {
@@ -1002,7 +1107,7 @@ public static class FeatureService
             var core = CoreMapping.GetValueOrDefault(console, "");
             entries.Add(new
             {
-                path = w.MainPath,
+                path = w.MainPath.Replace('\\', '/'),
                 label = Path.GetFileNameWithoutExtension(w.MainPath),
                 core_path = core,
                 core_name = core.Replace("_libretro", ""),
@@ -1041,7 +1146,8 @@ public static class FeatureService
         var lower = gameName.ToLowerInvariant();
         foreach (var (keyword, genre) in GenreKeywords)
         {
-            if (lower.Contains(keyword))
+            // Use word boundary matching to avoid false positives (e.g. "gun" matching "Gundam")
+            if (System.Text.RegularExpressions.Regex.IsMatch(lower, $@"\b{System.Text.RegularExpressions.Regex.Escape(keyword)}\b"))
                 return genre;
         }
         return "Other";
@@ -1110,8 +1216,9 @@ public static class FeatureService
             WORKDIR /app
             COPY publish/ .
             VOLUME ["/data/roms", "/data/config"]
-            EXPOSE 5000
-            ENV ASPNETCORE_URLS=http://+:5000
+            EXPOSE 5000 5001
+            ENV ASPNETCORE_URLS=http://+:5000;https://+:5001
+            ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/cert.pfx
             ENTRYPOINT ["dotnet", "RomCleanup.Api.dll"]
             """;
     }
@@ -1119,6 +1226,8 @@ public static class FeatureService
     public static string GenerateDockerCompose()
     {
         return """
+            # HINWEIS: ROM_CLEANUP_API_KEY NICHT in docker-compose.yml hartcodieren!
+            # Verwende eine .env-Datei oder Docker Secrets.
             services:
               romcleanup:
                 build: .
@@ -1143,6 +1252,8 @@ public static class FeatureService
     public static string GetContextMenuRegistryScript()
     {
         var exePath = Environment.ProcessPath ?? "RomCleanup.CLI.exe";
+        // .reg format requires backslashes doubled and paths with spaces quoted
+        var escapedPath = "\\\"" + exePath.Replace("\\", "\\\\") + "\\\"";
         return $"""
             Windows Registry Editor Version 5.00
 
@@ -1150,13 +1261,13 @@ public static class FeatureService
             @="ROM Cleanup – DryRun Scan"
 
             [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_DryRun\command]
-            @="{exePath.Replace("\\", "\\\\")} --roots \"%V\" --mode DryRun"
+            @="{escapedPath} --roots \\\"%V\\\" --mode DryRun"
 
             [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_Move]
             @="ROM Cleanup – Move Sort"
 
             [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_Move\command]
-            @="{exePath.Replace("\\", "\\\\")} --roots \"%V\" --mode Move"
+            @="{escapedPath} --roots \\\"%V\\\" --mode Move"
             """;
     }
 
@@ -1292,8 +1403,8 @@ public static class FeatureService
         int unchanged = 0;
         if (File.Exists(pathA) && File.Exists(pathB))
         {
-            var docA = XDocument.Load(pathA);
-            var docB = XDocument.Load(pathB);
+            var docA = SafeLoadXDocument(pathA);
+            var docB = SafeLoadXDocument(pathB);
             var gameMapA = BuildGameElementMap(docA);
             var gameMapB = BuildGameElementMap(docB);
 
@@ -1322,7 +1433,7 @@ public static class FeatureService
             return [];
         try
         {
-            var doc = XDocument.Load(path);
+            var doc = SafeLoadXDocument(path);
             return doc.Descendants("game")
                 .Select(e => e.Attribute("name")?.Value ?? "")
                 .Where(n => n.Length > 0)
@@ -1489,7 +1600,8 @@ public static class FeatureService
 
 public sealed record ConversionEstimateResult(
     long TotalSourceBytes, long EstimatedTargetBytes, long SavedBytes, double CompressionRatio,
-    IReadOnlyList<ConversionDetail> Details);
+    IReadOnlyList<ConversionDetail> Details,
+    string Disclaimer = "Schätzwerte basieren auf statischen Durchschnitts-Kompressionsraten. Tatsächliche Ergebnisse können abweichen.");
 
 public sealed record ConversionDetail(
     string FileName, string SourceFormat, string TargetFormat, long SourceBytes, long EstimatedBytes);
@@ -1508,7 +1620,7 @@ public sealed record TrendSnapshot(
 public sealed record IntegrityEntry(string Hash, long Size, DateTime LastModified);
 public sealed record IntegrityCheckResult(
     IReadOnlyList<string> Changed, IReadOnlyList<string> Missing,
-    IReadOnlyList<string> Intact, bool BitRotRisk);
+    IReadOnlyList<string> Intact, bool BitRotRisk, string? Message = null);
 
 public sealed record RomHeaderInfo(string Platform, string Format, string Details);
 public sealed record ConfigDiffEntry(string Key, string SavedValue, string CurrentValue);

@@ -250,7 +250,7 @@ public sealed class RunOrchestrator
                 if (ExecutionHelpers.IsBlocklisted(filePath))
                     continue;
 
-                var fileName = Path.GetFileName(filePath);
+                var fileName = Path.GetFileNameWithoutExtension(filePath);
                 var ext = Path.GetExtension(filePath).ToLowerInvariant();
                 var gameKey = GameKeyNormalizer.Normalize(fileName);
                 var category = FileClassifier.Classify(fileName, options.AggressiveJunk);
@@ -273,7 +273,11 @@ public sealed class RunOrchestrator
 
                 long sizeBytes = 0;
                 if (File.Exists(filePath))
-                    try { sizeBytes = new FileInfo(filePath).Length; } catch { }
+                    try { sizeBytes = new FileInfo(filePath).Length; }
+                    catch (Exception ex)
+                    {
+                        _onProgress?.Invoke($"WARNING: Could not read file size for {filePath}: {ex.Message}");
+                    }
 
                 bool datMatch = false;
                 if (_datIndex is not null && _hashService is not null && consoleKey != "UNKNOWN")
@@ -427,7 +431,7 @@ public sealed class RunOrchestrator
         return new MovePhaseResult(moveCount, failCount, savedBytes);
     }
 
-    private static string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
+    private string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
     {
         var fullPath = Path.GetFullPath(filePath);
         foreach (var root in roots)
@@ -440,9 +444,9 @@ public sealed class RunOrchestrator
     }
 
     /// <summary>Cache normalized root paths to avoid repeated Path.GetFullPath on UNC per file.</summary>
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _normalizedRoots = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _normalizedRoots = new();
 
-    private static string NormalizeRootForContainment(string root)
+    private string NormalizeRootForContainment(string root)
         => _normalizedRoots.GetOrAdd(root, r =>
             Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
 }
@@ -475,6 +479,7 @@ public sealed class RunOptions
     public string? TrashRoot { get; init; }
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }
+    public string ConflictPolicy { get; init; } = "Rename";
     public HashSet<string> DiscBasedConsoles { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

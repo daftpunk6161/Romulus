@@ -6,7 +6,9 @@ namespace RomCleanup.UI.Wpf.Services;
 /// <summary>
 /// Updates status indicators through ViewModel properties only (no direct UI access).
 /// Port of WpfHost.ps1 Update-WpfStatusBar.
+/// DEPRECATED: This wrapper adds no value — callers should use vm.RefreshStatus() directly.
 /// </summary>
+[System.Obsolete("Use MainViewModel.RefreshStatus() directly")]
 public static class StatusBarService
 {
     /// <summary>

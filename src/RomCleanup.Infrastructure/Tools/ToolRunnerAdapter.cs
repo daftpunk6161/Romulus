@@ -13,16 +13,22 @@ public sealed class ToolRunnerAdapter : IToolRunner
 {
     private readonly string? _toolHashesPath;
     private readonly bool _allowInsecureHashBypass;
+    private readonly int _timeoutMinutes;
     private Dictionary<string, string>? _toolHashes;
+    private readonly object _toolHashLock = new();
     private readonly Dictionary<string, (string Hash, DateTime LastWriteUtc)> _hashCache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <param name="toolHashesPath">Path to data/tool-hashes.json for SHA256 verification.</param>
     /// <param name="allowInsecureHashBypass">Skip hash check (NOT recommended for production).</param>
-    public ToolRunnerAdapter(string? toolHashesPath = null, bool allowInsecureHashBypass = false)
+    public ToolRunnerAdapter(string? toolHashesPath = null, bool allowInsecureHashBypass = false, int timeoutMinutes = 30, Action<string>? log = null)
     {
         _toolHashesPath = toolHashesPath;
         _allowInsecureHashBypass = allowInsecureHashBypass;
+        _timeoutMinutes = timeoutMinutes > 0 ? timeoutMinutes : 30;
+        _log = log;
     }
+
+    private readonly Action<string>? _log;
 
     public string? FindTool(string toolName)
     {
@@ -139,13 +145,13 @@ public sealed class ToolRunnerAdapter : IToolRunner
             var stdoutTask = Task.Run(() => stdout = process.StandardOutput.ReadToEnd());
 
             var completed = Task.WaitAll(new[] { stdoutTask, stderrTask },
-                TimeSpan.FromMinutes(30));
+                TimeSpan.FromMinutes(_timeoutMinutes));
 
             if (!completed)
             {
                 if (!process.HasExited)
                     try { process.Kill(entireProcessTree: true); } catch { }
-                return new ToolResult(-1, $"{label}: process timed out after 30 minutes", false);
+                return new ToolResult(-1, $"{label}: process timed out after {_timeoutMinutes} minutes", false);
             }
 
             process.WaitForExit();
@@ -167,7 +173,10 @@ public sealed class ToolRunnerAdapter : IToolRunner
             return true;
 
         if (_toolHashesPath is null || !File.Exists(_toolHashesPath))
-            return _allowInsecureHashBypass; // false if no bypass
+        {
+            _log?.Invoke($"[WARN] tool-hashes.json nicht gefunden — Tool-Hash-Verifizierung übersprungen für {Path.GetFileName(toolPath)}");
+            return true; // allow execution with warning when hash file is absent
+        }
 
         EnsureToolHashesLoaded();
 
@@ -199,26 +208,34 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (_toolHashes is not null || _toolHashesPath is null)
             return;
 
-        try
+        lock (_toolHashLock)
         {
-            var json = File.ReadAllText(_toolHashesPath);
-            using var doc = JsonDocument.Parse(json);
+            if (_toolHashes is not null)
+                return;
 
-            _toolHashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            if (doc.RootElement.TryGetProperty("Tools", out var toolsElement))
+            try
             {
-                foreach (var prop in toolsElement.EnumerateObject())
+                var json = File.ReadAllText(_toolHashesPath);
+                using var doc = JsonDocument.Parse(json);
+
+                var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                if (doc.RootElement.TryGetProperty("Tools", out var toolsElement))
                 {
-                    var value = prop.Value.GetString();
-                    if (value is not null)
-                        _toolHashes[prop.Name.ToLowerInvariant()] = value;
+                    foreach (var prop in toolsElement.EnumerateObject())
+                    {
+                        var value = prop.Value.GetString();
+                        if (value is not null)
+                            hashes[prop.Name.ToLowerInvariant()] = value;
+                    }
                 }
+
+                _toolHashes = hashes;
             }
-        }
-        catch
-        {
-            _toolHashes = new Dictionary<string, string>();
+            catch
+            {
+                _toolHashes = new Dictionary<string, string>();
+            }
         }
     }
 

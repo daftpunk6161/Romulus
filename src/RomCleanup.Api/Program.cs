@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 var port = builder.Configuration.GetValue("Port", 7878);
 builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
+builder.Services.AddSingleton<RomCleanup.Contracts.Ports.IFileSystem, RomCleanup.Infrastructure.FileSystem.FileSystemAdapter>();
+builder.Services.AddSingleton<RomCleanup.Contracts.Ports.IAuditStore, RomCleanup.Infrastructure.Audit.AuditCsvStore>();
 builder.Services.AddSingleton<RunManager>();
 
 var app = builder.Build();
@@ -42,6 +44,7 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.Remove("Server");
     ctx.Response.Headers.Remove("X-Powered-By");
     ctx.Response.Headers["Cache-Control"] = "no-store";
+    ctx.Response.Headers["X-Api-Version"] = "1.0";
 
     // CORS
     if (corsMode != "none")
@@ -196,6 +199,17 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
     if (mode != "DryRun" && mode != "Move")
         return Results.BadRequest(new { error = "mode must be DryRun or Move." });
 
+    // TASK-200: Validate PreferRegions to prevent injection
+    if (request.PreferRegions is { Length: > 0 })
+    {
+        foreach (var region in request.PreferRegions)
+        {
+            if (string.IsNullOrWhiteSpace(region) || region.Length > 10 ||
+                !region.All(c => char.IsLetterOrDigit(c) || c == '-'))
+                return Results.BadRequest(new { error = $"Invalid region: '{region}'. Only alphanumeric and '-' allowed." });
+        }
+    }
+
     var waitSync = ctx.Request.Query.ContainsKey("wait");
 
     var run = mgr.TryCreate(request, mode);
@@ -279,7 +293,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
 
     var timeout = TimeSpan.FromSeconds(300);
     var start = DateTime.UtcNow;
-    string? lastHash = null;
+    string? lastJson = null;
 
     try
     {
@@ -297,9 +311,9 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
 
             var json = JsonSerializer.Serialize(current);
 
-            if (json != lastHash)
+            if (!string.Equals(json, lastJson, StringComparison.Ordinal))
             {
-                lastHash = json;
+                lastJson = json;
                 if (current.Status != "running")
                 {
                     await WriteSseEvent(writer, encoding, "completed", new { run = current, result = current.Result });

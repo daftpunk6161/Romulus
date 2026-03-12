@@ -134,6 +134,7 @@ public sealed class JsonlLogWriter : IDisposable
     /// <summary>
     /// Rotate the log file if it exceeds maxBytes, properly disposing and
     /// recreating the writer so the active stream is not broken.
+    /// Thread-safe: shares _lock with Write() to prevent concurrent access.
     /// </summary>
     public void RotateIfNeeded(long maxBytes = 10 * 1024 * 1024, int keepFiles = 5, bool gzip = false)
     {

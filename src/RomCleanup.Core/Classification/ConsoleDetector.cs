@@ -178,16 +178,14 @@ public sealed class ConsoleDetector
 
     private static string GetRelativePath(string fullPath, string rootPath)
     {
-        var normalizedFull = fullPath.Replace('\\', '/').TrimEnd('/');
-        var normalizedRoot = rootPath.Replace('\\', '/').TrimEnd('/');
-
-        if (normalizedFull.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        try
         {
-            var relative = normalizedFull.Substring(normalizedRoot.Length).TrimStart('/');
-            return relative;
+            return Path.GetRelativePath(rootPath, fullPath);
         }
-
-        return Path.GetFileName(fullPath);
+        catch
+        {
+            return Path.GetFileName(fullPath);
+        }
     }
 
     private static string[] ReadStringArray(JsonElement element, string property)

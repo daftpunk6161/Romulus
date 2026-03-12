@@ -24,6 +24,15 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          dotnet-quality: 'ga'
+
+      - name: NuGet Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
       - name: Restore
         run: dotnet restore src/RomCleanup.sln
@@ -32,7 +41,19 @@ jobs:
         run: dotnet build src/RomCleanup.sln --no-restore --configuration Release
 
       - name: Unit + Coverage Gate
-        run: dotnet test src/RomCleanup.sln --no-build --configuration Release --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        run: |
+          dotnet test src/RomCleanup.sln --no-build --configuration Release --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          # Install and run coverage threshold check
+          dotnet tool install --global dotnet-reportgenerator-globaltool 2>$null
+          $coverageFiles = Get-ChildItem -Recurse -Filter "coverage.cobertura.xml" | Select-Object -First 1
+          if ($coverageFiles) {
+            [xml]$cov = Get-Content $coverageFiles.FullName
+            $lineRate = [double]$cov.coverage.'line-rate' * 100
+            Write-Host "Line coverage: $($lineRate.ToString('F1'))%"
+            if ($lineRate -lt 50) {
+              throw "Coverage $($lineRate.ToString('F1'))% is below minimum threshold of 50%"
+            }
+          }
 
       - name: Upload test results
         if: always()
@@ -53,6 +74,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          dotnet-quality: 'ga'
 
       - name: Build (warnings as errors)
         run: dotnet build src/RomCleanup.sln --configuration Release /p:TreatWarningsAsErrors=true
@@ -71,3 +93,18 @@ jobs:
             throw 'Contracts project must not reference any other project'
           }
           Write-Host 'Dependency direction OK'
+
+      - name: Verify using-statement boundaries
+        shell: pwsh
+        run: |
+          # Core .cs files must not use Infrastructure/CLI/Api/UI namespaces
+          $violations = Get-ChildItem -Recurse src/RomCleanup.Core -Filter *.cs |
+            Select-String -Pattern 'using\s+RomCleanup\.(Infrastructure|CLI|Api|UI)' |
+            ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" }
+          if ($violations) { $violations; throw "Core has disallowed using-statements" }
+          # Contracts .cs files must not use any other project namespace
+          $violations = Get-ChildItem -Recurse src/RomCleanup.Contracts -Filter *.cs |
+            Select-String -Pattern 'using\s+RomCleanup\.(Core|Infrastructure|CLI|Api|UI)' |
+            ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" }
+          if ($violations) { $violations; throw "Contracts has disallowed using-statements" }
+          Write-Host 'Using-statement boundaries OK'

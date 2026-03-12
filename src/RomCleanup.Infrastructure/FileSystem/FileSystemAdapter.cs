@@ -130,6 +130,8 @@ public sealed class FileSystemAdapter : IFileSystem
                 stack.Push(sub);
         }
 
+        // TASK-169: Deterministic ordering for reproducible results
+        results.Sort(StringComparer.OrdinalIgnoreCase);
         return results;
     }
 
@@ -317,11 +319,18 @@ public sealed class FileSystemAdapter : IFileSystem
 
         // Block reparse points on destination parent
         var destDir = Path.GetDirectoryName(fullDest);
-        if (!string.IsNullOrEmpty(destDir) && Directory.Exists(destDir))
+        if (!string.IsNullOrEmpty(destDir))
         {
-            var destDirInfo = new DirectoryInfo(destDir);
-            if ((destDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
+            if (Directory.Exists(destDir))
+            {
+                var destDirInfo = new DirectoryInfo(destDir);
+                if ((destDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
+            }
+            else
+            {
+                Directory.CreateDirectory(destDir);
+            }
         }
 
         File.Copy(fullSource, fullDest, overwrite);

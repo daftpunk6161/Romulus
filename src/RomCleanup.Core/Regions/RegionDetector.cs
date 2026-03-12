@@ -88,6 +88,11 @@ public static class RegionDetector
         => new(key, new System.Text.RegularExpressions.Regex(pattern,
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled));
 
+    // Pre-compiled UK/Great Britain pattern (TASK-153)
+    private static readonly System.Text.RegularExpressions.Regex UkPattern =
+        new(@"\((?:[^)]*\b(?:uk|united\s*kingdom|great\s*britain|england)\b[^)]*)\)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>
     /// Convenience overload using default detection rules from rules.json.
     /// </summary>
@@ -113,9 +118,7 @@ public static class RegionDetector
             return Regions.Unknown;
 
         // UK / Great Britain → EU
-        if (System.Text.RegularExpressions.Regex.IsMatch(name,
-            @"\((?:[^)]*\b(?:uk|united\s*kingdom|great\s*britain|england)\b[^)]*)\)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (UkPattern.IsMatch(name))
         {
             return Regions.EU;
         }

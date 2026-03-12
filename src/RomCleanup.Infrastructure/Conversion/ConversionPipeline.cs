@@ -43,11 +43,26 @@ public sealed class ConversionPipeline
                     // Use FileInfo on a temp probe — fallback for UNC free space
                     var drive = DriveInfo.GetDrives()
                         .FirstOrDefault(d => dirFull.StartsWith(d.RootDirectory.FullName, StringComparison.OrdinalIgnoreCase));
-                    available = drive?.AvailableFreeSpace ?? long.MaxValue; // If no mapped drive found, assume OK
+                    if (drive is null)
+                        return new DiskSpaceCheckResult
+                        {
+                            Ok = true,
+                            Reason = "UNC path: free space unknown, proceeding with caution",
+                            RequiredBytes = required,
+                            AvailableBytes = -1
+                        };
+                    available = drive.AvailableFreeSpace;
                 }
                 catch
                 {
-                    available = long.MaxValue; // UNC space check failed — allow conversion, it will fail later if truly full
+                    available = long.MaxValue; // UNC space check failed — proceed with warning
+                    return new DiskSpaceCheckResult
+                    {
+                        Ok = true,
+                        Reason = "UNC path: free space check failed, proceeding with caution",
+                        RequiredBytes = required,
+                        AvailableBytes = -1
+                    };
                 }
             }
             else
@@ -248,7 +263,8 @@ public sealed class ConversionPipeline
             "ciso" => [step.Action, step.Input, step.Output],
             "chdman" => [step.Action, "-i", step.Input, "-o", step.Output, "-f"],
             "dolphintool" => ["convert", "-i", step.Input, "-o", step.Output, "-f", "rvz"],
-            _ => [step.Action, step.Input, step.Output]
+            "7z" => [step.Action, step.Input, step.Output],
+            _ => throw new InvalidOperationException($"Unknown conversion tool: '{step.Tool}'")
         };
     }
 }

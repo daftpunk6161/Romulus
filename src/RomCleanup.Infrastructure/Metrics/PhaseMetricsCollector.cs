@@ -169,6 +169,10 @@ public sealed class PhaseMetricsCollector
         }, new JsonSerializerOptions { WriteIndented = true });
 
         File.WriteAllText(filePath, json, System.Text.Encoding.UTF8);
-        File.Copy(filePath, latestPath, overwrite: true);
+
+        // Atomic update for -latest: write to temp, then move
+        var tempLatest = latestPath + ".tmp";
+        File.WriteAllText(tempLatest, json, System.Text.Encoding.UTF8);
+        File.Move(tempLatest, latestPath, overwrite: true);
     }
 }

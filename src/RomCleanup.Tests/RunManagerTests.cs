@@ -1,14 +1,18 @@
 using RomCleanup.Api;
+using RomCleanup.Infrastructure.Audit;
+using RomCleanup.Infrastructure.FileSystem;
 using Xunit;
 
 namespace RomCleanup.Tests;
 
 public class RunManagerTests
 {
+    private static RunManager CreateManager() => new(new FileSystemAdapter(), new AuditCsvStore());
+
     [Fact]
     public void TryCreate_FirstRun_Succeeds()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var request = new RunRequest { Roots = new[] { GetTestRoot() }, Mode = "DryRun" };
 
         var run = mgr.TryCreate(request, "DryRun");
@@ -22,7 +26,7 @@ public class RunManagerTests
     [Fact]
     public void TryCreate_SecondRun_ReturnsNull_WhenFirstActive()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var request = new RunRequest { Roots = new[] { GetTestRoot() }, Mode = "DryRun" };
 
         var first = mgr.TryCreate(request, "DryRun");
@@ -36,7 +40,7 @@ public class RunManagerTests
     [Fact]
     public void Get_ExistingRun_ReturnsRecord()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var request = new RunRequest { Roots = new[] { GetTestRoot() }, Mode = "DryRun" };
         var run = mgr.TryCreate(request, "DryRun");
 
@@ -49,14 +53,14 @@ public class RunManagerTests
     [Fact]
     public void Get_NonExistent_ReturnsNull()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         Assert.Null(mgr.Get("nonexistent"));
     }
 
     [Fact]
     public void GetActive_ReturnsCurrentRun()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var request = new RunRequest { Roots = new[] { GetTestRoot() }, Mode = "DryRun" };
         var run = mgr.TryCreate(request, "DryRun");
 
@@ -68,14 +72,14 @@ public class RunManagerTests
     [Fact]
     public void GetActive_NoRuns_ReturnsNull()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         Assert.Null(mgr.GetActive());
     }
 
     [Fact]
     public async Task Cancel_RunningRun_SetsCancelled()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var dir = CreateTempDir();
         try
         {
@@ -101,7 +105,7 @@ public class RunManagerTests
     [Fact]
     public async Task WaitForCompletion_EmptyRoot_CompletesQuickly()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var dir = CreateTempDir();
         try
         {
@@ -124,7 +128,7 @@ public class RunManagerTests
     [Fact]
     public async Task Run_WithFiles_ProducesResult()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var dir = CreateTempDir();
         try
         {
@@ -159,7 +163,7 @@ public class RunManagerTests
     [Fact]
     public async Task Run_CompletionUnlocksNewRun()
     {
-        var mgr = new RunManager();
+        var mgr = CreateManager();
         var dir = CreateTempDir();
         try
         {

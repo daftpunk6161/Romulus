@@ -11,6 +11,9 @@ namespace RomCleanup.UI.Wpf.Services;
 /// </summary>
 public sealed class SettingsService
 {
+    /// <summary>Current settings schema version. Increment when breaking changes are made.</summary>
+    private const int CurrentVersion = 1;
+
     private static readonly string SettingsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "RomCleanupRegionDedupe");
@@ -19,6 +22,9 @@ public sealed class SettingsService
 
     /// <summary>Last audit path loaded from settings (for rollback after restart).</summary>
     public string? LastAuditPath { get; private set; }
+
+    /// <summary>Load settings from disk into the ViewModel.
+    /// Synchronous — acceptable for the small settings file (~1 KB).</summary>
 
     /// <summary>Load settings from disk into the ViewModel.</summary>
     public void LoadInto(MainViewModel vm)
@@ -30,6 +36,10 @@ public sealed class SettingsService
             var json = File.ReadAllText(SettingsPath);
             var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
+
+            // Version check — future migrations can be added here
+            var version = root.TryGetProperty("version", out var verEl) && verEl.TryGetInt32(out var v) ? v : 0;
+            _ = version; // reserved for future migration logic
 
             if (root.TryGetProperty("general", out var general))
             {
@@ -129,6 +139,7 @@ public sealed class SettingsService
 
             var settings = new
             {
+                version = CurrentVersion,
                 general = new
                 {
                     logLevel = vm.LogLevel,

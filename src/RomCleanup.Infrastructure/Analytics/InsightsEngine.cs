@@ -97,6 +97,9 @@ public sealed class InsightsEngine
               .ThenByDescending(c => c.SizeBytes)
               .ToList();
 
+            // NOTE: Scoring mirrors DeduplicationEngine.SelectWinner logic
+            // (RegionScore + FormatScore + VersionScore, size tiebreak) but is not delegated
+            // to it directly. Any changes to winner selection must be reflected here.
             var winnerPath = candidates[0].Path;
 
             foreach (var c in candidates)
@@ -374,7 +377,7 @@ public sealed class InsightsEngine
     {
         if (string.IsNullOrEmpty(value)) return "";
         // CSV injection prevention
-        if (value[0] is '=' or '+' or '-' or '@')
+        if (value[0] is '=' or '+' or '@')
             value = "'" + value;
         if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
             return "\"" + value.Replace("\"", "\"\"") + "\"";

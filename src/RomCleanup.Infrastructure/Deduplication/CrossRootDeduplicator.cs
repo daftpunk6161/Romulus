@@ -1,4 +1,6 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Core.GameKeys;
+using RomCleanup.Core.Regions;
 using RomCleanup.Core.Scoring;
 
 namespace RomCleanup.Infrastructure.Deduplication;
@@ -19,26 +21,22 @@ public sealed class CrossRootDeduplicator
         var groups = files
             .Where(f => !string.IsNullOrEmpty(f.Hash))
             .GroupBy(f => f.Hash, StringComparer.OrdinalIgnoreCase)
-            .Where(g =>
-            {
-                var items = g.ToList();
-                return items.Count >= 2
-                    && items.Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2;
-            })
             .Select(g => new CrossRootDuplicateGroup
             {
                 Hash = g.Key,
                 Files = g.ToList()
             })
+            .Where(g => g.Files.Count >= 2
+                && g.Files.Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2)
             .ToList();
 
         return groups;
     }
 
     /// <summary>
-    /// Recommends which file to keep based on format score (highest wins).
+    /// Recommends which file to keep based on region score, format score, version score, and size.
     /// </summary>
-    public static CrossRootMergeAdvice GetMergeAdvice(CrossRootDuplicateGroup group)
+    public static CrossRootMergeAdvice GetMergeAdvice(CrossRootDuplicateGroup group, string[]? preferRegions = null)
     {
         if (group.Files.Count < 2)
             return new CrossRootMergeAdvice { Hash = group.Hash, Keep = group.Files.FirstOrDefault() ?? new(), Remove = [] };
@@ -51,11 +49,25 @@ public sealed class CrossRootDeduplicator
         if (distinctRoots < 2)
             return new CrossRootMergeAdvice { Hash = group.Hash, Keep = group.Files[0], Remove = [] };
 
-        // Score each file by format
+        var regions = preferRegions ?? ["EU", "US", "WORLD", "JP"];
+        var versionScorer = new VersionScorer();
+
+        // Score each file by region, format, version, then size
         var scored = group.Files
-            .Select(f => (File: f, Score: FormatScorer.GetFormatScore(f.Extension)))
-            .OrderByDescending(x => x.Score)
-            .ThenByDescending(x => x.File.SizeBytes)
+            .Select(f =>
+            {
+                var fileName = Path.GetFileNameWithoutExtension(f.Path);
+                var regionTag = RegionDetector.GetRegionTag(fileName);
+                var regionScore = FormatScorer.GetRegionScore(regionTag, regions);
+                var formatScore = FormatScorer.GetFormatScore(f.Extension);
+                var versionScore = versionScorer.GetVersionScore(fileName);
+                return (File: f, RegionScore: regionScore, FormatScore: formatScore,
+                        VersionScore: versionScore, Size: f.SizeBytes);
+            })
+            .OrderByDescending(x => x.RegionScore)
+            .ThenByDescending(x => x.FormatScore)
+            .ThenByDescending(x => x.VersionScore)
+            .ThenByDescending(x => x.Size)
             .ToList();
 
         var keep = scored[0].File;

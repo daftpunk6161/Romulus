@@ -16,12 +16,14 @@ public static class ExecutionHelpers
     /// Standard disc-based file extensions recognized by the system.
     /// Port of Get-StandaloneDiscExtensionSet.
     /// </summary>
-    public static HashSet<string> GetDiscExtensions() => new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> DiscExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".chd", ".iso", ".cue", ".bin", ".img", ".mdf", ".mds",
         ".ccd", ".sub", ".gdi", ".cso", ".pbp", ".rvz", ".gcz",
         ".wbfs", ".nrg", ".ecm", ".zip", ".7z"
     };
+
+    public static HashSet<string> GetDiscExtensions() => DiscExtensions;
 
     /// <summary>
     /// Default blocklist of paths that should never be processed.
@@ -47,9 +49,9 @@ public static class ExecutionHelpers
             ? (blocklist is HashSet<string> hs ? hs : new HashSet<string>(blocklist, StringComparer.OrdinalIgnoreCase))
             : DefaultBlocklist;
         var segments = path.Replace('/', '\\').Split('\\', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Any(s => blocked.Any(b =>
-            s.Equals(b, StringComparison.OrdinalIgnoreCase) ||
-            (s.StartsWith(b, StringComparison.OrdinalIgnoreCase) && s.Length > b.Length && !char.IsLetterOrDigit(s[b.Length]))));
+        return segments.Any(s => blocked.Contains(s) ||
+            blocked.Any(b =>
+                s.StartsWith(b, StringComparison.OrdinalIgnoreCase) && s.Length > b.Length && !char.IsLetterOrDigit(s[b.Length])));
     }
 
     /// <summary>

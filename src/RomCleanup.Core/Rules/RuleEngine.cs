@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using RomCleanup.Contracts.Models;
 
@@ -14,6 +16,12 @@ public static class RuleEngine
 
     private static readonly HashSet<string> ValidOperators = new(StringComparer.OrdinalIgnoreCase)
         { "eq", "neq", "contains", "gt", "lt", "regex" };
+
+    /// <summary>Timeout for user-defined regex patterns to prevent ReDoS.</summary>
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>Cache for compiled regex patterns from user rules.</summary>
+    private static readonly ConcurrentDictionary<string, Regex?> _regexCache = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Validate rule syntax. Returns errors if the rule is misconfigured.
@@ -135,21 +143,29 @@ public static class RuleEngine
 
     private static bool EvaluateCondition(RuleCondition cond, string fieldValue)
     {
-        return cond.Op.ToLowerInvariant() switch
-        {
-            "eq" => string.Equals(fieldValue, cond.Value, StringComparison.OrdinalIgnoreCase),
-            "neq" => !string.Equals(fieldValue, cond.Value, StringComparison.OrdinalIgnoreCase),
-            "contains" => fieldValue.Contains(cond.Value, StringComparison.OrdinalIgnoreCase),
-            "gt" => double.TryParse(fieldValue, out var a) && double.TryParse(cond.Value, out var b) && a > b,
-            "lt" => double.TryParse(fieldValue, out var c) && double.TryParse(cond.Value, out var d) && c < d,
-            "regex" => TryRegexMatch(fieldValue, cond.Value),
-            _ => false
-        };
+        var op = cond.Op;
+        return op.Equals("eq", StringComparison.OrdinalIgnoreCase) ? string.Equals(fieldValue, cond.Value, StringComparison.OrdinalIgnoreCase)
+            : op.Equals("neq", StringComparison.OrdinalIgnoreCase) ? !string.Equals(fieldValue, cond.Value, StringComparison.OrdinalIgnoreCase)
+            : op.Equals("contains", StringComparison.OrdinalIgnoreCase) ? fieldValue.Contains(cond.Value, StringComparison.OrdinalIgnoreCase)
+            : op.Equals("gt", StringComparison.OrdinalIgnoreCase) ? double.TryParse(fieldValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
+                      && double.TryParse(cond.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var b) && a > b
+            : op.Equals("lt", StringComparison.OrdinalIgnoreCase) ? double.TryParse(fieldValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var c)
+                      && double.TryParse(cond.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) && c < d
+            : op.Equals("regex", StringComparison.OrdinalIgnoreCase) ? TryRegexMatch(fieldValue, cond.Value)
+            : false;
     }
 
     private static bool TryRegexMatch(string input, string pattern)
     {
-        try { return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase); }
-        catch { return false; }
+        try
+        {
+            var rx = _regexCache.GetOrAdd(pattern, p =>
+            {
+                try { return new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout); }
+                catch { return null; }
+            });
+            return rx is not null && rx.IsMatch(input);
+        }
+        catch (RegexMatchTimeoutException) { return false; }
     }
 }

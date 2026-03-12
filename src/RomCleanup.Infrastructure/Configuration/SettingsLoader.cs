@@ -167,7 +167,16 @@ public sealed class SettingsLoader
         if (!AllowedToolExtensions.Contains(ext))
             return "";
 
-        return path;
+        // Reject tools in system directories to prevent executing system binaries
+        var fullPath = Path.GetFullPath(path);
+        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        var sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        if (!string.IsNullOrEmpty(winDir) && fullPath.StartsWith(winDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return "";
+        if (!string.IsNullOrEmpty(sysDir) && fullPath.StartsWith(sysDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        return fullPath;
     }
 
     // ── P1-BUG-033: Nullable deserialization model ──

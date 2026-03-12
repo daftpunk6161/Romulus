@@ -106,6 +106,7 @@ public class DiscHeaderDetectorTests : IDisposable
         data[3] = 0x5A;
         data[4] = 0x5A;
         data[5] = 0x5A;
+        data[6] = 0x01; // Opera FS volume record version
         var path = CreateImage("game.iso", data);
         Assert.Equal("3DO", _detector.DetectFromDiscImage(path));
     }

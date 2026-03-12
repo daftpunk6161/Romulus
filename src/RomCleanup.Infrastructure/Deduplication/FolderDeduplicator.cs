@@ -55,7 +55,7 @@ public sealed class FolderDeduplicator
     /// </summary>
     public static string? GetPs3FolderHash(string folderPath)
     {
-        using var md5 = MD5.Create();
+        using var sha = SHA256.Create();
         bool found = false;
 
         foreach (var keyFile in Ps3KeyFiles)
@@ -67,16 +67,22 @@ public sealed class FolderDeduplicator
             if (!File.Exists(filePath)) continue;
             try
             {
-                var fileBytes = File.ReadAllBytes(filePath);
-                md5.TransformBlock(fileBytes, 0, fileBytes.Length, null, 0);
+                using var stream = File.OpenRead(filePath);
+                var buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    sha.TransformBlock(buffer, 0, bytesRead, null, 0);
+                }
             }
-            catch { /* skip unreadable files */ }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         if (!found) return null;
 
-        md5.TransformFinalBlock([], 0, 0);
-        return Convert.ToHexStringLower(md5.Hash!);
+        sha.TransformFinalBlock([], 0, 0);
+        return Convert.ToHexStringLower(sha.Hash!);
     }
 
     /// <summary>
@@ -148,12 +154,12 @@ public sealed class FolderDeduplicator
                 ? Path.Combine(root, "PS3_DUPES")
                 : Path.Combine(dupeRoot, Path.GetFileName(root));
             dupeBase = Path.GetFullPath(dupeBase);
-            _fs.EnsureDirectory(dupeBase);
 
             // Cache normalized dupe path to avoid repeated GetFullPath on UNC per directory
             var normalizedDupeBase = dupeBase.TrimEnd(Path.DirectorySeparatorChar);
             var folders = Directory.GetDirectories(root)
                 .Where(d => !string.Equals(d.TrimEnd(Path.DirectorySeparatorChar), normalizedDupeBase, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
             _log?.Invoke($"PS3 Scan: {folders.Length} Ordner in {root}");
@@ -177,6 +183,8 @@ public sealed class FolderDeduplicator
 
                 if (hashes.TryGetValue(hash, out var existingPath))
                 {
+                    // Create dupe directory on first actual duplicate found (TASK-013)
+                    _fs.EnsureDirectory(dupeBase);
                     dupes++;
                     var existingCount = CountFilesRecursive(existingPath);
                     var newCount = CountFilesRecursive(folder);
@@ -321,6 +329,18 @@ public sealed class FolderDeduplicator
                             action = action with { Action = "BLOCKED", Error = "Source outside root or crosses reparse point" };
                             errorCount++;
                             _log?.Invoke($"    BLOCKED: {loser.Dir.Name} - outside root or reparse point");
+                            actions.Add(action);
+                            continue;
+                        }
+
+                        // TASK-014: Validate destination path too
+                        var resolvedDest = _fs.ResolveChildPathWithinRoot(
+                            dupeBase, loser.Dir.Name);
+                        if (resolvedDest is null)
+                        {
+                            action = action with { Action = "BLOCKED", Error = "Destination outside dupe root" };
+                            errorCount++;
+                            _log?.Invoke($"    BLOCKED: {loser.Dir.Name} - destination outside dupe root");
                             actions.Add(action);
                             continue;
                         }
@@ -473,7 +493,11 @@ public sealed class FolderDeduplicator
         {
             return Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Count();
         }
-        catch
+        catch (IOException)
+        {
+            return 0;
+        }
+        catch (UnauthorizedAccessException)
         {
             return 0;
         }
