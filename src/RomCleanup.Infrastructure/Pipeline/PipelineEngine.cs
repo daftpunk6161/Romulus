@@ -10,34 +10,30 @@ public sealed class PipelineEngine
 {
     /// <summary>
     /// Executes a single pipeline step with condition checking.
+    /// Returns an outcome without mutating the step.
     /// </summary>
-    public static void ExecuteStep(PipelineStep step, PipelineStepContext context)
+    public static PipelineStepOutcome ExecuteStep(PipelineStep step, PipelineStepContext context)
     {
         // Check condition
         if (step.Condition != null && !step.Condition(context))
         {
-            step.Status = "Skipped";
-            return;
+            return new PipelineStepOutcome { StepName = step.Name, Status = "Skipped" };
         }
 
         // DryRun mode
         if (context.Mode == "DryRun")
         {
-            step.Status = "DryRun";
-            return;
+            return new PipelineStepOutcome { StepName = step.Name, Status = "DryRun" };
         }
 
-        step.Status = "Running";
         try
         {
             step.Action(context);
-            step.Status = "Completed";
+            return new PipelineStepOutcome { StepName = step.Name, Status = "Completed" };
         }
         catch (Exception ex)
         {
-            step.Status = "Failed";
-            step.Error = ex.ToString();
-            // Don't re-throw here — let Execute() handle via status check
+            return new PipelineStepOutcome { StepName = step.Name, Status = "Failed", Error = ex.ToString() };
         }
     }
 
@@ -50,18 +46,19 @@ public sealed class PipelineEngine
         {
             Name = pipeline.Name,
             TotalSteps = pipeline.Steps.Count,
-            Steps = pipeline.Steps
         };
 
         bool previousSuccess = true;
 
-        foreach (var step in pipeline.Steps)
+        for (int i = 0; i < pipeline.Steps.Count; i++)
         {
+            var step = pipeline.Steps[i];
             context.PreviousSuccess = previousSuccess;
 
-            ExecuteStep(step, context);
+            var outcome = ExecuteStep(step, context);
+            result.StepOutcomes.Add(outcome);
 
-            switch (step.Status)
+            switch (outcome.Status)
             {
                 case "Completed":
                 case "DryRun":
@@ -77,10 +74,15 @@ public sealed class PipelineEngine
                     if (pipeline.OnError == "stop")
                     {
                         // Mark remaining steps as skipped
-                        var idx = pipeline.Steps.IndexOf(step);
-                        for (int i = idx + 1; i < pipeline.Steps.Count; i++)
-                            pipeline.Steps[i].Status = "Skipped";
-                        result.SkippedSteps += pipeline.Steps.Count - idx - 1;
+                        for (int j = i + 1; j < pipeline.Steps.Count; j++)
+                        {
+                            result.StepOutcomes.Add(new PipelineStepOutcome
+                            {
+                                StepName = pipeline.Steps[j].Name,
+                                Status = "Skipped"
+                            });
+                            result.SkippedSteps++;
+                        }
                         result.Status = "Failed";
                         return result;
                     }

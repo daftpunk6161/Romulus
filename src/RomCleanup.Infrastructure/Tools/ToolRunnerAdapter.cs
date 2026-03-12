@@ -174,8 +174,11 @@ public sealed class ToolRunnerAdapter : IToolRunner
 
         if (_toolHashesPath is null || !File.Exists(_toolHashesPath))
         {
-            _log?.Invoke($"[WARN] tool-hashes.json nicht gefunden — Tool-Hash-Verifizierung übersprungen für {Path.GetFileName(toolPath)}");
-            return true; // allow execution with warning when hash file is absent
+            _log?.Invoke(
+                $"[SECURITY] tool-hashes.json nicht gefunden — blockiere Tool-Ausfuehrung fuer {Path.GetFileName(toolPath)}. " +
+                "Lege die Datei data/tool-hashes.json mit den erwarteten SHA256-Checksummen der externen Tools an (siehe Repository-Dokumentation/CI-Artefakte), " +
+                "oder aktiviere explizit den unsicheren Bypass (allowInsecureHashBypass / AllowInsecureToolHashBypass) NUR fuer lokale Entwicklungs-Workflows.");
+            return false;
         }
 
         EnsureToolHashesLoaded();
@@ -183,7 +186,10 @@ public sealed class ToolRunnerAdapter : IToolRunner
         var fileName = Path.GetFileName(toolPath).ToLowerInvariant();
 
         if (_toolHashes is null || !_toolHashes.TryGetValue(fileName, out var expectedHash))
-            return _allowInsecureHashBypass;
+        {
+            _log?.Invoke($"[SECURITY] Kein erwarteter Hash fuer {fileName} gefunden — blockiere Tool-Ausfuehrung");
+            return false;
+        }
 
         // PERF-02: Cache tool hash with LastWriteTime check
         var fullPath = Path.GetFullPath(toolPath);

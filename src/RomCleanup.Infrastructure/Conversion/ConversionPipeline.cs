@@ -133,7 +133,7 @@ public sealed class ConversionPipeline
     /// <summary>
     /// Execute an entire pipeline definition step by step.
     /// </summary>
-    public IReadOnlyList<PipelineStepResult> Execute(
+    public ConversionPipelineResult Execute(
         ConversionPipelineDef pipeline,
         string mode = "DryRun",
         CancellationToken ct = default)
@@ -221,8 +221,8 @@ public sealed class ConversionPipeline
             }
         }
 
-        pipeline.Status = results.All(r => r.Status is "ok" or "dryrun") ? "completed" : "failed";
-        return results;
+        var status = results.All(r => r.Status is "ok" or "dryrun") ? "completed" : "failed";
+        return new ConversionPipelineResult { Status = status, Steps = results };
     }
 
     private PipelineStepResult ExecuteStep(ConversionPipelineStep step)

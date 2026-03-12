@@ -193,7 +193,7 @@ public class QuarantineServiceTests : IDisposable
     {
         var file = Path.Combine(_tempDir, "qfile.bin");
         File.WriteAllText(file, "data");
-        var result = _svc.Restore(file, Path.Combine(_tempDir, "original.bin"), "DryRun");
+        var result = _svc.Restore(file, Path.Combine(_tempDir, "original.bin"), "DryRun", [_tempDir]);
         Assert.Equal("DryRun", result.Status);
         Assert.True(File.Exists(file)); // still in quarantine
     }
@@ -201,9 +201,74 @@ public class QuarantineServiceTests : IDisposable
     [Fact]
     public void Restore_FileNotFound()
     {
-        var result = _svc.Restore(Path.Combine(_tempDir, "gone.bin"), @"C:\orig.bin");
+        var result = _svc.Restore(Path.Combine(_tempDir, "gone.bin"), @"C:\orig.bin", allowedRestoreRoots: [@"C:\"]);
         Assert.Equal("Error", result.Status);
         Assert.Equal("QuarantineFileNotFound", result.Reason);
+    }
+
+    [Fact]
+    public void Restore_NoAllowedRoots_ReturnsError()
+    {
+        var file = Path.Combine(_tempDir, "qfile_noroots.bin");
+        File.WriteAllText(file, "data");
+
+        var resultNull = _svc.Restore(file, Path.Combine(_tempDir, "original.bin"), "DryRun");
+        Assert.Equal("Error", resultNull.Status);
+        Assert.Equal("NoAllowedRestoreRoots", resultNull.Reason);
+
+        var resultEmpty = _svc.Restore(file, Path.Combine(_tempDir, "original.bin"), "DryRun", []);
+        Assert.Equal("Error", resultEmpty.Status);
+        Assert.Equal("NoAllowedRestoreRoots", resultEmpty.Reason);
+    }
+
+    [Fact]
+    public void Restore_WithAllowedRoot_InsideRoot_AllowsDryRun()
+    {
+        var file = Path.Combine(_tempDir, "qfile2.bin");
+        File.WriteAllText(file, "data");
+
+        var allowedRoot = Path.Combine(_tempDir, "restore-root");
+        Directory.CreateDirectory(allowedRoot);
+        var originalPath = Path.Combine(allowedRoot, "original.bin");
+
+        var result = _svc.Restore(file, originalPath, "DryRun", [allowedRoot]);
+
+        Assert.Equal("DryRun", result.Status);
+        Assert.NotEqual("PathTraversalBlocked", result.Reason);
+    }
+
+    [Fact]
+    public void Restore_WithAllowedRoot_OutsideRoot_Blocked()
+    {
+        var file = Path.Combine(_tempDir, "qfile3.bin");
+        File.WriteAllText(file, "data");
+
+        var allowedRoot = Path.Combine(_tempDir, "restore-root");
+        Directory.CreateDirectory(allowedRoot);
+        var outsidePath = Path.Combine(_tempDir, "outside", "original.bin");
+
+        var result = _svc.Restore(file, outsidePath, "DryRun", [allowedRoot]);
+
+        Assert.Equal("Error", result.Status);
+        Assert.Equal("PathTraversalBlocked", result.Reason);
+    }
+
+    [Theory]
+    [InlineData(@"\\server\share\restore\file.bin")]
+    [InlineData(@"C:/Windows/System32/drivers/etc/hosts")]
+    [InlineData(@"C:\outside\restore.bin:ads")]
+    public void Restore_WithAllowedRoot_UnsafeTargetVariants_Blocked(string unsafeTarget)
+    {
+        var file = Path.Combine(_tempDir, "qfile4.bin");
+        File.WriteAllText(file, "data");
+
+        var allowedRoot = Path.Combine(_tempDir, "restore-root");
+        Directory.CreateDirectory(allowedRoot);
+
+        var result = _svc.Restore(file, unsafeTarget, "DryRun", [allowedRoot]);
+
+        Assert.Equal("Error", result.Status);
+        Assert.Equal("PathTraversalBlocked", result.Reason);
     }
 
     // --- Fake FileSystem ---

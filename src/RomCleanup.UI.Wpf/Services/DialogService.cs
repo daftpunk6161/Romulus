@@ -186,6 +186,16 @@ public static class DialogService
         });
     }
 
+    /// <summary>Show a themed ResultDialog with text content (Copy/Export buttons).</summary>
+    public static void ShowText(string title, string content)
+    {
+        InvokeOnUiThread(() =>
+        {
+            ResultDialog.ShowText(title, content, GetMainWindow());
+            return true;
+        });
+    }
+
     /// <summary>
     /// Marshal a function call to the WPF UI thread if the current thread is not the dispatcher thread.
     /// If already on the UI thread, executes directly.

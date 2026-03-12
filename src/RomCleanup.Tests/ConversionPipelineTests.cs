@@ -81,9 +81,10 @@ public sealed class ConversionPipelineTests
         var def = ConversionPipeline.BuildCsoToChdPipeline(@"D:\game.cso", @"D:\out");
         var results = cvPipeline.Execute(def, mode: "DryRun");
 
-        Assert.Equal(2, results.Count);
-        Assert.All(results, r => Assert.True(r.Skipped));
-        Assert.All(results, r => Assert.Equal("dryrun", r.Status));
+        Assert.Equal(2, results.Steps.Count);
+        Assert.All(results.Steps, r => Assert.True(r.Skipped));
+        Assert.All(results.Steps, r => Assert.Equal("dryrun", r.Status));
+        Assert.Equal("completed", results.Status);
     }
 
     [Fact]
@@ -131,7 +132,7 @@ public sealed class ConversionPipelineTests
                 CleanupTemps = true
             };
 
-            Assert.NotEmpty(pipeline.Execute(def, mode: "Move", ct: cts.Token));
+            Assert.NotEmpty(pipeline.Execute(def, mode: "Move", ct: cts.Token).Steps);
 
             // The temp file should have been cleaned up by the finally block
             Assert.False(File.Exists(tempIso), "Temp file should be cleaned up even on cancellation");

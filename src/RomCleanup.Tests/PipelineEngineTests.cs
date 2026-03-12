@@ -12,9 +12,10 @@ public class PipelineEngineTests
         bool ran = false;
         var step = new PipelineStep { Name = "test", Action = _ => ran = true };
         var ctx = new PipelineStepContext { Mode = "Move" };
-        PipelineEngine.ExecuteStep(step, ctx);
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
         Assert.True(ran);
-        Assert.Equal("Completed", step.Status);
+        Assert.Equal("Completed", outcome.Status);
+        Assert.Equal("test", outcome.StepName);
     }
 
     [Fact]
@@ -23,9 +24,9 @@ public class PipelineEngineTests
         bool ran = false;
         var step = new PipelineStep { Name = "test", Action = _ => ran = true };
         var ctx = new PipelineStepContext { Mode = "DryRun" };
-        PipelineEngine.ExecuteStep(step, ctx);
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
         Assert.False(ran);
-        Assert.Equal("DryRun", step.Status);
+        Assert.Equal("DryRun", outcome.Status);
     }
 
     [Fact]
@@ -39,9 +40,9 @@ public class PipelineEngineTests
             Condition = ctx => ctx.PreviousSuccess == false
         };
         var ctx = new PipelineStepContext { Mode = "Move", PreviousSuccess = true };
-        PipelineEngine.ExecuteStep(step, ctx);
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
         Assert.False(ran);
-        Assert.Equal("Skipped", step.Status);
+        Assert.Equal("Skipped", outcome.Status);
     }
 
     [Fact]
@@ -55,9 +56,9 @@ public class PipelineEngineTests
             Condition = ctx => ctx.PreviousSuccess
         };
         var ctx = new PipelineStepContext { Mode = "Move", PreviousSuccess = true };
-        PipelineEngine.ExecuteStep(step, ctx);
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
         Assert.True(ran);
-        Assert.Equal("Completed", step.Status);
+        Assert.Equal("Completed", outcome.Status);
     }
 
     [Fact]
@@ -65,9 +66,9 @@ public class PipelineEngineTests
     {
         var step = new PipelineStep { Name = "fail", Action = _ => throw new Exception("boom") };
         var ctx = new PipelineStepContext { Mode = "Move" };
-        PipelineEngine.ExecuteStep(step, ctx);
-        Assert.Equal("Failed", step.Status);
-        Assert.Contains("boom", step.Error);
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
+        Assert.Equal("Failed", outcome.Status);
+        Assert.Contains("boom", outcome.Error);
     }
 
     [Fact]
@@ -190,5 +191,36 @@ public class PipelineEngineTests
         var ctx = new PipelineStepContext { Mode = "Move" };
         PipelineEngine.Execute(pipeline, ctx);
         Assert.False(seenSuccess);
+    }
+
+    [Fact]
+    public void Execute_StepOutcomes_MatchStepNames()
+    {
+        var pipeline = new PipelineDefinition
+        {
+            Name = "names",
+            Steps = new List<PipelineStep>
+            {
+                new() { Name = "alpha", Action = _ => { } },
+                new() { Name = "beta", Action = _ => { } }
+            }
+        };
+        var ctx = new PipelineStepContext { Mode = "Move" };
+        var result = PipelineEngine.Execute(pipeline, ctx);
+        Assert.Equal(2, result.StepOutcomes.Count);
+        Assert.Equal("alpha", result.StepOutcomes[0].StepName);
+        Assert.Equal("beta", result.StepOutcomes[1].StepName);
+        Assert.All(result.StepOutcomes, o => Assert.Equal("Completed", o.Status));
+    }
+
+    [Fact]
+    public void ExecuteStep_DoesNotMutatePipelineStep()
+    {
+        var step = new PipelineStep { Name = "immutable", Action = _ => throw new Exception("err") };
+        var ctx = new PipelineStepContext { Mode = "Move" };
+        var outcome = PipelineEngine.ExecuteStep(step, ctx);
+        Assert.Equal("Failed", outcome.Status);
+        // PipelineStep has no Status/Error fields to mutate — the outcome is separate
+        Assert.Equal("immutable", step.Name);
     }
 }

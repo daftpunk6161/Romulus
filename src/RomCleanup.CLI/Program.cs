@@ -299,7 +299,7 @@ internal static class Program
                 RegionScore = group.Winner.RegionScore,
                 FormatScore = group.Winner.FormatScore,
                 VersionScore = group.Winner.VersionScore,
-                Console = group.Winner.Type ?? "",
+                Console = group.Winner.ConsoleKey ?? "",
                 DatMatch = group.Winner.DatMatch
             });
 
@@ -318,7 +318,7 @@ internal static class Program
                     RegionScore = loser.RegionScore,
                     FormatScore = loser.FormatScore,
                     VersionScore = loser.VersionScore,
-                    Console = loser.Type ?? "",
+                    Console = loser.ConsoleKey ?? "",
                     DatMatch = loser.DatMatch
                 });
             }
@@ -337,7 +337,7 @@ internal static class Program
                 FileName = Path.GetFileName(c.MainPath),
                 Extension = c.Extension,
                 SizeBytes = c.SizeBytes,
-                Console = c.Type ?? ""
+                Console = c.ConsoleKey ?? ""
             });
         }
         return entries;

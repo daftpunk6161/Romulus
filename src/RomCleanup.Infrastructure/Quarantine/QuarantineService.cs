@@ -205,16 +205,37 @@ public sealed class QuarantineService
     /// <summary>
     /// Restores a file from quarantine to its original location.
     /// </summary>
-    public QuarantineRestoreResult Restore(string quarantinePath, string originalPath, string mode = "DryRun")
+    public QuarantineRestoreResult Restore(string quarantinePath, string originalPath, string mode = "DryRun",
+        IReadOnlyList<string>? allowedRestoreRoots = null)
     {
         if (!_fs.TestPath(quarantinePath, "Leaf"))
             return new QuarantineRestoreResult { Status = "Error", Reason = "QuarantineFileNotFound" };
 
-        // Path-traversal guard: compare resolved path with original
-        var fullOriginal = Path.GetFullPath(originalPath);
-        // Reject if resolving changes the path (indicates traversal like ..)
-        if (!Path.GetFullPath(originalPath).Equals(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fullOriginal)!, Path.GetFileName(fullOriginal))), StringComparison.OrdinalIgnoreCase))
+        // Root allowlist is mandatory — restore without explicit allowed roots is rejected.
+        var validRoots = allowedRestoreRoots?
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .ToList();
+
+        if (validRoots is null or { Count: 0 })
+            return new QuarantineRestoreResult { Status = "Error", Reason = "NoAllowedRestoreRoots" };
+
+        string fullOriginal;
+        try
+        {
+            fullOriginal = Path.GetFullPath(originalPath);
+        }
+        catch
+        {
             return new QuarantineRestoreResult { Status = "Error", Reason = "PathTraversalBlocked" };
+        }
+
+        // Restore target must stay inside at least one allowed root.
+        {
+            var allowed = validRoots.Any(root => IsPathWithinRoot(fullOriginal, root));
+
+            if (!allowed)
+                return new QuarantineRestoreResult { Status = "Error", Reason = "PathTraversalBlocked" };
+        }
 
         if (mode == "DryRun")
             return new QuarantineRestoreResult { Status = "DryRun", From = quarantinePath, To = fullOriginal };
@@ -232,6 +253,28 @@ public sealed class QuarantineService
         catch (Exception ex)
         {
             return new QuarantineRestoreResult { Status = "Error", Reason = ex.Message };
+        }
+    }
+
+    private static bool IsPathWithinRoot(string fullPath, string rootPath)
+    {
+        try
+        {
+            var normalizedFull = Path.GetFullPath(fullPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedRoot = Path.GetFullPath(rootPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (normalizedFull.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return normalizedFull.StartsWith(
+                normalizedRoot + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
         }
     }
 }

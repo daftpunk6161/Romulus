@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Core.Deduplication;
 using RomCleanup.Infrastructure.Analytics;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
@@ -27,9 +28,9 @@ public sealed class InsightsEngineTests
         {
             AllCandidates =
             [
-                new RomCandidate { MainPath = "a.zip", Type = "NES", Extension = ".zip" },
-                new RomCandidate { MainPath = "b.zip", Type = "NES", Extension = ".zip" },
-                new RomCandidate { MainPath = "c.iso", Type = "PSX", Extension = ".iso" }
+                new RomCandidate { MainPath = "a.zip", ConsoleKey = "NES", Extension = ".zip" },
+                new RomCandidate { MainPath = "b.zip", ConsoleKey = "NES", Extension = ".zip" },
+                new RomCandidate { MainPath = "c.iso", ConsoleKey = "PSX", Extension = ".iso" }
             ],
             DedupeGroups = []
         };
@@ -47,8 +48,8 @@ public sealed class InsightsEngineTests
         {
             AllCandidates =
             [
-                new RomCandidate { MainPath = "a.zip", Type = "NES", Extension = ".zip" },
-                new RomCandidate { MainPath = "c.iso", Type = "PSX", Extension = ".iso" }
+                new RomCandidate { MainPath = "a.zip", ConsoleKey = "NES", Extension = ".zip" },
+                new RomCandidate { MainPath = "c.iso", ConsoleKey = "PSX", Extension = ".iso" }
             ],
             DedupeGroups = []
         };
@@ -77,9 +78,9 @@ public sealed class InsightsEngineTests
         {
             AllCandidates =
             [
-                new RomCandidate { MainPath = "a.zip", Type = "NES", DatMatch = true },
-                new RomCandidate { MainPath = "b.zip", Type = "NES", DatMatch = false },
-                new RomCandidate { MainPath = "c.zip", Type = "NES", DatMatch = true }
+                new RomCandidate { MainPath = "a.zip", ConsoleKey = "NES", DatMatch = true },
+                new RomCandidate { MainPath = "b.zip", ConsoleKey = "NES", DatMatch = false },
+                new RomCandidate { MainPath = "c.zip", ConsoleKey = "NES", DatMatch = true }
             ],
             DedupeGroups = []
         };
@@ -107,7 +108,7 @@ public sealed class InsightsEngineTests
             candidates.Add(new RomCandidate
             {
                 MainPath = $"game{i}.zip",
-                Type = $"Console{i}",
+                ConsoleKey = $"Console{i}",
                 DatMatch = i % 2 == 0
             });
         }
@@ -146,6 +147,66 @@ public sealed class InsightsEngineTests
         var engine = new InsightsEngine(fs);
         var hints = engine.GetCrossCollectionHints([], [".zip"]);
         Assert.Empty(hints);
+    }
+
+    [Fact]
+    public void GetDuplicateInspectorRows_WinnerSelection_DoesNotDriftFromCoreEngine()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "insights_drift_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            var files = new[]
+            {
+                Path.Combine(dir, "Mega Game (Europe) (Rev 1).zip"),
+                Path.Combine(dir, "Mega Game (USA) (Rev 2).chd"),
+                Path.Combine(dir, "Mega Game (Japan).iso"),
+                Path.Combine(dir, "Puzzle Quest (USA).zip"),
+                Path.Combine(dir, "Puzzle Quest (Europe).zip")
+            };
+
+            foreach (var file in files)
+                File.WriteAllText(file, "test");
+
+            var fs = new StubFs(files);
+            var engine = new InsightsEngine(fs);
+
+            var rows = engine.GetDuplicateInspectorRows(
+                roots: [dir],
+                extensions: [".zip", ".chd", ".iso"],
+                preferRegions: ["EU", "US", "JP"]);
+
+            Assert.NotEmpty(rows);
+
+            var grouped = rows.GroupBy(r => r.GameKey, StringComparer.OrdinalIgnoreCase).ToList();
+            Assert.True(grouped.Count >= 2);
+
+            foreach (var group in grouped)
+            {
+                var insightWinner = group.Single(r => r.Winner).MainPath;
+
+                var candidates = group.Select(r => new RomCandidate
+                {
+                    MainPath = r.MainPath,
+                    GameKey = r.GameKey,
+                    RegionScore = r.RegionScore,
+                    FormatScore = r.FormatScore,
+                    VersionScore = r.VersionScore,
+                    SizeTieBreakScore = 0,
+                    Category = "GAME"
+                }).ToList();
+
+                var coreWinner = DeduplicationEngine.SelectWinner(candidates);
+                Assert.NotNull(coreWinner);
+                Assert.Equal(coreWinner!.MainPath, insightWinner);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
     }
 
     // =========================================================================

@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Tools;
 using RomCleanup.Infrastructure.Reporting;
 
 namespace RomCleanup.UI.Wpf.Services;
@@ -1518,17 +1520,25 @@ public static class FeatureService
 
         try
         {
-            byte[] data = File.ReadAllBytes(path);
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+
+            if (fs.Length < 16)
+                return false;
+
+            var header = new byte[16];
+            var read = fs.Read(header, 0, header.Length);
+            if (read < 16)
+                return false;
+
             // Verify iNES magic: 4E 45 53 1A
-            if (data.Length < 16 ||
-                data[0] != 0x4E || data[1] != 0x45 || data[2] != 0x53 || data[3] != 0x1A)
+            if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 || header[3] != 0x1A)
                 return false;
 
             // Check if bytes 12-15 are dirty (non-zero)
             bool dirty = false;
             for (int i = 12; i <= 15; i++)
             {
-                if (data[i] != 0x00)
+                if (header[i] != 0x00)
                 { dirty = true; break; }
             }
 
@@ -1537,12 +1547,11 @@ public static class FeatureService
             // Create backup
             File.Copy(path, path + ".bak", overwrite: true);
 
-            // Zero bytes 12-15
-            data[12] = 0x00;
-            data[13] = 0x00;
-            data[14] = 0x00;
-            data[15] = 0x00;
-            File.WriteAllBytes(path, data);
+            // Zero bytes 12-15 in place (streaming-safe for large files).
+            fs.Seek(12, SeekOrigin.Begin);
+            var zeroBytes = new byte[] { 0x00, 0x00, 0x00, 0x00 };
+            fs.Write(zeroBytes, 0, zeroBytes.Length);
+            fs.Flush();
             return true;
         }
         catch { return false; }
@@ -1593,6 +1602,1018 @@ public static class FeatureService
                         new XAttribute("sha1", sha1)))));
 
         return doc.Declaration + Environment.NewLine + doc.Root;
+    }
+
+    /// <summary>
+    /// Append a custom DAT entry (Logiqx XML fragment) to <paramref name="datRoot"/>/custom.dat.
+    /// Creates the file if it doesn't exist. Atomic write via temp+move.
+    /// </summary>
+    public static void AppendCustomDatEntry(string datRoot, string xmlEntry)
+    {
+        var customDatPath = Path.Combine(datRoot, "custom.dat");
+        if (File.Exists(customDatPath))
+        {
+            var content = File.ReadAllText(customDatPath);
+            var closeTag = "</datafile>";
+            var idx = content.LastIndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
+            content = idx >= 0
+                ? content[..idx] + xmlEntry + "\n" + closeTag
+                : content + "\n" + xmlEntry;
+            var tempPath = customDatPath + ".tmp";
+            File.WriteAllText(tempPath, content);
+            File.Move(tempPath, customDatPath, overwrite: true);
+        }
+        else
+        {
+            var fullXml = "<?xml version=\"1.0\"?>\n" +
+                          "<!DOCTYPE datafile SYSTEM \"http://www.logiqx.com/Dats/datafile.dtd\">\n" +
+                          "<datafile>\n" +
+                          "  <header>\n" +
+                          "    <name>Custom DAT</name>\n" +
+                          "    <description>Benutzerdefinierte DAT-Einträge</description>\n" +
+                          "  </header>\n" +
+                          xmlEntry + "\n" +
+                          "</datafile>";
+            File.WriteAllText(customDatPath, fullXml);
+        }
+    }
+
+    // ═══ CSV DIFF ═══════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Compare two CSV report files and build a diff report string.
+    /// Returns null if comparison is not possible (non-CSV files).
+    /// </summary>
+    public static string? BuildCsvDiff(string fileA, string fileB, string title)
+    {
+        if (!fileA.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ||
+            !fileB.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var setA = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var setB = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in File.ReadLines(fileA).Skip(1))
+        {
+            var mainPath = line.Split(';')[0].Trim('"');
+            if (!string.IsNullOrWhiteSpace(mainPath))
+                setA.Add(mainPath);
+        }
+        foreach (var line in File.ReadLines(fileB).Skip(1))
+        {
+            var mainPath = line.Split(';')[0].Trim('"');
+            if (!string.IsNullOrWhiteSpace(mainPath))
+                setB.Add(mainPath);
+        }
+
+        var added = setB.Except(setA).ToList();
+        var removed = setA.Except(setB).ToList();
+        var same = setA.Intersect(setB).Count();
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"{title} (CSV)");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  A: {Path.GetFileName(fileA)} ({setA.Count} Einträge)");
+        sb.AppendLine($"  B: {Path.GetFileName(fileB)} ({setB.Count} Einträge)");
+        sb.AppendLine($"\n  Gleich:      {same}");
+        sb.AppendLine($"  Hinzugefügt: {added.Count}");
+        sb.AppendLine($"  Entfernt:    {removed.Count}");
+
+        if (added.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Hinzugefügt (erste {Math.Min(30, added.Count)}) ---");
+            foreach (var entry in added.Take(30))
+                sb.AppendLine($"    + {Path.GetFileName(entry)}");
+            if (added.Count > 30)
+                sb.AppendLine($"    … und {added.Count - 30} weitere");
+        }
+
+        if (removed.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Entfernt (erste {Math.Min(30, removed.Count)}) ---");
+            foreach (var entry in removed.Take(30))
+                sb.AppendLine($"    - {Path.GetFileName(entry)}");
+            if (removed.Count > 30)
+                sb.AppendLine($"    … und {removed.Count - 30} weitere");
+        }
+
+        return sb.ToString();
+    }
+
+    // ═══ MISSING ROM REPORT ════════════════════════════════════════════
+
+    /// <summary>
+    /// Build a "missing ROMs" (not DAT-verified) report grouped by subdirectory.
+    /// Returns null if no unverified candidates exist.
+    /// </summary>
+    public static string? BuildMissingRomReport(IReadOnlyList<RomCandidate> candidates, IReadOnlyList<string> roots)
+    {
+        var unverified = candidates.Where(c => !c.DatMatch).ToList();
+        if (unverified.Count == 0) return null;
+
+        var normalizedRoots = roots
+            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            .ToList();
+
+        string GetSubDir(string filePath)
+        {
+            var full = Path.GetFullPath(filePath);
+            foreach (var root in normalizedRoots)
+            {
+                if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relative = full[(root.Length + 1)..];
+                    var sep = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+                    return sep > 0 ? relative[..sep] : "(Root)";
+                }
+            }
+            return Path.GetDirectoryName(filePath) ?? "(Unbekannt)";
+        }
+
+        var byDir = unverified.GroupBy(c => GetSubDir(c.MainPath))
+            .OrderByDescending(g => g.Count())
+            .ToList();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Fehlende ROMs (ohne DAT-Match)");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Gesamt ohne DAT-Match: {unverified.Count} / {candidates.Count}");
+        sb.AppendLine($"\n  Nach Verzeichnis:\n");
+        foreach (var g in byDir)
+            sb.AppendLine($"    {g.Count(),5}  {g.Key}");
+
+        return sb.ToString();
+    }
+
+    // ═══ CROSS-ROOT DUPLICATE REPORT ════════════════════════════════════
+
+    /// <summary>
+    /// Build a cross-root duplicate report showing groups spanning multiple roots.
+    /// </summary>
+    public static string BuildCrossRootReport(IReadOnlyList<DedupeResult> dedupeGroups, IReadOnlyList<string> roots)
+    {
+        var normalizedRoots = roots
+            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            .ToList();
+
+        string? GetRoot(string filePath)
+        {
+            var full = Path.GetFullPath(filePath);
+            return normalizedRoots.FirstOrDefault(r => full.StartsWith(r, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var crossRootGroups = new List<DedupeResult>();
+        foreach (var g in dedupeGroups)
+        {
+            var allPaths = new[] { g.Winner }.Concat(g.Losers);
+            var distinctRoots = allPaths.Select(c => GetRoot(c.MainPath)).Where(r => r is not null).Distinct().Count();
+            if (distinctRoots > 1)
+                crossRootGroups.Add(g);
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Cross-Root-Duplikate");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Roots: {roots.Count}");
+        sb.AppendLine($"  Dedupe-Gruppen gesamt: {dedupeGroups.Count}");
+        sb.AppendLine($"  Cross-Root-Gruppen: {crossRootGroups.Count}\n");
+
+        foreach (var g in crossRootGroups.Take(30))
+        {
+            sb.AppendLine($"  [{g.GameKey}]");
+            sb.AppendLine($"    Winner: {g.Winner.MainPath}");
+            foreach (var l in g.Losers)
+                sb.AppendLine($"    Loser:  {l.MainPath}");
+        }
+        if (crossRootGroups.Count > 30)
+            sb.AppendLine($"\n  … und {crossRootGroups.Count - 30} weitere Gruppen");
+        if (crossRootGroups.Count == 0)
+            sb.AppendLine("  Keine Cross-Root-Duplikate gefunden.");
+
+        return sb.ToString();
+    }
+
+    // ═══ COVER SCRAPER ═════════════════════════════════════════════════
+
+    /// <summary>
+    /// Format a DatDiffResult into a human-readable report.
+    /// </summary>
+    public static string FormatDatDiffReport(string fileA, string fileB, DatDiffResult diff)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("DAT-Diff-Viewer (Logiqx XML)");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  A: {Path.GetFileName(fileA)}");
+        sb.AppendLine($"  B: {Path.GetFileName(fileB)}");
+        sb.AppendLine($"\n  Gleich:       {diff.UnchangedCount}");
+        sb.AppendLine($"  Geändert:     {diff.ModifiedCount}");
+        sb.AppendLine($"  Hinzugefügt:  {diff.Added.Count}");
+        sb.AppendLine($"  Entfernt:     {diff.Removed.Count}");
+
+        if (diff.Added.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Hinzugefügt (erste {Math.Min(30, diff.Added.Count)}) ---");
+            foreach (var name in diff.Added.Take(30))
+                sb.AppendLine($"    + {name}");
+            if (diff.Added.Count > 30)
+                sb.AppendLine($"    … und {diff.Added.Count - 30} weitere");
+        }
+
+        if (diff.Removed.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Entfernt (erste {Math.Min(30, diff.Removed.Count)}) ---");
+            foreach (var name in diff.Removed.Take(30))
+                sb.AppendLine($"    - {name}");
+            if (diff.Removed.Count > 30)
+                sb.AppendLine($"    … und {diff.Removed.Count - 30} weitere");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Build a DAT auto-update status report showing local DAT files, ages, and catalog info.
+    /// </summary>
+    public static (string Report, int LocalCount, int OldCount) BuildDatAutoUpdateReport(string datRoot)
+    {
+        var dataDir = ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("DAT Auto-Update");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  DAT-Root: {datRoot}");
+
+        var localDats = Directory.GetFiles(datRoot, "*.dat", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(datRoot, "*.xml", SearchOption.AllDirectories))
+            .ToList();
+
+        sb.AppendLine($"  Lokale DAT-Dateien: {localDats.Count}\n");
+
+        if (localDats.Count > 0)
+        {
+            sb.AppendLine("  Lokale Dateien (nach Alter sortiert):");
+            foreach (var dat in localDats.OrderBy(d => File.GetLastWriteTime(d)).Take(20))
+            {
+                var age = DateTime.Now - File.GetLastWriteTime(dat);
+                var ageStr = age.TotalDays > 365 ? $"{age.TotalDays / 365:0.0} Jahre"
+                    : age.TotalDays > 30 ? $"{age.TotalDays / 30:0.0} Monate"
+                    : $"{age.TotalDays:0} Tage";
+                sb.AppendLine($"    {Path.GetFileName(dat),-40} {ageStr} alt");
+            }
+            if (localDats.Count > 20)
+                sb.AppendLine($"    … und {localDats.Count - 20} weitere");
+        }
+
+        if (File.Exists(catalogPath))
+        {
+            try
+            {
+                var catalogJson = File.ReadAllText(catalogPath);
+                using var doc = JsonDocument.Parse(catalogJson);
+                var entries = doc.RootElement.EnumerateArray().ToList();
+                var withUrl = entries.Count(e => e.TryGetProperty("Url", out var u) && u.GetString()?.Length > 0);
+                var groups = entries.GroupBy(e => e.TryGetProperty("Group", out var g) ? g.GetString() : "?");
+
+                sb.AppendLine($"\n  Katalog: {entries.Count} Einträge ({withUrl} mit Download-URL)");
+                foreach (var g in groups)
+                    sb.AppendLine($"    {g.Key}: {g.Count()} Systeme");
+            }
+            catch (Exception ex)
+            { sb.AppendLine($"\n  Katalog-Fehler: {ex.Message}"); }
+        }
+        else
+            sb.AppendLine($"\n  Katalog nicht gefunden: {catalogPath}");
+
+        var oldDats = localDats.Where(d => (DateTime.Now - File.GetLastWriteTime(d)).TotalDays > 180).ToList();
+        if (oldDats.Count > 0)
+            sb.AppendLine($"\n  ⚠ {oldDats.Count} DATs sind älter als 6 Monate!");
+
+        return (sb.ToString(), localDats.Count, oldDats.Count);
+    }
+
+    /// <summary>
+    /// Match cover images against ROM candidates and build a report.
+    /// Returns (report, matchedCount, unmatchedCount).
+    /// </summary>
+    public static (string Report, int Matched, int Unmatched) BuildCoverReport(
+        string coverDir, IReadOnlyList<RomCandidate> candidates)
+    {
+        var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
+        var coverFiles = Directory.GetFiles(coverDir, "*.*", SearchOption.AllDirectories)
+            .Where(f => imageExts.Contains(Path.GetExtension(f)))
+            .ToList();
+
+        if (coverFiles.Count == 0)
+            return ($"Keine Cover-Bilder gefunden in:\n{coverDir}", 0, 0);
+
+        var gameKeys = candidates
+            .Select(c => RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(
+                Path.GetFileNameWithoutExtension(c.MainPath)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var matched = new List<string>();
+        var unmatched = new List<string>();
+        foreach (var cover in coverFiles)
+        {
+            var coverName = Path.GetFileNameWithoutExtension(cover);
+            var normalizedCover = RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(coverName);
+            if (gameKeys.Contains(normalizedCover))
+                matched.Add(coverName);
+            else
+                unmatched.Add(coverName);
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Cover-Scraper Ergebnis\n");
+        sb.AppendLine($"  Cover-Ordner: {coverDir}");
+        sb.AppendLine($"  Gefundene Bilder: {coverFiles.Count}");
+        sb.AppendLine($"  ROMs in Sammlung: {gameKeys.Count}");
+        sb.AppendLine($"\n  Zugeordnet:    {matched.Count}");
+        sb.AppendLine($"  Nicht zugeordnet: {unmatched.Count}");
+        sb.AppendLine($"  Ohne Cover:    {gameKeys.Count - matched.Count}");
+
+        if (matched.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Zugeordnet (erste {Math.Min(15, matched.Count)}) ---");
+            foreach (var m in matched.Take(15))
+                sb.AppendLine($"    \u2713 {m}");
+        }
+        if (unmatched.Count > 0)
+        {
+            sb.AppendLine($"\n  --- Nicht zugeordnet (erste {Math.Min(15, unmatched.Count)}) ---");
+            foreach (var u in unmatched.Take(15))
+                sb.AppendLine($"    ? {u}");
+        }
+
+        return (sb.ToString(), matched.Count, unmatched.Count);
+    }
+
+    // ═══ RULE ENGINE REPORT ═════════════════════════════════════════════
+
+    /// <summary>
+    /// Build a report of all rules from rules.json, or a default help text if not found.
+    /// </summary>
+    public static string BuildRuleEngineReport()
+    {
+        var dataDir = ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var rulesPath = Path.Combine(dataDir, "rules.json");
+
+        if (!File.Exists(rulesPath))
+        {
+            return "Benutzerdefinierte Regeln\n\n" +
+                "Erstelle Regeln mit Bedingungen und Aktionen:\n\n" +
+                "Bedingungen: Region, Format, Größe, Name, Konsole, DAT-Status\n" +
+                "Operatoren: eq, neq, contains, gt, lt, regex\n" +
+                "Aktionen: junk, keep, quarantine\n\n" +
+                "Regeln werden nach Priorität (höher = zuerst) ausgewertet.\n" +
+                "Die erste passende Regel gewinnt.\n\n" +
+                "Keine rules.json gefunden.\n" +
+                "Konfiguration in data/rules.json";
+        }
+
+        var json = File.ReadAllText(rulesPath);
+        using var doc = JsonDocument.Parse(json);
+        var sb = new StringBuilder();
+        sb.AppendLine("Regel-Engine");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Datei: {rulesPath}\n");
+
+        int idx = 0;
+        foreach (var rule in doc.RootElement.EnumerateArray())
+        {
+            idx++;
+            var name = rule.TryGetProperty("name", out var np) ? np.GetString() : $"Regel {idx}";
+            var priority = rule.TryGetProperty("priority", out var pp) ? pp.GetInt32() : 0;
+            var action = rule.TryGetProperty("action", out var ap) ? ap.GetString() : "?";
+
+            sb.AppendLine($"  [{idx}] {name}  (Priorität: {priority}, Aktion: {action})");
+
+            if (rule.TryGetProperty("conditions", out var conds))
+            {
+                foreach (var cond in conds.EnumerateArray())
+                {
+                    var field = cond.TryGetProperty("field", out var fp) ? fp.GetString() : "?";
+                    var op = cond.TryGetProperty("operator", out var opp) ? opp.GetString() : "?";
+                    var val = cond.TryGetProperty("value", out var vp) ? vp.GetString() : "?";
+                    sb.AppendLine($"      Bedingung: {field} {op} {val}");
+                }
+            }
+            sb.AppendLine();
+        }
+
+        if (idx == 0)
+            sb.AppendLine("  Keine Regeln definiert.");
+
+        return sb.ToString();
+    }
+
+    // ═══ ARCADE MERGE/SPLIT REPORT ══════════════════════════════════════
+
+    /// <summary>
+    /// Parse a MAME/FBNEO DAT file and build a merge/split analysis report.
+    /// </summary>
+    public static string BuildArcadeMergeSplitReport(string datPath)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null
+        };
+        using var reader = XmlReader.Create(datPath, settings);
+        var doc = XDocument.Load(reader);
+
+        var games = doc.Descendants("game").ToList();
+        if (games.Count == 0)
+            games = doc.Descendants("machine").ToList();
+
+        var parents = games.Where(g => g.Attribute("cloneof") == null).ToList();
+        var clones = games.Where(g => g.Attribute("cloneof") != null).ToList();
+
+        var cloneMap = clones.GroupBy(g => g.Attribute("cloneof")?.Value ?? "")
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var totalRoms = games.Sum(g => g.Descendants("rom").Count());
+        var largestParent = parents.OrderByDescending(p =>
+        {
+            var name = p.Attribute("name")?.Value ?? "";
+            return cloneMap.TryGetValue(name, out var c) ? c.Count : 0;
+        }).FirstOrDefault();
+        var largestName = largestParent?.Attribute("name")?.Value ?? "?";
+        var largestCloneCount = cloneMap.TryGetValue(largestName, out var lc) ? lc.Count : 0;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Arcade Merge/Split Analyse");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  DAT: {Path.GetFileName(datPath)}");
+        sb.AppendLine($"  Einträge gesamt: {games.Count}");
+        sb.AppendLine($"  Parents:         {parents.Count}");
+        sb.AppendLine($"  Clones:          {clones.Count}");
+        sb.AppendLine($"  ROMs gesamt:     {totalRoms}");
+        sb.AppendLine($"\n  Größte Familie: {largestName} ({largestCloneCount} Clones)");
+        sb.AppendLine($"\n  Set-Typ-Empfehlung:");
+        sb.AppendLine($"    Non-Merged: {parents.Count + clones.Count} Sets (portabel, groß)");
+        sb.AppendLine($"    Split:      {parents.Count + clones.Count} Sets (Clones nur diff)");
+        sb.AppendLine($"    Merged:     {parents.Count} Sets (Parents enthalten alles)");
+
+        var top10 = parents
+            .Select(p => new { Name = p.Attribute("name")?.Value ?? "?",
+                Clones = cloneMap.TryGetValue(p.Attribute("name")?.Value ?? "", out var cc) ? cc.Count : 0 })
+            .OrderByDescending(x => x.Clones)
+            .Take(10);
+        sb.AppendLine($"\n  Top 10 Parents (meiste Clones):");
+        foreach (var p in top10)
+            sb.AppendLine($"    {p.Name,-30} {p.Clones} Clones");
+
+        return sb.ToString();
+    }
+
+    // ═══ CONVERT QUEUE REPORT ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Build a conversion queue report from conversion estimates.
+    /// </summary>
+    public static string BuildConvertQueueReport(ConversionEstimateResult est)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Konvert-Warteschlange");
+        sb.AppendLine(new string('═', 60));
+        sb.AppendLine($"\n  Dateien: {est.Details.Count}");
+        sb.AppendLine($"  Quellgröße: {FormatSize(est.TotalSourceBytes)}");
+        sb.AppendLine($"  Geschätzte Zielgröße: {FormatSize(est.EstimatedTargetBytes)}");
+        sb.AppendLine($"  Ersparnis: {FormatSize(est.SavedBytes)}\n");
+
+        if (est.Details.Count > 0)
+        {
+            sb.AppendLine($"  {"Datei",-40} {"Quelle",-8} {"Ziel",-8} {"Größe",12}");
+            sb.AppendLine($"  {new string('-', 40)} {new string('-', 8)} {new string('-', 8)} {new string('-', 12)}");
+            foreach (var d in est.Details)
+                sb.AppendLine($"  {d.FileName,-40} {d.SourceFormat,-8} {d.TargetFormat,-8} {FormatSize(d.SourceBytes),12}");
+        }
+        else
+        {
+            sb.AppendLine("  Keine konvertierbaren Dateien gefunden.");
+        }
+
+        return sb.ToString();
+    }
+
+    // ═══ PIPELINE REPORT ════════════════════════════════════════════════
+
+    /// <summary>
+    /// Build a pipeline engine report from a run result and candidate list.
+    /// If result is null, returns a default help text.
+    /// </summary>
+    public static string BuildPipelineReport(RunResult? result, IReadOnlyList<RomCandidate> candidates)
+    {
+        if (result is null)
+        {
+            return "Pipeline-Engine\n\n" +
+                "Bedingte Multi-Step-Pipelines:\n\n" +
+                "  1. Scan → Dateien erfassen\n" +
+                "  2. Dedupe → Duplikate erkennen\n" +
+                "  3. Sort → Nach Konsole sortieren\n" +
+                "  4. Convert → Formate konvertieren\n" +
+                "  5. Verify → Konvertierung prüfen\n\n" +
+                "Jeder Schritt kann übersprungen werden.\n" +
+                "DryRun-aware: Kein Schreibzugriff im DryRun-Modus.\n\n" +
+                "Starte einen Lauf, um Pipeline-Ergebnisse zu sehen.";
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Pipeline-Engine — Letzter Lauf");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Status: {result.Status}");
+        sb.AppendLine($"  Dauer:  {result.DurationMs / 1000.0:F1}s\n");
+
+        sb.AppendLine($"  {"Phase",-20} {"Status",-15} {"Details"}");
+        sb.AppendLine($"  {new string('-', 20)} {new string('-', 15)} {new string('-', 30)}");
+
+        sb.AppendLine($"  {"Scan",-20} {"OK",-15} {result.TotalFilesScanned} Dateien");
+        sb.AppendLine($"  {"Dedupe",-20} {"OK",-15} {result.GroupCount} Gruppen, {result.WinnerCount} Winner");
+
+        var junkCount = candidates.Count(c => c.Category == "JUNK");
+        sb.AppendLine($"  {"Junk-Erkennung",-20} {"OK",-15} {junkCount} Junk-Dateien");
+
+        if (result.ConsoleSortResult is { } cs)
+            sb.AppendLine($"  {"Konsolen-Sort",-20} {"OK",-15} sortiert");
+        else
+            sb.AppendLine($"  {"Konsolen-Sort",-20} {"Übersprungen",-15}");
+
+        if (result.ConvertedCount > 0)
+            sb.AppendLine($"  {"Konvertierung",-20} {"OK",-15} {result.ConvertedCount} konvertiert");
+        else
+            sb.AppendLine($"  {"Konvertierung",-20} {"Übersprungen",-15}");
+
+        if (result.MoveResult is { } mv)
+            sb.AppendLine($"  {"Move",-20} {(mv.FailCount > 0 ? "WARNUNG" : "OK"),-15} {mv.MoveCount} verschoben, {mv.FailCount} Fehler");
+        else
+            sb.AppendLine($"  {"Move",-20} {"DryRun",-15} keine Änderungen");
+
+        return sb.ToString();
+    }
+
+    // ═══ FILTER BUILDER ═════════════════════════════════════════════════
+
+    /// <summary>Parse a filter expression like "field=value" or "field>=value".</summary>
+    public static (string Field, string Op, string Value)? ParseFilterExpression(string input)
+    {
+        string field, op, value;
+        if (input.Contains(">=")) { var p = input.Split(">=", 2); field = p[0].Trim().ToLowerInvariant(); op = ">="; value = p[1].Trim(); }
+        else if (input.Contains("<=")) { var p = input.Split("<=", 2); field = p[0].Trim().ToLowerInvariant(); op = "<="; value = p[1].Trim(); }
+        else if (input.Contains('>')) { var p = input.Split('>', 2); field = p[0].Trim().ToLowerInvariant(); op = ">"; value = p[1].Trim(); }
+        else if (input.Contains('<')) { var p = input.Split('<', 2); field = p[0].Trim().ToLowerInvariant(); op = "<"; value = p[1].Trim(); }
+        else if (input.Contains('=')) { var p = input.Split('=', 2); field = p[0].Trim().ToLowerInvariant(); op = "="; value = p[1].Trim(); }
+        else return null;
+        return (field, op, value);
+    }
+
+    /// <summary>Apply a parsed filter to candidates and build a report.</summary>
+    public static string BuildFilterReport(IReadOnlyList<RomCandidate> candidates, string field, string op, string value)
+    {
+        var filtered = candidates.Where(c =>
+        {
+            string fieldValue = field switch
+            {
+                "region" => c.Region,
+                "category" => c.Category,
+                "extension" or "ext" => c.Extension,
+                "gamekey" or "game" => c.GameKey,
+                "type" or "consolekey" or "console" => c.ConsoleKey,
+                "datmatch" or "dat" => c.DatMatch.ToString(),
+                "sizemb" => (c.SizeBytes / 1048576.0).ToString("F1"),
+                "sizebytes" or "size" => c.SizeBytes.ToString(),
+                "filename" or "name" => Path.GetFileName(c.MainPath),
+                _ => ""
+            };
+            if (op == "=")
+                return fieldValue.Contains(value, StringComparison.OrdinalIgnoreCase);
+            if (double.TryParse(value, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var numVal) &&
+                double.TryParse(fieldValue, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var fieldNum))
+            {
+                return op switch { ">" => fieldNum > numVal, "<" => fieldNum < numVal, ">=" => fieldNum >= numVal, "<=" => fieldNum <= numVal, _ => false };
+            }
+            return false;
+        }).ToList();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Filter-Builder: {field} {op} {value}");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Gesamt: {candidates.Count}");
+        sb.AppendLine($"  Gefiltert: {filtered.Count}\n");
+        foreach (var r in filtered.Take(50))
+            sb.AppendLine($"  {Path.GetFileName(r.MainPath),-45} [{r.Region}] {r.Extension} {r.Category} {FormatSize(r.SizeBytes)}");
+        if (filtered.Count > 50)
+            sb.AppendLine($"\n  … und {filtered.Count - 50} weitere");
+        return sb.ToString();
+    }
+
+    // ═══ PLUGIN MARKETPLACE ═════════════════════════════════════════════
+
+    /// <summary>Build a report of installed plugins.</summary>
+    public static string BuildPluginMarketplaceReport(string pluginDir)
+    {
+        if (!Directory.Exists(pluginDir))
+            Directory.CreateDirectory(pluginDir);
+
+        var manifests = Directory.GetFiles(pluginDir, "*.json", SearchOption.AllDirectories);
+        var dlls = Directory.GetFiles(pluginDir, "*.dll", SearchOption.AllDirectories);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Plugin-Manager (Coming Soon)\n");
+        sb.AppendLine("  ℹ Das Plugin-System ist in Planung und noch nicht funktionsfähig.");
+        sb.AppendLine($"  Plugin-Verzeichnis: {pluginDir}\n");
+        sb.AppendLine($"  Manifeste:   {manifests.Length}");
+        sb.AppendLine($"  DLLs:        {dlls.Length}\n");
+
+        if (manifests.Length == 0 && dlls.Length == 0)
+        {
+            sb.AppendLine("  Keine Plugins installiert.\n");
+            sb.AppendLine("  Plugin-Struktur:");
+            sb.AppendLine("    plugins/");
+            sb.AppendLine("      mein-plugin/");
+            sb.AppendLine("        manifest.json");
+            sb.AppendLine("        MeinPlugin.dll\n");
+            sb.AppendLine("  Manifest-Format:");
+            sb.AppendLine("    {");
+            sb.AppendLine("      \"name\": \"Mein Plugin\",");
+            sb.AppendLine("      \"version\": \"1.0.0\",");
+            sb.AppendLine("      \"type\": \"console|format|report\"");
+            sb.AppendLine("    }");
+        }
+        else
+        {
+            foreach (var manifest in manifests)
+            {
+                try
+                {
+                    var json = File.ReadAllText(manifest);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    var name = doc.RootElement.TryGetProperty("name", out var np) ? np.GetString() : Path.GetFileName(manifest);
+                    var ver = doc.RootElement.TryGetProperty("version", out var vp) ? vp.GetString() : "?";
+                    var type = doc.RootElement.TryGetProperty("type", out var tp) ? tp.GetString() : "?";
+                    sb.AppendLine($"  [{type}] {name} v{ver}");
+                    sb.AppendLine($"         {Path.GetDirectoryName(manifest)}");
+                }
+                catch
+                {
+                    sb.AppendLine($"  [?] {Path.GetFileName(manifest)} (manifest ungültig)");
+                }
+            }
+            if (dlls.Length > 0)
+            {
+                sb.AppendLine($"\n  DLLs:");
+                foreach (var dll in dlls)
+                    sb.AppendLine($"    {Path.GetFileName(dll)}");
+            }
+        }
+        return sb.ToString();
+    }
+
+    // ═══ MULTI-INSTANCE SYNC ════════════════════════════════════════════
+
+    /// <summary>Build a report about lock files found in the given roots.</summary>
+    public static string BuildMultiInstanceReport(IReadOnlyList<string> roots, bool isBusy)
+    {
+        var locks = new List<(string path, string content)>();
+        foreach (var root in roots)
+        {
+            var lockFile = Path.Combine(root, ".romcleanup.lock");
+            if (File.Exists(lockFile))
+            {
+                try { locks.Add((lockFile, File.ReadAllText(lockFile))); }
+                catch { locks.Add((lockFile, "(nicht lesbar)")); }
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Multi-Instanz-Synchronisation");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"\n  Konfigurierte Roots: {roots.Count}");
+        sb.AppendLine($"  Aktive Locks:       {locks.Count}");
+
+        if (locks.Count > 0)
+        {
+            sb.AppendLine("\n  Gefundene Lock-Dateien:");
+            foreach (var (path, content) in locks)
+            {
+                sb.AppendLine($"    {path}");
+                sb.AppendLine($"      {content}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("\n  Keine aktiven Locks gefunden.");
+        }
+
+        sb.AppendLine($"\n  Diese Instanz:");
+        sb.AppendLine($"    PID:      {Environment.ProcessId}");
+        sb.AppendLine($"    Hostname: {Environment.MachineName}");
+        sb.AppendLine($"    Status:   {(isBusy ? "LÄUFT" : "Bereit")}");
+        return sb.ToString();
+    }
+
+    /// <summary>Remove lock files from roots. Returns number removed.</summary>
+    public static int RemoveLockFiles(IReadOnlyList<string> roots)
+    {
+        int removed = 0;
+        foreach (var root in roots)
+        {
+            var lockFile = Path.Combine(root, ".romcleanup.lock");
+            if (File.Exists(lockFile))
+            {
+                try { File.Delete(lockFile); removed++; }
+                catch { /* in use */ }
+            }
+        }
+        return removed;
+    }
+
+    /// <summary>Check if any lock files exist in the given roots.</summary>
+    public static bool HasLockFiles(IReadOnlyList<string> roots) =>
+        roots.Any(r => File.Exists(Path.Combine(r, ".romcleanup.lock")));
+
+    // ═══ MOBILE WEB UI ══════════════════════════════════════════════════
+
+    /// <summary>Try to find the API project path.</summary>
+    public static string? FindApiProjectPath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "RomCleanup.Api", "RomCleanup.Api.csproj"),
+            Path.Combine(Directory.GetCurrentDirectory(), "src", "RomCleanup.Api", "RomCleanup.Api.csproj")
+        };
+        return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+    }
+
+    // ═══ RULE PACK SHARING ══════════════════════════════════════════════
+
+    /// <summary>Export rules.json to a user-chosen path.</summary>
+    public static bool ExportRulePack(string rulesPath, string savePath)
+    {
+        if (!File.Exists(rulesPath)) return false;
+        File.Copy(rulesPath, savePath, overwrite: true);
+        return true;
+    }
+
+    /// <summary>Import rules.json from an external file (validates JSON first).</summary>
+    public static void ImportRulePack(string importPath, string rulesPath)
+    {
+        var json = File.ReadAllText(importPath);
+        System.Text.Json.JsonDocument.Parse(json).Dispose(); // validate
+        var dir = Path.GetDirectoryName(rulesPath);
+        if (dir is not null) Directory.CreateDirectory(dir);
+        File.Copy(importPath, rulesPath, overwrite: true);
+    }
+
+    // ═══ BATCH-3 EXTRACTIONS ════════════════════════════════════════════
+
+    /// <summary>Build NKit conversion info report, including tool detection.</summary>
+    public static string BuildNKitConvertReport(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+        var isNkit = filePath.Contains(".nkit", StringComparison.OrdinalIgnoreCase);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"NKit-Konvertierung\n");
+        sb.AppendLine($"  Image:       {fileName}");
+        sb.AppendLine($"  NKit-Format: {(isNkit ? "Ja" : "Nein")}");
+
+        try
+        {
+            var runner = new ToolRunnerAdapter(null);
+            var nkitPath = runner.FindTool("nkit");
+            if (nkitPath is not null)
+            {
+                sb.AppendLine($"  NKit-Tool:   {nkitPath}");
+                sb.AppendLine("\nKonvertierungs-Anleitung:");
+                sb.AppendLine("  NKit → ISO: NKit.exe recover <Datei>");
+                sb.AppendLine("  NKit → RVZ: Erst recover, dann dolphintool convert");
+                sb.AppendLine("\nEmpfohlenes Zielformat: RVZ (GameCube/Wii)");
+            }
+            else
+            {
+                sb.AppendLine("\n  NKit-Tool nicht gefunden.");
+                sb.AppendLine("\n  Nach dem Download das Tool in den PATH aufnehmen");
+                sb.AppendLine("  oder im Programmverzeichnis ablegen.");
+            }
+        }
+        catch
+        {
+            sb.AppendLine("\n  NKit-Tool-Suche fehlgeschlagen.");
+            sb.AppendLine("  Konvertierung nach ISO/RVZ erfordert das Tool 'NKit'.");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Import a DAT file into datRoot with path-traversal protection.</summary>
+    public static string ImportDatFileToRoot(string sourcePath, string datRoot)
+    {
+        var safeName = Path.GetFileName(sourcePath);
+        var targetPath = Path.GetFullPath(Path.Combine(datRoot, safeName));
+        if (!targetPath.StartsWith(Path.GetFullPath(datRoot), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Pfad außerhalb des DatRoot.");
+        File.Copy(sourcePath, targetPath, overwrite: true);
+        return targetPath;
+    }
+
+    /// <summary>Validate and parse an FTP/SFTP URL. Returns report text.</summary>
+    public static (bool Valid, bool IsPlainFtp, string Report) BuildFtpSourceReport(string input)
+    {
+        var isValid = input.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
+                      input.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);
+        if (!isValid)
+            return (false, false, $"Ungültige FTP-URL: {input} (muss mit ftp:// oder sftp:// beginnen)");
+
+        var isPlainFtp = input.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            var uri = new Uri(input);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("FTP-Quelle konfiguriert\n");
+            sb.AppendLine($"  Protokoll: {uri.Scheme.ToUpperInvariant()}");
+            sb.AppendLine($"  Host:      {uri.Host}");
+            sb.AppendLine($"  Port:      {(uri.Port > 0 ? uri.Port : (uri.Scheme == "sftp" ? 22 : 21))}");
+            sb.AppendLine($"  Pfad:      {uri.AbsolutePath}");
+            sb.AppendLine("\n  ℹ FTP-Download ist noch nicht implementiert.");
+            sb.AppendLine("  Aktuell wird die URL nur registriert und angezeigt.");
+            sb.AppendLine("  Geplantes Feature: Dateien vor Verarbeitung lokal cachen.");
+            return (true, isPlainFtp, sb.ToString());
+        }
+        catch (Exception ex)
+        {
+            return (false, isPlainFtp, $"FTP-URL ungültig: {ex.Message}");
+        }
+    }
+
+    /// <summary>Build GPU hashing status report.</summary>
+    public static (string Report, bool IsEnabled) BuildGpuHashingStatus()
+    {
+        var openCl = File.Exists(Path.Combine(Environment.SystemDirectory, "OpenCL.dll"));
+        var currentSetting = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
+        var isEnabled = currentSetting.Equals("on", StringComparison.OrdinalIgnoreCase);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("GPU-Hashing Konfiguration\n");
+        sb.AppendLine($"  OpenCL verfügbar: {(openCl ? "Ja" : "Nein")}");
+        sb.AppendLine($"  CPU-Kerne:        {Environment.ProcessorCount}");
+        sb.AppendLine($"  Aktueller Status: {(isEnabled ? "AKTIVIERT" : "Deaktiviert")}");
+
+        if (!openCl)
+        {
+            sb.AppendLine("\n  GPU-Hashing benötigt OpenCL-Treiber.");
+            sb.AppendLine("  Installiere aktuelle GPU-Treiber für Unterstützung.");
+        }
+        else
+        {
+            sb.AppendLine("\n  GPU-Hashing kann SHA1/SHA256-Berechnungen");
+            sb.AppendLine("  um 5-20x beschleunigen (experimentell).");
+        }
+        return (sb.ToString(), isEnabled);
+    }
+
+    /// <summary>Toggle GPU hashing and return the new state.</summary>
+    public static bool ToggleGpuHashing()
+    {
+        var current = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
+        var isEnabled = current.Equals("on", StringComparison.OrdinalIgnoreCase);
+        Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", isEnabled ? "off" : "on");
+        return !isEnabled;
+    }
+
+    /// <summary>Build report data for PDF/HTML export.</summary>
+    public static (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
+        IReadOnlyList<RomCandidate> candidates, IReadOnlyList<DedupeResult> groups,
+        RunResult? runResult, bool dryRun)
+    {
+        var summary = new ReportSummary
+        {
+            Mode = dryRun ? "DryRun" : "Move",
+            TotalFiles = candidates.Count,
+            KeepCount = groups.Count,
+            MoveCount = groups.Sum(g => g.Losers.Count),
+            JunkCount = candidates.Count(c => c.Category == "JUNK"),
+            GroupCount = groups.Count,
+            Duration = TimeSpan.FromMilliseconds(runResult?.DurationMs ?? 0)
+        };
+        var entries = candidates.Select(c => new ReportEntry
+        {
+            GameKey = c.GameKey, Action = c.Category == "JUNK" ? "JUNK" : "KEEP",
+            Category = c.Category, Region = c.Region, FilePath = c.MainPath,
+            FileName = Path.GetFileName(c.MainPath), Extension = c.Extension,
+            SizeBytes = c.SizeBytes, RegionScore = c.RegionScore, FormatScore = c.FormatScore,
+            VersionScore = c.VersionScore, DatMatch = c.DatMatch
+        }).ToList();
+        return (summary, entries);
+    }
+
+    /// <summary>Build formatted conversion estimate report.</summary>
+    public static string BuildConversionEstimateReport(IReadOnlyList<RomCandidate> candidates)
+    {
+        var est = GetConversionEstimate(candidates);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Konvertierungs-Schätzung");
+        sb.AppendLine(new string('═', 50));
+        sb.AppendLine($"  Quellgröße:     {FormatSize(est.TotalSourceBytes)}");
+        sb.AppendLine($"  Geschätzt:      {FormatSize(est.EstimatedTargetBytes)}");
+        sb.AppendLine($"  Ersparnis:      {FormatSize(est.SavedBytes)} ({(1 - est.CompressionRatio) * 100:F1}%)");
+        sb.AppendLine($"\nDetails ({est.Details.Count} konvertierbare Dateien):");
+        foreach (var d in est.Details.Take(20))
+            sb.AppendLine($"  {d.FileName}: {d.SourceFormat}→{d.TargetFormat} ({FormatSize(d.SourceBytes)}→{FormatSize(d.EstimatedBytes)})");
+        if (est.Details.Count > 20)
+            sb.AppendLine($"  … und {est.Details.Count - 20} weitere");
+        return sb.ToString();
+    }
+
+    /// <summary>Validate a hex hash string (CRC32=8, SHA1=40 chars).</summary>
+    public static bool IsValidHexHash(string hash, int expectedLength) =>
+        hash.Length == expectedLength && Regex.IsMatch(hash, $"^[0-9A-Fa-f]{{{expectedLength}}}$");
+
+    /// <summary>Build custom DAT XML entry using SecurityElement.Escape for safe XML.</summary>
+    public static string BuildCustomDatXmlEntry(string gameName, string romName, string crc32, string sha1)
+    {
+        return $"  <game name=\"{System.Security.SecurityElement.Escape(gameName)}\">\n" +
+               $"    <description>{System.Security.SecurityElement.Escape(gameName)}</description>\n" +
+               $"    <rom name=\"{System.Security.SecurityElement.Escape(romName)}\" size=\"0\" crc=\"{crc32}\"" +
+               (sha1.Length > 0 ? $" sha1=\"{sha1}\"" : "") + " />\n" +
+               $"  </game>";
+    }
+
+    // ═══ BATCH-4 EXTRACTIONS ════════════════════════════════════════════
+
+    /// <summary>Detect auto-profile recommendation based on file extensions in roots.</summary>
+    public static string DetectAutoProfile(IReadOnlyList<string> roots)
+    {
+        var hasDisc = false;
+        var hasCartridge = false;
+        foreach (var root in roots)
+        {
+            if (!Directory.Exists(root)) continue;
+            foreach (var f in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Take(200))
+            {
+                var ext = Path.GetExtension(f).ToLowerInvariant();
+                if (ext is ".chd" or ".iso" or ".bin" or ".cue" or ".gdi") hasDisc = true;
+                if (ext is ".nes" or ".sfc" or ".gba" or ".nds" or ".z64" or ".gb") hasCartridge = true;
+            }
+        }
+        return (hasDisc, hasCartridge) switch
+        {
+            (true, true) => "Gemischt (Disc + Cartridge): Konvertierung empfohlen",
+            (true, false) => "Disc-basiert: CHD-Konvertierung empfohlen, aggressive Deduplizierung",
+            (false, true) => "Cartridge-basiert: ZIP-Komprimierung, leichte Deduplizierung",
+            _ => "Unbekannt: Keine erkannten ROM-Formate gefunden. Bitte überprüfen Sie die Root-Ordner."
+        };
+    }
+
+    /// <summary>Build playtime tracker report from .lrtl files.</summary>
+    public static string BuildPlaytimeReport(string directory)
+    {
+        var lrtlFiles = Directory.GetFiles(directory, "*.lrtl", SearchOption.AllDirectories);
+        if (lrtlFiles.Length == 0) return "";
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Spielzeit-Tracker: {lrtlFiles.Length} Dateien\n");
+        sb.AppendLine("Hinweis: Es werden nur RetroArch .lrtl-Dateien unterstützt.\n");
+        foreach (var f in lrtlFiles.Take(20))
+        {
+            var name = Path.GetFileNameWithoutExtension(f);
+            var lines = File.ReadAllLines(f);
+            sb.AppendLine($"  {name}: {lines.Length} Einträge");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Build collection manager report grouped by genre.</summary>
+    public static string BuildCollectionManagerReport(IReadOnlyList<RomCandidate> candidates)
+    {
+        var byConsole = candidates.GroupBy(c => ClassifyGenre(c.GameKey))
+            .OrderByDescending(g => g.Count()).ToList();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Smart Collection Manager\n");
+        sb.AppendLine($"Gesamt: {candidates.Count} ROMs\n");
+        foreach (var g in byConsole)
+            sb.AppendLine($"  {g.Key,-20} {g.Count(),5} ROMs");
+        return sb.ToString();
+    }
+
+    /// <summary>Build command palette results report.</summary>
+    public static string BuildCommandPaletteReport(string input,
+        IReadOnlyList<(string key, string name, string shortcut, int score)> results)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Ergebnisse für \"{input}\":\n");
+        foreach (var r in results)
+            sb.AppendLine($"  {r.shortcut,-12} {r.name}");
+        return sb.ToString();
+    }
+
+    /// <summary>Build parallel hashing configuration report.</summary>
+    public static string BuildParallelHashingReport(int cores, int newThreads)
+    {
+        return $"Parallel-Hashing Konfiguration\n\n" +
+            $"CPU-Kerne: {cores}\nThreads (neu): {newThreads}\n\n" +
+            "Die Änderung wird beim nächsten Hash-Vorgang wirksam.";
     }
 }
 

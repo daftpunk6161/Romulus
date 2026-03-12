@@ -110,6 +110,11 @@ public sealed class SettingsService
                 vm.DryRun = GetBool(ui, "dryRun", true);
                 vm.ConvertEnabled = GetBool(ui, "convertEnabled");
                 vm.ConfirmMove = GetBool(ui, "confirmMove", true);
+                if (ui.TryGetProperty("conflictPolicy", out var cpEl) && cpEl.ValueKind == JsonValueKind.String)
+                {
+                    if (Enum.TryParse<RomCleanup.UI.Wpf.Models.ConflictPolicy>(cpEl.GetString(), true, out var cp))
+                        vm.ConflictPolicy = cp;
+                }
             }
 
             if (root.TryGetProperty("roots", out var roots) &&
@@ -175,7 +180,8 @@ public sealed class SettingsService
                     sortConsole = vm.SortConsole,
                     dryRun = vm.DryRun,
                     convertEnabled = vm.ConvertEnabled,
-                    confirmMove = vm.ConfirmMove
+                    confirmMove = vm.ConfirmMove,
+                    conflictPolicy = vm.ConflictPolicy.ToString()
                 }
             };
 

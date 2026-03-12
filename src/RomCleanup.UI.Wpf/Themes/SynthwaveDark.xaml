@@ -43,6 +43,15 @@
     <Thickness x:Key="SpaceBottomMD">0 0 0 12</Thickness>
     <Thickness x:Key="SpaceBottomLG">0 0 0 16</Thickness>
     <Thickness x:Key="SpaceBottomXL">0 0 0 24</Thickness>
+    <Thickness x:Key="PaddingBar">12 8 12 8</Thickness>
+    <Thickness x:Key="PaddingSection">16 16 16 16</Thickness>
+    <Thickness x:Key="SpaceRightSM">0 0 8 0</Thickness>
+    <Thickness x:Key="SpaceRightMD">0 0 12 0</Thickness>
+    <Thickness x:Key="SpaceDotInline">4 0 4 0</Thickness>
+    <Thickness x:Key="SpaceDivider">8 0 8 0</Thickness>
+    <Thickness x:Key="SpaceLeftSM">8 0 0 0</Thickness>
+    <Thickness x:Key="SpaceRightXS">0 0 4 0</Thickness>
+    <Thickness x:Key="SpaceTopLG">0 16 0 0</Thickness>
 
     <!-- ═══ FOCUS VISUAL STYLE (keyboard navigation) ═══════════════════════ -->
     <Style x:Key="FocusRing">
@@ -124,7 +133,7 @@
                     Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="4"
+                    CornerRadius="6"
                     SnapsToDevicePixels="True">
               <ScrollViewer x:Name="PART_ContentHost"
                             Margin="0"
@@ -591,7 +600,7 @@
       <Setter Property="Margin"          Value="0 0 0 12"/>
       <Setter Property="Effect">
         <Setter.Value>
-          <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.25" Color="#000000"/>
+          <DropShadowEffect BlurRadius="6" ShadowDepth="2" Opacity="0.25" Color="#000000"/>
         </Setter.Value>
       </Setter>
     </Style>

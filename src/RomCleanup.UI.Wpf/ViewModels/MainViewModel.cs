@@ -3,10 +3,16 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
+using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
+using RunState = RomCleanup.UI.Wpf.Models.RunState;
 
 namespace RomCleanup.UI.Wpf.ViewModels;
 
@@ -19,13 +25,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private readonly ThemeService _theme;
+    private readonly IDialogService _dialog;
     private CancellationTokenSource? _cts;
 
-    public MainViewModel() : this(new ThemeService()) { }
+    public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
-    public MainViewModel(ThemeService theme)
+    public MainViewModel(ThemeService theme, IDialogService dialog)
     {
         _theme = theme;
+        _dialog = dialog;
 
         // Wire collection changes to status refresh
         Roots.CollectionChanged += OnRootsChanged;
@@ -45,6 +53,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         PresetSafeDryRunCommand = new RelayCommand(OnPresetSafeDryRun);
         PresetFullSortCommand = new RelayCommand(OnPresetFullSort);
         PresetConvertCommand = new RelayCommand(OnPresetConvert);
+
+        // Extension filter collection (UX-004)
+        InitExtensionFilters();
+
+        // Console filter collection (Runde 7: replaces 30 x:Name checkboxes)
+        InitConsoleFilters();
+
+        // Feature commands (TASK-111: replaces Click event handlers)
+        InitFeatureCommands();
     }
 
     // ═══ COMMANDS ═══════════════════════════════════════════════════════
@@ -61,11 +78,140 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand PresetFullSortCommand { get; }
     public ICommand PresetConvertCommand { get; }
 
+    // ═══ RUN RESULT STATE (moved from code-behind for MVVM command access) ═══
+    private IReadOnlyList<RomCandidate> _lastCandidates = Array.Empty<RomCandidate>();
+    public IReadOnlyList<RomCandidate> LastCandidates
+    {
+        get => _lastCandidates;
+        set { _lastCandidates = value; OnPropertyChanged(); }
+    }
+
+    private IReadOnlyList<DedupeResult> _lastDedupeGroups = Array.Empty<DedupeResult>();
+    public IReadOnlyList<DedupeResult> LastDedupeGroups
+    {
+        get => _lastDedupeGroups;
+        set { _lastDedupeGroups = value; OnPropertyChanged(); }
+    }
+
+    private RunResult? _lastRunResult;
+    public RunResult? LastRunResult
+    {
+        get => _lastRunResult;
+        set { _lastRunResult = value; OnPropertyChanged(); }
+    }
+
+    private string? _lastAuditPath;
+    public string? LastAuditPath
+    {
+        get => _lastAuditPath;
+        set { _lastAuditPath = value; OnPropertyChanged(); }
+    }
+
+    // ═══ FEATURE COMMANDS (TASK-111: replaces Click event handlers) ═══════
+    public Dictionary<string, ICommand> FeatureCommands { get; } = new();
+
+    private void InitFeatureCommands()
+    {
+        // All feature commands are registered by FeatureCommandService.RegisterCommands()
+    }
+
     // ═══ COLLECTIONS ════════════════════════════════════════════════════
     public ObservableCollection<string> Roots { get; } = [];
     public ObservableCollection<LogEntry> LogEntries { get; } = [];
     public ObservableCollection<DatMapRow> DatMappings { get; } = [];
     public ObservableCollection<string> ErrorSummaryItems { get; } = [];
+
+    // ═══ EXTENSION FILTERS (UX-004: VM-bound, replaces code-behind x:Name checkboxes) ═══
+    public ObservableCollection<ExtensionFilterItem> ExtensionFilters { get; } = [];
+
+    /// <summary>Grouped view for XAML binding with category headers.</summary>
+    public ICollectionView ExtensionFiltersView { get; private set; } = null!;
+
+    /// <summary>Returns checked extensions, or empty array if none selected (= scan all).</summary>
+    public string[] GetSelectedExtensions() =>
+        ExtensionFilters.Where(e => e.IsChecked).Select(e => e.Extension).ToArray();
+
+    private void InitExtensionFilters()
+    {
+        var items = new (string ext, string cat, string tip)[]
+        {
+            (".chd", "Disc-Images", "CHD Disk-Image"),
+            (".iso", "Disc-Images", "ISO-Abbild"),
+            (".cue", "Disc-Images", "CUE Steuerdatei"),
+            (".gdi", "Disc-Images", "GDI (Dreamcast)"),
+            (".img", "Disc-Images", "IMG Disk-Image"),
+            (".bin", "Disc-Images", "BIN (CD-Image)"),
+            (".cso", "Disc-Images", "Compressed ISO (PSP)"),
+            (".pbp", "Disc-Images", "PBP-Paket (PSP)"),
+            (".zip", "Archive", "ZIP-Archiv"),
+            (".7z",  "Archive", "7-Zip-Archiv"),
+            (".rar", "Archive", "RAR-Archiv"),
+            (".nes", "Cartridge / Modern", "NES ROM"),
+            (".gba", "Cartridge / Modern", "Game Boy Advance ROM"),
+            (".nds", "Cartridge / Modern", "Nintendo DS ROM"),
+            (".nsp", "Cartridge / Modern", "NSP (Nintendo Switch)"),
+            (".xci", "Cartridge / Modern", "XCI Cartridge-Image"),
+            (".wbfs","Cartridge / Modern", "WBFS (Wii Backup)"),
+            (".rvz", "Cartridge / Modern", "RVZ (GC/Wii, Dolphin)"),
+        };
+        foreach (var (ext, cat, tip) in items)
+            ExtensionFilters.Add(new ExtensionFilterItem { Extension = ext, Category = cat, ToolTip = tip });
+
+        ExtensionFiltersView = CollectionViewSource.GetDefaultView(ExtensionFilters);
+        ExtensionFiltersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ExtensionFilterItem.Category)));
+    }
+
+    // ═══ CONSOLE FILTERS (VM-bound, replaces code-behind x:Name checkboxes) ═══
+    public ObservableCollection<ConsoleFilterItem> ConsoleFilters { get; } = [];
+
+    /// <summary>Grouped view for XAML binding with category headers (Sony, Nintendo, Sega, Andere).</summary>
+    public ICollectionView ConsoleFiltersView { get; private set; } = null!;
+
+    /// <summary>Returns checked console keys, or empty array if none selected (= all consoles).</summary>
+    public string[] GetSelectedConsoles() =>
+        ConsoleFilters.Where(c => c.IsChecked).Select(c => c.Key).ToArray();
+
+    private void InitConsoleFilters()
+    {
+        var items = new (string key, string display, string cat)[]
+        {
+            ("PS1",    "PlayStation",               "Sony"),
+            ("PS2",    "PlayStation 2",             "Sony"),
+            ("PS3",    "PlayStation 3",             "Sony"),
+            ("PSP",    "PSP",                       "Sony"),
+            ("NES",    "NES / Famicom",             "Nintendo"),
+            ("SNES",   "SNES / Super Famicom",      "Nintendo"),
+            ("N64",    "Nintendo 64",               "Nintendo"),
+            ("GC",     "GameCube",                  "Nintendo"),
+            ("WII",    "Wii",                       "Nintendo"),
+            ("WIIU",   "Wii U",                     "Nintendo"),
+            ("SWITCH", "Nintendo Switch",           "Nintendo"),
+            ("GB",     "Game Boy",                  "Nintendo"),
+            ("GBC",    "Game Boy Color",            "Nintendo"),
+            ("GBA",    "Game Boy Advance",          "Nintendo"),
+            ("NDS",    "Nintendo DS",               "Nintendo"),
+            ("3DS",    "Nintendo 3DS",              "Nintendo"),
+            ("MD",     "Mega Drive / Genesis",      "Sega"),
+            ("SCD",    "Mega-CD / Sega CD",         "Sega"),
+            ("SAT",    "Saturn",                    "Sega"),
+            ("DC",     "Dreamcast",                 "Sega"),
+            ("SMS",    "Master System",             "Sega"),
+            ("GG",     "Game Gear",                 "Sega"),
+            ("ARCADE", "Arcade / MAME / FBNeo",     "Andere"),
+            ("NEOGEO", "Neo Geo",                   "Andere"),
+            ("NEOCD",  "Neo Geo CD",                "Andere"),
+            ("PCE",    "PC Engine / TurboGrafx-16", "Andere"),
+            ("PCECD",  "PC Engine CD",              "Andere"),
+            ("DOS",    "DOS / PC",                  "Andere"),
+            ("3DO",    "3DO",                       "Andere"),
+            ("JAG",    "Atari Jaguar",              "Andere"),
+        };
+        foreach (var (key, display, cat) in items)
+            ConsoleFilters.Add(new ConsoleFilterItem { Key = key, DisplayName = display, Category = cat });
+
+        ConsoleFiltersView = CollectionViewSource.GetDefaultView(ConsoleFilters);
+        ConsoleFiltersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConsoleFilterItem.Category)));
+    }
 
     // ═══ PATH PROPERTIES (persisted) ════════════════════════════════════
     private string _trashRoot = "";
@@ -229,21 +375,84 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _simpleSort = true;
     public bool SimpleSort { get => _simpleSort; set => SetField(ref _simpleSort, value); }
 
-    // ═══ UI STATE (not persisted) ═══════════════════════════════════════
-    private bool _isBusy;
-    public bool IsBusy
+    // ═══ RUN STATE (UX-002: explicit state machine) ════════════════════
+    private RunState _runState = RunState.Idle;
+    public RunState CurrentRunState
     {
-        get => _isBusy;
+        get => _runState;
         set
         {
-            if (SetField(ref _isBusy, value))
+            if (SetField(ref _runState, value))
             {
+                OnPropertyChanged(nameof(IsBusy));
                 OnPropertyChanged(nameof(IsIdle));
+                OnPropertyChanged(nameof(ShowStartMoveButton));
+                OnPropertyChanged(nameof(HasRunResult));
                 CommandManager.InvalidateRequerySuggested();
             }
         }
     }
-    public bool IsIdle => !_isBusy;
+
+    /// <summary>Derived from RunState — true while any run phase is active.</summary>
+    public bool IsBusy => _runState is RunState.Preflight or RunState.Scanning
+        or RunState.Deduplicating or RunState.Moving or RunState.Converting;
+    public bool IsIdle => !IsBusy;
+
+    /// <summary>Show the "Start as Move" button after a successful DryRun (UX-008).</summary>
+    public bool ShowStartMoveButton => _runState == RunState.CompletedDryRun && !IsBusy;
+
+    /// <summary>True when a run has completed (DryRun or Move) and results are available (UX-003/TEST-009).</summary>
+    public bool HasRunResult => _runState is RunState.Completed or RunState.CompletedDryRun;
+
+    // ═══ CONFLICT POLICY (UX-007: was YesNoCancel hack, now VM property) ═
+    private ConflictPolicy _conflictPolicy = ConflictPolicy.Rename;
+    public ConflictPolicy ConflictPolicy
+    {
+        get => _conflictPolicy;
+        set => SetField(ref _conflictPolicy, value);
+    }
+
+    /// <summary>Index for ComboBox binding (0=Rename, 1=Skip, 2=Overwrite).</summary>
+    public int ConflictPolicyIndex
+    {
+        get => (int)_conflictPolicy;
+        set => ConflictPolicy = (ConflictPolicy)value;
+    }
+
+    // ═══ ROLLBACK HISTORY (UX-010: moved from code-behind) ══════════════
+    private readonly Stack<string> _rollbackUndoStack = new();
+    private readonly Stack<string> _rollbackRedoStack = new();
+
+    public bool HasRollbackUndo => _rollbackUndoStack.Count > 0;
+    public bool HasRollbackRedo => _rollbackRedoStack.Count > 0;
+
+    public void PushRollbackUndo(string auditPath)
+    {
+        _rollbackUndoStack.Push(auditPath);
+        _rollbackRedoStack.Clear();
+        OnPropertyChanged(nameof(HasRollbackUndo));
+        OnPropertyChanged(nameof(HasRollbackRedo));
+    }
+
+    public string? PopRollbackUndo()
+    {
+        if (_rollbackUndoStack.Count == 0) return null;
+        var path = _rollbackUndoStack.Pop();
+        _rollbackRedoStack.Push(path);
+        OnPropertyChanged(nameof(HasRollbackUndo));
+        OnPropertyChanged(nameof(HasRollbackRedo));
+        return path;
+    }
+
+    public string? PopRollbackRedo()
+    {
+        if (_rollbackRedoStack.Count == 0) return null;
+        var path = _rollbackRedoStack.Pop();
+        _rollbackUndoStack.Push(path);
+        OnPropertyChanged(nameof(HasRollbackUndo));
+        OnPropertyChanged(nameof(HasRollbackRedo));
+        return path;
+    }
 
     private double _progress;
     public double Progress { get => _progress; set => SetField(ref _progress, value); }
@@ -296,7 +505,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string GameKeyPreviewOutput { get => _gameKeyPreviewOutput; set => SetField(ref _gameKeyPreviewOutput, value); }
 
     // Theme
-    public string ThemeToggleText => _theme.IsDark ? "☀ Hell" : "☾ Dunkel";
+    public string ThemeToggleText => _theme.Current switch
+    {
+        AppTheme.Dark => "☀ Hell",
+        AppTheme.Light => "◐ Kontrast",
+        AppTheme.HighContrast => "☾ Dunkel",
+        _ => "☾ Dunkel",
+    };
 
     // ═══ STATUS INDICATORS ══════════════════════════════════════════════
     private string _statusRoots = "Roots: –";
@@ -417,18 +632,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // Roots
         bool hasRoots = Roots.Count > 0;
         RootsStatusLevel = hasRoots ? StatusLevel.Ok : StatusLevel.Missing;
-        StatusRoots = hasRoots ? $"Roots: {Roots.Count}" : "Roots: –";
+        StatusRoots = hasRoots ? $"{Roots.Count} Ordner konfiguriert" : "Keine Ordner";
         StepLabel1 = hasRoots ? $"{Roots.Count} Ordner" : "Keine Ordner";
 
         // Tools — check that specified paths actually exist
         bool hasChdman = !string.IsNullOrWhiteSpace(ToolChdman) && File.Exists(ToolChdman);
         bool has7z = !string.IsNullOrWhiteSpace(Tool7z) && File.Exists(Tool7z);
         bool anyToolSpecified = !string.IsNullOrWhiteSpace(ToolChdman) || !string.IsNullOrWhiteSpace(Tool7z);
+        int toolCount = (hasChdman ? 1 : 0) + (has7z ? 1 : 0);
         ToolsStatusLevel = (hasChdman || has7z) ? StatusLevel.Ok
             : (anyToolSpecified || ConvertEnabled) ? StatusLevel.Warning
             : StatusLevel.Missing;
-        StatusTools = ToolsStatusLevel == StatusLevel.Ok ? "Tools: OK"
-            : ToolsStatusLevel == StatusLevel.Warning ? "Tools: ⚠" : "Tools: –";
+        StatusTools = ToolsStatusLevel == StatusLevel.Ok ? $"{toolCount} Tools gefunden"
+            : ToolsStatusLevel == StatusLevel.Warning ? "Tools nicht gefunden" : "Keine Tools";
 
         // DAT — validate directory exists when specified
         bool datRootValid = !string.IsNullOrWhiteSpace(DatRoot) && Directory.Exists(DatRoot);
@@ -436,8 +652,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             : datRootValid ? StatusLevel.Ok
             : !string.IsNullOrWhiteSpace(DatRoot) ? StatusLevel.Warning
             : StatusLevel.Warning;
-        StatusDat = DatStatusLevel == StatusLevel.Ok ? "DAT: ✓"
-            : DatStatusLevel == StatusLevel.Warning ? "DAT: ⚠" : "DAT: –";
+        StatusDat = DatStatusLevel == StatusLevel.Ok ? "DAT aktiv"
+            : DatStatusLevel == StatusLevel.Warning ? "DAT-Pfad ungültig" : "DAT deaktiviert";
 
         // Overall readiness
         ReadyStatusLevel = !hasRoots ? StatusLevel.Blocked
@@ -445,21 +661,43 @@ public sealed class MainViewModel : INotifyPropertyChanged
             : StatusLevel.Ok;
         StatusReady = ReadyStatusLevel switch
         {
-            StatusLevel.Ok => "Bereit ✓",
-            StatusLevel.Warning => "Warnung ⚠",
-            StatusLevel.Blocked => "Blockiert ✗",
+            StatusLevel.Ok => "Startbereit ✓",
+            StatusLevel.Warning => "Startbereit (Warnung) ⚠",
+            StatusLevel.Blocked => "Nicht bereit ✗",
             _ => "Status: –"
         };
 
-        // Step indicator: 0=no roots, 1=roots set, 2=running, 3=complete
-        CurrentStep = IsBusy ? 2 : hasRoots ? 1 : 0;
+        // Step indicator with RunState-awareness (UX-009)
+        if (IsBusy)
+        {
+            CurrentStep = 2;
+            StepLabel3 = _runState switch
+            {
+                RunState.Preflight => "Prüfe…",
+                RunState.Scanning => "Scanne…",
+                RunState.Deduplicating => "Dedupliziere…",
+                RunState.Moving => "Verschiebe…",
+                RunState.Converting => "Konvertiere…",
+                _ => "Läuft…"
+            };
+        }
+        else if (_runState is RunState.Completed or RunState.CompletedDryRun)
+        {
+            CurrentStep = 3;
+            StepLabel3 = _runState == RunState.CompletedDryRun ? "Vorschau fertig" : "Abgeschlossen";
+        }
+        else
+        {
+            CurrentStep = hasRoots ? 1 : 0;
+            StepLabel3 = "F5 drücken";
+        }
     }
 
     // ═══ COMMAND HANDLERS ═══════════════════════════════════════════════
 
     private void OnRun()
     {
-        IsBusy = true;
+        CurrentRunState = RunState.Preflight;
         BusyHint = DryRun ? "DryRun läuft…" : "Move läuft…";
         DashMode = DryRun ? "DryRun" : "Move";
         Progress = 0;
@@ -475,7 +713,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void OnCancel()
     {
-        _cts?.Cancel();
+        var cts = Volatile.Read(ref _cts);
+        try { cts?.Cancel(); } catch (ObjectDisposedException) { }
+        CurrentRunState = RunState.Cancelled;
         BusyHint = "Abbruch angefordert…";
     }
 
@@ -555,14 +795,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Complete a run (call from UI thread when orchestration finishes).</summary>
     public void CompleteRun(bool success, string? reportPath = null)
     {
-        IsBusy = false;
         BusyHint = "";
         if (reportPath is not null)
             LastReportPath = reportPath;
-        if (success && !DryRun)
+        if (success && DryRun)
         {
+            CurrentRunState = RunState.CompletedDryRun;
+        }
+        else if (success && !DryRun)
+        {
+            CurrentRunState = RunState.Completed;
             CanRollback = true;
             ShowMoveCompleteBanner = true;
+        }
+        else
+        {
+            CurrentRunState = RunState.Failed;
         }
         RefreshStatus();
     }
@@ -576,9 +824,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return newCts.Token;
     }
 
+    /// <summary>Transition to a new run phase (call from code-behind during orchestration).</summary>
+    public void TransitionTo(RunState newState)
+    {
+        CurrentRunState = newState;
+    }
+
     // ═══ EVENTS (for code-behind orchestration wiring) ══════════════════
     public event EventHandler? RunRequested;
     public event EventHandler? RollbackRequested;
+
+    /// <summary>Build a flat key-value config map from current VM state (for diff/export).</summary>
+    public Dictionary<string, string> GetCurrentConfigMap()
+    {
+        return new Dictionary<string, string>
+        {
+            ["sortConsole"] = SortConsole.ToString(),
+            ["aliasKeying"] = AliasKeying.ToString(),
+            ["aggressiveJunk"] = AggressiveJunk.ToString(),
+            ["dryRun"] = DryRun.ToString(),
+            ["useDat"] = UseDat.ToString(),
+            ["datRoot"] = DatRoot ?? "",
+            ["datHashType"] = DatHashType ?? "SHA1",
+            ["convertEnabled"] = ConvertEnabled.ToString(),
+            ["trashRoot"] = TrashRoot ?? "",
+            ["auditRoot"] = AuditRoot ?? "",
+            ["toolChdman"] = ToolChdman ?? "",
+            ["toolDolphin"] = ToolDolphin ?? "",
+            ["tool7z"] = Tool7z ?? "",
+            ["locale"] = Locale ?? "de",
+            ["logLevel"] = LogLevel ?? "Info"
+        };
+    }
 
     // ═══ INPC INFRASTRUCTURE ════════════════════════════════════════════
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -589,7 +866,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return true;
     }
 
-    private void OnPropertyChanged(string? propertyName)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     private void OnRootsChanged(object? sender, NotifyCollectionChangedEventArgs e)

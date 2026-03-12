@@ -220,6 +220,16 @@
 			"type": "shell",
 			"command": "Invoke-Pester -Path \"./dev/tests/integration/WpfSmoke.Tests.ps1\" -Output Detailed",
 			"group": "test"
+		},
+		{
+			"label": "Build Solution",
+			"type": "shell",
+			"command": "dotnet build src/RomCleanup.sln",
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+
 		}
 	]
 }

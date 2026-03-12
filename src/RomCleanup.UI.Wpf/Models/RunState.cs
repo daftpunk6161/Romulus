@@ -1,0 +1,18 @@
+namespace RomCleanup.UI.Wpf.Models;
+
+/// <summary>
+/// Explicit run lifecycle states — replaces implicit IsBusy/CanRollback inference.
+/// </summary>
+public enum RunState
+{
+    Idle,
+    Preflight,
+    Scanning,
+    Deduplicating,
+    Moving,
+    Converting,
+    Completed,
+    CompletedDryRun,
+    Failed,
+    Cancelled
+}

@@ -1,7 +1,7 @@
 namespace RomCleanup.Contracts.Models;
 
 /// <summary>
-/// A single step in a pipeline.
+/// A single step definition in a pipeline (immutable after construction).
 /// </summary>
 public sealed class PipelineStep
 {
@@ -10,9 +10,16 @@ public sealed class PipelineStep
         throw new InvalidOperationException("PipelineStep.Action not configured");
     public Dictionary<string, object> Parameters { get; set; } = new();
     public Func<PipelineStepContext, bool>? Condition { get; set; }
-    public string Status { get; set; } = "Pending";
-    public object? Result { get; set; }
-    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Outcome of executing a single pipeline step.
+/// </summary>
+public sealed class PipelineStepOutcome
+{
+    public string StepName { get; init; } = "";
+    public string Status { get; init; } = "Pending";
+    public string? Error { get; init; }
 }
 
 /// <summary>
@@ -48,5 +55,5 @@ public sealed class PipelineResult
     public int CompletedSteps { get; set; }
     public int FailedSteps { get; set; }
     public int SkippedSteps { get; set; }
-    public List<PipelineStep> Steps { get; set; } = new();
+    public List<PipelineStepOutcome> StepOutcomes { get; set; } = new();
 }

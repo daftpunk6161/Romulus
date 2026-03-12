@@ -35,7 +35,8 @@
     "github.copilot.chat.switchAgent.enabled": false,
     "github.copilot.enable": {
         "powershell": true,
-        "markdown": true
+        "markdown": true,
+        "c#": true
     },
     "chat.agentSessionProjection.enabled": true,
     "chat.requestQueuing.defaultAction": "queue",

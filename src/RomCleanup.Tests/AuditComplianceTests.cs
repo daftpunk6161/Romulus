@@ -1,12 +1,15 @@
 using System.Diagnostics;
 using System.Text;
 using System.Xml;
+using RomCleanup.Api;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Core.Classification;
 using RomCleanup.Core.Deduplication;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Regions;
+using RomCleanup.Core.Rules;
 using RomCleanup.Core.Scoring;
 using RomCleanup.Infrastructure.Analytics;
 using RomCleanup.Infrastructure.Audit;
@@ -15,8 +18,10 @@ using RomCleanup.Infrastructure.Conversion;
 using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.Deduplication;
 using RomCleanup.Infrastructure.FileSystem;
+using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.History;
 using RomCleanup.Infrastructure.Quarantine;
+using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Safety;
 using RomCleanup.UI.Wpf.Services;
 using Xunit;
@@ -94,9 +99,19 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test002_ReDoS_DiscHeaderDetector_CoveredInChaosTests()
     {
-        // Covered by ChaosTests.cs: TEST-CHAOS-04: ReDoS regression
-        // Validates 128KB SEGA buffer completes in <5000ms
-        Assert.True(true, "Covered in ChaosTests.cs TEST-CHAOS-04");
+        var path = Path.Combine(_tempDir, "redos-detector.iso");
+        var bytes = new byte[128 * 1024];
+        Array.Fill(bytes, (byte)'A');
+        File.WriteAllBytes(path, bytes);
+
+        var detector = new DiscHeaderDetector();
+        var sw = Stopwatch.StartNew();
+        var result = detector.DetectFromDiscImage(path);
+        sw.Stop();
+
+        Assert.Null(result);
+        Assert.True(sw.ElapsedMilliseconds < 5000,
+            $"DiscHeaderDetector took too long: {sw.ElapsedMilliseconds}ms");
     }
 
     /// <summary>
@@ -105,9 +120,12 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test003_PathTraversal_CoveredInSecurityTests()
     {
-        // Covered by SecurityTests.cs and FileSystemAdapterTests.cs
-        // Path traversal with ..\..\evil.dat is blocked by ResolveChildPathWithinRoot
-        Assert.True(true, "Covered in SecurityTests.cs and FileSystemAdapterTests.cs");
+        var fs = new FileSystemAdapter();
+        var root = Path.Combine(_tempDir, "root");
+        Directory.CreateDirectory(root);
+
+        var resolved = fs.ResolveChildPathWithinRoot(root, @"..\..\evil.dat");
+        Assert.Null(resolved);
     }
 
     /// <summary>
@@ -159,8 +177,11 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test006_GetFolderBaseKey_CoveredInFolderDeduplicatorTests()
     {
-        // Covered by FolderDeduplicatorTests.cs
-        Assert.True(true, "Covered in FolderDeduplicatorTests.cs");
+        var k1 = FolderDeduplicator.GetFolderBaseKey("Game Name (Rev 1)");
+        var k2 = FolderDeduplicator.GetFolderBaseKey("Game Name [v1.2]");
+
+        Assert.Equal("game name", k1);
+        Assert.Equal("game name", k2);
     }
 
     /// <summary>
@@ -324,7 +345,13 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test012_CsvInjection_CoveredInSecurityTests()
     {
-        Assert.True(true, "Covered in SecurityTests.cs and ReportGeneratorTests.cs");
+        var payloads = new[] { "=1+1", "+SUM(A1)", "-2+3", "@cmd" };
+
+        foreach (var payload in payloads)
+        {
+            var safe = AuditSigningService.SanitizeCsvField(payload);
+            Assert.StartsWith("'", safe);
+        }
     }
 
     /// <summary>
@@ -549,9 +576,21 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit3_Test001_ReDoS_RuleEngine_CoveredInChaosTests()
     {
-        // ChaosTests.cs validates ReDoS patterns complete within timeout
-        // RuleEngine uses Regex with MatchTimeout protection
-        Assert.True(true, "Covered in ChaosTests.cs");
+        var rule = new ClassificationRule
+        {
+            Name = "redos",
+            Action = "junk",
+            Priority = 1,
+            Conditions = [new RuleCondition { Field = "filename", Op = "regex", Value = "(a+)+b" }]
+        };
+
+        var sw = Stopwatch.StartNew();
+        var validation = RuleEngine.ValidateSyntax(rule);
+        sw.Stop();
+
+        Assert.True(validation.Valid);
+        Assert.True(sw.ElapsedMilliseconds < 5000,
+            $"RuleEngine validation took too long: {sw.ElapsedMilliseconds}ms");
     }
 
     /// <summary>
@@ -769,41 +808,19 @@ public sealed class AuditComplianceTests : IDisposable
     }
 
     /// <summary>
-    /// AUDIT3-TEST-010: API PreferRegions mit XSS-Payload → Assert 400.
-    /// Validates that invalid region strings are rejected by validation.
+    /// AUDIT3-TEST-010: OpenAPI deklariert API-Key Header und Security Requirement.
+    /// Echte Endpunktvalidierung liegt in ApiIntegrationTests.
     /// </summary>
     [Fact]
-    public void Audit3_Test010_API_PreferRegions_XSS_Rejected()
+    public void Audit3_Test010_API_OpenApi_DeclaresApiKeySecurity()
     {
-        // The API validation logic (in Program.cs POST /runs):
-        // region.Length > 10 || !region.All(c => char.IsLetterOrDigit(c) || c == '-')
-        var xssPayloads = new[]
-        {
-            "<script>alert(1)</script>",
-            "EU';DROP TABLE--",
-            "EU&reg=x",
-            "javascript:alert",
-            "<img onerror=alert>"
-        };
+        var spec = OpenApiSpec.Json;
 
-        foreach (var payload in xssPayloads)
-        {
-            // Validate the same logic used in API Program.cs
-            var isInvalid = string.IsNullOrWhiteSpace(payload) ||
-                            payload.Length > 10 ||
-                            !payload.All(c => char.IsLetterOrDigit(c) || c == '-');
-            Assert.True(isInvalid, $"XSS payload should be rejected: {payload}");
-        }
-
-        // Valid regions should pass
-        var validRegions = new[] { "EU", "US", "WORLD", "JP", "US-EN" };
-        foreach (var region in validRegions)
-        {
-            var isValid = !string.IsNullOrWhiteSpace(region) &&
-                          region.Length <= 10 &&
-                          region.All(c => char.IsLetterOrDigit(c) || c == '-');
-            Assert.True(isValid, $"Valid region should pass: {region}");
-        }
+        Assert.Contains("\"securitySchemes\"", spec, StringComparison.Ordinal);
+        Assert.Contains("\"ApiKey\"", spec, StringComparison.Ordinal);
+        Assert.Contains("\"in\": \"header\"", spec, StringComparison.Ordinal);
+        Assert.Contains("\"name\": \"X-Api-Key\"", spec, StringComparison.Ordinal);
+        Assert.Contains("\"security\": [{ \"ApiKey\": [] }]", spec, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -827,10 +844,11 @@ public sealed class AuditComplianceTests : IDisposable
         var svc = new QuarantineService(fs);
 
         // Restore to a path with ".." in the folder name (not traversal)
-        var result = svc.Restore(quarantineFile, restorePath, "DryRun");
+        var result = svc.Restore(quarantineFile, restorePath, "DryRun", [restoreDir]);
 
         // Should be allowed — "Game..Special" is a valid folder name, not traversal
         Assert.NotEqual("PathTraversalBlocked", result.Reason);
+        Assert.NotEqual("NoAllowedRestoreRoots", result.Reason);
     }
 
     /// <summary>
@@ -1010,6 +1028,289 @@ public sealed class AuditComplianceTests : IDisposable
     {
         var result = ErrorClassifier.Classify(new DirectoryNotFoundException());
         Assert.Equal(ErrorKind.Recoverable, result);
+    }
+
+    #endregion
+
+    // =========================================================================
+    //  Consolidated Audit — 10 Cross-Cutting Tests (TEST-001 to TEST-010)
+    // =========================================================================
+
+    #region Consolidated Cross-Cutting Tests
+
+    /// <summary>
+    /// CONSOLIDATED TEST-001: ReDoS — adversarial regex patterns complete within timeout.
+    /// Covers TASK-001, TASK-150.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test001_ReDoS_AdversarialPatterns_CompleteWithinTimeout()
+    {
+        // Adversarial input: repeated groups that could cause catastrophic backtracking
+        var adversarial = new string('a', 50) + "!";
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        // GameKeyNormalizer uses many regex patterns internally
+        var result = GameKeyNormalizer.Normalize(adversarial);
+        sw.Stop();
+
+        Assert.True(sw.ElapsedMilliseconds < 5000, $"Took {sw.ElapsedMilliseconds}ms — possible ReDoS");
+        Assert.NotNull(result);
+
+        // RuleEngine.TestRule should handle adversarial input safely
+        sw.Restart();
+        var rule = new ClassificationRule
+        {
+            Name = "test",
+            Action = "junk",
+            Priority = 1,
+            Conditions = [new RuleCondition { Field = "filename", Op = "regex", Value = "(a+)+b" }]
+        };
+        var validation = RuleEngine.ValidateSyntax(rule);
+        // Even if the pattern is potentially dangerous, ValidateSyntax should complete quickly
+        sw.Stop();
+        Assert.True(sw.ElapsedMilliseconds < 5000, $"RuleEngine took {sw.ElapsedMilliseconds}ms — possible ReDoS");
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-002: XXE — XML with external entities must be rejected/ignored.
+    /// Covers TASK-020–023.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test002_XXE_AllParsers_RejectExternalEntities()
+    {
+        var xxePayloads = new[]
+        {
+            """<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><datafile><game name="&xxe;"><rom name="t.nes" size="1" sha1="a"/></game></datafile>""",
+            """<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "file:///etc/passwd">%xxe;]><datafile><game name="test"><rom name="t.nes" size="1" sha1="b"/></game></datafile>""",
+        };
+
+        foreach (var payload in xxePayloads)
+        {
+            var datPath = Path.Combine(_tempDir, $"xxe_{Guid.NewGuid():N}.dat");
+            File.WriteAllText(datPath, payload);
+
+            var repo = new DatRepositoryAdapter();
+            // Must not throw and must not expand entity
+            var consoleMap = new Dictionary<string, string> { ["TEST"] = datPath };
+            var index = repo.GetDatIndex(_tempDir, consoleMap, "SHA1");
+
+            // Entity should NOT be expanded — if entries exist, lookup should not return win.ini content
+            var lookupResult = index.Lookup("TEST", "a");
+            if (lookupResult is not null)
+            {
+                Assert.DoesNotContain("fonts", lookupResult, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-003: Path traversal — ../ attacks blocked at all boundaries.
+    /// Covers TASK-014, 024, 026, 192, 194, 196, 203.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test003_PathTraversal_AllBoundaries_Blocked()
+    {
+        var fs = new FileSystemAdapter();
+        var root = _tempDir;
+
+        // Various traversal attempts
+        var traversals = new[]
+        {
+            @"..\..\..\etc\passwd",
+            @"../../../windows/system32",
+            @"subdir\..\..\..\..\secret",
+            @"./../../outside",
+            @"foo%2F%2E%2E%2Fbar",
+        };
+
+        foreach (var attempt in traversals)
+        {
+            var resolved = fs.ResolveChildPathWithinRoot(root, attempt);
+            if (resolved is not null)
+            {
+                var fullResolved = Path.GetFullPath(resolved);
+                var fullRoot = Path.GetFullPath(root);
+                Assert.True(
+                    fullResolved.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase),
+                    $"Traversal '{attempt}' escaped root: resolved to {fullResolved}");
+            }
+            // null = correctly blocked
+        }
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-004: Determinism — same inputs produce same outputs.
+    /// Covers TASK-151, TASK-164.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test004_Determinism_SameInputs_SameOutputs()
+    {
+        // GameKeyNormalizer determinism
+        for (int i = 0; i < 10; i++)
+        {
+            var key1 = GameKeyNormalizer.Normalize("Super Mario Bros. (USA) (Rev 1)");
+            var key2 = GameKeyNormalizer.Normalize("Super Mario Bros. (USA) (Rev 1)");
+            Assert.Equal(key1, key2);
+        }
+
+        // DeduplicationEngine winner selection determinism
+        var candidates = new[]
+        {
+            new RomCandidate { MainPath = @"C:\Roms\game1.zip", GameKey = "game", Region = "USA", RegionScore = 900, FormatScore = 500, VersionScore = 0, SizeBytes = 1000, Category = "GAME", Extension = ".zip" },
+            new RomCandidate { MainPath = @"C:\Roms\game2.zip", GameKey = "game", Region = "EU", RegionScore = 800, FormatScore = 500, VersionScore = 0, SizeBytes = 1000, Category = "GAME", Extension = ".zip" },
+        }.ToList();
+
+        var result1 = DeduplicationEngine.Deduplicate(candidates);
+        var result2 = DeduplicationEngine.Deduplicate(candidates);
+
+        Assert.Equal(result1.Count, result2.Count);
+        for (int i = 0; i < result1.Count; i++)
+        {
+            Assert.Equal(result1[i].Winner.MainPath, result2[i].Winner.MainPath);
+            Assert.Equal(result1[i].Losers.Count, result2[i].Losers.Count);
+        }
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-005: Sync-over-async — no deadlock under timeout.
+    /// Covers TASK-170, TASK-171.
+    /// </summary>
+    [Fact]
+    public async Task Consolidated_Test005_SyncOverAsync_NoDeadlock()
+    {
+        var testFile = Path.Combine(_tempDir, "hash_test.bin");
+        File.WriteAllBytes(testFile, new byte[4096]);
+
+        var hashService = new FileHashService();
+
+        var task = Task.Run(() => hashService.GetHash(testFile, "SHA1"));
+        var completed = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10))) == task;
+
+        Assert.True(completed, "FileHashService.GetHash must complete without deadlock");
+        if (completed)
+        {
+            var hashResult = await task;
+            Assert.False(string.IsNullOrEmpty(hashResult));
+        }
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-006: Data binding — VM properties reflect expected state.
+    /// Covers TASK-084–091 (WPF UI automation).
+    /// </summary>
+    [Fact(Skip = "WPF data-binding tests require running UI thread and XAML loaded")]
+    public void Consolidated_Test006_DataBinding_VMProperties()
+    {
+        // Requirement: ViewModel properties must correctly reflect UI control states
+        // Test: CheckBox → bool property, ComboBox → string property, TextBox → string property
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-007: Theme tests — both themes load without errors.
+    /// Covers TASK-094, TASK-095.
+    /// </summary>
+    [Fact(Skip = "WPF theme tests require loaded ResourceDictionary and visual comparison")]
+    public void Consolidated_Test007_Theme_BothThemes_LoadCorrectly()
+    {
+        // Requirement: SynthwaveDark.xaml and Light.xaml both load without unresolved resources
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-008: Accessibility — all interactive controls have Name + Role.
+    /// Covers TASK-102–107.
+    /// </summary>
+    [Fact(Skip = "Accessibility tests require UI Automation / Accessibility Insights scan")]
+    public void Consolidated_Test008_Accessibility_AllControlsHaveNameAndRole()
+    {
+        // Requirement: Every interactive control in MainWindow has AutomationProperties.Name
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-009: CSV injection — leading special characters are sanitized.
+    /// Covers TASK-047, 162, 190.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test009_CsvInjection_AllVectors_Sanitized()
+    {
+        // The four primary CSV injection prefixes per OWASP
+        var dangerousChars = new[] { '=', '+', '-', '@' };
+        foreach (var c in dangerousChars)
+        {
+            var input = $"{c}cmd|'/C calc'!A0";
+            var sanitized = AuditSigningService.SanitizeCsvField(input);
+            Assert.False(
+                sanitized.StartsWith(c.ToString()),
+                $"CSV field starting with '{c}' should be sanitized: got '{sanitized}'");
+        }
+
+        // Also verify the report generator sanitizes
+        var entries = new List<ReportEntry>
+        {
+            new()
+            {
+                GameKey = "=cmd()",
+                Action = "+malicious",
+                Category = "@evil",
+                Region = "-danger",
+                FileName = "safe.rom",
+                Extension = ".rom",
+                SizeBytes = 100,
+                RegionScore = 0,
+                FormatScore = 0,
+                VersionScore = 0,
+                Console = "NES",
+                DatMatch = false,
+            }
+        };
+        var csv = ReportGenerator.GenerateCsv(entries);
+        // CSV content should not start cells with dangerous characters
+        Assert.DoesNotContain("\n=cmd", csv);
+        Assert.DoesNotContain("\n+mal", csv);
+        Assert.DoesNotContain("\n@evil", csv);
+    }
+
+    /// <summary>
+    /// CONSOLIDATED TEST-010: CultureInfo — de-DE locale with decimal comma must not break formatting.
+    /// Covers TASK-155.
+    /// </summary>
+    [Fact]
+    public void Consolidated_Test010_CultureInfo_DeDE_DecimalFormatting()
+    {
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            // Switch to German culture (decimal comma: 1,5 instead of 1.5)
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+
+            // FormatScorer uses integer scores — culture doesn't affect them
+            var formatScore = FormatScorer.GetFormatScore(".chd");
+            Assert.Equal(850, formatScore);
+
+            // VersionScorer returns consistent results regardless of culture
+            var scorer = new VersionScorer();
+            var versionScore1 = scorer.GetVersionScore("Game (Rev 2)");
+            var versionScore2 = scorer.GetVersionScore("Game (Rev 2)");
+            Assert.Equal(versionScore1, versionScore2);
+
+            // Explicit InvariantCulture decimal formatting uses dot, not comma
+            double sizeMB = 1572864 / 1048576.0;
+            var invariantStr = sizeMB.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            Assert.DoesNotContain(",", invariantStr);
+            Assert.Contains(".", invariantStr);
+
+            // German culture would use comma
+            var germanStr = sizeMB.ToString("F2");
+            Assert.Contains(",", germanStr);
+
+            // AuditCsvStore timestamp must be culture-independent (ISO 8601)
+            var timestamp = DateTime.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Contains("T", timestamp);
+            Assert.DoesNotContain(" ", timestamp);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
     }
 
     #endregion

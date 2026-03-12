@@ -205,7 +205,7 @@ public sealed class RunOrchestrator
                     continue;
 
                 var ext = Path.GetExtension(group.Winner.MainPath).ToLowerInvariant();
-                var consoleKey = group.Winner.Type ?? "";
+                var consoleKey = group.Winner.ConsoleKey ?? "";
                 var target = _converter.GetTargetFormat(consoleKey, ext);
                 if (target is not null)
                 {
@@ -299,7 +299,7 @@ public sealed class RunOrchestrator
                     SizeBytes = sizeBytes,
                     Extension = ext,
                     DatMatch = datMatch,
-                    Type = consoleKey
+                    ConsoleKey = consoleKey
                 });
             }
         }

@@ -31,7 +31,7 @@
     <DataTemplate x:Key="RootItemTemplate">
       <StackPanel Orientation="Horizontal">
         <TextBlock Text="&#xE8B7; " FontFamily="Segoe MDL2 Assets" FontSize="14"
-                   Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                   Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
         <TextBlock Text="{Binding}" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
       </StackPanel>
     </DataTemplate>
@@ -55,51 +55,54 @@
     <!-- ═══ TOP STATUS BAR ════════════════════════════════════════════════ -->
     <Border DockPanel.Dock="Top"
             Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="0,0,0,1" Padding="12,8">
+            BorderThickness="0,0,0,1" Padding="{DynamicResource PaddingBar}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-          <ComboBox x:Name="cmbQuickProfile" Width="160" Margin="4,0,4,0"
-                    ToolTip="Konfigurationsprofil schnell wechseln" IsEditable="False">
+          <ComboBox x:Name="cmbQuickProfile" Width="160" Margin="{DynamicResource SpaceDotInline}"
+                    ToolTip="Konfigurationsprofil schnell wechseln" IsEditable="False"
+                    AutomationProperties.Name="Konfigurationsprofil">
             <ComboBoxItem Content="Standard" IsSelected="True"/>
             <ComboBoxItem Content="Disc (CHD)"/>
             <ComboBoxItem Content="Cartridge (ZIP)"/>
             <ComboBoxItem Content="Gemischt"/>
           </ComboBox>
           <Button Command="{Binding OpenReportCommand}" ToolTip="Letzten Bericht öffnen (Ctrl+R)" Margin="4,0,8,0"
-                  AutomationProperties.Name="Letzten Bericht öffnen">
+                  AutomationProperties.Name="Letzten Bericht öffnen"
+                  AutomationProperties.AcceleratorKey="Ctrl+R">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" FontSize="14" Margin="0,0,8,0"/>
-              <TextBlock Text="Bericht"/>
+              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" FontSize="14" Margin="{DynamicResource SpaceRightSM}"/>
+              <TextBlock Text="_Bericht"/>
             </StackPanel>
           </Button>
         </StackPanel>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
           <TextBlock Text="ROM CLEANUP" Style="{StaticResource TitleText}"
                      VerticalAlignment="Center" Margin="8,0,24,0"/>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
           <!-- Status dots bound to ViewModel StatusLevel via converter -->
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="4,0,4,0"
+          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
                    Fill="{Binding RootsStatusLevel, Converter={StaticResource StatusToBrush}}"
                    ToolTip="ROM-Ordner: Grün = konfiguriert, Grau = fehlt"/>
           <TextBlock Text="{Binding StatusRoots}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11"/>
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="4,0,4,0"
+                     VerticalAlignment="Center" Margin="{DynamicResource SpaceRightMD}" FontSize="11"/>
+          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
                    Fill="{Binding ToolsStatusLevel, Converter={StaticResource StatusToBrush}}"
                    ToolTip="Tools: Grün = chdman/7z gefunden, Grau = fehlt"/>
           <TextBlock Text="{Binding StatusTools}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" Margin="0,0,12,0" FontSize="11"/>
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="4,0,4,0"
+                     VerticalAlignment="Center" Margin="{DynamicResource SpaceRightMD}" FontSize="11"/>
+          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
                    Fill="{Binding DatStatusLevel, Converter={StaticResource StatusToBrush}}"
                    ToolTip="DAT-Verifizierung: Grün = aktiv, Grau = deaktiviert"/>
           <TextBlock Text="{Binding StatusDat}" Foreground="{DynamicResource BrushTextMuted}"
                      VerticalAlignment="Center" FontSize="11"/>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="12,0,8,0"/>
-          <Ellipse Width="14" Height="14" VerticalAlignment="Center" Margin="4,0,4,0"
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
+          <Ellipse Width="14" Height="14" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
                    Fill="{Binding ReadyStatusLevel, Converter={StaticResource StatusToBrush}}"
                    ToolTip="Gesamtstatus: Grün = startbereit, Gelb = Warnung, Rot = blockiert"/>
           <TextBlock Text="{Binding StatusReady}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" FontSize="11"/>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="12,0,8,0"/>
+                     VerticalAlignment="Center" FontSize="11"
+                     AutomationProperties.Name="Gesamtstatus" AutomationProperties.LiveSetting="Polite"/>
+          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
           <TextBlock Text="{Binding StatusRuntime}" Foreground="{DynamicResource BrushTextMuted}"
                      VerticalAlignment="Center" FontSize="11"/>
         </StackPanel>
@@ -109,47 +112,51 @@
     <!-- ═══ FOOTER ACTION BAR ═════════════════════════════════════════════ -->
     <Border DockPanel.Dock="Bottom"
             Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="0,1,0,0" Padding="12,8">
+            BorderThickness="0,1,0,0" Padding="{DynamicResource PaddingBar}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
           <ProgressBar MinWidth="120" Width="200" Height="8" Maximum="100"
-                       Value="{Binding Progress}" Margin="8,0,0,0" VerticalAlignment="Center"
+                       Value="{Binding Progress}" Margin="{DynamicResource SpaceLeftSM}" VerticalAlignment="Center"
                        AutomationProperties.Name="Fortschritt" AutomationProperties.LiveSetting="Polite"/>
           <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                     VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"
+                     AutomationProperties.Name="Fortschrittstext" AutomationProperties.LiveSetting="Polite"/>
         </StackPanel>
         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
           <!-- Start -->
           <Button Command="{Binding RunCommand}" Style="{StaticResource PrimaryButton}"
-                  Width="140" Height="52" Margin="0,0,4,0"
-                  ToolTip="Sortierung starten (F5)" AutomationProperties.Name="Sortierung starten" TabIndex="1">
+                  Width="140" Height="52" Margin="{DynamicResource SpaceRightXS}"
+                  ToolTip="Sortierung starten (F5)" AutomationProperties.Name="Sortierung starten"
+                  AutomationProperties.AcceleratorKey="F5" TabIndex="1">
             <StackPanel HorizontalAlignment="Center">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="20" HorizontalAlignment="Center"/>
-              <TextBlock Text="Starten" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+              <TextBlock Text="_Starten" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             </StackPanel>
           </Button>
           <!-- Cancel -->
           <Button Command="{Binding CancelCommand}" Style="{StaticResource DangerButton}"
-                  Width="60" Height="52" Margin="0,0,4,0"
+                  Width="60" Height="52" Margin="{DynamicResource SpaceRightXS}"
+                  AutomationProperties.AcceleratorKey="Esc"
                   ToolTip="Lauf abbrechen (Esc)" AutomationProperties.Name="Lauf abbrechen" TabIndex="2">
             <StackPanel HorizontalAlignment="Center">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" FontSize="20" HorizontalAlignment="Center"/>
-              <TextBlock Text="Stopp" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+              <TextBlock Text="S_topp" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             </StackPanel>
           </Button>
-          <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="8,0,8,0"/>
+          <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
           <!-- Rollback -->
           <Button Command="{Binding RollbackCommand}"
-                  Width="110" Height="52" Margin="0,0,4,0"
+                  Width="110" Height="52" Margin="{DynamicResource SpaceRightXS}"
                   BorderBrush="{DynamicResource BrushAccentPurple}" Foreground="{DynamicResource BrushAccentPurple}"
+                  AutomationProperties.AcceleratorKey="Ctrl+Z"
                   Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
                   ToolTip="Letzten Lauf rückgängig machen (Ctrl+Z)" AutomationProperties.Name="Letzten Lauf rückgängig machen" TabIndex="3">
             <StackPanel HorizontalAlignment="Center">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE777;" FontSize="20" HorizontalAlignment="Center"/>
-              <TextBlock Text="Rückgängig" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+              <TextBlock Text="_Rückgängig" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             </StackPanel>
           </Button>
-          <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="8,0,8,0"/>
+          <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
           <TextBlock Text="{Binding BusyHint}" Style="{StaticResource CaptionText}"
                      VerticalAlignment="Center" Margin="4,0"/>
         </WrapPanel>
@@ -166,7 +173,7 @@
 
             <!-- Step Indicator -->
             <Border Background="{DynamicResource BrushSurface}" BorderBrush="{DynamicResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,12">
+                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="{DynamicResource SpaceBottomMD}">
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*"/>
@@ -177,37 +184,38 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot1" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=1}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=1}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="1 · Ordner" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StepLabel1}" Style="{StaticResource CaptionText}"/>
                   </StackPanel>
                 </StackPanel>
                 <Border Grid.Column="1" Height="2" Width="32" VerticalAlignment="Center"
-                        Background="{DynamicResource BrushBorder}" Margin="4,0"/>
+                        Background="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=2}" Margin="4,0"/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot2" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=2}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="2 · Optionen" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
                     <TextBlock Text="{Binding StepLabel2}" Style="{StaticResource CaptionText}"/>
                   </StackPanel>
                 </StackPanel>
                 <Border Grid.Column="3" Height="2" Width="32" VerticalAlignment="Center"
-                        Background="{DynamicResource BrushBorder}" Margin="4,0"/>
+                        Background="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=3}" Margin="4,0"/>
                 <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
                   <Ellipse x:Name="stepDot3" Width="22" Height="22" Stroke="{DynamicResource BrushBorder}"
-                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=3}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                           StrokeThickness="2" Fill="{Binding CurrentStep, Converter={StaticResource StepToBrush}, ConverterParameter=3}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="3 · Starten" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
-                    <TextBlock Text="{Binding StepLabel3}" Style="{StaticResource CaptionText}"/>
+                    <TextBlock Text="{Binding StepLabel3}" Style="{StaticResource CaptionText}"
+                               AutomationProperties.Name="Aktueller Schritt" AutomationProperties.LiveSetting="Polite"/>
                   </StackPanel>
                 </StackPanel>
               </Grid>
             </Border>
 
             <!-- Quick-Start Presets -->
-            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+            <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomSM}">
               <StackPanel>
                 <TextBlock Text="QUICK-START" Style="{StaticResource SectionHeader}"/>
                 <WrapPanel>
@@ -236,30 +244,49 @@
               </StackPanel>
             </Border>
 
-            <!-- Mode Toggle -->
-            <Border CornerRadius="4" BorderBrush="{DynamicResource BrushBorder}"
-                    BorderThickness="1" Margin="0,0,0,8" HorizontalAlignment="Left">
-              <StackPanel Orientation="Horizontal">
-                <RadioButton Content="Einfach" GroupName="UiMode"
-                             IsChecked="{Binding IsSimpleMode}" Padding="12,4" MinWidth="70" Cursor="Hand"
-                             ToolTip="Vereinfachte Ansicht: nur die wichtigsten Optionen"/>
-                <RadioButton Content="Experte" GroupName="UiMode"
-                             IsChecked="{Binding IsExpertMode, Mode=OneWay}" Padding="12,4" MinWidth="70" Cursor="Hand"
-                             ToolTip="Alle Konfigurationsoptionen anzeigen"/>
-              </StackPanel>
+            <!-- Mode Toggle (UX-006: prominent segmented control) -->
+            <Border CornerRadius="6" BorderBrush="{DynamicResource BrushAccentCyan}"
+                    BorderThickness="1.5" Margin="{DynamicResource SpaceBottomSM}" HorizontalAlignment="Left"
+                    Background="{DynamicResource BrushSurface}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <RadioButton Grid.Column="0" GroupName="UiMode"
+                             IsChecked="{Binding IsSimpleMode}" Padding="16,8" MinWidth="120" Cursor="Hand"
+                             ToolTip="Vereinfachte Ansicht: nur die wichtigsten 4 Optionen"
+                             AutomationProperties.Name="Einfacher Modus">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8FC;" FontSize="14"
+                               VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
+                    <TextBlock Text="_Einfach" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </RadioButton>
+                <RadioButton Grid.Column="1" GroupName="UiMode"
+                             IsChecked="{Binding IsExpertMode, Mode=OneWay}" Padding="16,8" MinWidth="120" Cursor="Hand"
+                             ToolTip="Alle Konfigurationsoptionen anzeigen (Regionen, Filter, Konvertierung)"
+                             AutomationProperties.Name="Experten-Modus">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="14"
+                               VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
+                    <TextBlock Text="E_xperte" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </RadioButton>
+              </Grid>
             </Border>
 
             <!-- ROM Directories -->
             <Border Style="{StaticResource SectionCard}">
               <StackPanel>
                 <TextBlock Text="ROM-VERZEICHNISSE" Style="{StaticResource SectionHeader}"/>
-                <Grid Margin="0,0,0,4">
+                <Grid Margin="{DynamicResource SpaceBottomXS}">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
                   <Grid Grid.Column="0">
-                    <ListBox x:Name="listRoots" MinHeight="90" MaxHeight="200" Margin="0,0,8,0"
+                    <ListBox x:Name="listRoots" MinHeight="60" MaxHeight="280" Margin="{DynamicResource SpaceRightSM}"
                              ItemsSource="{Binding Roots}"
                              SelectedItem="{Binding SelectedRoot}"
                              AllowDrop="True"
@@ -267,10 +294,16 @@
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              ScrollViewer.CanContentScroll="True"
-                             ToolTip="ROM-Ordner hier hineinziehen (Drag &amp; Drop)"/>
+                             ToolTip="ROM-Ordner hier hineinziehen (Drag &amp; Drop)"
+                             TabIndex="10"
+                             AutomationProperties.Name="ROM-Verzeichnisliste">
+                      <ListBox.InputBindings>
+                        <KeyBinding Key="Delete" Command="{Binding RemoveRootCommand}"/>
+                      </ListBox.InputBindings>
+                    </ListBox>
                     <!-- Empty-State Overlay -->
                     <Border IsHitTestVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center"
-                            Margin="0,0,8,0"
+                            Margin="{DynamicResource SpaceRightSM}"
                             Visibility="{Binding RootsStatusLevel, Converter={StaticResource InverseBoolToVis}, ConverterParameter=Ok}">
                       <Border.Style>
                         <Style TargetType="Border">
@@ -285,7 +318,7 @@
                       <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="28"
                                    Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"
-                                   Margin="0,0,0,8" Opacity="0.6"/>
+                                   Margin="{DynamicResource SpaceBottomSM}" Opacity="0.6"/>
                         <TextBlock Text="ROM-Ordner hierher ziehen" FontSize="12"
                                    Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"/>
                         <TextBlock Text="oder mit '+' hinzufügen" Style="{StaticResource CaptionText}"
@@ -294,10 +327,12 @@
                     </Border>
                   </Grid>
                   <StackPanel Grid.Column="1" VerticalAlignment="Top" Width="118">
-                    <Button Command="{Binding AddRootCommand}" Content="＋ Hinzufügen" Margin="0,0,0,4" HorizontalAlignment="Stretch"
-                            ToolTip="Neuen ROM-Ordner zur Liste hinzufügen" AutomationProperties.Name="ROM-Ordner hinzufügen"/>
-                    <Button Command="{Binding RemoveRootCommand}" Content="－ Entfernen" Margin="0,0,0,4" HorizontalAlignment="Stretch"
-                            ToolTip="Ausgewählten ROM-Ordner entfernen (Entf)" AutomationProperties.Name="ROM-Ordner entfernen"/>
+                    <Button Command="{Binding AddRootCommand}" Content="＋ _Hinzufügen" Margin="{DynamicResource SpaceBottomXS}" HorizontalAlignment="Stretch"
+                            ToolTip="Neuen ROM-Ordner zur Liste hinzufügen" AutomationProperties.Name="ROM-Ordner hinzufügen"
+                            TabIndex="11"/>
+                    <Button Command="{Binding RemoveRootCommand}" Content="－ _Entfernen" Margin="{DynamicResource SpaceBottomXS}" HorizontalAlignment="Stretch"
+                            ToolTip="Ausgewählten ROM-Ordner entfernen (Entf)" AutomationProperties.Name="ROM-Ordner entfernen"
+                            TabIndex="12"/>
                   </StackPanel>
                 </Grid>
               </StackPanel>
@@ -307,20 +342,21 @@
             <Border Style="{StaticResource SectionCard}"
                     Visibility="{Binding IsSimpleMode, Converter={StaticResource BoolToVis}}">
               <StackPanel>
-                <TextBlock Text="SCHNELLSTART" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                <StackPanel Margin="0,0,0,8">
-                  <TextBlock Text="Region:" Margin="0,0,0,4" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
+                <TextBlock Text="SCHNELLSTART" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
+                <StackPanel Margin="{DynamicResource SpaceBottomSM}">
+                  <TextBlock Text="Region:" Margin="{DynamicResource SpaceBottomXS}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
                   <ComboBox x:Name="cmbEinfachRegion" Width="220" HorizontalAlignment="Left"
                             SelectedIndex="{Binding SimpleRegionIndex}"
-                            ToolTip="Bevorzugte Region: ROMs dieser Region werden bei Duplikaten bevorzugt.">
+                            ToolTip="Bevorzugte Region: ROMs dieser Region werden bei Duplikaten bevorzugt."
+                            AutomationProperties.Name="Bevorzugte Region">
                     <ComboBoxItem Content="Europa (EU)"/>
                     <ComboBoxItem Content="Nordamerika (US)"/>
                     <ComboBoxItem Content="Japan (JP)"/>
                     <ComboBoxItem Content="Weltweit (Alle)"/>
                   </ComboBox>
                 </StackPanel>
-                <StackPanel Margin="0,0,0,8">
-                  <TextBlock Text="Was soll passieren?" Margin="0,0,0,4" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
+                <StackPanel Margin="{DynamicResource SpaceBottomSM}">
+                  <TextBlock Text="Was soll passieren?" Margin="{DynamicResource SpaceBottomXS}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
                   <CheckBox Content="Duplikate erkennen und aussortieren" IsChecked="{Binding SimpleDupes}" Margin="0,2"
                             ToolTip="Erkennt ROMs mit gleichem Spielnamen und behält nur die beste Version (Region, Format, Revision)."/>
                   <CheckBox Content="Junk-Dateien entfernen (Demos, Betas, Hacks)" IsChecked="{Binding SimpleJunk}" Margin="0,2"
@@ -346,6 +382,17 @@
                               IsChecked="{Binding ConvertEnabled}"
                               ToolTip="Aktiviert Format-Konvertierung im Move-Lauf."/>
                   </WrapPanel>
+                  <!-- Conflict Policy (UX-007: replaced YesNoCancel hack) -->
+                  <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                    <TextBlock Text="Namenskollision:" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
+                    <ComboBox Width="160" SelectedIndex="{Binding ConflictPolicyIndex, Mode=TwoWay}"
+                              ToolTip="Wie Dateinamenkollisionen beim Verschieben behandelt werden sollen."
+                              AutomationProperties.Name="Namenskollisions-Strategie">
+                      <ComboBoxItem Content="Umbenennen (_1, _2 …)"/>
+                      <ComboBoxItem Content="Überspringen"/>
+                      <ComboBoxItem Content="Überschreiben"/>
+                    </ComboBox>
+                  </StackPanel>
                   <!-- DryRun Banner -->
                   <Border Margin="0,8,0,0" Padding="12,8"
                           Background="{DynamicResource BrushSuccessBg}" BorderBrush="{DynamicResource BrushSuccess}" BorderThickness="1"
@@ -358,8 +405,10 @@
                       <Button x:Name="btnStartMove" Content="▶ Jetzt als Move ausführen"
                               Margin="16,0,0,0" Padding="12,4" FontWeight="SemiBold"
                               Background="{DynamicResource BrushDangerBg}" Foreground="{DynamicResource BrushDanger}" BorderBrush="{DynamicResource BrushDanger}"
-                              BorderThickness="1" Cursor="Hand" Visibility="Collapsed"
-                              ToolTip="Startet den Lauf erneut im Move-Modus."/>
+                              BorderThickness="1" Cursor="Hand"
+                              Visibility="{Binding ShowStartMoveButton, Converter={StaticResource BoolToVis}}"
+                              ToolTip="Startet den Lauf erneut im Move-Modus."
+                              AutomationProperties.Name="Jetzt als Move ausführen"/>
                     </StackPanel>
                   </Border>
                   <!-- Move Complete Banner -->
@@ -386,15 +435,15 @@
               </Border>
 
               <!-- Danger Zone (collapsed — Move confirmation via styled dialog) -->
-              <Expander Header="Move-Modus (Gefahr)" Foreground="{DynamicResource BrushDanger}" Margin="0,16,0,0"
+              <Expander Header="Move-Modus (Gefahr)" Foreground="{DynamicResource BrushDanger}" Margin="{DynamicResource SpaceTopLG}"
                         Visibility="Collapsed">
                 <Border Background="{DynamicResource BrushDangerBg}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"
                         CornerRadius="8" Padding="12" Margin="0,8,0,0">
                   <StackPanel>
                     <TextBlock Text="⚠ GEFAHR: MOVE-MODUS" FontFamily="Consolas" FontWeight="Bold"
-                               FontSize="10" Foreground="{DynamicResource BrushDanger}" Margin="0,0,0,8"/>
+                               FontSize="10" Foreground="{DynamicResource BrushDanger}" Margin="{DynamicResource SpaceBottomSM}"/>
                     <TextBlock Text="Im Move-Modus werden Duplikate physisch verschoben. Stelle sicher, dass ein korrektes Backup existiert."
-                               Foreground="{DynamicResource BrushDanger}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                               Foreground="{DynamicResource BrushDanger}" FontSize="11" TextWrapping="Wrap" Margin="{DynamicResource SpaceBottomSM}"/>
                     <CheckBox Content="Ich verstehe die Folgen – Move-Modus freischalten"
                               IsChecked="{Binding ConfirmMove}" Foreground="{DynamicResource BrushDanger}"/>
                   </StackPanel>
@@ -414,7 +463,7 @@
           <TabItem Header="Regeln">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
               <StackPanel>
-                <Expander Header="Sortieroptionen" IsExpanded="True" Margin="0,0,0,8">
+                <Expander Header="Sortieroptionen" IsExpanded="True" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="SORTIEROPTIONEN" Style="{StaticResource SectionHeader}"/>
@@ -429,12 +478,12 @@
                       <TextBlock Text="ℹ Diese Optionen sind optional. Für Standardläufe reicht der Sortieren-Tab."
                                  Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
 
-                      <Expander Header="Erweiterte Sortierung &amp; Sicherheit" Margin="0,16,0,0" IsExpanded="False">
+                      <Expander Header="Erweiterte Sortierung &amp; Sicherheit" Margin="{DynamicResource SpaceTopLG}" IsExpanded="False">
                         <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                                 CornerRadius="8" Padding="12" Margin="0,8,0,0">
                           <StackPanel>
                             <!-- Region Priority -->
-                            <Grid Margin="0,0,0,8">
+                            <Grid Margin="{DynamicResource SpaceBottomSM}">
                               <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="110"/>
                                 <ColumnDefinition Width="*"/>
@@ -466,90 +515,62 @@
                               </StackPanel>
                             </Grid>
                             <TextBlock Text="Aktivierte Regionen werden bevorzugt behalten. Nicht aktivierte Regionen werden als Duplikat behandelt."
-                                       Style="{StaticResource CaptionText}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                       Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
 
-                            <!-- File type filters -->
+                            <!-- File type filters (UX-004: VM-bound via ExtensionFilters collection) -->
                             <TextBlock Text="Dateitypen (keine Auswahl = alle Dateitypen scannen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
-                            <StackPanel Margin="0,0,0,8">
-                              <TextBlock Text="Disc-Images" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkExtChd" Content=".chd" Margin="0,0,12,4" ToolTip="CHD Disk-Image"/>
-                                <CheckBox x:Name="chkExtIso" Content=".iso" Margin="0,0,12,4" ToolTip="ISO-Abbild"/>
-                                <CheckBox x:Name="chkExtCue" Content=".cue" Margin="0,0,12,4" ToolTip="CUE Steuerdatei"/>
-                                <CheckBox x:Name="chkExtGdi" Content=".gdi" Margin="0,0,12,4" ToolTip="GDI (Dreamcast)"/>
-                                <CheckBox x:Name="chkExtImg" Content=".img" Margin="0,0,12,4" ToolTip="IMG Disk-Image"/>
-                                <CheckBox x:Name="chkExtBin" Content=".bin" Margin="0,0,12,4" ToolTip="BIN (CD-Image)"/>
-                                <CheckBox x:Name="chkExtCso" Content=".cso" Margin="0,0,12,4" ToolTip="Compressed ISO (PSP)"/>
-                                <CheckBox x:Name="chkExtPbp" Content=".pbp" Margin="0,0,12,4" ToolTip="PBP-Paket (PSP)"/>
-                              </WrapPanel>
-                              <TextBlock Text="Archive" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkExtZip" Content=".zip" Margin="0,0,12,4" ToolTip="ZIP-Archiv"/>
-                                <CheckBox x:Name="chkExt7z"  Content=".7z"  Margin="0,0,12,4" ToolTip="7-Zip-Archiv"/>
-                                <CheckBox x:Name="chkExtRar" Content=".rar" Margin="0,0,12,4" ToolTip="RAR-Archiv"/>
-                              </WrapPanel>
-                              <TextBlock Text="Cartridge / Modern" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkExtNes"  Content=".nes"  Margin="0,0,12,4" ToolTip="NES ROM"/>
-                                <CheckBox x:Name="chkExtGba"  Content=".gba"  Margin="0,0,12,4" ToolTip="Game Boy Advance ROM"/>
-                                <CheckBox x:Name="chkExtNds"  Content=".nds"  Margin="0,0,12,4" ToolTip="Nintendo DS ROM"/>
-                                <CheckBox x:Name="chkExtNsp"  Content=".nsp"  Margin="0,0,12,4" ToolTip="NSP (Nintendo Switch)"/>
-                                <CheckBox x:Name="chkExtXci"  Content=".xci"  Margin="0,0,12,4" ToolTip="XCI Cartridge-Image"/>
-                                <CheckBox x:Name="chkExtWbfs" Content=".wbfs" Margin="0,0,12,4" ToolTip="WBFS (Wii Backup)"/>
-                                <CheckBox x:Name="chkExtRvz"  Content=".rvz"  Margin="0,0,12,4" ToolTip="RVZ (GC/Wii, Dolphin)"/>
-                              </WrapPanel>
-                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding ExtensionFiltersView}" Margin="{DynamicResource SpaceBottomSM}">
+                              <ItemsControl.GroupStyle>
+                                <GroupStyle>
+                                  <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                      <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
+                                    </DataTemplate>
+                                  </GroupStyle.HeaderTemplate>
+                                  <GroupStyle.Panel>
+                                    <ItemsPanelTemplate>
+                                      <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                  </GroupStyle.Panel>
+                                </GroupStyle>
+                              </ItemsControl.GroupStyle>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <CheckBox Content="{Binding Extension}" IsChecked="{Binding IsChecked}"
+                                            ToolTip="{Binding ToolTip}" Margin="0,0,12,4"/>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                            <!-- Console filters -->
+                            <!-- Console filters (VM-bound via ConsoleFiltersView) -->
                             <TextBlock Text="Konsolen (keine Auswahl = alle Konsolen):" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" Margin="0,4,0,4"/>
-                            <StackPanel Margin="0,0,0,4">
-                              <TextBlock Text="Sony" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkConsPS1"  Content="PlayStation"   Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsPS2"  Content="PlayStation 2" Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsPS3"  Content="PlayStation 3" Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsPSP"  Content="PSP"           Margin="0,0,12,4"/>
-                              </WrapPanel>
-                              <TextBlock Text="Nintendo" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkConsNES"    Content="NES / Famicom"        Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsSNES"   Content="SNES / Super Famicom" Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsN64"    Content="Nintendo 64"          Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsGC"     Content="GameCube"             Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsWII"    Content="Wii"                  Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsWIIU"   Content="Wii U"                Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsSWITCH" Content="Nintendo Switch"      Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsGB"     Content="Game Boy"             Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsGBC"    Content="Game Boy Color"       Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsGBA"    Content="Game Boy Advance"     Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsNDS"    Content="Nintendo DS"          Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkCons3DS"    Content="Nintendo 3DS"         Margin="0,0,12,4"/>
-                              </WrapPanel>
-                              <TextBlock Text="Sega" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkConsMD"  Content="Mega Drive / Genesis" Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsSCD" Content="Mega-CD / Sega CD"    Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsSAT" Content="Saturn"               Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsDC"  Content="Dreamcast"            Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsSMS" Content="Master System"        Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsGG"  Content="Game Gear"            Margin="0,0,12,4"/>
-                              </WrapPanel>
-                              <TextBlock Text="Andere" Style="{StaticResource CategoryHeader}"/>
-                              <WrapPanel>
-                                <CheckBox x:Name="chkConsARCADE" Content="Arcade / MAME / FBNeo"     Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsNEOGEO" Content="Neo Geo"                    Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsNEOCD"  Content="Neo Geo CD"                 Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsPCE"    Content="PC Engine / TurboGrafx-16"  Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsPCECD"  Content="PC Engine CD"               Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsDOS"    Content="DOS / PC"                   Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkCons3DO"    Content="3DO"                        Margin="0,0,12,4"/>
-                                <CheckBox x:Name="chkConsJAG"    Content="Atari Jaguar"               Margin="0,0,12,4"/>
-                              </WrapPanel>
-                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding ConsoleFiltersView}">
+                              <ItemsControl.GroupStyle>
+                                <GroupStyle>
+                                  <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                      <TextBlock Text="{Binding Name}" Style="{StaticResource CategoryHeader}"/>
+                                    </DataTemplate>
+                                  </GroupStyle.HeaderTemplate>
+                                  <GroupStyle.Panel>
+                                    <ItemsPanelTemplate>
+                                      <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                  </GroupStyle.Panel>
+                                </GroupStyle>
+                              </ItemsControl.GroupStyle>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <CheckBox Content="{Binding DisplayName}"
+                                            IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                            Margin="0,0,12,4"/>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <!-- Safety mode -->
                             <TextBlock Text="SICHERHEITSMODUS" Style="{StaticResource SectionHeader}" Margin="0,12,0,8"/>
-                            <CheckBox Content="Sicherheitsmodus aktiv (strikt + Rückfragen)" Margin="0,0,0,8"
+                            <CheckBox Content="Sicherheitsmodus aktiv (strikt + Rückfragen)" Margin="{DynamicResource SpaceBottomSM}"
                                       IsChecked="{Binding SafetyStrict}"
                                       ToolTip="Kombiniert strikte Sicherheitsregeln und zusätzliche Move-Bestätigungen."/>
                             <Grid Margin="0,2,0,0">
@@ -559,7 +580,8 @@
                               </Grid.ColumnDefinitions>
                               <Label Grid.Column="0" Content="Sicherheitsbereich:" VerticalAlignment="Center"/>
                               <TextBox Grid.Column="1" Text="{Binding ProtectedPaths, UpdateSourceTrigger=PropertyChanged}"
-                                       ToolTip="Semikolon-getrennte Pfade für geschützte Bereiche"/>
+                                       ToolTip="Semikolon-getrennte Pfade für geschützte Bereiche"
+                                       AutomationProperties.Name="Geschützte Pfade"/>
                             </Grid>
                             <CheckBox Content="JP-Keep nur für ausgewählte Konsolen" Margin="0,4,0,0"
                                       IsChecked="{Binding JpOnlySelected}"
@@ -571,7 +593,8 @@
                               </Grid.ColumnDefinitions>
                               <Label Grid.Column="0" Content="JP-Keep-Konsolen:" VerticalAlignment="Center"/>
                               <TextBox Grid.Column="1" Text="{Binding JpKeepConsoles, UpdateSourceTrigger=PropertyChanged}"
-                                       ToolTip="Kommagetrennt: PS1,PS2"/>
+                                       ToolTip="Kommagetrennt: PS1,PS2"
+                                       AutomationProperties.Name="JP-Keep-Konsolen"/>
                             </Grid>
                           </StackPanel>
                         </Border>
@@ -589,7 +612,7 @@
               <StackPanel>
 
                 <!-- Tools -->
-                <Expander Header="Tools" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Tools" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <Expander Header="Externe Tools (optional)" IsExpanded="False">
@@ -610,43 +633,48 @@
                               <RowDefinition Height="5"/><RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Label Grid.Row="0" Grid.Column="0" Content="chdman:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ToolChdman, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ToolChdman, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                    AutomationProperties.Name="chdman-Pfad"/>
                             <Button x:Name="btnBrowseChdman" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                     AutomationProperties.Name="chdman durchsuchen"/>
                             <TextBlock x:Name="lblChdmanStatus" Grid.Row="0" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
                             <Label Grid.Row="2" Grid.Column="0" Content="dolphintool:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ToolDolphin, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ToolDolphin, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                    AutomationProperties.Name="dolphintool-Pfad"/>
                             <Button x:Name="btnBrowseDolphin" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                     AutomationProperties.Name="dolphintool durchsuchen"/>
                             <TextBlock x:Name="lblDolphinStatus" Grid.Row="2" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
                             <Label Grid.Row="4" Grid.Column="0" Content="7-Zip (7z):" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tool7z, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tool7z, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                    AutomationProperties.Name="7-Zip-Pfad"/>
                             <Button x:Name="btnBrowse7z" Grid.Row="4" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                     AutomationProperties.Name="7-Zip durchsuchen"/>
                             <TextBlock x:Name="lbl7zStatus" Grid.Row="4" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
                             <Label Grid.Row="6" Grid.Column="0" Content="psxtract:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ToolPsxtract, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ToolPsxtract, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                    AutomationProperties.Name="psxtract-Pfad"/>
                             <Button x:Name="btnBrowsePsxtract" Grid.Row="6" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                     AutomationProperties.Name="psxtract durchsuchen"/>
                             <TextBlock x:Name="lblPsxtractStatus" Grid.Row="6" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
 
                             <Label Grid.Row="8" Grid.Column="0" Content="ciso:" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ToolCiso, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ToolCiso, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                    AutomationProperties.Name="ciso-Pfad"/>
                             <Button x:Name="btnBrowseCiso" Grid.Row="8" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                     AutomationProperties.Name="ciso durchsuchen"/>
                             <TextBlock x:Name="lblCisoStatus" Grid.Row="8" Grid.Column="3" Text="–"
-                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="8,0,0,0"/>
+                                       Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11" Margin="{DynamicResource SpaceLeftSM}"/>
                           </Grid>
                           <Button x:Name="btnAutoFindTools" Content="Tools auto-entdecken"
                                   ToolTip="Sucht bekannte Konvertierungstools automatisch im System"
-                                  Width="200" HorizontalAlignment="Left" Margin="0,16,0,0"
+                                  Width="200" HorizontalAlignment="Left" Margin="{DynamicResource SpaceTopLG}"
                                   AutomationProperties.Name="Externe Tools automatisch suchen"/>
                         </StackPanel>
                       </Expander>
@@ -655,7 +683,7 @@
                 </Expander>
 
                 <!-- DAT Settings -->
-                <Expander Header="DAT &amp; Hashes" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="DAT &amp; Hashes" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="DAT-EINSTELLUNGEN" Style="{StaticResource SectionHeader}"/>
@@ -674,13 +702,15 @@
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="DAT-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DatRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DatRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                AutomationProperties.Name="DAT-Root-Verzeichnis"/>
                         <Button x:Name="btnBrowseDat" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="DAT-Verzeichnis durchsuchen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="Hash-Typ:" VerticalAlignment="Center"/>
                         <ComboBox x:Name="cmbDatHash" Grid.Row="2" Grid.Column="1"
                                   SelectedValue="{Binding DatHashType, Mode=TwoWay}"
-                                  SelectedValuePath="Content">
+                                  SelectedValuePath="Content"
+                                  AutomationProperties.Name="Hash-Typ">
                           <ComboBoxItem Content="SHA1"/>
                           <ComboBoxItem Content="MD5"/>
                           <ComboBoxItem Content="CRC32"/>
@@ -701,12 +731,12 @@
                 </Expander>
 
                 <!-- DAT Mapping -->
-                <Expander Header="DAT-Mapping" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="DAT-Mapping" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
-                      <TextBlock Text="KONSOLEN → DAT-MAPPING" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                      <TextBlock Text="KONSOLEN → DAT-MAPPING" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
                       <TextBlock Text="Ordnet Konsolen manuell ihren DAT-Dateien zu. Ohne Zuordnung wird Auto-Erkennung verwendet."
-                                 Style="{StaticResource CaptionText}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                 Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
                       <DataGrid MinHeight="200" MaxHeight="400"
                                 ItemsSource="{Binding DatMappings}"
                                 AutoGenerateColumns="False"
@@ -714,7 +744,8 @@
                                 SelectionMode="Single"
                                 VirtualizingPanel.IsVirtualizing="True"
                                 VirtualizingPanel.VirtualizationMode="Recycling"
-                                ScrollViewer.CanContentScroll="True">
+                                ScrollViewer.CanContentScroll="True"
+                                AutomationProperties.Name="DAT-Konsolen-Zuordnung">
                         <DataGrid.Resources>
                           <x:Array x:Key="DatConsoleItems" Type="{x:Type sys:String}">
                             <sys:String>PS1</sys:String>
@@ -745,24 +776,25 @@
           <TabItem Header="Profile">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
               <StackPanel>
-                <Expander Header="Profile" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Profile" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="PROFILE" Style="{StaticResource SectionHeader}"/>
-                      <Grid Margin="0,0,0,8">
+                      <Grid Margin="{DynamicResource SpaceBottomSM}">
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="130"/>
                           <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Label Grid.Column="0" Content="Profilname:" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="cmbConfigProfile" Grid.Column="1" IsEditable="True"/>
+                        <ComboBox x:Name="cmbConfigProfile" Grid.Column="1" IsEditable="True"
+                                  AutomationProperties.Name="Profilname"/>
                       </Grid>
                       <WrapPanel Margin="0,4,0,0">
-                        <Button x:Name="btnProfileSave"   Content="Speichern"   Width="110" Margin="0,0,4,4" ToolTip="Aktuelle Einstellungen speichern"/>
-                        <Button x:Name="btnProfileLoad"   Content="Laden"       Width="110" Margin="0,0,4,4" ToolTip="Gespeichertes Profil laden"/>
-                        <Button x:Name="btnProfileDelete" Content="Löschen"     Width="110" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="Profil löschen"/>
-                        <Button x:Name="btnProfileImport" Content="Importieren" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="Profil importieren"/>
-                        <Button x:Name="btnConfigDiff"    Content="Config-Diff" Width="110" Margin="0,0,4,4" ToolTip="Unterschiede anzeigen"/>
+                        <Button x:Name="btnProfileSave"   Content="Speichern"   Width="110" Margin="0,0,4,4" ToolTip="Aktuelle Einstellungen speichern" AutomationProperties.Name="Profil speichern"/>
+                        <Button x:Name="btnProfileLoad"   Content="Laden"       Width="110" Margin="0,0,4,4" ToolTip="Gespeichertes Profil laden" AutomationProperties.Name="Profil laden"/>
+                        <Button x:Name="btnProfileDelete" Content="Löschen"     Width="110" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="Profil löschen" AutomationProperties.Name="Profil löschen"/>
+                        <Button x:Name="btnProfileImport" Content="Importieren" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="Profil importieren" AutomationProperties.Name="Profil importieren"/>
+                        <Button x:Name="btnConfigDiff"    Content="Config-Diff" Width="110" Margin="0,0,4,4" ToolTip="Unterschiede anzeigen" AutomationProperties.Name="Config-Diff anzeigen"/>
                       </WrapPanel>
                       <TextBlock Text="Profile speichern alle Einstellungen und können zwischen verschiedenen Sammlungen gewechselt werden."
                                  Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
@@ -770,7 +802,7 @@
                   </Border>
                 </Expander>
 
-                <Expander Header="Allgemein" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Allgemein" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="ALLGEMEIN" Style="{StaticResource SectionHeader}"/>
@@ -786,14 +818,16 @@
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="Papierkorb:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrashRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"
-                                 ToolTip="Verzeichnis in das Duplikate verschoben werden (_TRASH)"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrashRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                 ToolTip="Verzeichnis in das Duplikate verschoben werden (_TRASH)"
+                                 AutomationProperties.Name="Papierkorb-Verzeichnis"/>
                         <Button x:Name="btnBrowseTrash" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="Papierkorb-Ordner durchsuchen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="Log-Level:" VerticalAlignment="Center"/>
                         <ComboBox x:Name="cmbLogLevel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
                                   SelectedValue="{Binding LogLevel, Mode=TwoWay}"
-                                  SelectedValuePath="Content">
+                                  SelectedValuePath="Content"
+                                  AutomationProperties.Name="Log-Level">
                           <ComboBoxItem Content="Debug"/>
                           <ComboBoxItem Content="Info"/>
                           <ComboBoxItem Content="Warning"/>
@@ -811,7 +845,7 @@
           <TabItem Header="Erweitert">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
               <StackPanel>
-                <Expander Header="Audit &amp; System" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Audit &amp; System" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="AUDIT &amp; SYSTEM" Style="{StaticResource SectionHeader}"/>
@@ -827,11 +861,13 @@
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="Audit-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                 AutomationProperties.Name="Audit-Root-Verzeichnis"/>
                         <Button x:Name="btnBrowseAudit" Grid.Row="0" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="Audit-Verzeichnis durchsuchen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="PS3 Dupes-Root:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Ps3DupesRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Ps3DupesRoot, UpdateSourceTrigger=PropertyChanged}" Margin="{DynamicResource SpaceRightXS}"
+                                 AutomationProperties.Name="PS3 Dupes-Verzeichnis"/>
                         <Button x:Name="btnBrowsePs3" Grid.Row="2" Grid.Column="2" Content="&#xE838;" FontFamily="Segoe MDL2 Assets" Width="34"
                                 AutomationProperties.Name="PS3 Dupes-Verzeichnis durchsuchen"/>
                       </Grid>
@@ -850,7 +886,8 @@
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="Titel:" VerticalAlignment="Center"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameKeyPreviewInput, UpdateSourceTrigger=PropertyChanged}"
-                                 Margin="0,0,8,0" ToolTip="Beispieltitel für die GameKey-Normalisierung"/>
+                                 Margin="{DynamicResource SpaceRightSM}" ToolTip="Beispieltitel für die GameKey-Normalisierung"
+                                 AutomationProperties.Name="GameKey-Vorschau Titel"/>
                         <Button Grid.Row="0" Grid.Column="2" Command="{Binding GameKeyPreviewCommand}" Content="Vorschau" Width="110"
                                 AutomationProperties.Name="GameKey-Vorschau berechnen"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="GameKey:" VerticalAlignment="Center"/>
@@ -860,8 +897,8 @@
 
                       <TextBlock Text="KONFIGURATION" Style="{StaticResource SectionHeader}" Margin="0,24,0,8"/>
                       <WrapPanel>
-                        <Button x:Name="btnExportUnified" Content="Exportieren…" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration"/>
-                        <Button x:Name="btnConfigImport" Content="Konfig importieren" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportUnified" Content="Exportieren…" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Exportiert Profil oder Gesamtkonfiguration" AutomationProperties.Name="Konfiguration exportieren"/>
+                        <Button x:Name="btnConfigImport" Content="Konfig importieren" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konfiguration importieren"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -875,178 +912,178 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
               <StackPanel>
 
-                <Expander Header="Analyse &amp; Berichte" IsExpanded="True" Margin="0,0,0,8">
+                <Expander Header="Analyse &amp; Berichte" IsExpanded="True" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="ANALYSE &amp; BERICHTE" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)"/>
-                        <Button x:Name="btnHealthScore" Content="Health-Score" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen"/>
-                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" MinWidth="140" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen"/>
-                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate untersuchen"/>
-                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" MinWidth="190" Padding="8,2" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen"/>
-                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht"/>
-                        <Button x:Name="btnRomFilter" Content="ROM-Filter" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen"/>
-                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikatverteilung visualisieren"/>
-                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Fehlende ROMs ermitteln"/>
-                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" MinWidth="170" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate über mehrere Roots finden"/>
-                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Header analysieren"/>
-                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Vollständigkeitsbericht"/>
-                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Zwei DryRun-Ergebnisse vergleichen"/>
-                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Historische Trends"/>
-                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" MinWidth="185" Padding="8,2" Margin="0,0,8,4" ToolTip="Kompatibilitätsmatrix"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)" AutomationProperties.Name="Quick-Preview"/>
+                        <Button x:Name="btnHealthScore" Content="Health-Score" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen" AutomationProperties.Name="Health-Score" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" MinWidth="140" Padding="8,2" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen" AutomationProperties.Name="Collection-Diff"/>
+                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate untersuchen" AutomationProperties.Name="Duplikat-Inspektor" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" MinWidth="190" Padding="8,2" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen" AutomationProperties.Name="Konvertierungs-Schätzung" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnJunkReport" Content="Junk-Bericht" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht" AutomationProperties.Name="Junk-Bericht" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnRomFilter" Content="ROM-Filter" MinWidth="120" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen" AutomationProperties.Name="ROM-Filter" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnDuplicateHeatmap" Content="Duplikat-Heatmap" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikatverteilung visualisieren" AutomationProperties.Name="Duplikat-Heatmap" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnMissingRom" Content="Fehlende ROMs" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Fehlende ROMs ermitteln" AutomationProperties.Name="Fehlende ROMs" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnCrossRootDupe" Content="Cross-Root-Duplikate" MinWidth="170" Padding="8,2" Margin="0,0,8,4" ToolTip="Duplikate über mehrere Roots finden" AutomationProperties.Name="Cross-Root-Duplikate" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnHeaderAnalysis" Content="Header-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="ROM-Header analysieren" AutomationProperties.Name="Header-Analyse" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnCompleteness" Content="Vollständigkeit" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Vollständigkeitsbericht" AutomationProperties.Name="Vollständigkeitsbericht" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnDryRunCompare" Content="DryRun-Vergleich" MinWidth="150" Padding="8,2" Margin="0,0,8,4" ToolTip="Zwei DryRun-Ergebnisse vergleichen" AutomationProperties.Name="DryRun-Vergleich"/>
+                        <Button x:Name="btnTrendAnalysis" Content="Trend-Analyse" MinWidth="130" Padding="8,2" Margin="0,0,8,4" ToolTip="Historische Trends" AutomationProperties.Name="Trend-Analyse"/>
+                        <Button x:Name="btnEmulatorCompat" Content="Emulator-Kompatibilität" MinWidth="185" Padding="8,2" Margin="0,0,8,4" ToolTip="Kompatibilitätsmatrix" AutomationProperties.Name="Emulator-Kompatibilität"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Konvertierung &amp; Hashing" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Konvertierung &amp; Hashing" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="KONVERTIERUNG &amp; HASHING" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" MinWidth="185" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" MinWidth="170" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" MinWidth="185" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnConversionPipeline" Content="Konvertierungs-Pipeline" MinWidth="185" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvertierungs-Pipeline"/>
+                        <Button x:Name="btnNKitConvert" Content="NKit-Konvertierung" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="NKit-Konvertierung"/>
+                        <Button x:Name="btnConvertQueue" Content="Konvert-Warteschlange" MinWidth="170" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvert-Warteschlange"/>
+                        <Button x:Name="btnConversionVerify" Content="Konvertierung verifizieren" MinWidth="185" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Konvertierung verifizieren"/>
+                        <Button x:Name="btnFormatPriority" Content="Format-Priorität" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Format-Priorität"/>
+                        <Button x:Name="btnParallelHashing" Content="Parallel-Hashing" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Parallel-Hashing"/>
+                        <Button x:Name="btnGpuHashing" Content="GPU-Hashing" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="GPU-Hashing"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="DAT &amp; Verifizierung" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="DAT &amp; Verifizierung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="DAT &amp; VERIFIZIERUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" MinWidth="110" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnDatAutoUpdate" Content="DAT Auto-Update" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="DAT Auto-Update"/>
+                        <Button x:Name="btnDatDiffViewer" Content="DAT-Diff-Viewer" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="DAT-Diff-Viewer"/>
+                        <Button x:Name="btnTosecDat" Content="TOSEC-DAT" MinWidth="110" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="TOSEC-DAT"/>
+                        <Button x:Name="btnCustomDatEditor" Content="Custom-DAT-Editor" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Custom-DAT-Editor"/>
+                        <Button x:Name="btnHashDatabaseExport" Content="Hash-Datenbank" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Hash-Datenbank exportieren"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Sammlungsverwaltung" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Sammlungsverwaltung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="SAMMLUNGSVERWALTUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnCollectionManager" Content="Smart Collection" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnCollectionManager" Content="Smart Collection" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Smart Collection"/>
+                        <Button x:Name="btnCloneListViewer" Content="Clone-Liste" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Clone-Liste"/>
+                        <Button x:Name="btnCoverScraper" Content="Cover-Scraper" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cover-Scraper"/>
+                        <Button x:Name="btnGenreClassification" Content="Genre-Klassifikation" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Genre-Klassifikation"/>
+                        <Button x:Name="btnPlaytimeTracker" Content="Spielzeit-Tracker" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Spielzeit-Tracker"/>
+                        <Button x:Name="btnCollectionSharing" Content="Sammlung teilen" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sammlung teilen"/>
+                        <Button x:Name="btnVirtualFolderPreview" Content="Virtuelle Ordner" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Virtuelle Ordner"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Sicherheit &amp; Integrität" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Sicherheit &amp; Integrität" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="SICHERHEIT &amp; INTEGRITÄT" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" MinWidth="160" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnBackupManager" Content="Backup-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnQuarantine" Content="Quarantäne" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnIntegrityMonitor" Content="Integritäts-Monitor" MinWidth="160" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Integritäts-Monitor"/>
+                        <Button x:Name="btnBackupManager" Content="Backup-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Backup-Manager"/>
+                        <Button x:Name="btnQuarantine" Content="Quarantäne" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Quarantäne"/>
+                        <Button x:Name="btnRuleEngine" Content="Regel-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Regel-Engine"/>
+                        <Button x:Name="btnPatchEngine" Content="Patch-Engine" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Patch-Engine"/>
+                        <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Header-Reparatur"/>
+                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Schnell-Rollback"/>
+                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Rollback Undo"/>
+                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Rollback Redo"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Workflow &amp; Automatisierung" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Workflow &amp; Automatisierung" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="WORKFLOW &amp; AUTOMATISIERUNG" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnCommandPalette" Content="Command-Palette" MinWidth="145" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSystemTray" Content="System-Tray" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnSchedulerAdvanced" Content="Cron-Tester" MinWidth="110" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnCommandPalette" Content="Command-Palette" MinWidth="145" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Command-Palette"/>
+                        <Button x:Name="btnSplitPanelPreview" Content="Split-Panel" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Split-Panel"/>
+                        <Button x:Name="btnFilterBuilder" Content="Filter-Builder" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Filter-Builder"/>
+                        <Button x:Name="btnSortTemplates" Content="Sort-Templates" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sort-Templates"/>
+                        <Button x:Name="btnPipelineEngine" Content="Pipeline-Engine" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Pipeline-Engine"/>
+                        <Button x:Name="btnSystemTray" Content="System-Tray" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="System-Tray"/>
+                        <Button x:Name="btnSchedulerAdvanced" Content="Cron-Tester" MinWidth="110" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cron-Tester"/>
+                        <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Regel-Pakete"/>
+                        <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Arcade Merge/Split"/>
                         <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4"
                                   IsChecked="{Binding IsWatchModeActive, Mode=TwoWay}"
                                   ToolTip="Überwacht ROM-Roots automatisch"/>
-                        <Button x:Name="btnWatchApply" Content="Watch anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConflictPolicy" Content="Conflict-Policy" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnWatchApply" Content="Watch anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Watch anwenden"/>
+                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Auto-Profil"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Export &amp; Integration" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Export &amp; Integration" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="EXPORT &amp; INTEGRATION" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnPdfReport" Content="PDF-Report" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" MinWidth="165" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnToolImport" Content="Tool-Import" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" MinWidth="155" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportCsv" Content="CSV Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportExcel" Content="Excel Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnPdfReport" Content="PDF-Report" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="PDF-Report"/>
+                        <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" MinWidth="165" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Launcher-Integration"/>
+                        <Button x:Name="btnToolImport" Content="Tool-Import" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Tool-Import"/>
+                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" MinWidth="155" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Duplikate exportieren" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnExportCsv" Content="CSV Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="CSV Export" IsEnabled="{Binding HasRunResult}"/>
+                        <Button x:Name="btnExportExcel" Content="Excel Export" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Excel Export" IsEnabled="{Binding HasRunResult}"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="Infrastruktur &amp; Deployment" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="Infrastruktur &amp; Deployment" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="INFRASTRUKTUR &amp; DEPLOYMENT" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz (Geplant)" MinWidth="145" Padding="8,2" Margin="0,0,8,4" ToolTip="Das Plugin-System ist in Planung und noch nicht funktionsfähig."/>
-                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnPortableMode" Content="Portable Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnDockerContainer" Content="Docker" MinWidth="100" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" MinWidth="120" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnStorageTiering" Content="Storage-Tiering" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Storage-Tiering"/>
+                        <Button x:Name="btnNasOptimization" Content="NAS-Optimierung" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="NAS-Optimierung"/>
+                        <Button x:Name="btnFtpSource" Content="FTP-Quelle" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="FTP-Quelle"/>
+                        <Button x:Name="btnCloudSync" Content="Cloud-Sync" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Cloud-Sync"/>
+                        <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz (Geplant)" MinWidth="145" Padding="8,2" Margin="0,0,8,4" ToolTip="Das Plugin-System ist in Planung und noch nicht funktionsfähig." AutomationProperties.Name="Plugin-Marktplatz"/>
+                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Plugin-Manager"/>
+                        <Button x:Name="btnPortableMode" Content="Portable Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Portable Modus"/>
+                        <Button x:Name="btnDockerContainer" Content="Docker" MinWidth="100" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Docker"/>
+                        <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Mobile Web UI"/>
+                        <Button x:Name="btnWindowsContextMenu" Content="Kontextmenü" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Kontextmenü"/>
+                        <Button x:Name="btnHardlinkMode" Content="Hardlink-Modus" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Hardlink-Modus"/>
+                        <Button x:Name="btnMultiInstanceSync" Content="Multi-Instanz" MinWidth="120" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Multi-Instanz"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                 </Expander>
 
-                <Expander Header="UI &amp; Erscheinungsbild" IsExpanded="False" Margin="0,0,0,8">
+                <Expander Header="UI &amp; Erscheinungsbild" IsExpanded="False" Margin="{DynamicResource SpaceBottomSM}">
                   <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                       <TextBlock Text="UI &amp; ERSCHEINUNGSBILD" Style="{StaticResource SectionHeader}"/>
-                      <WrapPanel Margin="0,0,0,4">
-                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
-                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" MinWidth="130" Padding="8,2" Margin="0,0,8,4"/>
+                      <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
+                        <Button x:Name="btnAccessibility" Content="Barrierefreiheit" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Barrierefreiheit"/>
+                        <Button x:Name="btnThemeEngine" Content="Theme-Engine" MinWidth="130" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Theme-Engine"/>
                         <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
                         <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4"
                                   SelectedValuePath="Content"
-                                  SelectedValue="{Binding Locale, Mode=TwoWay}">
+                                  SelectedValue="{Binding Locale, Mode=TwoWay}"
+                                  AutomationProperties.Name="Sprache">
                           <ComboBoxItem Content="de"/>
                           <ComboBoxItem Content="en"/>
                           <ComboBoxItem Content="fr"/>
                         </ComboBox>
-                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4"/>
+                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" MinWidth="140" Padding="8,2" Margin="0,0,8,4" AutomationProperties.Name="Sprache anwenden"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1074,8 +1111,8 @@
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0">
-                <TextBlock Text="ERGEBNIS-DASHBOARD" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                <WrapPanel Margin="0,0,0,4">
+                <TextBlock Text="ERGEBNIS-DASHBOARD" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
+                <WrapPanel Margin="{DynamicResource SpaceBottomXS}">
                   <Border Style="{StaticResource MetricCard}" MinWidth="100" Margin="0,0,8,8">
                     <StackPanel HorizontalAlignment="Center">
                       <TextBlock Text="Modus" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
@@ -1132,7 +1169,7 @@
                       VerticalAlignment="Center" ToolTip="HTML-Bericht öffnen (Ctrl+R)"
                       AutomationProperties.Name="HTML-Bericht öffnen">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" Margin="0,0,8,0"/>
+                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" Margin="{DynamicResource SpaceRightSM}"/>
                   <TextBlock Text="Bericht öffnen"/>
                 </StackPanel>
               </Button>
@@ -1143,8 +1180,8 @@
           <Border DockPanel.Dock="Bottom" Background="{DynamicResource BrushSurfaceAlt}"
                   BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,8">
             <StackPanel Orientation="Horizontal">
-              <Button Command="{Binding ClearLogCommand}" Content="Log leeren" Width="118" Margin="0,0,8,0"/>
-              <Button x:Name="btnExportLog" Content="Log exportieren" MinWidth="130" Padding="8,2"/>
+              <Button Command="{Binding ClearLogCommand}" Content="Log leeren" Width="118" Margin="{DynamicResource SpaceRightSM}"/>
+              <Button x:Name="btnExportLog" Content="Log exportieren" MinWidth="130" Padding="8,2" AutomationProperties.Name="Log exportieren"/>
             </StackPanel>
           </Border>
 
@@ -1165,21 +1202,22 @@
                      VirtualizingPanel.VirtualizationMode="Recycling"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.CanContentScroll="True"/>
+                     ScrollViewer.CanContentScroll="True"
+                     AutomationProperties.Name="Protokoll-Einträge"/>
             <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch"
                           Background="Transparent" Cursor="SizeWE"
                           AutomationProperties.Name="Log und Vorschau Größe anpassen"/>
             <Border Grid.Column="2" Style="{StaticResource SectionCard}" Margin="0,12,12,12">
               <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                  <TextBlock Text="REPORT-VORSCHAU" Style="{StaticResource SectionHeader}" Margin="0,0,8,0"/>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="{DynamicResource SpaceBottomSM}">
+                  <TextBlock Text="REPORT-VORSCHAU" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceRightSM}"/>
                   <Button x:Name="btnRefreshReportPreview" Width="120" Height="28" Content="Aktualisieren"
                           AutomationProperties.Name="Berichtsvorschau aktualisieren"/>
                 </StackPanel>
                 <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                        BorderThickness="1" CornerRadius="6" Padding="8" Margin="{DynamicResource SpaceBottomSM}">
                   <StackPanel>
-                    <TextBlock Text="FEHLER-SUMMARY" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+                    <TextBlock Text="FEHLER-SUMMARY" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomXS}"/>
                     <ListBox x:Name="listErrorSummary" MinHeight="60"
                              ItemsSource="{Binding ErrorSummaryItems}"
                              Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushWarning}"
@@ -1187,7 +1225,8 @@
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              ScrollViewer.CanContentScroll="True"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             AutomationProperties.Name="Fehler-Summary"/>
                   </StackPanel>
                 </Border>
                 <WebBrowser x:Name="webReportPreview" MinHeight="80"

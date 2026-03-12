@@ -369,3 +369,5 @@ static async Task WriteSseEvent(Stream stream, Encoding encoding, string eventNa
     await stream.WriteAsync(encoding.GetBytes(payload));
     await stream.FlushAsync();
 }
+
+public partial class Program { }

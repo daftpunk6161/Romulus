@@ -17,7 +17,7 @@ public sealed class RomCandidate
     public long SizeTieBreakScore { get; init; }
     public long SizeBytes { get; init; }
     public string Extension { get; init; } = "";
-    public string Type { get; init; } = "";
+    public string ConsoleKey { get; init; } = "";
     public bool DatMatch { get; init; }
     public string Category { get; init; } = "GAME";
 }

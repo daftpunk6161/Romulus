@@ -12,8 +12,16 @@ public sealed class ConversionPipelineDef
     public string SourcePath { get; init; } = "";
     public IReadOnlyList<ConversionPipelineStep> Steps { get; init; } = [];
     public bool CleanupTemps { get; init; } = true;
-    public string Status { get; set; } = "pending";
     public DateTime Created { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Result of executing a conversion pipeline.
+/// </summary>
+public sealed class ConversionPipelineResult
+{
+    public string Status { get; init; } = "pending";
+    public IReadOnlyList<PipelineStepResult> Steps { get; init; } = [];
 }
 
 /// <summary>

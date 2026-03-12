@@ -68,7 +68,7 @@ public sealed class DatSourceService : IDisposable
             await File.WriteAllBytesAsync(localPath, bytes, ct);
 
             // Verify integrity
-            if (!VerifyDatSignature(localPath, url, expectedSha256))
+            if (!await VerifyDatSignatureAsync(localPath, url, expectedSha256, ct))
             {
                 // Fail-closed: delete unverified file
                 File.Delete(localPath);
@@ -93,7 +93,8 @@ public sealed class DatSourceService : IDisposable
     /// Otherwise tries to download {url}.sha256 sidecar.
     /// Fail-closed: returns false if verification cannot be completed.
     /// </summary>
-    public bool VerifyDatSignature(string localPath, string sourceUrl, string? expectedSha256 = null)
+    public async Task<bool> VerifyDatSignatureAsync(string localPath, string sourceUrl,
+        string? expectedSha256 = null, CancellationToken ct = default)
     {
         if (!File.Exists(localPath))
             return false;
@@ -113,11 +114,11 @@ public sealed class DatSourceService : IDisposable
         {
             var shaUrl = sourceUrl + ".sha256";
             using var request = new HttpRequestMessage(HttpMethod.Get, shaUrl);
-            using var response = Task.Run(() => _http.SendAsync(request)).GetAwaiter().GetResult();
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
                 return false; // Fail-closed
 
-            var shaText = Task.Run(() => response.Content.ReadAsStringAsync()).GetAwaiter().GetResult();
+            var shaText = await response.Content.ReadAsStringAsync(ct);
 
             if (string.IsNullOrWhiteSpace(shaText))
                 return false; // Fail-closed
@@ -136,6 +137,19 @@ public sealed class DatSourceService : IDisposable
             return false; // Fail-closed on network error
         }
     }
+
+    /// <summary>
+    /// Synchronous wrapper for <see cref="VerifyDatSignatureAsync"/>.</summary>
+    /// <remarks>
+    /// This method blocks on an async operation and can deadlock in environments with a
+    /// synchronization context (e.g. WPF/WinForms UI threads, ASP.NET request threads).
+    /// Prefer <see cref="VerifyDatSignatureAsync(string, string, string?, CancellationToken)"/>
+    /// and use async all the way. If you must call this method, only do so from
+    /// non-UI / non-ASP.NET contexts (e.g. console apps, background workers).
+    /// </remarks>
+    [Obsolete("Use VerifyDatSignatureAsync and await it instead. This sync wrapper may deadlock on UI/ASP.NET contexts.")]
+    public bool VerifyDatSignature(string localPath, string sourceUrl, string? expectedSha256 = null)
+        => VerifyDatSignatureAsync(localPath, sourceUrl, expectedSha256).GetAwaiter().GetResult();
 
     /// <summary>
     /// Load catalogue entries from a dat-catalog.json file.

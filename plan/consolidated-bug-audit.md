@@ -22,6 +22,11 @@ Konsolidierung aller drei Deep-Dive Bug-Audits in ein einziges Tracking-Dokument
 
 **Gesamt: 212 Tasks in 30 Runden**
 
+## Restluecke-Abschlussplan
+
+- Ausfuehrungsplan fuer verbleibende Luecken: [feature-restluecke-audit-1.md](feature-restluecke-audit-1.md)
+- Fokusbereiche: API-Integrationstests, fail-closed Tool-Hashing, Quarantine-Root-Guards, DAT Async-Haertung, Insights-Drift, WPF-A11y/HC, CI-Governance.
+
 | Priorität | Anzahl | Bedeutung |
 |-----------|--------|-----------|
 | P0 | 11 | Release-Blocker |
@@ -48,7 +53,8 @@ Konsolidierung aller drei Deep-Dive Bug-Audits in ein einziges Tracking-Dokument
 ### P1 — Hoch (55)
 - [x] TASK-001, TASK-011, TASK-012, TASK-013, TASK-014, TASK-024, TASK-025, TASK-026, TASK-027, TASK-028, TASK-033, TASK-034, TASK-035, TASK-037, TASK-041, TASK-042, TASK-051, TASK-056, TASK-064, TASK-071, TASK-072
 - [x] TASK-086, TASK-087, TASK-094, TASK-095, TASK-103, TASK-117, TASK-118, TASK-131, TASK-132, TASK-138, TASK-139
-- [ ] TASK-102, TASK-110, TASK-111
+- [x] TASK-102
+- [ ] TASK-110, TASK-111
 - [x] TASK-151, TASK-152, TASK-158, TASK-163, TASK-170, TASK-171, TASK-197, TASK-198, TASK-205
 
 ---
@@ -242,11 +248,11 @@ GOAL-014: Visuelle Inkonsistenzen und hardcodierte Farben
 
 GOAL-015: Screenreader, Keyboard, High-Contrast
 
-- [ ] **TASK-102** — P1 – 80+ Feature-Buttons ohne AutomationProperties.Name: Screenreader-Problem. Fix: AutomationProperties.Name setzen.
+- [x] **TASK-102** — P1 – 80+ Feature-Buttons mit AutomationProperties.Name versehen (erledigt in Session 5).
 - [x] **TASK-103** — P1 – Keyboard-Shortcuts nur 4 von 14 definiert: 10 Shortcuts dokumentiert aber nicht verdrahtet. Fix: Alle als KeyBinding deklarieren.
 - [x] **TASK-104** — P2 – Kein TabIndex auf Feature-Buttons: Tab-Reihenfolge nicht-intuitiv. Fix: Logische TabIndex-Gruppen.
 - [x] **TASK-105** — P2 – Progress ohne LiveSetting: Screenreader ignoriert Fortschritt. Fix: `LiveSetting="Polite"` auf Progress.
-- [ ] **TASK-106** — P2 – High-Contrast-Modus nicht unterstützt: `IsHighContrastActive()` Ergebnis nie genutzt. Fix: HC-Theme erstellen.
+- [x] **TASK-106** — P2 – High-Contrast-Theme implementiert (ThemeService.BuildHighContrastDictionary, WCAG AAA 7:1 Kontrast).
 - [x] **TASK-107** — P2 – WebBrowser-Control nicht accessible: Fix: AutomationProperties setzen, langfristig WebView2.
 - [x] **TASK-108** — P3 – Keine Focus-Rückkehr nach ShowTextDialog: Fix: `(sender as Button)?.Focus()`.
 - [x] **TASK-109** — P3 – Kein Tooltip auf Simple-Mode-Controls: Fix: Descriptive ToolTips.
@@ -427,11 +433,11 @@ GOAL-029: Bugs in CLI und API
 GOAL-030: Architekturelle und Konsistenz-Bugs
 
 - [x] **TASK-205** — P1 – API RunResult shadowed Infrastructure RunResult: Gleicher Name, andere Properties. Fix: Umbenennen zu `ApiRunResult`.
-- [ ] **TASK-206** — P2 – ConversionPipelineDef.Steps IReadOnlyList aber Elemente mutable: Fix: Ehrlich mutable oder separate Modelle.
-- [ ] **TASK-207** — P2 – PipelineStep.Status mutiert durch PipelineEngine: Fix: Separate Result-Objekte.
+- [x] **TASK-206** — P2 – ConversionPipelineDef.Steps IReadOnlyList aber Elemente mutable: Fix: Separate ConversionPipelineResult-Klasse eingeführt.
+- [x] **TASK-207** — P2 – PipelineStep.Status mutiert durch PipelineEngine: Fix: PipelineStepOutcome als separates Result-Objekt.
 - [x] **TASK-208** — P2 – Kein zentraler Ort für Default-Extensions: 3+ Stellen pflegen. Fix: Einzige Source of Truth in Contracts.
 - [x] **TASK-209** — P3 – ErrorClassifier: PathTooLongException als Transient (Retry sinnlos): Fix: Als Recoverable klassifizieren.
-- [ ] **TASK-210** — P3 – RomCandidate.Type Semantik unklar: Meint ConsoleKey. Fix: Umbenennen.
+- [x] **TASK-210** — P3 – RomCandidate.Type → ConsoleKey umbenannt in allen 7+ Dateien.
 - [x] **TASK-211** — P3 – EventPayload.Timestamp ist string statt DateTime: Fix: DateTime verwenden.
 - [x] **TASK-212** — P3 – PhaseMetricsCollector.Export nicht atomic: Fix: Temp+Move wie ScanIndexService.
 

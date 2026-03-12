@@ -56,7 +56,7 @@ public sealed class InsightsEngine
             {
                 Path = f,
                 FileName = Path.GetFileName(f),
-                GameKey = GameKeyNormalizer.Normalize(Path.GetFileName(f))
+                GameKey = GameKeyNormalizer.Normalize(Path.GetFileNameWithoutExtension(f))
             })
             .Where(x => !string.IsNullOrWhiteSpace(x.GameKey))
             .GroupBy(x => x.GameKey, StringComparer.OrdinalIgnoreCase)
@@ -68,8 +68,8 @@ public sealed class InsightsEngine
 
         foreach (var group in groups)
         {
-            // Build candidates for dedup scoring  
-            var candidates = group.Select(item =>
+            // Build display rows with scoring components.
+            var scored = group.Select(item =>
             {
                 var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
                 var region = Core.Regions.RegionDetector.GetRegionTag(item.FileName);
@@ -97,12 +97,28 @@ public sealed class InsightsEngine
               .ThenByDescending(c => c.SizeBytes)
               .ToList();
 
-            // NOTE: Scoring mirrors DeduplicationEngine.SelectWinner logic
-            // (RegionScore + FormatScore + VersionScore, size tiebreak) but is not delegated
-            // to it directly. Any changes to winner selection must be reflected here.
-            var winnerPath = candidates[0].Path;
+            // Use central winner logic from Core to prevent scoring drift.
+            var dedupeCandidates = scored
+                .Select(c => new RomCandidate
+                {
+                    MainPath = c.Path,
+                    GameKey = c.GameKey,
+                    Region = c.Region,
+                    RegionScore = c.RegionScore,
+                    FormatScore = c.FormatScore,
+                    VersionScore = c.VersionScore,
+                    SizeBytes = c.SizeBytes,
+                    SizeTieBreakScore = c.SizeBytes,
+                    Extension = c.Extension,
+                    Category = "GAME"
+                })
+                .ToList();
 
-            foreach (var c in candidates)
+            var winnerPath = DeduplicationEngine.SelectWinner(dedupeCandidates)?.MainPath;
+            if (string.IsNullOrWhiteSpace(winnerPath))
+                continue;
+
+            foreach (var c in scored)
             {
                 bool isWinner = c.Path == winnerPath;
                 rows.Add(new DuplicateInspectorRow
@@ -138,7 +154,7 @@ public sealed class InsightsEngine
             return [];
 
         var byConsole = result.AllCandidates
-            .GroupBy(c => c.Type ?? "UNKNOWN", StringComparer.OrdinalIgnoreCase);
+            .GroupBy(c => c.ConsoleKey ?? "UNKNOWN", StringComparer.OrdinalIgnoreCase);
 
         var rows = new List<CollectionHealthRow>();
 
@@ -151,7 +167,7 @@ public sealed class InsightsEngine
             var items = group.ToList();
             var dupes = result.DedupeGroups
                 .Where(g => g.Winner is not null &&
-                            string.Equals(g.Winner.Type, group.Key, StringComparison.OrdinalIgnoreCase))
+                            string.Equals(g.Winner.ConsoleKey, group.Key, StringComparison.OrdinalIgnoreCase))
                 .Sum(g => g.Losers?.Count ?? 0);
 
             var formats = items
@@ -262,7 +278,7 @@ public sealed class InsightsEngine
             return [];
 
         var byConsole = result.AllCandidates
-            .GroupBy(c => c.Type ?? "UNKNOWN", StringComparer.OrdinalIgnoreCase);
+            .GroupBy(c => c.ConsoleKey ?? "UNKNOWN", StringComparer.OrdinalIgnoreCase);
 
         var rows = new List<DatCoverageRow>();
 
