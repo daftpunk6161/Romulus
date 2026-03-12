@@ -11,4 +11,7 @@ public interface IFileSystem
     IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null);
     bool MoveItemSafely(string sourcePath, string destinationPath);
     string? ResolveChildPathWithinRoot(string rootPath, string relativePath);
+    bool IsReparsePoint(string path);
+    void DeleteFile(string path);
+    void CopyFile(string sourcePath, string destinationPath, bool overwrite = false);
 }

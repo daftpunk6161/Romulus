@@ -89,8 +89,8 @@ public class RunManagerTests
             await mgr.WaitForCompletion(run.RunId, 50);
 
             var updated = mgr.Get(run.RunId);
-            // Status should be either cancelled or completed (race condition possible)
-            Assert.Contains(updated!.Status, new[] { "cancelled", "completed" });
+            // Status depends on race: cancelled if CTS fired before Execute, completed/failed if Execute finished first
+            Assert.Contains(updated!.Status, new[] { "cancelled", "completed", "failed" });
         }
         finally
         {

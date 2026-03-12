@@ -258,5 +258,8 @@ public class QuarantineServiceTests : IDisposable
                 throw new InvalidOperationException("Path traversal detected");
             return resolved;
         }
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 }

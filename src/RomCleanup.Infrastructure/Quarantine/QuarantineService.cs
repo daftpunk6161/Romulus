@@ -121,9 +121,17 @@ public sealed class QuarantineService
 
                 if (_fs.TestPath(action.SourcePath, "Leaf"))
                 {
-                    _fs.MoveItemSafely(action.SourcePath, action.TargetPath);
-                    action.Status = "Moved";
-                    moved++;
+                    if (_fs.MoveItemSafely(action.SourcePath, action.TargetPath))
+                    {
+                        action.Status = "Moved";
+                        moved++;
+                    }
+                    else
+                    {
+                        action.Status = "Error";
+                        action.Error = "Move failed";
+                        errors++;
+                    }
                 }
                 else
                 {
@@ -204,7 +212,8 @@ public sealed class QuarantineService
 
         // Path-traversal guard: reject paths with traversal components
         var fullOriginal = Path.GetFullPath(originalPath);
-        if (fullOriginal != originalPath && !Path.IsPathRooted(originalPath))
+        // Reject if the path contains ".." traversal (regardless of whether it's rooted)
+        if (originalPath.Contains(".."))
             return new QuarantineRestoreResult { Status = "Error", Reason = "PathTraversalBlocked" };
 
         if (mode == "DryRun")
@@ -216,7 +225,8 @@ public sealed class QuarantineService
             if (!string.IsNullOrEmpty(dir))
                 _fs.EnsureDirectory(dir);
 
-            _fs.MoveItemSafely(quarantinePath, fullOriginal);
+            if (!_fs.MoveItemSafely(quarantinePath, fullOriginal))
+                return new QuarantineRestoreResult { Status = "Error", Reason = "MoveFailedAtDestination" };
             return new QuarantineRestoreResult { Status = "Restored", From = quarantinePath, To = fullOriginal };
         }
         catch (Exception ex)

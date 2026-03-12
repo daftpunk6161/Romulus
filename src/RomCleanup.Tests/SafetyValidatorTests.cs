@@ -54,6 +54,7 @@ public sealed class SafetyValidatorTests
         var result = SafetyValidator.NormalizePath(@"C:\Temp\test");
         Assert.NotNull(result);
         Assert.True(Path.IsPathRooted(result));
+        Assert.Equal(Path.GetFullPath(@"C:\Temp\test"), result);
     }
 
     // =========================================================================
@@ -69,7 +70,12 @@ public sealed class SafetyValidatorTests
             strictSafety: false);
 
         Assert.Equal("blocked", result.Status);
-        Assert.True(result.BlockerCount > 0);
+        Assert.Equal(1, result.BlockerCount);
+        Assert.Contains(result.Blockers, b =>
+            b.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+            b.Contains("Invalid", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(result.PathChecks);
+        Assert.Equal("blocked", result.PathChecks[0].Status);
     }
 
     [Fact]
@@ -134,6 +140,10 @@ public sealed class SafetyValidatorTests
             var result = validator.ValidateSandbox(roots: [dir], extensions: [".zip"]);
             Assert.Equal("ok", result.Status);
             Assert.Equal(0, result.BlockerCount);
+            Assert.Equal(0, result.WarningCount);
+            Assert.Single(result.PathChecks);
+            Assert.Equal("ok", result.PathChecks[0].Status);
+            Assert.Empty(result.Blockers);
         }
         finally
         {
@@ -190,5 +200,8 @@ public sealed class SafetyValidatorTests
         public bool MoveItemSafely(string src, string dest) => true;
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.Combine(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 }

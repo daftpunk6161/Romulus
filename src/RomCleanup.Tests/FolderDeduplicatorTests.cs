@@ -204,6 +204,14 @@ public sealed class FolderDeduplicatorTests
 
         Assert.Equal(1, result.DupeGroups);
         Assert.Equal(1, result.Moved);
+        // Verify that the correct winner/loser was selected
+        Assert.Single(result.Actions);
+        var action = result.Actions[0];
+        // folder1 has newer file → it should be the winner
+        Assert.Contains("Zelda (Europe)", action.Winner);
+        // folder2 has older file → it should be the loser (moved)
+        Assert.Contains("Zelda (USA)", action.Source);
+        Assert.Equal("MOVED", action.Action);
     }
 
     [Fact]
@@ -361,6 +369,9 @@ public sealed class FolderDeduplicatorTests
             var full = Path.GetFullPath(Path.Combine(rootPath, relativePath));
             return full.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase) ? full : null;
         }
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 
     private sealed class TempDir : IDisposable

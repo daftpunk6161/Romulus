@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows.Threading;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 
@@ -112,7 +113,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _convertEnabled;
     public bool ConvertEnabled { get => _convertEnabled; set { if (SetField(ref _convertEnabled, value)) RefreshStatus(); } }
 
-    private bool _confirmMove;
+    private bool _confirmMove = true;
     public bool ConfirmMove { get => _confirmMove; set => SetField(ref _confirmMove, value); }
 
     private bool _aggressiveJunk;
@@ -370,7 +371,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Add a log entry (thread-safe via Dispatcher if needed).</summary>
     public void AddLog(string text, string level = "INFO")
     {
-        LogEntries.Add(new LogEntry(text, level));
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            LogEntries.Add(new LogEntry(text, level));
+        }
+        else
+        {
+            dispatcher.InvokeAsync(
+                () => LogEntries.Add(new LogEntry(text, level)));
+        }
     }
 
     /// <summary>Recompute all status dot indicators.</summary>

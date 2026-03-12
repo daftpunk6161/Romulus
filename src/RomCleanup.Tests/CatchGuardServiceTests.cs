@@ -121,11 +121,8 @@ public sealed class CatchGuardServiceTests
     public void GuardT_RecoverableError_ReturnsDefaultAndRecord()
     {
         var service = new CatchGuardService();
-        var (result, error) = service.Guard("Mod", "Act", () =>
-        {
-            if (true) throw new IOException("read error");
-            return 42;
-        });
+        var (result, error) = service.Guard<int>("Mod", "Act", () =>
+            throw new IOException("read error"));
         Assert.Equal(0, result);
         Assert.NotNull(error);
     }

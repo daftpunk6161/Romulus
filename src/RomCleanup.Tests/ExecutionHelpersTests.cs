@@ -40,6 +40,9 @@ public sealed class ExecutionHelpersTests
         Assert.Contains("_TRASH_REGION_DEDUPE", bl);
         Assert.Contains("_FOLDER_DUPES", bl);
         Assert.Contains("_QUARANTINE", bl);
+        Assert.Contains("PS3_DUPES", bl);
+        Assert.Contains("_BACKUP", bl);
+        Assert.Contains("_TRASH_JUNK", bl);
     }
 
     // =========================================================================
@@ -61,6 +64,14 @@ public sealed class ExecutionHelpersTests
             @"D:\roms\CUSTOM_BAN\file.zip",
             ["CUSTOM_BAN"]));
     }
+
+    [Theory]
+    [InlineData(@"D:\roms\_TRASH_JUNK\game.zip", true)]
+    [InlineData(@"D:\roms\_TRASH_JUNK\subfolder\game.zip", true)]
+    [InlineData(@"D:\roms\NES\_TRASH_JUNK\game.zip", true)]
+    [InlineData(@"D:\roms\NES\game.zip", false)]
+    public void IsBlocklisted_TrashJunkFolder(string path, bool expected)
+        => Assert.Equal(expected, ExecutionHelpers.IsBlocklisted(path));
 
     // =========================================================================
     //  BuildAuditFileName Tests
@@ -142,5 +153,8 @@ public sealed class ExecutionHelpersTests
         public bool MoveItemSafely(string src, string dest) => true;
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.Combine(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 }

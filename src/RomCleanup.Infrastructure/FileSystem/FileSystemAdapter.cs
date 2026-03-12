@@ -91,6 +91,18 @@ public sealed class FileSystemAdapter : IFileSystem
 
             foreach (var file in files)
             {
+                // Skip file-level symlinks/reparse points
+                try
+                {
+                    var attrs = File.GetAttributes(file);
+                    if ((attrs & FileAttributes.ReparsePoint) != 0)
+                        continue;
+                }
+                catch
+                {
+                    continue; // inaccessible file
+                }
+
                 if (extSet is not null)
                 {
                     var ext = Path.GetExtension(file);
@@ -138,6 +150,8 @@ public sealed class FileSystemAdapter : IFileSystem
             throw new FileNotFoundException("Source file not found.", fullSource);
 
         // Block reparse points on source
+        // Note: inherent TOCTOU between check and File.Move — mitigated by
+        // post-move verification and the single-user nature of the application.
         var sourceAttrs = File.GetAttributes(fullSource);
         if ((sourceAttrs & FileAttributes.ReparsePoint) != 0)
             throw new InvalidOperationException("Blocked: Source is a reparse point.");
@@ -227,7 +241,7 @@ public sealed class FileSystemAdapter : IFileSystem
         var current = Path.GetDirectoryName(Path.GetFullPath(path));
 
         while (!string.IsNullOrEmpty(current)
-            && current.Length > normalizedRoot.Length)
+            && current.Length >= normalizedRoot.Length)
         {
             try
             {
@@ -238,6 +252,10 @@ public sealed class FileSystemAdapter : IFileSystem
                         return true;
                 }
 
+                // Stop after checking root itself
+                if (string.Equals(current, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                    break;
+
                 current = Path.GetDirectoryName(current);
             }
             catch
@@ -247,5 +265,65 @@ public sealed class FileSystemAdapter : IFileSystem
         }
 
         return false;
+    }
+
+    public bool IsReparsePoint(string path)
+    {
+        try
+        {
+            var attrs = File.GetAttributes(path);
+            return (attrs & FileAttributes.ReparsePoint) != 0;
+        }
+        catch
+        {
+            return true; // fail-closed: treat inaccessible as reparse point
+        }
+    }
+
+    public void DeleteFile(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path must not be empty.", nameof(path));
+
+        var fullPath = Path.GetFullPath(path);
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("File not found.", fullPath);
+
+        var attrs = File.GetAttributes(fullPath);
+        if ((attrs & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Blocked: Target is a reparse point.");
+
+        File.Delete(fullPath);
+    }
+
+    public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            throw new ArgumentException("Source path must not be empty.", nameof(sourcePath));
+        if (string.IsNullOrWhiteSpace(destinationPath))
+            throw new ArgumentException("Destination path must not be empty.", nameof(destinationPath));
+
+        var fullSource = Path.GetFullPath(sourcePath);
+        var fullDest = Path.GetFullPath(destinationPath);
+
+        if (!File.Exists(fullSource))
+            throw new FileNotFoundException("Source file not found.", fullSource);
+
+        // Block reparse points on source
+        var sourceAttrs = File.GetAttributes(fullSource);
+        if ((sourceAttrs & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Blocked: Source is a reparse point.");
+
+        // Block reparse points on destination parent
+        var destDir = Path.GetDirectoryName(fullDest);
+        if (!string.IsNullOrEmpty(destDir) && Directory.Exists(destDir))
+        {
+            var destDirInfo = new DirectoryInfo(destDir);
+            if ((destDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
+        }
+
+        File.Copy(fullSource, fullDest, overwrite);
     }
 }

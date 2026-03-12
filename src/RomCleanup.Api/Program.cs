@@ -16,8 +16,19 @@ var app = builder.Build();
 
 // --- Middleware ---
 var apiKey = builder.Configuration["ApiKey"]
-             ?? Environment.GetEnvironmentVariable("ROM_CLEANUP_API_KEY")
-             ?? throw new InvalidOperationException("API key required: set --ApiKey or ROM_CLEANUP_API_KEY env var");
+             ?? Environment.GetEnvironmentVariable("ROM_CLEANUP_API_KEY");
+if (string.IsNullOrEmpty(apiKey))
+{
+    if (app.Environment.IsDevelopment())
+    {
+        apiKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        Console.WriteLine($"[Dev] Generated API key: {apiKey}");
+    }
+    else
+    {
+        throw new InvalidOperationException("API key required: set --ApiKey or ROM_CLEANUP_API_KEY env var");
+    }
+}
 
 var corsMode = builder.Configuration.GetValue("CorsMode", "strict-local");
 var corsOrigin = builder.Configuration.GetValue("CorsAllowOrigin", "http://127.0.0.1");
@@ -37,7 +48,7 @@ app.Use(async (ctx, next) =>
     {
         var origin = corsMode switch
         {
-            "local-dev" => "*",
+            "local-dev" => "http://localhost:3000",
             "strict-local" => "http://127.0.0.1",
             "custom" => corsOrigin,
             _ => "http://127.0.0.1"
@@ -78,6 +89,18 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+// --- Request Logging (P3-API-11) ---
+app.Use(async (ctx, next) =>
+{
+    var start = DateTime.UtcNow;
+    await next();
+    var elapsed = (DateTime.UtcNow - start).TotalMilliseconds;
+    var method = ctx.Request.Method;
+    var path = ctx.Request.Path;
+    var status = ctx.Response.StatusCode;
+    Console.WriteLine($"[{start:o}] {method} {path} → {status} ({elapsed:F0}ms)");
+});
+
 // --- Endpoints ---
 
 app.MapGet("/health", (RunManager mgr) =>
@@ -96,18 +119,26 @@ app.MapGet("/openapi", () => Results.Content(OpenApiSpec.Json, "application/json
 
 app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
 {
+    // Validate Content-Type
+    var contentType = ctx.Request.ContentType;
+    if (contentType is null || !contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = "Content-Type must be application/json." });
+
     // Read and validate body (max 1MB)
     ctx.Request.EnableBuffering();
-    if (ctx.Request.ContentLength > 1_048_576)
+    if (ctx.Request.ContentLength is > 1_048_576)
         return Results.BadRequest(new { error = "Request body too large (max 1MB)." });
 
     string body;
     using (var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8, leaveOpen: true))
     {
-        body = await reader.ReadToEndAsync();
+        // Limit read to 1MB + 1 byte to detect oversized chunked bodies
+        var buffer = new char[1_048_577];
+        var charsRead = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
+        if (charsRead > 1_048_576)
+            return Results.BadRequest(new { error = "Request body too large (max 1MB)." });
+        body = new string(buffer, 0, charsRead);
     }
-    if (body.Length > 1_048_576)
-        return Results.BadRequest(new { error = "Request body too large (max 1MB)." });
 
     RunRequest? request;
     try
@@ -130,6 +161,16 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
             return Results.BadRequest(new { error = "Empty root path." });
         if (!Directory.Exists(root))
             return Results.BadRequest(new { error = $"Root not found: {root}" });
+
+        // P2-API-07: Block symlinks/junctions as roots (bypass system-dir check)
+        try
+        {
+            var dirInfo = new DirectoryInfo(root);
+            if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                return Results.BadRequest(new { error = $"Symlink/junction not allowed as root: {root}" });
+        }
+        catch { /* if we can't check attributes, let subsequent validation handle it */ }
+
         // Block system directories
         var full = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
         var systemDirs = new[]
@@ -255,11 +296,10 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
             }
 
             var json = JsonSerializer.Serialize(current);
-            var hash = Convert.ToHexString(SHA256.HashData(encoding.GetBytes(json)));
 
-            if (hash != lastHash)
+            if (json != lastHash)
             {
-                lastHash = hash;
+                lastHash = json;
                 if (current.Status != "running")
                 {
                     await WriteSseEvent(writer, encoding, "completed", new { run = current, result = current.Result });

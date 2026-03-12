@@ -26,14 +26,33 @@ public sealed class FileHashService
     /// </summary>
     public string? GetHash(string path, string hashType = "SHA1")
     {
-        var cacheKey = $"{hashType}|{path}";
+        var fullPath = Path.GetFullPath(path);
+
+        DateTime lastWrite;
+        try
+        {
+            var fi = new FileInfo(fullPath);
+            if (!fi.Exists)
+                return null;
+            lastWrite = fi.LastWriteTimeUtc;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        var cacheKey = $"{hashType.ToUpperInvariant()}|{fullPath}|{lastWrite.Ticks}";
 
         if (_cache.TryGet(cacheKey, out var cached))
             return cached;
 
         try
         {
-            var hash = ComputeHash(path, hashType);
+            var hash = ComputeHash(fullPath, hashType);
             if (hash is not null)
                 _cache.Set(cacheKey, hash);
             return hash;

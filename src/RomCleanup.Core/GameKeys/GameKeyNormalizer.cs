@@ -144,6 +144,14 @@ public static class GameKeyNormalizer
         };
     }
 
+    private static readonly System.Text.RegularExpressions.Regex MsDosTrailingBracketRegex =
+        new(@"\s*(?:\[[^\]]+\]\s*)+$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly System.Text.RegularExpressions.Regex MsDosTrailingParenRegex =
+        new(@"\s*\((?!\s*(?:disc|disk|side|cd\s*\d*|floppy|tape)\b)[^)]*\)\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static readonly IReadOnlyDictionary<string, string> EmptyAliasMap =
         new Dictionary<string, string>();
 
@@ -252,18 +260,12 @@ public static class GameKeyNormalizer
             return text;
 
         // Remove trailing bracket tags: [anything]
-        var value = System.Text.RegularExpressions.Regex.Replace(
-            text, @"\s*(?:\[[^\]]+\]\s*)+$", " ",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var value = MsDosTrailingBracketRegex.Replace(text, " ");
 
         // Remove trailing non-disc parenthesized tags
-        var rxTrailing = new System.Text.RegularExpressions.Regex(
-            @"\s*\((?!\s*(?:disc|disk|side|cd\s*\d*|floppy|tape)\b)[^)]*\)\s*$",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
-
-        while (rxTrailing.IsMatch(value))
+        while (MsDosTrailingParenRegex.IsMatch(value))
         {
-            value = rxTrailing.Replace(value, " ");
+            value = MsDosTrailingParenRegex.Replace(value, " ");
         }
 
         return value;

@@ -18,7 +18,8 @@ public class ConsoleSorterTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_tempDir, true); } catch { }
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 
     private string CreateFile(string relativePath, string content = "")
@@ -164,7 +165,8 @@ public class ZipSorterTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_tempDir, true); } catch { }
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 
     private string CreateZipWithEntries(string name, params string[] entryNames)

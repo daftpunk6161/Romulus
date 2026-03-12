@@ -27,23 +27,23 @@ public static class RegionDetector
     {
         // Major regions (priority order)
         R("EU",    @"\((?:Europe|EUR|PAL)\)"),
-        R("US",    @"\((?:USA|US|U\.S\.A\.|U\.S\.)\b(?:,\s*\w+)*\)"),
+        R("US",    @"\((?:USA|US|U\.S\.A\.|U\.S\.)\)"),
         R("JP",    @"\((?:Japan|JP|JPN|NTSC-J)\)"),
         R("WORLD", @"\((?:World|Export)\)"),
         R("AU",    @"\((?:Australia|AU|AUS)\)"),
         R("ASIA",  @"\((?:Asia|AS)\)"),
         // Scandinavia
-        R("SCAN",  @"\(Scandinavia\)"),
+        R("EU",    @"\(Scandinavia\)"),
         // Individual countries → mapped to region codes from rules.json
         R("KR",    @"\((?:Korea|KOR)\)"),
         R("CN",    @"\((?:China|CHN)\)"),
         R("BR",    @"\((?:Brazil|BRA)\)"),
-        R("FR",    @"\((?:France|FRA)\)"),
-        R("DE",    @"\((?:Germany|DEU)\)"),
-        R("ES",    @"\((?:Spain|ESP)\)"),
-        R("IT",    @"\((?:Italy|ITA)\)"),
-        R("NL",    @"\((?:Netherlands|NLD)\)"),
-        R("SE",    @"\((?:Sweden|SWE)\)"),
+        R("EU",    @"\((?:France|FRA)\)"),
+        R("EU",    @"\((?:Germany|DEU)\)"),
+        R("EU",    @"\((?:Spain|ESP)\)"),
+        R("EU",    @"\((?:Italy|ITA)\)"),
+        R("EU",    @"\((?:Netherlands|NLD)\)"),
+        R("EU",    @"\((?:Sweden|SWE)\)"),
         R("RU",    @"\((?:Russia|RUS)\)"),
         R("PL",    @"\((?:Poland|POL)\)"),
         R("CA",    @"\((?:Canada|CAN)\)"),
@@ -124,17 +124,17 @@ public static class RegionDetector
         if (multiRegionPattern.IsMatch(name))
             return Regions.World;
 
-        // Try token-based parsing
-        var tokenResult = ResolveRegionFromTokens(name);
-        if (tokenResult is not null && tokenResult != Regions.Unknown)
-            return tokenResult;
-
-        // Try ordered rules
+        // Try ordered rules (bracket-based, more specific)
         foreach (var rule in orderedRules)
         {
             if (rule.Pattern.IsMatch(name))
                 return rule.Key;
         }
+
+        // Try token-based parsing (less specific, e.g. NTSC → US)
+        var tokenResult = ResolveRegionFromTokens(name);
+        if (tokenResult is not null && tokenResult != Regions.Unknown)
+            return tokenResult;
 
         // Try two-letter rules
         foreach (var rule in twoLetterRules)

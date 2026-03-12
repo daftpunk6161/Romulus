@@ -124,7 +124,8 @@ public static class ReportGenerator
     public static void WriteHtmlToFile(string htmlPath, string workingDir, ReportSummary summary, IReadOnlyList<ReportEntry> entries)
     {
         var fullPath = Path.GetFullPath(htmlPath);
-        var fullDir = Path.GetFullPath(workingDir);
+        var fullDir = Path.GetFullPath(workingDir).TrimEnd(Path.DirectorySeparatorChar)
+                      + Path.DirectorySeparatorChar;
         if (!fullPath.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Report path '{htmlPath}' is outside working directory.");
 
@@ -236,9 +237,9 @@ tr:hover { background: rgba(137,180,250,0.05); }
             sb.Append($"<td class=\"{actionClass}\">{Enc(e.Action)}</td>");
             sb.Append($"<td>{Enc(e.Category)}</td>");
             sb.Append($"<td>{Enc(e.Region)}</td>");
-            sb.Append($"<td>{Enc(e.FileName)}</td>");
+            sb.Append($"<td title=\"{Enc(e.FilePath)}\">{Enc(e.FileName)}</td>");
             sb.Append($"<td>{Enc(e.Extension)}</td>");
-            sb.Append($"<td>{FormatSize(e.SizeBytes)}</td>");
+            sb.Append($"<td>{Enc(FormatSize(e.SizeBytes))}</td>");
             sb.Append($"<td>{Enc(e.Console)}</td>");
             sb.Append($"<td>{(e.DatMatch ? "✓" : "")}</td>");
             sb.AppendLine("</tr>");

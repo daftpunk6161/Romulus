@@ -14,6 +14,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
     private readonly string? _toolHashesPath;
     private readonly bool _allowInsecureHashBypass;
     private Dictionary<string, string>? _toolHashes;
+    private readonly Dictionary<string, (string Hash, DateTime LastWriteUtc)> _hashCache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <param name="toolHashesPath">Path to data/tool-hashes.json for SHA256 verification.</param>
     /// <param name="allowInsecureHashBypass">Skip hash check (NOT recommended for production).</param>
@@ -35,13 +36,15 @@ public sealed class ToolRunnerAdapter : IToolRunner
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
+        // Build candidate paths using environment-based folders (no hardcoded drive letters)
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var candidates = name switch
         {
             "chdman" => new[]
             {
                 Path.Combine(programFiles, "MAME", "chdman.exe"),
                 Path.Combine(programFilesX86, "MAME", "chdman.exe"),
-                @"C:\MAME\chdman.exe"
+                Path.Combine(localAppData, "MAME", "chdman.exe")
             },
             "dolphintool" => new[]
             {
@@ -53,8 +56,16 @@ public sealed class ToolRunnerAdapter : IToolRunner
                 Path.Combine(programFiles, "7-Zip", "7z.exe"),
                 Path.Combine(programFilesX86, "7-Zip", "7z.exe")
             },
-            "psxtract" => new[] { @"C:\tools\conversion\psxtract.exe" },
-            "ciso" => new[] { @"C:\tools\conversion\ciso.exe" },
+            "psxtract" => new[]
+            {
+                Path.Combine(localAppData, "RomCleanup", "tools", "psxtract.exe"),
+                Path.Combine(programFiles, "psxtract", "psxtract.exe")
+            },
+            "ciso" => new[]
+            {
+                Path.Combine(localAppData, "RomCleanup", "tools", "ciso.exe"),
+                Path.Combine(programFiles, "ciso", "ciso.exe")
+            },
             _ => Array.Empty<string>()
         };
 
@@ -119,21 +130,27 @@ public sealed class ToolRunnerAdapter : IToolRunner
             if (process is null)
                 return new ToolResult(-1, $"{label}: failed to start process", false);
 
-            // Read stderr asynchronously to avoid pipe deadlock when buffer fills (>4KB).
-            // Sequential ReadToEnd on both streams can deadlock if the child blocks on stderr
-            // while the parent blocks reading stdout.
+            // Read both stdout and stderr asynchronously to prevent pipe deadlock.
+            // If either pipe fills its 4KB OS buffer while the parent blocks reading the other,
+            // both processes deadlock indefinitely.
             string? stderr = null;
+            string? stdout = null;
             var stderrTask = Task.Run(() => stderr = process.StandardError.ReadToEnd());
-            var stdout = process.StandardOutput.ReadToEnd();
-            stderrTask.Wait();
+            var stdoutTask = Task.Run(() => stdout = process.StandardOutput.ReadToEnd());
 
-            if (!process.WaitForExit(TimeSpan.FromMinutes(30)))
+            var completed = Task.WaitAll(new[] { stdoutTask, stderrTask },
+                TimeSpan.FromMinutes(30));
+
+            if (!completed)
             {
-                try { process.Kill(entireProcessTree: true); } catch { }
+                if (!process.HasExited)
+                    try { process.Kill(entireProcessTree: true); } catch { }
                 return new ToolResult(-1, $"{label}: process timed out after 30 minutes", false);
             }
 
-            var output = string.IsNullOrEmpty(stderr) ? stdout : $"{stdout}\n{stderr}".Trim();
+            process.WaitForExit();
+
+            var output = string.IsNullOrEmpty(stderr) ? stdout ?? "" : $"{stdout}\n{stderr}".Trim();
             var success = process.ExitCode == 0;
 
             return new ToolResult(process.ExitCode, output, success);
@@ -159,10 +176,20 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (_toolHashes is null || !_toolHashes.TryGetValue(fileName, out var expectedHash))
             return _allowInsecureHashBypass;
 
+        // PERF-02: Cache tool hash with LastWriteTime check
+        var fullPath = Path.GetFullPath(toolPath);
+        var lastWrite = File.GetLastWriteTimeUtc(fullPath);
+        if (_hashCache.TryGetValue(fullPath, out var cached) && cached.LastWriteUtc == lastWrite)
+        {
+            return string.Equals(cached.Hash, expectedHash, StringComparison.OrdinalIgnoreCase);
+        }
+
         using var sha256 = SHA256.Create();
         using var stream = File.OpenRead(toolPath);
         var hashBytes = sha256.ComputeHash(stream);
         var actualHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+
+        _hashCache[fullPath] = (actualHash, lastWrite);
 
         return string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase);
     }

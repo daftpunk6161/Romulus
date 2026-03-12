@@ -64,6 +64,7 @@ public sealed class FolderDeduplicator
             if (filePath is null) continue;
 
             found = true;
+            if (!File.Exists(filePath)) continue;
             try
             {
                 var fileBytes = File.ReadAllBytes(filePath);
@@ -149,8 +150,10 @@ public sealed class FolderDeduplicator
             dupeBase = Path.GetFullPath(dupeBase);
             _fs.EnsureDirectory(dupeBase);
 
+            // Cache normalized dupe path to avoid repeated GetFullPath on UNC per directory
+            var normalizedDupeBase = dupeBase.TrimEnd(Path.DirectorySeparatorChar);
             var folders = Directory.GetDirectories(root)
-                .Where(d => !string.Equals(Path.GetFullPath(d), dupeBase, StringComparison.OrdinalIgnoreCase))
+                .Where(d => !string.Equals(d.TrimEnd(Path.DirectorySeparatorChar), normalizedDupeBase, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
             _log?.Invoke($"PS3 Scan: {folders.Length} Ordner in {root}");
@@ -245,8 +248,10 @@ public sealed class FolderDeduplicator
             if (mode == "Move")
                 _fs.EnsureDirectory(dupeBase);
 
+            // Cache normalized dupe path to avoid repeated GetFullPath on UNC per directory
+            var normalizedDupeBase = dupeBase.TrimEnd(Path.DirectorySeparatorChar);
             var folders = Directory.GetDirectories(normalizedRoot)
-                .Where(d => !string.Equals(Path.GetFullPath(d), dupeBase, StringComparison.OrdinalIgnoreCase))
+                .Where(d => !string.Equals(d.TrimEnd(Path.DirectorySeparatorChar), normalizedDupeBase, StringComparison.OrdinalIgnoreCase))
                 .Select(d => new DirectoryInfo(d))
                 .ToArray();
 

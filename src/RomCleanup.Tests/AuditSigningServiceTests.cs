@@ -100,6 +100,29 @@ public sealed class AuditSigningServiceTests : IDisposable
     }
 
     [Fact]
+    public void VerifyMetadataSidecar_TamperedSidecarHmac_ThrowsInvalidData()
+    {
+        var csvPath = Path.Combine(_tempDir, "audit_hmac_tamper.csv");
+        File.WriteAllText(csvPath, "Header\nRow1\n", Encoding.UTF8);
+
+        var fs = new MinimalFs();
+        var service = new AuditSigningService(fs);
+        service.WriteMetadataSidecar(csvPath, rowCount: 1);
+
+        // Tamper with the sidecar's HMAC (keep CSV and SHA256 intact)
+        var metaPath = csvPath + ".meta.json";
+        var json = File.ReadAllText(metaPath, Encoding.UTF8);
+        // Replace the HMAC value with garbage
+        var tampered = System.Text.RegularExpressions.Regex.Replace(
+            json, @"""HmacSha256""\s*:\s*""[^""]+""",
+            @"""HmacSha256"": ""0000000000000000000000000000000000000000000000000000000000000000""");
+        File.WriteAllText(metaPath, tampered, Encoding.UTF8);
+
+        var ex = Assert.Throws<InvalidDataException>(() => service.VerifyMetadataSidecar(csvPath));
+        Assert.Contains("HMAC", ex.Message);
+    }
+
+    [Fact]
     public void WriteMetadataSidecar_NonExistentCsv_ReturnsNull()
     {
         var fs = new MinimalFs();
@@ -131,16 +154,18 @@ public sealed class AuditSigningServiceTests : IDisposable
     [Fact]
     public void ComputeHmacSha256_SameInput_SameOutput()
     {
-        var h1 = AuditSigningService.ComputeHmacSha256("test payload");
-        var h2 = AuditSigningService.ComputeHmacSha256("test payload");
+        var service = new AuditSigningService(new MinimalFs());
+        var h1 = service.ComputeHmacSha256("test payload");
+        var h2 = service.ComputeHmacSha256("test payload");
         Assert.Equal(h1, h2);
     }
 
     [Fact]
     public void ComputeHmacSha256_DifferentInputs_DifferentOutput()
     {
-        var h1 = AuditSigningService.ComputeHmacSha256("payload A");
-        var h2 = AuditSigningService.ComputeHmacSha256("payload B");
+        var service = new AuditSigningService(new MinimalFs());
+        var h1 = service.ComputeHmacSha256("payload A");
+        var h2 = service.ComputeHmacSha256("payload B");
         Assert.NotEqual(h1, h2);
     }
 
@@ -213,6 +238,41 @@ public sealed class AuditSigningServiceTests : IDisposable
         Assert.Equal(0, result.TotalRows);
     }
 
+    [Fact]
+    public void Rollback_PathTraversal_SkippedAsUnsafe()
+    {
+        // Build directories that exist
+        var allowedRestore = Path.Combine(_tempDir, "restore");
+        var allowedCurrent = Path.Combine(_tempDir, "current");
+        Directory.CreateDirectory(allowedRestore);
+        Directory.CreateDirectory(allowedCurrent);
+
+        // Create a file in the "current" location
+        var currentFile = Path.Combine(allowedCurrent, "game.zip");
+        File.WriteAllText(currentFile, "data");
+
+        // The OldPath uses path traversal to escape the allowed restore root
+        var escapedPath = Path.Combine(allowedRestore, "..", "..", "etc", "game.zip");
+
+        var csvPath = Path.Combine(_tempDir, "audit_traversal.csv");
+        File.WriteAllText(csvPath,
+            $"RootPath,OldPath,NewPath,Action\n" +
+            $"{_tempDir},{escapedPath},{currentFile},MOVE\n",
+            Encoding.UTF8);
+
+        var fs = new MinimalFs();
+        var service = new AuditSigningService(fs);
+        var result = service.Rollback(csvPath,
+            allowedRestoreRoots: [allowedRestore],
+            allowedCurrentRoots: [allowedCurrent],
+            dryRun: true);
+
+        // The row should be skipped because OldPath resolves outside the allowed restore root
+        Assert.Equal(1, result.EligibleRows);
+        Assert.Equal(1, result.SkippedUnsafe);
+        Assert.Equal(0, result.DryRunPlanned);
+    }
+
     // Minimal IFileSystem for audit tests
     private sealed class MinimalFs : IFileSystem
     {
@@ -227,5 +287,8 @@ public sealed class AuditSigningServiceTests : IDisposable
         }
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.Combine(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 }

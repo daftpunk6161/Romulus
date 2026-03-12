@@ -18,7 +18,8 @@ public class DiscHeaderDetectorTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_tempDir, true); } catch { }
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 
     // ── Helper: create a disc image with specific bytes ──

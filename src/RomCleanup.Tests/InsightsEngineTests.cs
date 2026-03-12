@@ -114,7 +114,12 @@ public sealed class InsightsEngineTests
 
         var result = new RunResult { AllCandidates = candidates, DedupeGroups = [] };
         var rows = InsightsEngine.GetDatCoverageHeatmap(result, top: 5);
-        Assert.True(rows.Count <= 5);
+        Assert.Equal(5, rows.Count);
+        // Each console has exactly 1 candidate, so Expected == 1 for all
+        Assert.All(rows, r => Assert.Equal(1, r.Expected));
+        // Coverage should be either 100% (DatMatch=true) or 0% (DatMatch=false)
+        Assert.All(rows, r => Assert.True(r.Coverage == 100.0 || r.Coverage == 0.0,
+            $"Expected coverage 100 or 0, got {r.Coverage} for {r.Console}"));
     }
 
     // =========================================================================
@@ -178,9 +183,13 @@ public sealed class InsightsEngineTests
 
             Assert.True(File.Exists(csvPath));
             var lines = File.ReadAllLines(csvPath);
-            Assert.True(lines.Length >= 2); // header + 1 row
+            Assert.Equal(2, lines.Length); // exactly 1 header + 1 data row
             Assert.Contains("GameKey", lines[0]);
+            Assert.Contains("Winner", lines[0]);
+            Assert.Contains("Region", lines[0]);
+            Assert.Contains("TotalScore", lines[0]);
             Assert.Contains("Mario", lines[1]);
+            Assert.Contains("1500", lines[1]);
         }
         finally
         {
@@ -199,5 +208,8 @@ public sealed class InsightsEngineTests
         public bool MoveItemSafely(string src, string dest) => true;
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.Combine(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 }

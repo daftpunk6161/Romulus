@@ -1,6 +1,7 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -17,7 +18,8 @@ public class RunOrchestratorTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_tempDir, true); } catch { }
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 
     // ── Preflight Tests ───────────────────────────────────────────
@@ -195,20 +197,22 @@ public class RunOrchestratorTests : IDisposable
             Roots = new[] { _tempDir },
             Extensions = new[] { ".zip" },
             Mode = "Move",
-            PreferRegions = new[] { "USA" }
+            PreferRegions = new[] { "US" }
         };
 
         var result = orch.Execute(options);
 
         Assert.Equal("ok", result.Status);
         Assert.NotNull(result.MoveResult);
-        // One file should be winner, one should be moved
-        Assert.True(result.GroupCount >= 1);
-        // At least one move if dedupe found duplicates
-        if (result.LoserCount > 0)
-        {
-            Assert.True(result.MoveResult!.MoveCount > 0);
-        }
+        // Two files with the same GameKey "game" → exactly 1 group
+        Assert.Equal(1, result.GroupCount);
+        Assert.Equal(1, result.WinnerCount);
+        Assert.Equal(1, result.LoserCount);
+        // The loser must have been moved
+        Assert.Equal(1, result.MoveResult!.MoveCount);
+        Assert.Equal(0, result.MoveResult.FailCount);
+        // Winner should be US (preferred region), Europe is the loser
+        Assert.True(File.Exists(file1), "US (winner) should still exist");
     }
 
     [Fact]
@@ -228,7 +232,9 @@ public class RunOrchestratorTests : IDisposable
             Extensions = new[] { ".zip" }
         };
 
-        Assert.Throws<OperationCanceledException>(() => orch.Execute(options, cts.Token));
+        var result = orch.Execute(options, cts.Token);
+        Assert.Equal("cancelled", result.Status);
+        Assert.Equal(2, result.ExitCode);
     }
 
     [Fact]
@@ -297,7 +303,10 @@ public class RunOrchestratorTests : IDisposable
 
         var result = orch.Execute(options);
 
-        Assert.True(result.DurationMs >= 0);
+        Assert.Equal("ok", result.Status);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, result.TotalFilesScanned);
+        Assert.True(result.DurationMs > 0, "Duration should be positive for a real execution");
     }
 
     // ── Move Phase Tests ──────────────────────────────────────────
@@ -354,7 +363,20 @@ public class RunOrchestratorTests : IDisposable
 
         var result = orch.Execute(options);
 
+        Assert.Equal("ok", result.Status);
         Assert.Equal(2, result.TotalFilesScanned);
+        // Both files share GameKey "game" → 1 group, 1 winner, 1 loser
+        Assert.Equal(1, result.GroupCount);
+        Assert.Equal(1, result.WinnerCount);
+        Assert.Equal(1, result.LoserCount);
+        // The Beta file should be classified as JUNK
+        var betaCandidate = result.AllCandidates.FirstOrDefault(c => c.MainPath.Contains("Beta"));
+        Assert.NotNull(betaCandidate);
+        Assert.Equal("JUNK", betaCandidate!.Category);
+        // The non-Beta file should be classified as GAME
+        var normalCandidate = result.AllCandidates.FirstOrDefault(c => !c.MainPath.Contains("Beta"));
+        Assert.NotNull(normalCandidate);
+        Assert.Equal("GAME", normalCandidate!.Category);
     }
 
     // ── Helpers ───────────────────────────────────────────────────
@@ -410,6 +432,9 @@ public class RunOrchestratorTests : IDisposable
             var full = Path.Combine(rootPath, relativePath);
             return full.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase) ? full : null;
         }
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }
 
     private sealed class FakeAuditStore : IAuditStore
@@ -430,5 +455,61 @@ public class RunOrchestratorTests : IDisposable
         public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath,
             string newPath, string action, string category = "", string hash = "", string reason = "")
             => AuditRows.Add((auditCsvPath, rootPath, oldPath, newPath, action));
+    }
+
+    private sealed class FakeFormatConverter : IFormatConverter
+    {
+        public List<string> ConvertedPaths { get; } = new();
+
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
+        {
+            // Return a target for .zip files to simulate conversion being applicable
+            if (sourceExtension == ".zip")
+                return new ConversionTarget(".chd", "chdman", "createcd");
+            return null;
+        }
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, string? sevenZipPath = null)
+        {
+            ConvertedPaths.Add(sourcePath);
+            return new ConversionResult(sourcePath, sourcePath + ".chd", ConversionOutcome.Success);
+        }
+
+        public bool Verify(string targetPath, ConversionTarget target) => true;
+    }
+
+    [Fact]
+    public void Execute_Phase6_SkipsJunkRemovedGroups()
+    {
+        // "Junkonly (Beta).zip" is JUNK and the sole member of its GameKey → removed in Phase 3b
+        // "Normal (USA).zip" is GAME → should be converted in Phase 6
+        CreateFile("Junkonly (Beta).zip", 50);
+        CreateFile("Normal (USA).zip", 60);
+
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var converter = new FakeFormatConverter();
+        var orch = new RunOrchestrator(fs, audit, converter: converter);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "Move",
+            RemoveJunk = true,
+            ConvertFormat = "chd",
+            PreferRegions = new[] { "USA" }
+        };
+
+        var result = orch.Execute(options);
+
+        Assert.Equal("ok", result.Status);
+        // Junk file should have been removed
+        Assert.True(result.JunkRemovedCount >= 1, "Junk file should be removed in Phase 3b");
+        // Converter should have been called for the normal file only
+        Assert.Single(converter.ConvertedPaths);
+        Assert.Contains("Normal (USA).zip", converter.ConvertedPaths[0]);
+        // Junk file must NOT appear in conversion list
+        Assert.DoesNotContain(converter.ConvertedPaths, p => p.Contains("Junkonly"));
     }
 }

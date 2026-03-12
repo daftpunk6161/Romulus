@@ -14,4 +14,6 @@ public interface IAppState
     T? GetValue<T>(string key, T? defaultValue = default);
     void SetValue(string key, object? value);
     bool TestCancel();
+    void RequestCancel();
+    void ResetCancel();
 }

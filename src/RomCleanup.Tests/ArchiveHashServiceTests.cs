@@ -18,7 +18,8 @@ public class ArchiveHashServiceTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_tempDir, true); } catch { }
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, true);
     }
 
     private string CreateZipWithEntries(string name, params (string entry, byte[] data)[] entries)

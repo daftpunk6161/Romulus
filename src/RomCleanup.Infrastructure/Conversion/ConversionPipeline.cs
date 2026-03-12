@@ -32,8 +32,29 @@ public sealed class ConversionPipeline
                 return new DiskSpaceCheckResult { Ok = false, Reason = "Source file not found" };
 
             var required = (long)(fileInfo.Length * multiplier);
-            var driveInfo = new DriveInfo(Path.GetPathRoot(targetDir)!);
-            var available = driveInfo.AvailableFreeSpace;
+            long available;
+            var pathRoot = Path.GetPathRoot(targetDir);
+            if (pathRoot is not null && pathRoot.StartsWith(@"\\"))
+            {
+                // UNC path: DriveInfo does not support UNC — use Win32 API via .NET
+                try
+                {
+                    var dirFull = Path.GetFullPath(targetDir);
+                    // Use FileInfo on a temp probe — fallback for UNC free space
+                    var drive = DriveInfo.GetDrives()
+                        .FirstOrDefault(d => dirFull.StartsWith(d.RootDirectory.FullName, StringComparison.OrdinalIgnoreCase));
+                    available = drive?.AvailableFreeSpace ?? long.MaxValue; // If no mapped drive found, assume OK
+                }
+                catch
+                {
+                    available = long.MaxValue; // UNC space check failed — allow conversion, it will fail later if truly full
+                }
+            }
+            else
+            {
+                var driveInfo = new DriveInfo(pathRoot!);
+                available = driveInfo.AvailableFreeSpace;
+            }
 
             if (available < required)
             {
@@ -107,64 +128,81 @@ public sealed class ConversionPipeline
 
         _log?.Invoke($"Pipeline '{pipeline.Id}': {pipeline.Steps.Count} steps for {pipeline.SourcePath}");
 
-        foreach (var step in pipeline.Steps)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-
-            if (mode == "DryRun")
+            foreach (var step in pipeline.Steps)
             {
-                results.Add(new PipelineStepResult
+                if (ct.IsCancellationRequested)
                 {
-                    Status = "dryrun",
-                    Tool = step.Tool,
-                    Action = step.Action,
-                    Input = step.Input,
-                    Output = step.Output,
-                    Skipped = true
-                });
-                _log?.Invoke($"  DRYRUN: {step.Tool} {step.Action} {Path.GetFileName(step.Input)} -> {Path.GetFileName(step.Output)}");
-                continue;
-            }
+                    results.Add(new PipelineStepResult
+                    {
+                        Status = "cancelled",
+                        Tool = step.Tool,
+                        Action = step.Action,
+                        Input = step.Input,
+                        Output = step.Output,
+                        Skipped = true
+                    });
+                    break;
+                }
 
-            // Disk space check for the output directory
-            var spaceCheck = CheckDiskSpace(step.Input, Path.GetDirectoryName(step.Output)!);
-            if (!spaceCheck.Ok)
-            {
-                results.Add(new PipelineStepResult
+                if (mode == "DryRun")
                 {
-                    Status = "error",
-                    Tool = step.Tool,
-                    Action = step.Action,
-                    Input = step.Input,
-                    Output = step.Output,
-                    Error = spaceCheck.Reason
-                });
-                _log?.Invoke($"  ABORTED: {spaceCheck.Reason}");
-                break;
+                    results.Add(new PipelineStepResult
+                    {
+                        Status = "dryrun",
+                        Tool = step.Tool,
+                        Action = step.Action,
+                        Input = step.Input,
+                        Output = step.Output,
+                        Skipped = true
+                    });
+                    _log?.Invoke($"  DRYRUN: {step.Tool} {step.Action} {Path.GetFileName(step.Input)} -> {Path.GetFileName(step.Output)}");
+                    continue;
+                }
+
+                // Disk space check for the output directory
+                var spaceCheck = CheckDiskSpace(step.Input, Path.GetDirectoryName(step.Output)!);
+                if (!spaceCheck.Ok)
+                {
+                    results.Add(new PipelineStepResult
+                    {
+                        Status = "error",
+                        Tool = step.Tool,
+                        Action = step.Action,
+                        Input = step.Input,
+                        Output = step.Output,
+                        Error = spaceCheck.Reason
+                    });
+                    _log?.Invoke($"  ABORTED: {spaceCheck.Reason}");
+                    break;
+                }
+
+                var stepResult = ExecuteStep(step);
+                results.Add(stepResult);
+
+                if (step.IsTemp && stepResult.Status == "ok")
+                    tempFiles.Add(step.Output);
+
+                if (stepResult.Status != "ok")
+                {
+                    _log?.Invoke($"  FAILED: {step.Tool} {step.Action}: {stepResult.Error}");
+                    break;
+                }
+
+                _log?.Invoke($"  OK: {step.Tool} {step.Action} -> {Path.GetFileName(step.Output)}");
             }
-
-            var stepResult = ExecuteStep(step);
-            results.Add(stepResult);
-
-            if (step.IsTemp && stepResult.Status == "ok")
-                tempFiles.Add(step.Output);
-
-            if (stepResult.Status != "ok")
-            {
-                _log?.Invoke($"  FAILED: {step.Tool} {step.Action}: {stepResult.Error}");
-                break;
-            }
-
-            _log?.Invoke($"  OK: {step.Tool} {step.Action} -> {Path.GetFileName(step.Output)}");
         }
-
-        // Cleanup temp files
-        if (pipeline.CleanupTemps)
+        finally
         {
-            foreach (var tempFile in tempFiles)
+            // Cleanup temp files (always runs, even on cancellation/exception)
+            if (pipeline.CleanupTemps)
             {
-                try { if (File.Exists(tempFile)) File.Delete(tempFile); }
-                catch { /* best effort cleanup */ }
+                foreach (var tempFile in tempFiles)
+                {
+                    try { if (File.Exists(tempFile)) File.Delete(tempFile); }
+                    catch { /* best effort cleanup */ }
+                }
             }
         }
 

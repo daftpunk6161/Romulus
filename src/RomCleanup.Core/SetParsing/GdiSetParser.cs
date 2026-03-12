@@ -35,21 +35,40 @@ public static class GdiSetParser
             var trimmed = line.Trim();
             if (string.IsNullOrEmpty(trimmed)) continue;
 
+            // Skip the track-count line (first line, single number)
+            if (int.TryParse(trimmed, out _)) continue;
+
             // GDI format: trackNum startLBA type sectorSize "filename" offset
             // or:          trackNum startLBA type sectorSize filename offset
-            var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 5) continue;
+            // Handle quoted filenames with spaces
+            string fileName;
+            var quoteStart = trimmed.IndexOf('"');
+            if (quoteStart >= 0)
+            {
+                var quoteEnd = trimmed.IndexOf('"', quoteStart + 1);
+                if (quoteEnd < 0) continue;
+                fileName = trimmed.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
+            }
+            else
+            {
+                var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 5) continue;
+                fileName = parts[4];
+            }
 
-            // Skip the track-count line (first line, single number)
-            if (parts.Length == 1) continue;
-
-            // Extract filename (column 5, 0-indexed = 4)
-            var fileName = parts[4].Trim('"');
             if (string.IsNullOrWhiteSpace(fileName)) continue;
 
-            var fullPath = Path.IsPathRooted(fileName)
-                ? fileName
-                : Path.GetFullPath(Path.Combine(dir, fileName));
+            string fullPath;
+            try
+            {
+                fullPath = Path.IsPathRooted(fileName)
+                    ? fileName
+                    : Path.GetFullPath(Path.Combine(dir, fileName));
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
 
             if (!fullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 continue;

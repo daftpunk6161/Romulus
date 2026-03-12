@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using RomCleanup.Contracts.Ports;
 
 namespace RomCleanup.Infrastructure.Audit;
@@ -34,24 +35,22 @@ public sealed class AuditCsvStore : IAuditStore
 
         var sidecarPath = auditCsvPath + ".meta.json";
 
-        var sb = new StringBuilder();
-        sb.AppendLine("{");
-        var entries = metadata.ToList();
-        for (int i = 0; i < entries.Count; i++)
+        var stringDict = new Dictionary<string, string?>();
+        foreach (var entry in metadata)
+            stringDict[entry.Key] = entry.Value?.ToString();
+
+        var jsonOptions = new JsonSerializerOptions
         {
-            var key = entries[i].Key.Replace("\"", "\\\"");
-            var val = entries[i].Value?.ToString()?.Replace("\"", "\\\"") ?? "null";
-            sb.Append($"  \"{key}\": \"{val}\"");
-            if (i < entries.Count - 1) sb.Append(',');
-            sb.AppendLine();
-        }
-        sb.AppendLine("}");
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+        var json = JsonSerializer.Serialize(stringDict, jsonOptions);
 
         var dir = Path.GetDirectoryName(sidecarPath);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        File.WriteAllText(sidecarPath, sb.ToString(), Encoding.UTF8);
+        File.WriteAllText(sidecarPath, json, Encoding.UTF8);
     }
 
     public bool TestMetadataSidecar(string auditCsvPath)

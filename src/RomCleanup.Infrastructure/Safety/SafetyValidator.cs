@@ -15,32 +15,35 @@ public sealed class SafetyValidator
         {
             Name = "Conservative",
             Strict = true,
-            ProtectedPaths = [
+            ProtectedPaths = new[]
+            {
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-            ],
+            }.Where(p => !string.IsNullOrEmpty(p)).ToArray(),
             ProtectedPathsText = "Windows, ProgramFiles, ProgramFiles(x86), UserProfile"
         },
         ["Balanced"] = new SafetyProfile
         {
             Name = "Balanced",
             Strict = false,
-            ProtectedPaths = [
+            ProtectedPaths = new[]
+            {
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
-            ],
+            }.Where(p => !string.IsNullOrEmpty(p)).ToArray(),
             ProtectedPathsText = "Windows, ProgramFiles, ProgramFiles(x86)"
         },
         ["Expert"] = new SafetyProfile
         {
             Name = "Expert",
             Strict = false,
-            ProtectedPaths = [
+            ProtectedPaths = new[]
+            {
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows)
-            ],
+            }.Where(p => !string.IsNullOrEmpty(p)).ToArray(),
             ProtectedPathsText = "Windows"
         }
     };
@@ -133,9 +136,13 @@ public sealed class SafetyValidator
                 continue;
             }
 
-            // Protected path check
+            // Protected path check (use trailing separator to avoid C:\WindowsApps matching C:\Windows)
+            var normalizedWithSep = normalized.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             var protectedMatch = protectedPaths.FirstOrDefault(p =>
-                normalized.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+            {
+                var protectedWithSep = p.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                return normalizedWithSep.StartsWith(protectedWithSep, StringComparison.OrdinalIgnoreCase);
+            });
             if (protectedMatch is not null)
             {
                 blockers.Add($"Root is inside protected path '{protectedMatch}': {normalized}");

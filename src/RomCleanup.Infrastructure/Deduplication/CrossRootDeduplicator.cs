@@ -19,8 +19,12 @@ public sealed class CrossRootDeduplicator
         var groups = files
             .Where(f => !string.IsNullOrEmpty(f.Hash))
             .GroupBy(f => f.Hash, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Count() >= 2)
-            .Where(g => g.Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2)
+            .Where(g =>
+            {
+                var items = g.ToList();
+                return items.Count >= 2
+                    && items.Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2;
+            })
             .Select(g => new CrossRootDuplicateGroup
             {
                 Hash = g.Key,
@@ -36,6 +40,17 @@ public sealed class CrossRootDeduplicator
     /// </summary>
     public static CrossRootMergeAdvice GetMergeAdvice(CrossRootDuplicateGroup group)
     {
+        if (group.Files.Count < 2)
+            return new CrossRootMergeAdvice { Hash = group.Hash, Keep = group.Files.FirstOrDefault() ?? new(), Remove = [] };
+
+        // Only advise merging when files span multiple roots
+        var distinctRoots = group.Files
+            .Select(f => f.Root)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        if (distinctRoots < 2)
+            return new CrossRootMergeAdvice { Hash = group.Hash, Keep = group.Files[0], Remove = [] };
+
         // Score each file by format
         var scored = group.Files
             .Select(f => (File: f, Score: FormatScorer.GetFormatScore(f.Extension)))

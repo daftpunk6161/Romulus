@@ -102,6 +102,9 @@ public sealed class RunOrchestrator
         var result = new RunResult();
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
+        try
+        {
+
         // Phase 1: Preflight
         _onProgress?.Invoke("Preflight...");
         var preflight = Preflight(options);
@@ -143,10 +146,12 @@ public sealed class RunOrchestrator
         // Phase 3b: Remove junk (if enabled)
         // Junk files that are the sole representative of their GameKey become "winners"
         // and would never appear in any group's Losers list. This phase catches them.
+        // Track removed junk winners so Phase 6 (conversion) skips them.
+        var junkRemovedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (options.RemoveJunk && options.Mode == "Move")
         {
             _onProgress?.Invoke("Removing junk files...");
-            var junkResult = ExecuteJunkRemovalPhase(candidates, groups, options, cancellationToken);
+            var junkResult = ExecuteJunkRemovalPhase(candidates, groups, options, junkRemovedPaths, cancellationToken);
             result.JunkRemovedCount = junkResult.MoveCount;
             result.MoveResult = junkResult; // will be merged below if dedupe move also runs
         }
@@ -186,6 +191,7 @@ public sealed class RunOrchestrator
         cancellationToken.ThrowIfCancellationRequested();
 
         // Phase 6: Format Conversion (optional, Move mode only)
+        // Skip groups whose winners were moved to trash in Phase 3b.
         if (options.ConvertFormat is not null && options.Mode == "Move" && _converter is not null)
         {
             _onProgress?.Invoke("Converting formats...");
@@ -193,6 +199,11 @@ public sealed class RunOrchestrator
             foreach (var group in groups)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                // Skip junk winners already moved to trash
+                if (junkRemovedPaths.Contains(group.Winner.MainPath))
+                    continue;
+
                 var ext = Path.GetExtension(group.Winner.MainPath).ToLowerInvariant();
                 var consoleKey = group.Winner.Type ?? "";
                 var target = _converter.GetTargetFormat(consoleKey, ext);
@@ -210,6 +221,15 @@ public sealed class RunOrchestrator
         result.ExitCode = 0;
         result.DurationMs = sw.ElapsedMilliseconds;
         return result;
+        }
+        catch (OperationCanceledException)
+        {
+            sw.Stop();
+            result.Status = "cancelled";
+            result.ExitCode = 2;
+            result.DurationMs = sw.ElapsedMilliseconds;
+            return result;
+        }
     }
 
     private List<RomCandidate> ScanFiles(RunOptions options, CancellationToken ct)
@@ -225,6 +245,11 @@ public sealed class RunOrchestrator
             foreach (var filePath in files)
             {
                 ct.ThrowIfCancellationRequested();
+
+                // Skip files in blocklisted directories
+                if (ExecutionHelpers.IsBlocklisted(filePath))
+                    continue;
+
                 var fileName = Path.GetFileName(filePath);
                 var ext = Path.GetExtension(filePath).ToLowerInvariant();
                 var gameKey = GameKeyNormalizer.Normalize(fileName);
@@ -247,7 +272,8 @@ public sealed class RunOrchestrator
                 var verScore = versionScorer.GetVersionScore(fileName);
 
                 long sizeBytes = 0;
-                try { sizeBytes = new FileInfo(filePath).Length; } catch { }
+                if (File.Exists(filePath))
+                    try { sizeBytes = new FileInfo(filePath).Length; } catch { }
 
                 bool datMatch = false;
                 if (_datIndex is not null && _hashService is not null && consoleKey != "UNKNOWN")
@@ -286,6 +312,7 @@ public sealed class RunOrchestrator
         IReadOnlyList<RomCandidate> allCandidates,
         IReadOnlyList<DedupeResult> groups,
         RunOptions options,
+        HashSet<string> junkRemovedPaths,
         CancellationToken ct)
     {
         // Collect all junk candidates: JUNK winners that are the sole member of their group,
@@ -319,6 +346,7 @@ public sealed class RunOrchestrator
             {
                 moveCount++;
                 savedBytes += junk.SizeBytes;
+                junkRemovedPaths.Add(junk.MainPath);
 
                 if (!string.IsNullOrEmpty(options.AuditPath))
                 {
@@ -404,13 +432,19 @@ public sealed class RunOrchestrator
         var fullPath = Path.GetFullPath(filePath);
         foreach (var root in roots)
         {
-            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar)
-                                 + Path.DirectorySeparatorChar;
-            if (fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            if (fullPath.StartsWith(
+                    NormalizeRootForContainment(root), StringComparison.OrdinalIgnoreCase))
                 return root;
         }
         return null;
     }
+
+    /// <summary>Cache normalized root paths to avoid repeated Path.GetFullPath on UNC per file.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _normalizedRoots = new();
+
+    private static string NormalizeRootForContainment(string root)
+        => _normalizedRoots.GetOrAdd(root, r =>
+            Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
 }
 
 /// <summary>Options for a run execution.</summary>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using RomCleanup.Contracts.Models;
 
 namespace RomCleanup.Infrastructure.Configuration;
@@ -106,46 +107,125 @@ public sealed class SettingsLoader
         try
         {
             var json = File.ReadAllText(path);
-            var user = JsonSerializer.Deserialize<RomCleanupSettings>(json, JsonOptions);
+            // P1-BUG-033: Deserialize into nullable model so missing keys stay null
+            // instead of defaulting to false and overwriting the actual defaults.
+            var user = JsonSerializer.Deserialize<NullableUserSettings>(json, JsonOptions);
             if (user is null) return;
 
-            // Overlay non-default values from user settings
             if (user.General is not null)
             {
-                if (user.General.PreferredRegions.Count > 0)
+                if (user.General.PreferredRegions is { Count: > 0 })
                     settings.General.PreferredRegions = user.General.PreferredRegions;
                 if (!string.IsNullOrEmpty(user.General.LogLevel))
                     settings.General.LogLevel = user.General.LogLevel;
                 if (!string.IsNullOrEmpty(user.General.Mode))
                     settings.General.Mode = user.General.Mode;
 
-                settings.General.AggressiveJunk = user.General.AggressiveJunk;
-                settings.General.AliasEditionKeying = user.General.AliasEditionKeying;
+                if (user.General.AggressiveJunk.HasValue)
+                    settings.General.AggressiveJunk = user.General.AggressiveJunk.Value;
+                if (user.General.AliasEditionKeying.HasValue)
+                    settings.General.AliasEditionKeying = user.General.AliasEditionKeying.Value;
             }
 
             if (user.ToolPaths is not null)
             {
                 if (!string.IsNullOrEmpty(user.ToolPaths.Chdman))
-                    settings.ToolPaths.Chdman = user.ToolPaths.Chdman;
+                    settings.ToolPaths.Chdman = ValidateToolPath(user.ToolPaths.Chdman);
                 if (!string.IsNullOrEmpty(user.ToolPaths.SevenZip))
-                    settings.ToolPaths.SevenZip = user.ToolPaths.SevenZip;
+                    settings.ToolPaths.SevenZip = ValidateToolPath(user.ToolPaths.SevenZip);
                 if (!string.IsNullOrEmpty(user.ToolPaths.DolphinTool))
-                    settings.ToolPaths.DolphinTool = user.ToolPaths.DolphinTool;
+                    settings.ToolPaths.DolphinTool = ValidateToolPath(user.ToolPaths.DolphinTool);
             }
 
             if (user.Dat is not null)
             {
-                settings.Dat.UseDat = user.Dat.UseDat;
+                if (user.Dat.UseDat.HasValue)
+                    settings.Dat.UseDat = user.Dat.UseDat.Value;
                 if (!string.IsNullOrEmpty(user.Dat.DatRoot))
                     settings.Dat.DatRoot = user.Dat.DatRoot;
                 if (!string.IsNullOrEmpty(user.Dat.HashType))
                     settings.Dat.HashType = user.Dat.HashType;
-                settings.Dat.DatFallback = user.Dat.DatFallback;
+                if (user.Dat.DatFallback.HasValue)
+                    settings.Dat.DatFallback = user.Dat.DatFallback.Value;
             }
         }
         catch (JsonException)
         {
             // Malformed user settings — keep defaults
         }
+    }
+
+    private static readonly HashSet<string> AllowedToolExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".exe", ".bat", ".cmd" };
+
+    private static string ValidateToolPath(string path)
+    {
+        if (!File.Exists(path))
+            return "";
+
+        var ext = Path.GetExtension(path);
+        if (!AllowedToolExtensions.Contains(ext))
+            return "";
+
+        return path;
+    }
+
+    // ── P1-BUG-033: Nullable deserialization model ──
+    // Separate model with bool? so that missing JSON keys deserialize as null
+    // instead of false, allowing us to distinguish "user explicitly set false"
+    // from "key was absent in JSON".
+
+    private sealed class NullableUserSettings
+    {
+        [JsonPropertyName("general")]
+        public NullableGeneralSettings? General { get; set; }
+
+        [JsonPropertyName("toolPaths")]
+        public ToolPathSettings? ToolPaths { get; set; }
+
+        [JsonPropertyName("dat")]
+        public NullableDatSettings? Dat { get; set; }
+    }
+
+    private sealed class NullableGeneralSettings
+    {
+        [JsonPropertyName("logLevel")]
+        public string? LogLevel { get; set; }
+
+        [JsonPropertyName("preferredRegions")]
+        public List<string>? PreferredRegions { get; set; }
+
+        [JsonPropertyName("aggressiveJunk")]
+        public bool? AggressiveJunk { get; set; }
+
+        [JsonPropertyName("aliasEditionKeying")]
+        public bool? AliasEditionKeying { get; set; }
+
+        [JsonPropertyName("mode")]
+        public string? Mode { get; set; }
+
+        [JsonPropertyName("extensions")]
+        public string? Extensions { get; set; }
+
+        [JsonPropertyName("theme")]
+        public string? Theme { get; set; }
+
+        [JsonPropertyName("locale")]
+        public string? Locale { get; set; }
+    }
+
+    private sealed class NullableDatSettings
+    {
+        [JsonPropertyName("useDat")]
+        public bool? UseDat { get; set; }
+
+        [JsonPropertyName("datRoot")]
+        public string? DatRoot { get; set; }
+
+        [JsonPropertyName("hashType")]
+        public string? HashType { get; set; }
+
+        [JsonPropertyName("datFallback")]
+        public bool? DatFallback { get; set; }
     }
 }

@@ -116,10 +116,10 @@ public sealed class FormatConverterAdapter : IFormatConverter
 
         if (ext == ".rvz")
         {
-            var dolphinPath = _tools.FindTool("dolphintool");
-            if (dolphinPath is null) return false;
-            var result = _tools.InvokeProcess(dolphinPath, new[] { "verify", "-i", targetPath }, "dolphintool verify");
-            return result.Success;
+            // DolphinTool does not have a verify command.
+            // Verify by checking file existence and non-zero size.
+            var info = new FileInfo(targetPath);
+            return info.Exists && info.Length > 0;
         }
 
         if (ext == ".zip")
@@ -145,6 +145,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
                 "chdman-failed", result.ExitCode);
         }
 
+        if (!File.Exists(targetPath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "output-not-created");
+
         return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success);
     }
 
@@ -166,6 +169,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
                 "dolphintool-failed", result.ExitCode);
         }
 
+        if (!File.Exists(targetPath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "output-not-created");
+
         return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success);
     }
 
@@ -184,6 +190,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
             return new ConversionResult(sourcePath, null, ConversionOutcome.Error,
                 "7z-failed", result.ExitCode);
         }
+
+        if (!File.Exists(targetPath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "output-not-created");
 
         return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success);
     }

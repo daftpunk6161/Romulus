@@ -13,6 +13,9 @@ namespace RomCleanup.Infrastructure.Dat;
 /// </summary>
 public sealed class DatRepositoryAdapter : IDatRepository
 {
+    /// <summary>Maximum DAT file size to parse (100 MB).</summary>
+    private const long MaxDatFileSizeBytes = 100 * 1024 * 1024;
+
     public DatIndex GetDatIndex(string datRoot, IDictionary<string, string> consoleMap,
                                 string hashType = "SHA1")
     {
@@ -59,6 +62,14 @@ public sealed class DatRepositoryAdapter : IDatRepository
 
         if (!File.Exists(datPath))
             return parentMap;
+
+        try
+        {
+            var fileSize = new FileInfo(datPath).Length;
+            if (fileSize > MaxDatFileSizeBytes)
+                return parentMap;
+        }
+        catch { /* If we can't stat the file, let XmlReader handle it */ }
 
         var settings = CreateSecureXmlSettings();
 
@@ -108,6 +119,38 @@ public sealed class DatRepositoryAdapter : IDatRepository
     private Dictionary<string, List<Dictionary<string, string>>> ParseDatFile(string datPath, string hashType)
     {
         var games = new Dictionary<string, List<Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+
+        // P2-DAT-04: Reject excessively large DAT files to prevent unbounded memory growth
+        try
+        {
+            var fileSize = new FileInfo(datPath).Length;
+            if (fileSize > MaxDatFileSizeBytes)
+            {
+                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' exceeds {MaxDatFileSizeBytes / (1024 * 1024)}MB limit ({fileSize / (1024 * 1024)}MB). Skipped.");
+                return games;
+            }
+        }
+        catch { /* If we can't stat the file, let XmlReader handle it */ }
+
+        // Pre-check: reject empty or obviously non-XML files before parsing
+        try
+        {
+            using var probe = new StreamReader(datPath, detectEncodingFromByteOrderMarks: true);
+            var firstChar = probe.Read();
+            if (firstChar == -1)
+            {
+                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' is empty. Skipped.");
+                return games;
+            }
+            // Valid XML must start with '<' (possibly after BOM/whitespace)
+            if (firstChar != '<' && !char.IsWhiteSpace((char)firstChar))
+            {
+                Console.Error.WriteLine($"[Warning] DAT file '{datPath}' is not valid XML (starts with '{(char)firstChar}'). Skipped.");
+                return games;
+            }
+        }
+        catch { /* If we can't read, let XmlReader produce the proper error */ }
+
         var settings = CreateSecureXmlSettings();
 
         try
@@ -155,9 +198,10 @@ public sealed class DatRepositoryAdapter : IDatRepository
                 }
             }
         }
-        catch (XmlException)
+        catch (XmlException ex)
         {
-            // Malformed DAT file — return what we have
+            // Malformed DAT file — return partial results with warning
+            Console.Error.WriteLine($"[Warning] Malformed DAT file '{datPath}': {ex.Message}. Partial results returned.");
         }
 
         return games;

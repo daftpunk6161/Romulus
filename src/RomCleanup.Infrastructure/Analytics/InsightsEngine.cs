@@ -44,7 +44,7 @@ public sealed class InsightsEngine
         foreach (var root in roots)
         {
             var files = _fs.GetFilesSafe(root, extensions);
-            if (excludedPaths is not null)
+            if (excludedPaths is { Count: > 0 })
                 files = files.Where(f => !excludedPaths.Any(ex =>
                     f.StartsWith(ex, StringComparison.OrdinalIgnoreCase))).ToList();
             allFiles.AddRange(files);
@@ -77,7 +77,8 @@ public sealed class InsightsEngine
                 var formatScore = FormatScorer.GetFormatScore(ext);
                 var verScore = (int)versionScorer.GetVersionScore(item.FileName);
                 long sizeBytes = 0;
-                try { sizeBytes = new FileInfo(item.Path).Length; } catch { }
+                if (File.Exists(item.Path))
+                    try { sizeBytes = new FileInfo(item.Path).Length; } catch { }
 
                 return new
                 {
@@ -130,7 +131,7 @@ public sealed class InsightsEngine
         RunResult result,
         string filterText = "")
     {
-        if (result.AllCandidates.Count == 0)
+        if (result.AllCandidates is not { Count: > 0 })
             return [];
 
         var byConsole = result.AllCandidates
@@ -146,8 +147,9 @@ public sealed class InsightsEngine
 
             var items = group.ToList();
             var dupes = result.DedupeGroups
-                .Where(g => g.Winner.Type == group.Key)
-                .Sum(g => g.Losers.Count);
+                .Where(g => g.Winner is not null &&
+                            string.Equals(g.Winner.Type, group.Key, StringComparison.OrdinalIgnoreCase))
+                .Sum(g => g.Losers?.Count ?? 0);
 
             var formats = items
                 .Select(i => i.Extension)
@@ -183,6 +185,7 @@ public sealed class InsightsEngine
 
         var previousKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         DateTime? previousTimestamp = null;
+        bool snapshotLoadFailed = false;
 
         // Load previous snapshot if exists
         if (snapshotPath is not null && File.Exists(snapshotPath))
@@ -200,14 +203,15 @@ public sealed class InsightsEngine
             catch (Exception ex)
             {
                 _log?.Invoke($"Failed to load snapshot: {ex.Message}");
+                snapshotLoadFailed = true;
             }
         }
 
         var added = currentKeys.Except(previousKeys).ToList();
         var resolved = previousKeys.Except(currentKeys).ToList();
 
-        // Save current snapshot
-        if (snapshotPath is not null)
+        // Save current snapshot (skip if previous load was corrupt to avoid losing data)
+        if (snapshotPath is not null && !snapshotLoadFailed)
         {
             try
             {
@@ -220,7 +224,9 @@ public sealed class InsightsEngine
                     LoserPaths = currentKeys.ToList()
                 };
                 var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(snapshotPath, json, Encoding.UTF8);
+                var tmpPath = snapshotPath + ".tmp";
+                File.WriteAllText(tmpPath, json, Encoding.UTF8);
+                File.Move(tmpPath, snapshotPath, overwrite: true);
             }
             catch (Exception ex)
             {
@@ -249,7 +255,7 @@ public sealed class InsightsEngine
         RunResult result,
         int top = 16)
     {
-        if (result.AllCandidates.Count == 0)
+        if (result.AllCandidates is not { Count: > 0 })
             return [];
 
         var byConsole = result.AllCandidates

@@ -6,7 +6,8 @@ namespace RomCleanup.Contracts.Models;
 public sealed class PipelineStep
 {
     public string Name { get; set; } = "";
-    public Action<PipelineStepContext> Action { get; set; } = _ => { };
+    public Action<PipelineStepContext> Action { get; set; } = _ =>
+        throw new InvalidOperationException("PipelineStep.Action not configured");
     public Dictionary<string, object> Parameters { get; set; } = new();
     public Func<PipelineStepContext, bool>? Condition { get; set; }
     public string Status { get; set; } = "Pending";

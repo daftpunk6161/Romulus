@@ -13,24 +13,68 @@ namespace RomCleanup.Infrastructure.Audit;
 /// </summary>
 public sealed class AuditSigningService
 {
-    private static readonly byte[] SessionKey = GenerateSessionKey();
+    private static byte[]? _persistedKey;
+    private static readonly object _keyLock = new();
     private readonly IFileSystem _fs;
     private readonly Action<string>? _log;
+    private readonly string? _keyFilePath;
 
-    public AuditSigningService(IFileSystem fs, Action<string>? log = null)
+    public AuditSigningService(IFileSystem fs, Action<string>? log = null, string? keyFilePath = null)
     {
         _fs = fs;
         _log = log;
+        _keyFilePath = keyFilePath;
     }
 
     /// <summary>
-    /// Generate a 32-byte session key (in-memory only — BUG-015 fix).
+    /// Get or create the HMAC signing key. If a key file path is configured,
+    /// the key is persisted to disk so signatures survive app restarts.
     /// </summary>
-    private static byte[] GenerateSessionKey()
+    private byte[] GetSigningKey()
     {
-        var key = new byte[32];
-        RandomNumberGenerator.Fill(key);
-        return key;
+        lock (_keyLock)
+        {
+            if (_persistedKey is not null)
+                return _persistedKey;
+
+            // Try to load from file
+            if (!string.IsNullOrEmpty(_keyFilePath) && File.Exists(_keyFilePath))
+            {
+                try
+                {
+                    var hex = File.ReadAllText(_keyFilePath, Encoding.UTF8).Trim();
+                    _persistedKey = Convert.FromHexString(hex);
+                    return _persistedKey;
+                }
+                catch
+                {
+                    _log?.Invoke("Failed to load HMAC key file, generating new key");
+                }
+            }
+
+            // Generate new key
+            var key = new byte[32];
+            RandomNumberGenerator.Fill(key);
+            _persistedKey = key;
+
+            // Persist to file if path configured
+            if (!string.IsNullOrEmpty(_keyFilePath))
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(_keyFilePath);
+                    if (!string.IsNullOrEmpty(dir))
+                        Directory.CreateDirectory(dir);
+                    File.WriteAllText(_keyFilePath, Convert.ToHexStringLower(key), Encoding.UTF8);
+                }
+                catch (Exception ex)
+                {
+                    _log?.Invoke($"Failed to persist HMAC key: {ex.Message}");
+                }
+            }
+
+            return _persistedKey;
+        }
     }
 
     /// <summary>
@@ -50,12 +94,14 @@ public sealed class AuditSigningService
         => $"v1|{auditFileName}|{csvSha256}|{rowCount}|{createdUtc}";
 
     /// <summary>
-    /// Compute HMAC-SHA256 of a text string using the session key.
+    /// Compute HMAC-SHA256 of a text string using the persisted signing key.
+    /// Uses constant-time comparison internally for verification.
     /// </summary>
-    public static string ComputeHmacSha256(string text)
+    public string ComputeHmacSha256(string text)
     {
+        var key = GetSigningKey();
         var textBytes = Encoding.UTF8.GetBytes(text);
-        var hash = HMACSHA256.HashData(SessionKey, textBytes);
+        var hash = HMACSHA256.HashData(key, textBytes);
         return Convert.ToHexStringLower(hash);
     }
 
@@ -122,10 +168,12 @@ public sealed class AuditSigningService
         if (!string.Equals(actualSha256, metadata.CsvSha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"CSV hash mismatch: expected {metadata.CsvSha256}, got {actualSha256}");
 
-        // Verify HMAC
+        // Verify HMAC (constant-time comparison to prevent timing attacks)
         var payload = BuildSignaturePayload(metadata.AuditFileName, metadata.CsvSha256, metadata.RowCount, metadata.CreatedUtc);
         var expectedHmac = ComputeHmacSha256(payload);
-        if (!string.Equals(expectedHmac, metadata.HmacSha256, StringComparison.OrdinalIgnoreCase))
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expectedHmac),
+                Encoding.UTF8.GetBytes(metadata.HmacSha256 ?? "")))
             throw new InvalidDataException("HMAC signature verification failed — audit file may have been tampered with");
 
         _log?.Invoke($"Audit sidecar verified: {metaPath}");
@@ -151,6 +199,26 @@ public sealed class AuditSigningService
             };
         }
 
+        // Verify audit file integrity before executing rollback
+        var metaPath = auditCsvPath + ".meta.json";
+        if (File.Exists(metaPath))
+        {
+            try
+            {
+                VerifyMetadataSidecar(auditCsvPath);
+            }
+            catch (Exception ex)
+            {
+                _log?.Invoke($"Audit integrity check failed: {ex.Message}");
+                return new AuditRollbackResult
+                {
+                    AuditCsvPath = auditCsvPath,
+                    DryRun = dryRun,
+                    Failed = 1
+                };
+            }
+        }
+
         var lines = File.ReadAllLines(auditCsvPath, Encoding.UTF8);
         if (lines.Length <= 1) // header only
         {
@@ -171,6 +239,14 @@ public sealed class AuditSigningService
             rollbackAuditPath = Path.ChangeExtension(auditCsvPath, ".rollback-audit.csv");
             File.WriteAllText(rollbackAuditPath, "Timestamp,Action,OldPath,NewPath,Status\n", Encoding.UTF8);
         }
+
+        // Pre-cache normalized root paths to avoid Path.GetFullPath per root per row (expensive on UNC)
+        var normalizedCurrentRoots = allowedCurrentRoots
+            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)
+            .ToArray();
+        var normalizedRestoreRoots = allowedRestoreRoots
+            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)
+            .ToArray();
 
         // Process rows in reverse order (undo last moves first)
         for (int i = lines.Length - 1; i >= 1; i--)
@@ -197,18 +273,10 @@ public sealed class AuditSigningService
             // Safety: check the current location (newPath) is within allowed roots
             var fullNewPath = Path.GetFullPath(newPath);
             var fullOldPath = Path.GetFullPath(oldPath);
-            var inAllowedCurrent = allowedCurrentRoots.Any(r =>
-            {
-                var normalizedRoot = Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar)
-                                     + Path.DirectorySeparatorChar;
-                return fullNewPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
-            });
-            var inAllowedRestore = allowedRestoreRoots.Any(r =>
-            {
-                var normalizedRoot = Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar)
-                                     + Path.DirectorySeparatorChar;
-                return fullOldPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
-            });
+            var inAllowedCurrent = normalizedCurrentRoots.Any(nr =>
+                fullNewPath.StartsWith(nr, StringComparison.OrdinalIgnoreCase));
+            var inAllowedRestore = normalizedRestoreRoots.Any(nr =>
+                fullOldPath.StartsWith(nr, StringComparison.OrdinalIgnoreCase));
 
             if (!inAllowedCurrent || !inAllowedRestore)
             {

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 
@@ -24,9 +26,12 @@ public static class ExecutionHelpers
     /// <summary>
     /// Default blocklist of paths that should never be processed.
     /// </summary>
-    public static HashSet<string> GetDefaultBlocklist() => new(StringComparer.OrdinalIgnoreCase)
+    public static HashSet<string> GetDefaultBlocklist() => DefaultBlocklist;
+
+    private static readonly HashSet<string> DefaultBlocklist = new(StringComparer.OrdinalIgnoreCase)
     {
         "_TRASH_REGION_DEDUPE",
+        "_TRASH_JUNK",
         "_FOLDER_DUPES",
         "PS3_DUPES",
         "_QUARANTINE",
@@ -38,9 +43,13 @@ public static class ExecutionHelpers
     /// </summary>
     public static bool IsBlocklisted(string path, IEnumerable<string>? blocklist = null)
     {
-        var blocked = blocklist ?? GetDefaultBlocklist();
+        var blocked = blocklist is not null
+            ? (blocklist is HashSet<string> hs ? hs : new HashSet<string>(blocklist, StringComparer.OrdinalIgnoreCase))
+            : DefaultBlocklist;
         var segments = path.Replace('/', '\\').Split('\\', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Any(s => blocked.Contains(s));
+        return segments.Any(s => blocked.Any(b =>
+            s.Equals(b, StringComparison.OrdinalIgnoreCase) ||
+            (s.StartsWith(b, StringComparison.OrdinalIgnoreCase) && s.Length > b.Length && !char.IsLetterOrDigit(s[b.Length]))));
     }
 
     /// <summary>
@@ -50,9 +59,10 @@ public static class ExecutionHelpers
     {
         if (roots.Count == 0) return baseName;
 
-        var rootHash = roots.Count == 1
-            ? Math.Abs(roots[0].GetHashCode()).ToString("X8")
-            : Math.Abs(string.Join("|", roots).GetHashCode()).ToString("X8");
+        // Deterministic hash via SHA256 (string.GetHashCode is not stable across .NET restarts)
+        var input = roots.Count == 1 ? roots[0] : string.Join("|", roots);
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        var rootHash = Convert.ToHexString(hashBytes)[..8];
 
         var ext = Path.GetExtension(baseName);
         var name = Path.GetFileNameWithoutExtension(baseName);

@@ -6,10 +6,11 @@ namespace RomCleanup.Infrastructure.Metrics;
 
 /// <summary>
 /// Phase metrics/timing collector for run phases.
-/// Mirrors PhaseMetrics.ps1.
+/// Mirrors PhaseMetrics.ps1. Thread-safe via lock.
 /// </summary>
 public sealed class PhaseMetricsCollector
 {
+    private readonly object _lock = new();
     private string _runId = "";
     private DateTime _startedAt;
     private readonly List<PhaseMetricEntry> _phases = new();
@@ -21,11 +22,14 @@ public sealed class PhaseMetricsCollector
     /// </summary>
     public void Initialize()
     {
-        _runId = Guid.NewGuid().ToString("N")[..16];
-        _startedAt = DateTime.UtcNow;
-        _phases.Clear();
-        _activeStopwatch = null;
-        _activePhase = null;
+        lock (_lock)
+        {
+            _runId = Guid.NewGuid().ToString("N")[..16];
+            _startedAt = DateTime.UtcNow;
+            _phases.Clear();
+            _activeStopwatch = null;
+            _activePhase = null;
+        }
     }
 
     /// <summary>
@@ -33,25 +37,36 @@ public sealed class PhaseMetricsCollector
     /// </summary>
     public void StartPhase(string phaseName, Dictionary<string, object>? meta = null)
     {
-        // Auto-complete previous phase
-        if (_activePhase != null)
-            CompletePhase();
-
-        _activePhase = new PhaseMetricEntry
+        lock (_lock)
         {
-            Phase = phaseName,
-            StartedAt = DateTime.UtcNow,
-            Status = "Running",
-            Meta = meta ?? new Dictionary<string, object>()
-        };
+            // Auto-complete previous phase
+            if (_activePhase != null)
+                CompletePhaseInternal();
 
-        _activeStopwatch = Stopwatch.StartNew();
+            _activePhase = new PhaseMetricEntry
+            {
+                Phase = phaseName,
+                StartedAt = DateTime.UtcNow,
+                Status = "Running",
+                Meta = meta ?? new Dictionary<string, object>()
+            };
+
+            _activeStopwatch = Stopwatch.StartNew();
+        }
     }
 
     /// <summary>
     /// Completes the active phase with an optional item count.
     /// </summary>
     public void CompletePhase(int itemCount = 0)
+    {
+        lock (_lock)
+        {
+            CompletePhaseInternal(itemCount);
+        }
+    }
+
+    private void CompletePhaseInternal(int itemCount = 0)
     {
         if (_activePhase == null || _activeStopwatch == null)
             return;
@@ -71,28 +86,55 @@ public sealed class PhaseMetricsCollector
 
     /// <summary>
     /// Gets the collected metrics with percentage-of-total calculation.
+    /// Does NOT auto-complete the active phase (no side-effect).
     /// </summary>
     public PhaseMetricsResult GetMetrics()
     {
-        // Auto-complete active phase
-        if (_activePhase != null)
-            CompletePhase();
-
-        var totalMs = _phases.Sum(p => p.Duration.TotalMilliseconds);
-        foreach (var phase in _phases)
+        lock (_lock)
         {
-            phase.PercentOfTotal = totalMs > 0
-                ? Math.Round(phase.Duration.TotalMilliseconds / totalMs * 100, 1)
-                : 0;
+            // Work on a snapshot — no mutation of internal state
+            var snapshot = new List<PhaseMetricEntry>(_phases);
+
+            // Include the currently active (non-stopped) phase
+            if (_activePhase != null && _activeStopwatch != null)
+            {
+                snapshot.Add(new PhaseMetricEntry
+                {
+                    Phase = _activePhase.Phase,
+                    StartedAt = _activePhase.StartedAt,
+                    Duration = _activeStopwatch.Elapsed,
+                    ItemCount = _activePhase.ItemCount,
+                    ItemsPerSec = 0,
+                    Status = "Running",
+                    Meta = _activePhase.Meta
+                });
+            }
+
+            var totalMs = snapshot.Sum(p => p.Duration.TotalMilliseconds);
+
+            // Build result entries with calculated percentages
+            var resultEntries = snapshot.Select(p => new PhaseMetricEntry
+            {
+                Phase = p.Phase,
+                StartedAt = p.StartedAt,
+                Duration = p.Duration,
+                ItemCount = p.ItemCount,
+                ItemsPerSec = p.ItemsPerSec,
+                Status = p.Status,
+                Meta = p.Meta,
+                PercentOfTotal = totalMs > 0
+                    ? Math.Round(p.Duration.TotalMilliseconds / totalMs * 100, 1)
+                    : 0
+            }).ToList();
+
+            return new PhaseMetricsResult
+            {
+                RunId = _runId,
+                StartedAt = _startedAt,
+                TotalDuration = TimeSpan.FromMilliseconds(totalMs),
+                Phases = resultEntries
+            };
         }
-
-        return new PhaseMetricsResult
-        {
-            RunId = _runId,
-            StartedAt = _startedAt,
-            TotalDuration = TimeSpan.FromMilliseconds(totalMs),
-            Phases = new List<PhaseMetricEntry>(_phases)
-        };
     }
 
     /// <summary>

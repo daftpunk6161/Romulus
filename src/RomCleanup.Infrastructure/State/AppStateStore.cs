@@ -8,6 +8,7 @@ namespace RomCleanup.Infrastructure.State;
 /// </summary>
 public sealed class AppStateStore : IAppState
 {
+    private const int MaxUndoDepth = 100;
     private readonly Dictionary<string, object?> _state = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Dictionary<string, object?>> _undoStack = new();
     private readonly List<Dictionary<string, object?>> _redoStack = new();
@@ -29,6 +30,8 @@ public sealed class AppStateStore : IAppState
         {
             // Save current state for undo
             _undoStack.Add(new Dictionary<string, object?>(_state, StringComparer.OrdinalIgnoreCase));
+            if (_undoStack.Count > MaxUndoDepth)
+                _undoStack.RemoveAt(0);
             _redoStack.Clear();
 
             foreach (var kvp in patch)

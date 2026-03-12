@@ -17,6 +17,12 @@ public sealed class DatSourceService : IDisposable
     private readonly IToolRunner? _tools;
     private readonly string _datRoot;
 
+    /// <summary>Maximum allowed download size (50 MB).</summary>
+    private const long MaxDownloadBytes = 50 * 1024 * 1024;
+
+    /// <summary>Maximum catalog file size to load (100 MB).</summary>
+    private const long MaxCatalogFileSizeBytes = 100 * 1024 * 1024;
+
     public DatSourceService(string datRoot, IToolRunner? tools = null, HttpClient? httpClient = null)
     {
         _datRoot = datRoot ?? throw new ArgumentNullException(nameof(datRoot));
@@ -45,10 +51,20 @@ public sealed class DatSourceService : IDisposable
 
         try
         {
-            using var response = await _http.GetAsync(url, ct);
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
 
+            // P2-DAT-03: Reject downloads exceeding size limit
+            if (response.Content.Headers.ContentLength is > MaxDownloadBytes)
+                return null;
+
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            if (bytes.Length > MaxDownloadBytes)
+            {
+                // Content-Length header was absent but body exceeds limit
+                return null;
+            }
+
             await File.WriteAllBytesAsync(localPath, bytes, ct);
 
             // Verify integrity
@@ -126,6 +142,10 @@ public sealed class DatSourceService : IDisposable
 
         try
         {
+            var fileSize = new FileInfo(catalogPath).Length;
+            if (fileSize > MaxCatalogFileSizeBytes)
+                return new List<DatCatalogEntry>();
+
             var json = File.ReadAllText(catalogPath);
             var entries = JsonSerializer.Deserialize<List<DatCatalogEntry>>(json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });

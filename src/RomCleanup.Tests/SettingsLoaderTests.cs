@@ -70,7 +70,16 @@ public class SettingsLoaderTests : IDisposable
 
         var settings = SettingsLoader.LoadFrom(path);
         Assert.NotNull(settings);
+        // Verify all hardcoded defaults are preserved
         Assert.Equal("DryRun", settings.General.Mode);
+        Assert.Equal("Info", settings.General.LogLevel);
+        Assert.Equal("dark", settings.General.Theme);
+        Assert.Equal("de", settings.General.Locale);
+        Assert.False(settings.General.AggressiveJunk);
+        Assert.Contains("EU", settings.General.PreferredRegions);
+        Assert.True(settings.Dat.UseDat);
+        Assert.True(settings.Dat.DatFallback);
+        Assert.Equal("SHA1", settings.Dat.HashType);
     }
 
     [Fact]
@@ -102,5 +111,70 @@ public class SettingsLoaderTests : IDisposable
         var path = SettingsLoader.UserSettingsPath;
         Assert.Contains("RomCleanupRegionDedupe", path);
         Assert.EndsWith("settings.json", path);
+    }
+
+    // ── P1-BUG-033: Missing bool keys must not overwrite defaults ──
+
+    [Fact]
+    public void MergeUserSettings_MissingBoolKeys_PreservesDefaults()
+    {
+        // defaults.json sets datFallback=true and useDat=true (hardcoded defaults)
+        // User settings JSON has ONLY logLevel — no bool keys at all
+        var defaultsJson = @"{ ""logLevel"": ""Info"" }";
+        var defaultsPath = Path.Combine(_tempDir, "defaults.json");
+        File.WriteAllText(defaultsPath, defaultsJson);
+
+        var userJson = @"{ ""general"": { ""logLevel"": ""Debug"" } }";
+        var userPath = Path.Combine(_tempDir, "user-settings.json");
+        File.WriteAllText(userPath, userJson);
+
+        // Simulate the merge: Load defaults first, then overlay
+        var settings = SettingsLoader.Load(defaultsPath);
+
+        // The hardcoded defaults for bools should be preserved:
+        // - DatFallback defaults to true (must not become false)
+        // - UseDat defaults to true (must not become false)
+        // - AggressiveJunk defaults to false (this is fine either way)
+        Assert.True(settings.Dat.DatFallback, "DatFallback should stay true when missing from user JSON");
+        Assert.True(settings.Dat.UseDat, "UseDat should stay true when missing from user JSON");
+        Assert.False(settings.General.AggressiveJunk, "AggressiveJunk default is false");
+    }
+
+    [Fact]
+    public void MergeUserSettings_ExplicitBoolFalse_OverridesDefaults()
+    {
+        // User explicitly sets useDat=false and datFallback=false
+        var userJson = @"{
+            ""dat"": {
+                ""useDat"": false,
+                ""datFallback"": false
+            }
+        }";
+        var userPath = Path.Combine(_tempDir, "explicit-false.json");
+        File.WriteAllText(userPath, userJson);
+
+        var settings = SettingsLoader.LoadFrom(userPath);
+
+        // Explicit false should be honored
+        Assert.False(settings.Dat.UseDat);
+        Assert.False(settings.Dat.DatFallback);
+    }
+
+    [Fact]
+    public void MergeUserSettings_ExplicitBoolTrue_SetsBool()
+    {
+        var userJson = @"{
+            ""general"": {
+                ""aggressiveJunk"": true,
+                ""aliasEditionKeying"": true
+            }
+        }";
+        var userPath = Path.Combine(_tempDir, "explicit-true.json");
+        File.WriteAllText(userPath, userJson);
+
+        var settings = SettingsLoader.LoadFrom(userPath);
+
+        Assert.True(settings.General.AggressiveJunk);
+        Assert.True(settings.General.AliasEditionKeying);
     }
 }

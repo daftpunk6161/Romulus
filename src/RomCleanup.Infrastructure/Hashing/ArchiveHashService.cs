@@ -23,11 +23,11 @@ public sealed class ArchiveHashService
 
     /// <param name="toolRunner">Required for .7z archives (delegates to 7z.exe).</param>
     /// <param name="maxEntries">LRU cache max entries.</param>
-    /// <param name="maxArchiveSizeBytes">Archives larger than this skip hashing (default 100 MB).</param>
+    /// <param name="maxArchiveSizeBytes">Archives larger than this skip hashing (default 500 MB).</param>
     public ArchiveHashService(
         IToolRunner? toolRunner = null,
         int maxEntries = 5000,
-        long maxArchiveSizeBytes = 100 * 1024 * 1024)
+        long maxArchiveSizeBytes = 500 * 1024 * 1024)
     {
         _toolRunner = toolRunner;
         _maxArchiveSizeBytes = maxArchiveSizeBytes;
@@ -117,9 +117,9 @@ public sealed class ArchiveHashService
         if (string.IsNullOrEmpty(sevenZipPath))
             return Array.Empty<string>();
 
-        // Pre-check entry paths for Zip-Slip
+        // Pre-check entry paths for Zip-Slip (fail-closed: empty listing = reject)
         var entryPaths = ListArchiveEntries(archivePath, sevenZipPath);
-        if (entryPaths.Count > 0 && !AreEntryPathsSafe(entryPaths))
+        if (!AreEntryPathsSafe(entryPaths))
             return Array.Empty<string>();
 
         var tempDir = Path.Combine(Path.GetTempPath(), "romcleanup_7z_" + Guid.NewGuid().ToString("N"));
@@ -132,14 +132,27 @@ public sealed class ArchiveHashService
             if (result.ExitCode != 0)
                 return Array.Empty<string>();
 
-            // Post-extraction security: check for path traversal and reparse points
+            // Post-extraction security: check for path traversal, reparse points, and directory junctions
+            var normalizedTemp = Path.GetFullPath(tempDir).TrimEnd(Path.DirectorySeparatorChar)
+                                 + Path.DirectorySeparatorChar;
+
+            // Check directories for junctions/reparse points
+            foreach (var dir in Directory.GetDirectories(tempDir, "*", SearchOption.AllDirectories))
+            {
+                var dirInfo = new DirectoryInfo(dir);
+                if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    return Array.Empty<string>();
+                if (!Path.GetFullPath(dir).StartsWith(normalizedTemp, StringComparison.OrdinalIgnoreCase))
+                    return Array.Empty<string>();
+            }
+
             var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
             var hashes = new List<string>();
 
             foreach (var file in extractedFiles)
             {
-                // Validate extracted file is within tempDir
-                if (!Path.GetFullPath(file).StartsWith(Path.GetFullPath(tempDir), StringComparison.OrdinalIgnoreCase))
+                // Validate extracted file is within tempDir (with separator guard)
+                if (!Path.GetFullPath(file).StartsWith(normalizedTemp, StringComparison.OrdinalIgnoreCase))
                     return Array.Empty<string>();
 
                 // Check reparse points
@@ -161,7 +174,8 @@ public sealed class ArchiveHashService
         }
         finally
         {
-            try { Directory.Delete(tempDir, true); } catch { }
+            if (Directory.Exists(tempDir))
+                try { Directory.Delete(tempDir, true); } catch { }
         }
     }
 

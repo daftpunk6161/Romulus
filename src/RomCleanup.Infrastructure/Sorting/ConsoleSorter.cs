@@ -17,7 +17,7 @@ public sealed class ConsoleSorter
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly string[] ExcludedFolders =
-        { "_TRASH_REGION_DEDUPE", "_BIOS", "_JUNK" };
+        { "_TRASH_REGION_DEDUPE", "_TRASH_JUNK", "_BIOS", "_JUNK" };
 
     private readonly IFileSystem _fs;
     private readonly ConsoleDetector _consoleDetector;
@@ -151,7 +151,8 @@ public sealed class ConsoleSorter
             var primaryDest = ResolveMoveDestination(root, primaryPath, destDir);
             if (primaryDest is null) return (false, 0);
             _fs.EnsureDirectory(destDir);
-            _fs.MoveItemSafely(primaryPath, primaryDest);
+            if (!_fs.MoveItemSafely(primaryPath, primaryDest))
+                return (false, 0);
             completedMoves.Add((primaryPath, primaryDest));
 
             // Move each member
@@ -162,7 +163,9 @@ public sealed class ConsoleSorter
                     throw new InvalidOperationException(
                         $"Path traversal blocked for set member: {member}");
 
-                _fs.MoveItemSafely(member, memberDest);
+                if (!_fs.MoveItemSafely(member, memberDest))
+                    throw new InvalidOperationException(
+                        $"Move failed for set member: {member}");
                 completedMoves.Add((member, memberDest));
             }
 
@@ -170,15 +173,14 @@ public sealed class ConsoleSorter
         }
         catch
         {
-            // Roll back all completed moves in reverse order
+            // Roll back all completed moves in reverse order using safe move
             foreach (var (source, dest) in completedMoves.AsEnumerable().Reverse())
             {
                 try
                 {
-                    // Find the actual file at dest (may have been renamed with __DUP suffix)
                     var actualDest = FindActualDestination(dest);
                     if (actualDest is not null && File.Exists(actualDest))
-                        File.Move(actualDest, source);
+                        _fs.MoveItemSafely(actualDest, source);
                 }
                 catch
                 {
@@ -211,7 +213,7 @@ public sealed class ConsoleSorter
         var baseName = Path.GetFileNameWithoutExtension(intendedDest);
         var ext = Path.GetExtension(intendedDest);
 
-        for (int i = 1; i <= 100; i++)
+        for (int i = 1; i <= 10_000; i++)
         {
             var dupPath = Path.Combine(dir, $"{baseName}__DUP{i}{ext}");
             if (File.Exists(dupPath))

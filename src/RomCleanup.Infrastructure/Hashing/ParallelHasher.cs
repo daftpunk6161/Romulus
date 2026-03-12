@@ -23,13 +23,15 @@ public sealed class ParallelHasher
         try
         {
             using var stream = File.OpenRead(path);
-            byte[] hash = algorithm.ToUpperInvariant() switch
+            string hashHex = algorithm.ToUpperInvariant() switch
             {
-                "SHA256" => SHA256.HashData(stream),
-                "MD5" => MD5.HashData(stream),
-                _ => SHA1.HashData(stream) // default SHA1
+                "SHA256" => Convert.ToHexStringLower(SHA256.HashData(stream)),
+                "MD5" => Convert.ToHexStringLower(MD5.HashData(stream)),
+                "CRC32" or "CRC" => Crc32.HashStream(stream),
+                "SHA1" => Convert.ToHexStringLower(SHA1.HashData(stream)),
+                _ => throw new ArgumentException($"Unsupported hash algorithm: {algorithm}")
             };
-            return new FileHashEntry { Path = path, Hash = Convert.ToHexStringLower(hash) };
+            return new FileHashEntry { Path = path, Hash = hashHex };
         }
         catch (Exception ex)
         {

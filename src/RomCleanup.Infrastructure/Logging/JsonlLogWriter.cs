@@ -131,6 +131,35 @@ public sealed class JsonlLogWriter : IDisposable
     public void Error(string module, string message, string errorClass = "Critical") =>
         Write(LogLevel.Error, module, "", message, errorClass: errorClass);
 
+    /// <summary>
+    /// Rotate the log file if it exceeds maxBytes, properly disposing and
+    /// recreating the writer so the active stream is not broken.
+    /// </summary>
+    public void RotateIfNeeded(long maxBytes = 10 * 1024 * 1024, int keepFiles = 5, bool gzip = false)
+    {
+        lock (_lock)
+        {
+            if (!File.Exists(_logPath))
+                return;
+
+            var fi = new FileInfo(_logPath);
+            if (fi.Length < maxBytes)
+                return;
+
+            // Close current writer before moving the file
+            _writer?.Dispose();
+            _writer = null;
+
+            JsonlLogRotation.Rotate(_logPath, maxBytes, keepFiles, gzip);
+
+            // Reopen writer on the (now-empty) log path
+            _writer = new StreamWriter(_logPath, append: true, encoding: Encoding.UTF8)
+            {
+                AutoFlush = true
+            };
+        }
+    }
+
     public void Dispose()
     {
         lock (_lock)
@@ -167,7 +196,15 @@ public static class JsonlLogRotation
         var archiveName = $"{baseName}-{stamp}.jsonl";
         var archivePath = Path.Combine(dir, archiveName);
 
-        File.Move(fullPath, archivePath);
+        try
+        {
+            File.Move(fullPath, archivePath);
+        }
+        catch (IOException)
+        {
+            // File is still held open by a writer — skip rotation
+            return;
+        }
 
         if (gzip)
         {

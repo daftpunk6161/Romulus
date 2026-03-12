@@ -57,7 +57,8 @@ public sealed class RunManager
     {
         if (_runs.TryGetValue(runId, out var run) && run.Status == "running")
         {
-            run.CancellationSource.Cancel();
+            try { run.CancellationSource.Cancel(); }
+            catch (ObjectDisposedException) { /* CTS already disposed — run already finished */ }
         }
     }
 
@@ -123,7 +124,12 @@ public sealed class RunManager
                 Move = result.LoserCount,
                 DurationMs = result.DurationMs
             };
-            run.Status = result.ExitCode == 0 ? "completed" : "failed";
+            run.Status = result.ExitCode switch
+            {
+                0 => "completed",
+                2 => "cancelled",
+                _ => "failed"
+            };
         }
         catch (OperationCanceledException)
         {
@@ -142,7 +148,10 @@ public sealed class RunManager
             lock (_activeLock)
             {
                 if (_activeRunId == run.RunId)
+                {
                     _activeRunId = null;
+                    _activeTask = null;
+                }
             }
             EvictOldRuns();
         }
@@ -170,15 +179,37 @@ public sealed class RunRequest
 
 public sealed class RunRecord
 {
+    private readonly object _lock = new();
+    private string _status = "running";
+    private DateTime? _completedUtc;
+    private RunResult? _result;
+    private string? _progressMessage;
+
     public string RunId { get; init; } = "";
-    public string Status { get; set; } = "running";
+    public string Status
+    {
+        get { lock (_lock) return _status; }
+        set { lock (_lock) _status = value; }
+    }
     public string Mode { get; init; } = "DryRun";
     public string[] Roots { get; init; } = Array.Empty<string>();
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
     public DateTime StartedUtc { get; init; }
-    public DateTime? CompletedUtc { get; set; }
-    public RunResult? Result { get; set; }
-    public string? ProgressMessage { get; set; }
+    public DateTime? CompletedUtc
+    {
+        get { lock (_lock) return _completedUtc; }
+        set { lock (_lock) _completedUtc = value; }
+    }
+    public RunResult? Result
+    {
+        get { lock (_lock) return _result; }
+        set { lock (_lock) _result = value; }
+    }
+    public string? ProgressMessage
+    {
+        get { lock (_lock) return _progressMessage; }
+        set { lock (_lock) _progressMessage = value; }
+    }
 
     internal CancellationTokenSource CancellationSource { get; } = new();
 }

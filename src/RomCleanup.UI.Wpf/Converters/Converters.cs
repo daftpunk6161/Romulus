@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using RomCleanup.UI.Wpf.Models;
+using Color = System.Windows.Media.Color;
 
 namespace RomCleanup.UI.Wpf.Converters;
 

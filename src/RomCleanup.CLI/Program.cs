@@ -28,12 +28,12 @@ internal static class Program
     {
         try
         {
-            var options = ParseArgs(args);
+            var (options, exitCode) = ParseArgs(args);
             if (options is null)
             {
-                // --help or invalid mode: print usage, exit with 0 for help
-                PrintUsage();
-                return 0;
+                if (exitCode == 0)
+                    PrintUsage();
+                return exitCode;
             }
 
             return Run(options);
@@ -144,7 +144,7 @@ internal static class Program
         var auditPath = opts.AuditPath;
         if (string.IsNullOrEmpty(auditPath) && opts.Mode == "Move")
         {
-            var auditDir = Path.Combine(opts.Roots[0], "..", "audit-logs");
+            var auditDir = GetSiblingDirectory(opts.Roots[0], "audit-logs");
             auditPath = Path.Combine(Path.GetFullPath(auditDir),
                 $"audit-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
         }
@@ -188,8 +188,8 @@ internal static class Program
 
             var summary = new
             {
-                Status = "ok",
-                ExitCode = 0,
+                Status = result.Status ?? "ok",
+                ExitCode = result.ExitCode,
                 Mode = "DryRun",
                 TotalFiles = result.TotalFilesScanned,
                 Candidates = result.AllCandidates.Count,
@@ -357,10 +357,10 @@ internal static class Program
         };
     }
 
-    private static CliOptions? ParseArgs(string[] args)
+    private static (CliOptions?, int exitCode) ParseArgs(string[] args)
     {
         if (args.Length == 0)
-            return null;
+            return (null, 0);
 
         var opts = new CliOptions();
 
@@ -381,7 +381,7 @@ internal static class Program
                         if (modeVal != "DryRun" && modeVal != "Move")
                         {
                             Console.Error.WriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
-                            return null;
+                            return (null, 3);
                         }
                         opts.Mode = modeVal;
                     }
@@ -458,7 +458,7 @@ internal static class Program
                     break;
 
                 case "-help" or "--help" or "-h" or "-?":
-                    return null;
+                    return (null, 0);
 
                 default:
                     // Positional: treat as root path
@@ -467,14 +467,41 @@ internal static class Program
                         var roots = new List<string>(opts.Roots) { arg };
                         opts.Roots = roots.ToArray();
                     }
+                    else
+                    {
+                        Console.Error.WriteLine($"[Warning] Unknown flag '{arg}' ignored.");
+                    }
                     break;
             }
         }
 
         if (opts.Roots.Length == 0)
-            return null;
+            return (null, 0);
 
-        return opts;
+        // Validate root directories exist
+        foreach (var root in opts.Roots)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                Console.Error.WriteLine("[Error] Empty root path provided.");
+                return (null, 3);
+            }
+            if (!Directory.Exists(root))
+            {
+                Console.Error.WriteLine($"[Error] Root directory not found: {root}");
+                return (null, 3);
+            }
+        }
+
+        // Validate extensions have dot prefix
+        var invalidExts = opts.Extensions.Where(e => !e.StartsWith('.')).ToList();
+        if (invalidExts.Count > 0)
+        {
+            Console.Error.WriteLine($"[Error] Extensions must start with '.': {string.Join(", ", invalidExts)}");
+            return (null, 3);
+        }
+
+        return (opts, 0);
     }
 
     private static void PrintUsage()
@@ -601,5 +628,19 @@ Exit codes:
         public string System { get; set; } = "";
         public string Id { get; set; } = "";
         public string ConsoleKey { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Resolve a sibling directory next to the given root path.
+    /// UNC-safe: uses Path.GetDirectoryName instead of Path.Combine(.., name)
+    /// which breaks on UNC share roots like \\server\share.
+    /// </summary>
+    private static string GetSiblingDirectory(string rootPath, string siblingName)
+    {
+        var fullRoot = Path.GetFullPath(rootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var parent = Path.GetDirectoryName(fullRoot);
+        if (string.IsNullOrEmpty(parent))
+            return Path.Combine(fullRoot, siblingName);
+        return Path.Combine(parent, siblingName);
     }
 }

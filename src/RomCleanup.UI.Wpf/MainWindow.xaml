@@ -231,7 +231,7 @@
                              IsChecked="{Binding IsSimpleMode}" Padding="12,4" MinWidth="70" Cursor="Hand"
                              ToolTip="Vereinfachte Ansicht: nur die wichtigsten Optionen"/>
                 <RadioButton Content="Experte" GroupName="UiMode"
-                             IsChecked="{Binding IsExpertMode}" Padding="12,4" MinWidth="70" Cursor="Hand"
+                             IsChecked="{Binding IsExpertMode, Mode=OneWay}" Padding="12,4" MinWidth="70" Cursor="Hand"
                              ToolTip="Alle Konfigurationsoptionen anzeigen"/>
               </StackPanel>
             </Border>
@@ -845,78 +845,6 @@
                     </StackPanel>
                   </Border>
                 </Expander>
-
-                <Expander Header="Advanced Features" IsExpanded="False" Margin="0,0,0,8">
-                  <Border Style="{StaticResource SectionCard}">
-                    <StackPanel>
-                      <TextBlock Text="ADVANCED FEATURES" Style="{StaticResource SectionHeader}"/>
-                      <!-- Analyse -->
-                      <TextBlock Text="Analyse" Style="{StaticResource CategoryHeader}"/>
-                      <WrapPanel Margin="0,0,0,8">
-                        <Border Style="{StaticResource MetricCard}" MinWidth="145" Margin="0,0,8,8">
-                          <StackPanel>
-                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"/>
-                            <Button x:Name="btnQuickPreview" Content="Quick-Preview" Margin="0,4,0,0" HorizontalAlignment="Stretch" Style="{StaticResource GhostButton}"/>
-                            <TextBlock Text="Schnelle ROM-Vorschau" Style="{StaticResource CaptionText}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
-                          </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource MetricCard}" MinWidth="145" Margin="0,0,8,8">
-                          <StackPanel>
-                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"/>
-                            <Button x:Name="btnHealthScore" Content="Health-Score" Margin="0,4,0,0" HorizontalAlignment="Stretch" Style="{StaticResource GhostButton}"/>
-                            <TextBlock Text="Sammlungsqualität prüfen" Style="{StaticResource CaptionText}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
-                          </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource MetricCard}" MinWidth="145" Margin="0,0,8,8">
-                          <StackPanel>
-                            <TextBlock Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"/>
-                            <Button x:Name="btnCollectionDiff" Content="Collection-Diff" Margin="0,4,0,0" HorizontalAlignment="Stretch" Style="{StaticResource GhostButton}"/>
-                            <TextBlock Text="Sammlungen vergleichen" Style="{StaticResource CaptionText}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
-                          </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource MetricCard}" MinWidth="145" Margin="0,0,8,8">
-                          <StackPanel>
-                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"/>
-                            <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" Margin="0,4,0,0" HorizontalAlignment="Stretch" Style="{StaticResource GhostButton}"/>
-                            <TextBlock Text="Duplikate untersuchen" Style="{StaticResource CaptionText}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
-                          </StackPanel>
-                        </Border>
-                      </WrapPanel>
-                      <!-- Export -->
-                      <TextBlock Text="Export" Style="{StaticResource CategoryHeader}"/>
-                      <WrapPanel Margin="0,0,0,8">
-                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" Width="155" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportCsv" Content="CSV Export" Width="120" Margin="0,0,8,4"/>
-                        <Button x:Name="btnExportExcel" Content="Excel Export" Width="120" Margin="0,0,8,4"/>
-                      </WrapPanel>
-                      <!-- Rollback -->
-                      <TextBlock Text="Rückgängig" Style="{StaticResource CategoryHeader}"/>
-                      <WrapPanel Margin="0,0,0,8">
-                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" Width="140" Margin="0,0,8,4"/>
-                      </WrapPanel>
-                      <!-- System -->
-                      <TextBlock Text="System" Style="{StaticResource CategoryHeader}"/>
-                      <WrapPanel Margin="0,0,0,8">
-                        <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4" ToolTip="Überwacht ROM-Roots automatisch"/>
-                        <Button x:Name="btnWatchApply" Content="Watch anwenden" Width="140" Margin="0,0,8,4"/>
-                        <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
-                        <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4">
-                          <ComboBoxItem Content="de" IsSelected="True"/>
-                          <ComboBoxItem Content="en"/>
-                          <ComboBoxItem Content="fr"/>
-                        </ComboBox>
-                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" Width="140" Margin="0,0,8,4"/>
-                      </WrapPanel>
-                      <WrapPanel Margin="0,0,0,8">
-                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" Width="140" Margin="0,0,8,4"/>
-                        <Button x:Name="btnConflictPolicy" Content="Conflict-Policy" Width="140" Margin="0,0,8,4"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                </Expander>
               </StackPanel>
             </ScrollViewer>
           </TabItem>
@@ -931,6 +859,10 @@
                     <StackPanel>
                       <TextBlock Text="ANALYSE &amp; BERICHTE" Style="{StaticResource SectionHeader}"/>
                       <WrapPanel Margin="0,0,0,4">
+                        <Button x:Name="btnQuickPreview" Content="Quick-Preview" Width="130" Margin="0,0,8,4" ToolTip="Schnelle ROM-Vorschau (DryRun)"/>
+                        <Button x:Name="btnHealthScore" Content="Health-Score" Width="120" Margin="0,0,8,4" ToolTip="Sammlungsqualität prüfen"/>
+                        <Button x:Name="btnCollectionDiff" Content="Collection-Diff" Width="140" Margin="0,0,8,4" ToolTip="Sammlungen vergleichen"/>
+                        <Button x:Name="btnDuplicateInspector" Content="Duplikat-Inspektor" Width="160" Margin="0,0,8,4" ToolTip="Duplikate untersuchen"/>
                         <Button x:Name="btnConversionEstimate" Content="Konvertierungs-Schätzung" Width="190" Margin="0,0,8,4" ToolTip="Speicherersparnis berechnen"/>
                         <Button x:Name="btnJunkReport" Content="Junk-Bericht" Width="130" Margin="0,0,8,4" ToolTip="Detaillierter Junk-Bericht"/>
                         <Button x:Name="btnRomFilter" Content="ROM-Filter" Width="120" Margin="0,0,8,4" ToolTip="ROM-Sammlung durchsuchen"/>
@@ -1007,6 +939,9 @@
                         <Button x:Name="btnRuleEngine" Content="Regel-Engine" Width="120" Margin="0,0,8,4"/>
                         <Button x:Name="btnPatchEngine" Content="Patch-Engine" Width="120" Margin="0,0,8,4"/>
                         <Button x:Name="btnHeaderRepair" Content="Header-Reparatur" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackQuick" Content="Schnell-Rollback" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackUndo" Content="Rollback Undo" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnRollbackRedo" Content="Rollback Redo" Width="140" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1026,6 +961,10 @@
                         <Button x:Name="btnSchedulerAdvanced" Content="Scheduler" Width="110" Margin="0,0,8,4"/>
                         <Button x:Name="btnRulePackSharing" Content="Regel-Pakete" Width="130" Margin="0,0,8,4"/>
                         <Button x:Name="btnArcadeMergeSplit" Content="Arcade Merge/Split" Width="155" Margin="0,0,8,4"/>
+                        <CheckBox x:Name="chkWatchMode" Content="Watch-Mode" Margin="0,0,12,4" ToolTip="Überwacht ROM-Roots automatisch"/>
+                        <Button x:Name="btnWatchApply" Content="Watch anwenden" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnAutoProfile" Content="Auto-Profil" Width="140" Margin="0,0,8,4"/>
+                        <Button x:Name="btnConflictPolicy" Content="Conflict-Policy" Width="140" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1039,6 +978,9 @@
                         <Button x:Name="btnPdfReport" Content="PDF-Report" Width="120" Margin="0,0,8,4"/>
                         <Button x:Name="btnLauncherIntegration" Content="Launcher-Integration" Width="165" Margin="0,0,8,4"/>
                         <Button x:Name="btnToolImport" Content="Tool-Import" Width="120" Margin="0,0,8,4"/>
+                        <Button x:Name="btnDuplicateExport" Content="Duplikate exportieren" Width="155" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportCsv" Content="CSV Export" Width="120" Margin="0,0,8,4"/>
+                        <Button x:Name="btnExportExcel" Content="Excel Export" Width="120" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
@@ -1054,6 +996,7 @@
                         <Button x:Name="btnFtpSource" Content="FTP-Quelle" Width="120" Margin="0,0,8,4"/>
                         <Button x:Name="btnCloudSync" Content="Cloud-Sync" Width="120" Margin="0,0,8,4"/>
                         <Button x:Name="btnPluginMarketplaceFeature" Content="Plugin-Marktplatz" Width="145" Margin="0,0,8,4"/>
+                        <Button x:Name="btnPluginManager" Content="Plugin-Manager" Width="140" Margin="0,0,8,4"/>
                         <Button x:Name="btnPortableMode" Content="Portable Modus" Width="130" Margin="0,0,8,4"/>
                         <Button x:Name="btnDockerContainer" Content="Docker" Width="100" Margin="0,0,8,4"/>
                         <Button x:Name="btnMobileWebUI" Content="Mobile Web UI" Width="130" Margin="0,0,8,4"/>
@@ -1072,6 +1015,13 @@
                       <WrapPanel Margin="0,0,0,4">
                         <Button x:Name="btnAccessibility" Content="Barrierefreiheit" Width="140" Margin="0,0,8,4"/>
                         <Button x:Name="btnThemeEngine" Content="Theme-Engine" Width="130" Margin="0,0,8,4"/>
+                        <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
+                        <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4">
+                          <ComboBoxItem Content="de" IsSelected="True"/>
+                          <ComboBoxItem Content="en"/>
+                          <ComboBoxItem Content="fr"/>
+                        </ComboBox>
+                        <Button x:Name="btnApplyLocale" Content="Sprache anwenden" Width="140" Margin="0,0,8,4"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>

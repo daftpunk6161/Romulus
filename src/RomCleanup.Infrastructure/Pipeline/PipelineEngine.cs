@@ -37,7 +37,7 @@ public sealed class PipelineEngine
         {
             step.Status = "Failed";
             step.Error = ex.ToString();
-            throw;
+            // Don't re-throw here — let Execute() handle via status check
         }
     }
 
@@ -59,38 +59,32 @@ public sealed class PipelineEngine
         {
             context.PreviousSuccess = previousSuccess;
 
-            try
-            {
-                ExecuteStep(step, context);
+            ExecuteStep(step, context);
 
-                switch (step.Status)
-                {
-                    case "Completed":
-                        result.CompletedSteps++;
-                        break;
-                    case "DryRun":
-                        result.CompletedSteps++;
-                        break;
-                    case "Skipped":
-                        result.SkippedSteps++;
-                        break;
-                }
-            }
-            catch
+            switch (step.Status)
             {
-                result.FailedSteps++;
-                previousSuccess = false;
+                case "Completed":
+                case "DryRun":
+                    result.CompletedSteps++;
+                    break;
+                case "Skipped":
+                    result.SkippedSteps++;
+                    break;
+                case "Failed":
+                    result.FailedSteps++;
+                    previousSuccess = false;
 
-                if (pipeline.OnError == "stop")
-                {
-                    // Mark remaining steps as skipped
-                    var idx = pipeline.Steps.IndexOf(step);
-                    for (int i = idx + 1; i < pipeline.Steps.Count; i++)
-                        pipeline.Steps[i].Status = "Skipped";
-                    result.SkippedSteps += pipeline.Steps.Count - idx - 1;
-                    result.Status = "Failed";
-                    return result;
-                }
+                    if (pipeline.OnError == "stop")
+                    {
+                        // Mark remaining steps as skipped
+                        var idx = pipeline.Steps.IndexOf(step);
+                        for (int i = idx + 1; i < pipeline.Steps.Count; i++)
+                            pipeline.Steps[i].Status = "Skipped";
+                        result.SkippedSteps += pipeline.Steps.Count - idx - 1;
+                        result.Status = "Failed";
+                        return result;
+                    }
+                    break;
             }
         }
 

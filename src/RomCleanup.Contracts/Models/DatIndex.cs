@@ -1,13 +1,16 @@
+using System.Collections.Concurrent;
+
 namespace RomCleanup.Contracts.Models;
 
 /// <summary>
 /// Typed DAT index: maps ConsoleKey → (Hash → GameName).
 /// Replaces the untyped IDictionary&lt;string, object&gt; from the initial port.
 /// Mirrors the PowerShell structure: $index[$consoleKey][$hash] = $gameName.
+/// Thread-safe: uses ConcurrentDictionary for concurrent access during parallel DAT parsing.
 /// </summary>
 public sealed class DatIndex
 {
-    private readonly Dictionary<string, Dictionary<string, string>> _data = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> _data = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Number of consoles indexed.</summary>
     public int ConsoleCount => _data.Count;
@@ -27,11 +30,7 @@ public sealed class DatIndex
     /// <summary>Add or update a hash→gameName mapping for a console.</summary>
     public void Add(string consoleKey, string hash, string gameName)
     {
-        if (!_data.TryGetValue(consoleKey, out var hashMap))
-        {
-            hashMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            _data[consoleKey] = hashMap;
-        }
+        var hashMap = _data.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         hashMap[hash.ToLowerInvariant()] = gameName;
     }
 

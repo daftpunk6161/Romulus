@@ -43,6 +43,7 @@ public static class DeduplicationEngine
         var results = new List<DedupeResult>();
 
         var groups = candidates
+            .Where(c => !string.IsNullOrWhiteSpace(c.GameKey))
             .GroupBy(c => c.GameKey, StringComparer.OrdinalIgnoreCase)
             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
 
@@ -50,7 +51,7 @@ public static class DeduplicationEngine
         {
             var items = group.ToList();
             var winner = SelectWinner(items)!;
-            var losers = items.Where(x => !ReferenceEquals(x, winner)).ToList();
+            var losers = items.Where(x => !string.Equals(x.MainPath, winner.MainPath, StringComparison.OrdinalIgnoreCase)).ToList();
             results.Add(new DedupeResult
             {
                 Winner = winner,
