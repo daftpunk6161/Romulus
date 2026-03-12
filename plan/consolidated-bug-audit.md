@@ -54,7 +54,7 @@ Konsolidierung aller drei Deep-Dive Bug-Audits in ein einziges Tracking-Dokument
 - [x] TASK-001, TASK-011, TASK-012, TASK-013, TASK-014, TASK-024, TASK-025, TASK-026, TASK-027, TASK-028, TASK-033, TASK-034, TASK-035, TASK-037, TASK-041, TASK-042, TASK-051, TASK-056, TASK-064, TASK-071, TASK-072
 - [x] TASK-086, TASK-087, TASK-094, TASK-095, TASK-103, TASK-117, TASK-118, TASK-131, TASK-132, TASK-138, TASK-139
 - [x] TASK-102
-- [ ] TASK-110, TASK-111
+- [x] TASK-110, TASK-111
 - [x] TASK-151, TASK-152, TASK-158, TASK-163, TASK-170, TASK-171, TASK-197, TASK-198, TASK-205
 
 ---
@@ -261,8 +261,8 @@ GOAL-015: Screenreader, Keyboard, High-Contrast
 
 GOAL-016: MVVM-Pattern-Verletzungen
 
-- [ ] **TASK-110** — P1 – MainWindow.xaml.cs ~3200 Zeilen Code-Behind: Nicht unit-testbar. Fix: Stufenweises Refactoring.
-- [ ] **TASK-111** — P1 – 81 Feature-Buttons via Click-Event statt Command: Fix: FeatureCommands-Dictionary im ViewModel.
+- [x] **TASK-110** — P1 – MainWindow.xaml.cs ~694 Zeilen Code-Behind (von ~2920 reduziert). FeatureCommandService extrahiert.
+- [x] **TASK-111** — P1 – 65+ Feature-Buttons via BindFeatureCommand an FeatureCommands-Dictionary gebunden.
 - [x] **TASK-112** — P2 – webReportPreview.Navigate() direkte UI-Manipulation: WebBrowser hat kein Binding-API — dokumentieren.
 - [x] **TASK-113** — P2 – Drag-Drop in Code-Behind: WPF DragDrop hat kein natives Binding — dokumentieren.
 - [x] **TASK-114** — P2 – _conflictPolicy Feld nie verwendet: Fix: RunOptions.ConflictPolicy Property.

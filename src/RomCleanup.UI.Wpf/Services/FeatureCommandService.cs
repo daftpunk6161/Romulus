@@ -22,12 +22,14 @@ public sealed class FeatureCommandService
     private readonly MainViewModel _vm;
     private readonly SettingsService _settings;
     private readonly IDialogService _dialog;
+    private readonly IWindowHost? _windowHost;
 
-    public FeatureCommandService(MainViewModel vm, SettingsService settings, IDialogService dialog)
+    public FeatureCommandService(MainViewModel vm, SettingsService settings, IDialogService dialog, IWindowHost? windowHost = null)
     {
         _vm = vm;
         _settings = settings;
         _dialog = dialog;
+        _windowHost = windowHost;
     }
 
     public void RegisterCommands()
@@ -127,6 +129,16 @@ public sealed class FeatureCommandService
         cmds["WindowsContextMenu"] = new RelayCommand(WindowsContextMenu);
         cmds["HardlinkMode"] = new RelayCommand(HardlinkMode);
         cmds["MultiInstanceSync"] = new RelayCommand(MultiInstanceSync);
+
+        // ── Window-level commands (need IWindowHost) ────────────────────
+        if (_windowHost is not null)
+        {
+            cmds["CommandPalette"] = new RelayCommand(CommandPalette);
+            cmds["SystemTray"] = new RelayCommand(() => _windowHost.ToggleSystemTray());
+            cmds["MobileWebUI"] = new RelayCommand(MobileWebUI);
+            cmds["Accessibility"] = new RelayCommand(Accessibility);
+            cmds["ThemeEngine"] = new RelayCommand(ThemeEngine);
+        }
     }
 
     // ═══ FUNCTIONAL BUTTONS ═════════════════════════════════════════════
@@ -1687,6 +1699,103 @@ public sealed class FeatureCommandService
                 try { File.Delete(path); removed++; } catch { }
             }
             _vm.AddLog($"Multi-Instanz: {removed} Lock(s) entfernt", "INFO");
+        }
+    }
+
+    // ═══ WINDOW-LEVEL COMMANDS (require IWindowHost) ════════════════════
+
+    private void CommandPalette()
+    {
+        var input = _dialog.ShowInputBox("Befehl suchen:", "Command-Palette", "");
+        if (string.IsNullOrWhiteSpace(input)) return;
+        var results = FeatureService.SearchCommands(input);
+        if (results.Count == 0)
+        { _vm.AddLog($"Kein Befehl gefunden für: {input}", "WARN"); return; }
+
+        _dialog.ShowText("Command-Palette", FeatureService.BuildCommandPaletteReport(input, results));
+        if (results[0].score == 0) ExecuteCommand(results[0].key);
+    }
+
+    private void ExecuteCommand(string key)
+    {
+        switch (key)
+        {
+            case "dryrun": if (!_vm.IsBusy) { _vm.DryRun = true; _vm.RunCommand.Execute(null); } break;
+            case "move": if (!_vm.IsBusy) { _vm.DryRun = false; _vm.RunCommand.Execute(null); } break;
+            case "cancel": _vm.CancelCommand.Execute(null); break;
+            case "rollback": _vm.RollbackCommand.Execute(null); break;
+            case "theme": _vm.ThemeToggleCommand.Execute(null); break;
+            case "clear-log": _vm.ClearLogCommand.Execute(null); break;
+            case "settings": _windowHost?.SelectTab(1); break;
+            default: _vm.AddLog($"Befehl: {key}", "INFO"); break;
+        }
+    }
+
+    private void MobileWebUI()
+    {
+        var apiProject = FeatureService.FindApiProjectPath();
+        if (apiProject is not null)
+        {
+            if (_dialog.Confirm("REST API starten und Browser öffnen?\n\nhttp://127.0.0.1:5000", "Mobile Web UI"))
+            {
+                _windowHost?.StartApiProcess(apiProject);
+                return;
+            }
+        }
+        else
+        {
+            _dialog.ShowText("Mobile Web UI", "Mobile Web UI\n\n  API-Projekt nicht gefunden.\n\n" +
+                "  Zum manuellen Start:\n    dotnet run --project src/RomCleanup.Api\n\n" +
+                "  Dann im Browser öffnen:\n    http://127.0.0.1:5000");
+        }
+    }
+
+    private void Accessibility()
+    {
+        if (_windowHost is null) return;
+        var isHC = FeatureService.IsHighContrastActive();
+        var currentSize = _windowHost.FontSize;
+
+        var input = _dialog.ShowInputBox(
+            $"Barrierefreiheit\n\n" +
+            $"High-Contrast: {(isHC ? "AKTIV" : "Inaktiv")}\n" +
+            $"Aktuelle Schriftgröße: {currentSize}\n\n" +
+            "Neue Schriftgröße eingeben (10-24):",
+            "Barrierefreiheit", currentSize.ToString("0"));
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        if (double.TryParse(input, System.Globalization.CultureInfo.InvariantCulture, out var newSize) && newSize >= 10 && newSize <= 24)
+        {
+            _windowHost.FontSize = newSize;
+            _vm.AddLog($"Schriftgröße geändert: {newSize}", "INFO");
+        }
+        else
+        {
+            _vm.AddLog($"Ungültige Schriftgröße: {input} (erlaubt: 10-24)", "WARN");
+        }
+    }
+
+    private void ThemeEngine()
+    {
+        var result = _dialog.YesNoCancel(
+            $"Aktuelles Theme: {(_vm.ThemeToggleText.Contains("Dark") ? "Light" : "Dark")}\n\n" +
+            "JA = Dark Theme\nNEIN = Light Theme\nAbbrechen = High-Contrast",
+            "Theme-Engine");
+
+        switch (result)
+        {
+            case ConfirmResult.Yes:
+                _vm.ThemeToggleCommand.Execute(null);
+                _vm.AddLog("Theme gewechselt: Dark", "INFO");
+                break;
+            case ConfirmResult.No:
+                _vm.ThemeToggleCommand.Execute(null);
+                _vm.AddLog("Theme gewechselt: Light", "INFO");
+                break;
+            case ConfirmResult.Cancel:
+                _vm.ThemeToggleCommand.Execute(null);
+                _vm.AddLog("Theme gewechselt (Toggle)", "INFO");
+                break;
         }
     }
 }

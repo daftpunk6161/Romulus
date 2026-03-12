@@ -54,6 +54,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         PresetFullSortCommand = new RelayCommand(OnPresetFullSort);
         PresetConvertCommand = new RelayCommand(OnPresetConvert);
 
+        // Browse commands (parameter = property name to set)
+        BrowseToolPathCommand = new RelayCommand(OnBrowseToolPath);
+        BrowseFolderPathCommand = new RelayCommand(OnBrowseFolderPath);
+
+        // Quick workflow commands
+        QuickPreviewCommand = new RelayCommand(
+            () => { DryRun = true; RunCommand.Execute(null); },
+            () => Roots.Count > 0 && !IsBusy);
+        StartMoveCommand = new RelayCommand(
+            () => { DryRun = false; RunCommand.Execute(null); },
+            () => Roots.Count > 0 && !IsBusy);
+
         // Extension filter collection (UX-004)
         InitExtensionFilters();
 
@@ -77,6 +89,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand PresetSafeDryRunCommand { get; }
     public ICommand PresetFullSortCommand { get; }
     public ICommand PresetConvertCommand { get; }
+    public ICommand BrowseToolPathCommand { get; }
+    public ICommand BrowseFolderPathCommand { get; }
+    public ICommand QuickPreviewCommand { get; }
+    public ICommand StartMoveCommand { get; }
 
     // ═══ RUN RESULT STATE (moved from code-behind for MVVM command access) ═══
     private IReadOnlyList<RomCandidate> _lastCandidates = Array.Empty<RomCandidate>();
@@ -769,6 +785,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private void OnBrowseToolPath(object? parameter)
+    {
+        var path = _dialog.BrowseFile("Executable auswählen", "Executables (*.exe)|*.exe|Alle (*.*)|*.*");
+        if (path is null) return;
+        switch (parameter as string)
+        {
+            case "Chdman": ToolChdman = path; break;
+            case "Dolphin": ToolDolphin = path; break;
+            case "7z": Tool7z = path; break;
+            case "Psxtract": ToolPsxtract = path; break;
+            case "Ciso": ToolCiso = path; break;
+        }
+    }
+
+    private void OnBrowseFolderPath(object? parameter)
+    {
+        var path = _dialog.BrowseFolder("Ordner auswählen");
+        if (path is null) return;
+        switch (parameter as string)
+        {
+            case "Dat": DatRoot = path; break;
+            case "Trash": TrashRoot = path; break;
+            case "Audit": AuditRoot = path; break;
+            case "Ps3": Ps3DupesRoot = path; break;
+        }
+    }
+
     private void OnPresetSafeDryRun()
     {
         DryRun = true;
@@ -833,6 +876,81 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // ═══ EVENTS (for code-behind orchestration wiring) ══════════════════
     public event EventHandler? RunRequested;
     public event EventHandler? RollbackRequested;
+
+    /// <summary>
+    /// Build the error summary items for the protocol tab.
+    /// Extracted from MainWindow.xaml.cs PopulateErrorSummary.
+    /// </summary>
+    public void PopulateErrorSummary()
+    {
+        ErrorSummaryItems.Clear();
+
+        var issues = LogEntries
+            .Where(e => e.Level is "WARN" or "ERROR")
+            .Select(e => $"[{e.Level}] {e.Text}")
+            .ToList();
+
+        if (LastRunResult is not null)
+        {
+            if (LastRunResult.Status == "blocked")
+                issues.Insert(0, $"[BLOCKED] Preflight: {LastRunResult.Preflight?.Reason}");
+
+            if (LastRunResult.MoveResult is { FailCount: > 0 } mv)
+                issues.Insert(0, $"[ERROR] {mv.FailCount} Dateien konnten nicht verschoben werden");
+
+            var junk = LastCandidates.Count(c => c.Category == "JUNK");
+            if (junk > 0)
+                issues.Insert(0, $"[WARN] {junk} Junk-Dateien erkannt");
+
+            var unverified = LastCandidates.Count(c => !c.DatMatch);
+            if (unverified > 0 && LastCandidates.Count > 0)
+                issues.Insert(0, $"[INFO] {unverified}/{LastCandidates.Count} Dateien ohne DAT-Verifizierung");
+        }
+
+        if (issues.Count == 0)
+        {
+            ErrorSummaryItems.Add("✓ Keine Fehler oder Warnungen.");
+            if (LastRunResult is not null)
+                ErrorSummaryItems.Add($"Report geladen: {LastRunResult.WinnerCount} Winner, {LastRunResult.LoserCount} Dupes");
+            return;
+        }
+
+        foreach (var issue in issues.Take(50))
+            ErrorSummaryItems.Add(issue);
+        if (issues.Count > 50)
+            ErrorSummaryItems.Add($"… und {issues.Count - 50} weitere");
+    }
+
+    /// <summary>Apply run results from orchestrator to all dashboard/state properties.</summary>
+    public void ApplyRunResult(RunResult result)
+    {
+        LastRunResult = result;
+        LastCandidates = result.AllCandidates;
+        LastDedupeGroups = result.DedupeGroups;
+
+        Progress = 100;
+        DashWinners = result.WinnerCount.ToString();
+        DashDupes = result.LoserCount.ToString();
+        var junkCount = result.AllCandidates.Count(c => c.Category == "JUNK");
+        DashJunk = junkCount.ToString();
+        DashDuration = $"{result.DurationMs / 1000.0:F1}s";
+        var total = result.AllCandidates.Count;
+        HealthScore = total > 0 ? $"{100.0 * result.WinnerCount / total:F0}%" : "–";
+
+        if (result.Status == "blocked")
+        {
+            AddLog($"Preflight blockiert: {result.Preflight?.Reason}", "ERROR");
+        }
+        else
+        {
+            AddLog($"Scan: {result.TotalFilesScanned} Dateien", "INFO");
+            AddLog($"Dedupe: Keep={result.WinnerCount}, Move={result.LoserCount}, Junk={junkCount}", "INFO");
+            if (result.MoveResult is { } mv)
+                AddLog($"Verschoben: {mv.MoveCount}, Fehler: {mv.FailCount}", mv.FailCount > 0 ? "WARN" : "INFO");
+            if (result.ConvertedCount > 0)
+                AddLog($"Konvertiert: {result.ConvertedCount}", "INFO");
+        }
+    }
 
     /// <summary>Build a flat key-value config map from current VM state (for diff/export).</summary>
     public Dictionary<string, string> GetCurrentConfigMap()

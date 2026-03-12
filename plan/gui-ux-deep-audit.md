@@ -18,12 +18,14 @@ tags: [gui, ux, ui, wpf, mvvm, audit, refactoring, design-system, accessibility]
 | Datei | Zeilen (ca.) | Rolle |
 |-------|-------------|-------|
 | `MainWindow.xaml` | ~1400 | Gesamtes Layout in einer Datei |
-| `MainWindow.xaml.cs` | **~809** | Code-behind: 14 verbleibende Handler (Lifecycle, Run, DragDrop, Watch, Theme, a11y) |
-| `ViewModels/MainViewModel.cs` | ~580 | INPC, Commands, Status, Alle Bindings |
+| `MainWindow.xaml.cs` | **~451** | Code-behind: 9 verbleibende Handler (Lifecycle, Run, DragDrop, Watch, Report) |
+| `ViewModels/MainViewModel.cs` | ~640 | INPC, Commands, Status, Alle Bindings, ApplyRunResult, PopulateErrorSummary |
 | `Services/ThemeService.cs` | ~50 | Theme-Swap Dark/Light |
 | `Services/DialogService.cs` | ~180 | Dialoge, InputBox, thread-safe marshalling |
 | `Services/SettingsService.cs` | ~200 | JSON Persistence |
 | `Services/FeatureService.cs` | ~2640 | Backend-Logik für 60+ Feature-Commands (extrahiert aus Code-behind) |
+| `Services/FeatureCommandService.cs` | ~1800 | ~60 Commands über BindFeatureCommand, inkl. 5 IWindowHost-Handler |
+| `Services/IWindowHost.cs` | ~30 | Interface für Window-Level-Ops (FontSize, SelectTab, ShowTextDialog, ToggleSystemTray, ApiProcess) |
 | `Services/StatusBarService.cs` | ~20 | **Deprecated**, wrapper um VM.RefreshStatus |
 | `Converters/Converters.cs` | ~115 | 5 Value-Converter |
 | `Models/` | ~40 | LogEntry, StatusLevel, DatMapRow |
@@ -36,7 +38,7 @@ tags: [gui, ux, ui, wpf, mvvm, audit, refactoring, design-system, accessibility]
 - **A1:** Zielgruppe sind technisch versierte ROM-Sammler (Intermediate-Expert). Trotzdem muss *Simple Mode* für Anfänger funktionieren.
 - **A2:** Primäre Plattform bleibt Windows 10/11 Desktop. Cross-platform ist „nice to have", nicht Pflicht.
 - **A3:** Maximale ROM-Sammlung: ~500k Dateien über mehrere Roots. UI muss bei dieser Menge stabil bleiben.
-- **A4:** `MainWindow.xaml.cs` von ~3370 auf ~809 Zeilen reduziert. ~55 Feature-Handler über FeatureCommandService ins ViewModel migriert. 14 Handler bleiben wegen UI-Kopplung (Dispatcher, WPF-Controls, Window-Properties).
+- **A4:** `MainWindow.xaml.cs` von ~3370 auf ~451 Zeilen reduziert (87%). ~60 Feature-Handler über FeatureCommandService ins ViewModel migriert. AutoWire-Konvention (78 Buttons), Browse/Quick/Rollback ins VM. 9 Handler bleiben wegen UI-Kopplung (Dispatcher, WPF-Controls, Window-Properties).
 
 ---
 
@@ -638,7 +640,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 ## 7) Tracking Checklist
 
 ### P0 Fixes
-- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 809 Zeilen** (von ~3370 auf 809 reduziert durch 4 Extraktions-Batches + FeatureCommandService-Migration). Verbleibende 14 Handler: OnLoaded, OnClosing, OnRootsDragEnter, OnRootsDrop, OnRunRequested/RunCoreAsync, OnRollbackRequested, OnRefreshReportPreview/PopulateErrorSummary, OnWatchApply, OnWatchRunTriggered, OnCommandPalette/ExecuteCommand, OnSystemTray, OnMobileWebUI, OnAccessibility, OnThemeEngine. ≤200 erfordert Sub-VM-Architektur (RF-001).
+- [~] **UX-001**: MainWindow.xaml.cs Code-behind auf ≤200 Zeilen reduzieren — **Stand: 451 Zeilen** (von ~3370 auf 451 reduziert, 87% Reduktion). AutoWire-Konvention (btn{Key}→FeatureCommands[Key]) ersetzt 78 Einzelaufrufe. Browse-Commands + QuickPreview/StartMove in VM verschoben. 6 unbenutzte usings entfernt. Verbleibende 9 Handler: OnLoaded, OnClosing, OnRootsDragEnter, OnRootsDrop, OnRunRequested/RunCoreAsync, OnRollbackRequested, OnRefreshReportPreview, OnWatchApply, OnWatchRunTriggered. ≤200 erfordert Sub-VM-Architektur (RF-001).
 - [x] **UX-002**: RunState-Enum einführen, State Machine implementieren
 - [x] **UX-003**: Features-Tab redesignen (HasRunResult-Bindings auf 13 Buttons, Console-Filter → VM)
 
@@ -675,7 +677,9 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] **RF-008**: ProfileService extrahiert (Delete, Import, Export, LoadSavedConfigFlat — Services/ProfileService.cs). 5 Handler vereinfacht, FlattenJson + GetSiblingDirectory aus Code-behind entfernt. 4 xUnit-Tests.
 - [x] **RF-009**: _conflictPolicy in VM verschieben + persistieren
 - [x] **RF-010**: StatusBarService (deprecated) entfernt
-- [x] **RF-011**: Feature-Handler-Logik extrahiert → FeatureService.cs (2640+ Zeilen, 60+ Methoden): Batch 1 (11 Handler, ~475 Zeilen, 12 xUnit-Tests), Batch 2 (6 Handler: FilterBuilder, PluginMarketplace, MultiInstanceSync, MobileWebUI, RulePackSharing, HeaderRepair), Batch 3 (8 Handler: NKitConvert, TosecDat, ToolImport, FtpSource, GpuHashing, PdfReport, ConversionEstimate, CustomDatEditor), Batch 4 (AutoProfile, CollectionManager, PlaytimeTracker, ParallelHashing, CommandPalette). FeatureCommandService wired ~55 Feature-Buttons über BindFeatureCommand, MainWindow.xaml.cs von ~3370 → 809 Zeilen.
+- [x] **RF-011**: Feature-Handler-Logik extrahiert → FeatureService.cs (2640+ Zeilen, 60+ Methoden): Batch 1 (11 Handler, ~475 Zeilen, 12 xUnit-Tests), Batch 2 (6 Handler: FilterBuilder, PluginMarketplace, MultiInstanceSync, MobileWebUI, RulePackSharing, HeaderRepair), Batch 3 (8 Handler: NKitConvert, TosecDat, ToolImport, FtpSource, GpuHashing, PdfReport, ConversionEstimate, CustomDatEditor, 25 xUnit-Tests), Batch 4 (AutoProfile, CollectionManager, PlaytimeTracker, ParallelHashing, CommandPalette). FeatureCommandService wired ~60 Feature-Buttons über BindFeatureCommand, MainWindow.xaml.cs von ~3370 → 601 Zeilen.
+- [x] **RF-012**: IWindowHost-Interface + Extraktion: 5 UI-gekoppelte Handler (CommandPalette, SystemTray, MobileWebUI, Accessibility, ThemeEngine) über IWindowHost-Abstraction nach FeatureCommandService migriert. 4 redundante Code-behind-Felder eliminiert → VM-Properties nutzen. PopulateErrorSummary + ApplyRunResult in VM konsolidiert. 809→601 Zeilen.
+- [x] **RF-013**: AutoWire + VM-Commands: 78 BindFeatureCommand-Calls durch AutoWireFeatureButtons (Konventions-Loop btn{Key}→Key) ersetzt. Browse-Buttons (9) über BrowseToolPathCommand/BrowseFolderPathCommand ins VM. QuickPreview/StartMove/RollbackQuick als VM-Commands. 6 unbenutzte usings entfernt. 601→451 Zeilen. 10 neue Tests (1215 gesamt).
 
 ### Migration Tasks (WPF modernisieren)
 - [ ] **MIG-001**: WebBrowser → WebView2 (Edge Chromium)

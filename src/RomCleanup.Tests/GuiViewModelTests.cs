@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -1485,5 +1487,427 @@ public class GuiViewModelTests
         var report = FeatureService.BuildRuleEngineReport();
         Assert.NotNull(report);
         Assert.True(report.Length > 0);
+    }
+
+    // ═══ Batch-3 extraction tests ═══════════════════════════════════════
+
+    [Fact]
+    public void FeatureService_BuildNKitConvertReport_ContainsFileName()
+    {
+        var report = FeatureService.BuildNKitConvertReport(@"C:\Roms\game.nkit.iso");
+        Assert.Contains("NKit-Konvertierung", report);
+        Assert.Contains("game.nkit.iso", report);
+        Assert.Contains("NKit-Format: Ja", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildNKitConvertReport_NonNkit_ShowsNo()
+    {
+        var report = FeatureService.BuildNKitConvertReport(@"C:\Roms\game.iso");
+        Assert.Contains("NKit-Format: Nein", report);
+    }
+
+    [Fact]
+    public void FeatureService_ImportDatFileToRoot_PathTraversal_SanitizesFilename()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"dat_import_{Guid.NewGuid():N}");
+        var datRoot = Path.Combine(tmpDir, "dats");
+        Directory.CreateDirectory(datRoot);
+        // Create a source file in a parent directory (simulating attempted traversal)
+        var parentFile = Path.Combine(tmpDir, "escape.dat");
+        File.WriteAllText(parentFile, "test-content");
+        try
+        {
+            // Source path with ".." — the method strips path and copies just the filename
+            var sourcePath = Path.Combine(datRoot, "..", "escape.dat");
+            var target = FeatureService.ImportDatFileToRoot(sourcePath, datRoot);
+            // Target MUST be within datRoot (path traversal protection)
+            Assert.True(target.StartsWith(Path.GetFullPath(datRoot), StringComparison.OrdinalIgnoreCase));
+            Assert.True(File.Exists(target));
+            Assert.Equal("test-content", File.ReadAllText(target));
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_ImportDatFileToRoot_ValidCopy()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"dat_import_{Guid.NewGuid():N}");
+        var source = Path.Combine(tmpDir, "source.dat");
+        var datRoot = Path.Combine(tmpDir, "dats");
+        Directory.CreateDirectory(tmpDir);
+        Directory.CreateDirectory(datRoot);
+        try
+        {
+            File.WriteAllText(source, "<datafile/>");
+            var target = FeatureService.ImportDatFileToRoot(source, datRoot);
+            Assert.True(File.Exists(target));
+            Assert.Equal("<datafile/>", File.ReadAllText(target));
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_BuildFtpSourceReport_ValidSftp()
+    {
+        var (valid, isPlain, report) = FeatureService.BuildFtpSourceReport("sftp://roms.example.com/roms");
+        Assert.True(valid);
+        Assert.False(isPlain);
+        Assert.Contains("SFTP", report);
+        Assert.Contains("roms.example.com", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildFtpSourceReport_ValidFtp()
+    {
+        var (valid, isPlain, report) = FeatureService.BuildFtpSourceReport("ftp://host.local/data");
+        Assert.True(valid);
+        Assert.True(isPlain);
+        Assert.Contains("FTP", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildFtpSourceReport_InvalidUrl()
+    {
+        var (valid, _, report) = FeatureService.BuildFtpSourceReport("http://example.com");
+        Assert.False(valid);
+        Assert.Contains("Ungültige FTP-URL", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildGpuHashingStatus_ReturnsReport()
+    {
+        var (report, _) = FeatureService.BuildGpuHashingStatus();
+        Assert.Contains("GPU-Hashing Konfiguration", report);
+        Assert.Contains("CPU-Kerne", report);
+    }
+
+    [Fact]
+    public void FeatureService_ToggleGpuHashing_Toggles()
+    {
+        // Save and restore original env var
+        var original = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING");
+        try
+        {
+            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", "off");
+            var result1 = FeatureService.ToggleGpuHashing();
+            Assert.True(result1); // off → on
+
+            var result2 = FeatureService.ToggleGpuHashing();
+            Assert.False(result2); // on → off
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", original);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_BuildPdfReportData_EmptyCandidates()
+    {
+        var (summary, entries) = FeatureService.BuildPdfReportData(
+            Array.Empty<RomCandidate>(), Array.Empty<DedupeResult>(), null, true);
+        Assert.Equal("DryRun", summary.Mode);
+        Assert.Equal(0, summary.TotalFiles);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public void FeatureService_BuildPdfReportData_PopulatedCandidates()
+    {
+        var candidates = new List<RomCandidate>
+        {
+            new() { MainPath = @"C:\game.rom", GameKey = "game", Category = "GAME", Extension = ".rom", Region = "EU", SizeBytes = 100, RegionScore = 50, FormatScore = 500, VersionScore = 100, DatMatch = true },
+            new() { MainPath = @"C:\junk.rom", GameKey = "junk", Category = "JUNK", Extension = ".rom", Region = "US", SizeBytes = 200 }
+        };
+        var groups = new List<DedupeResult>
+        {
+            new() { GameKey = "game", Winner = candidates[0], Losers = [] }
+        };
+        var result = new RunResult { Status = "ok", DurationMs = 1234 };
+        var (summary, entries) = FeatureService.BuildPdfReportData(candidates, groups, result, false);
+        Assert.Equal("Move", summary.Mode);
+        Assert.Equal(2, summary.TotalFiles);
+        Assert.Equal(1, summary.JunkCount);
+        Assert.Equal(2, entries.Count);
+    }
+
+    [Fact]
+    public void FeatureService_BuildConversionEstimateReport_EmptyCandidates()
+    {
+        var report = FeatureService.BuildConversionEstimateReport(Array.Empty<RomCandidate>());
+        Assert.Contains("Konvertierungs-Schätzung", report);
+    }
+
+    [Theory]
+    [InlineData("ABCDEF01", 8, true)]
+    [InlineData("abcdef01", 8, true)]
+    [InlineData("ZZZZZZZZ", 8, false)]
+    [InlineData("ABCDEF0", 8, false)]
+    [InlineData("da39a3ee5e6b4b0d3255bfef95601890afd80709", 40, true)]
+    [InlineData("", 8, false)]
+    public void FeatureService_IsValidHexHash(string hash, int len, bool expected)
+    {
+        Assert.Equal(expected, FeatureService.IsValidHexHash(hash, len));
+    }
+
+    [Fact]
+    public void FeatureService_BuildCustomDatXmlEntry_EscapesXml()
+    {
+        var xml = FeatureService.BuildCustomDatXmlEntry("Game & \"Test\"", "rom<1>.bin", "AABBCCDD", "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        Assert.Contains("Game &amp; &quot;Test&quot;", xml);
+        Assert.Contains("rom&lt;1&gt;.bin", xml);
+        Assert.Contains("crc=\"AABBCCDD\"", xml);
+        Assert.Contains("sha1=\"da39a3ee5e6b4b0d3255bfef95601890afd80709\"", xml);
+    }
+
+    [Fact]
+    public void FeatureService_BuildCustomDatXmlEntry_EmptySha1_OmitsSha1Attr()
+    {
+        var xml = FeatureService.BuildCustomDatXmlEntry("Game", "rom.bin", "AABBCCDD", "");
+        Assert.DoesNotContain("sha1=", xml);
+    }
+
+    // ═══ Batch-4 extraction tests ═══════════════════════════════════════
+
+    [Fact]
+    public void FeatureService_DetectAutoProfile_EmptyRoots()
+    {
+        var result = FeatureService.DetectAutoProfile(Array.Empty<string>());
+        Assert.Contains("Unbekannt", result);
+    }
+
+    [Fact]
+    public void FeatureService_DetectAutoProfile_CartridgeOnly()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"auto_prof_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(tmpDir, "game.nes"), [0]);
+            File.WriteAllBytes(Path.Combine(tmpDir, "game.sfc"), [0]);
+            var result = FeatureService.DetectAutoProfile([tmpDir]);
+            Assert.Contains("Cartridge", result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_DetectAutoProfile_DiscOnly()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"auto_prof_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(tmpDir, "game.chd"), [0]);
+            File.WriteAllBytes(Path.Combine(tmpDir, "game.iso"), [0]);
+            var result = FeatureService.DetectAutoProfile([tmpDir]);
+            Assert.Contains("Disc", result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_BuildPlaytimeReport_NoLrtl_ReturnsEmpty()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"playtime_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            var result = FeatureService.BuildPlaytimeReport(tmpDir);
+            Assert.Equal("", result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_BuildPlaytimeReport_WithLrtl()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"playtime_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            File.WriteAllLines(Path.Combine(tmpDir, "game.lrtl"), ["10", "20", "30"]);
+            var result = FeatureService.BuildPlaytimeReport(tmpDir);
+            Assert.Contains("Spielzeit-Tracker", result);
+            Assert.Contains("game", result);
+            Assert.Contains("3 Einträge", result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FeatureService_BuildCollectionManagerReport_EmptyCandidates()
+    {
+        var report = FeatureService.BuildCollectionManagerReport(Array.Empty<RomCandidate>());
+        Assert.Contains("Smart Collection Manager", report);
+        Assert.Contains("Gesamt: 0 ROMs", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildCollectionManagerReport_GroupsByGenre()
+    {
+        var candidates = new List<RomCandidate>
+        {
+            new() { MainPath = "a.rom", GameKey = "Super Mario", Category = "GAME" },
+            new() { MainPath = "b.rom", GameKey = "Zelda", Category = "GAME" },
+            new() { MainPath = "c.rom", GameKey = "Doom", Category = "GAME" }
+        };
+        var report = FeatureService.BuildCollectionManagerReport(candidates);
+        Assert.Contains("Gesamt: 3 ROMs", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildCommandPaletteReport_ShowsResults()
+    {
+        var results = new List<(string key, string name, string shortcut, int score)>
+        {
+            ("dryrun", "DryRun starten", "F5", 0),
+            ("theme", "Theme wechseln", "Ctrl+T", 2)
+        };
+        var report = FeatureService.BuildCommandPaletteReport("dry", results);
+        Assert.Contains("Ergebnisse für \"dry\"", report);
+        Assert.Contains("DryRun starten", report);
+        Assert.Contains("F5", report);
+    }
+
+    [Fact]
+    public void FeatureService_BuildCommandPaletteReport_EmptyResults()
+    {
+        var report = FeatureService.BuildCommandPaletteReport("xyz",
+            Array.Empty<(string, string, string, int)>());
+        Assert.Contains("Ergebnisse für \"xyz\"", report);
+    }
+
+    [Theory]
+    [InlineData(4, 2)]
+    [InlineData(16, 8)]
+    [InlineData(1, 1)]
+    public void FeatureService_BuildParallelHashingReport_ContainsCoreInfo(int cores, int threads)
+    {
+        var report = FeatureService.BuildParallelHashingReport(cores, threads);
+        Assert.Contains($"CPU-Kerne: {cores}", report);
+        Assert.Contains($"Threads (neu): {threads}", report);
+        Assert.Contains("nächsten Hash-Vorgang", report);
+    }
+
+    // ═══ Browse + Quick Commands (Runde 18) ═════════════════════════════
+
+    [Fact]
+    public void BrowseToolPathCommand_Exists()
+    {
+        var vm = new MainViewModel();
+        Assert.NotNull(vm.BrowseToolPathCommand);
+    }
+
+    [Fact]
+    public void BrowseFolderPathCommand_Exists()
+    {
+        var vm = new MainViewModel();
+        Assert.NotNull(vm.BrowseFolderPathCommand);
+    }
+
+    [Fact]
+    public void QuickPreviewCommand_CanExecute_WhenRootsExistAndNotBusy()
+    {
+        var vm = new MainViewModel();
+        vm.Roots.Add(@"C:\TestRoot");
+        Assert.True(vm.QuickPreviewCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void QuickPreviewCommand_CannotExecute_WhenNoRoots()
+    {
+        var vm = new MainViewModel();
+        Assert.False(vm.QuickPreviewCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void QuickPreviewCommand_CannotExecute_WhenBusy()
+    {
+        var vm = new MainViewModel();
+        vm.Roots.Add(@"C:\TestRoot");
+        vm.CurrentRunState = RunState.Scanning;
+        Assert.False(vm.QuickPreviewCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void StartMoveCommand_CanExecute_WhenRootsExistAndNotBusy()
+    {
+        var vm = new MainViewModel();
+        vm.Roots.Add(@"C:\TestRoot");
+        Assert.True(vm.StartMoveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void StartMoveCommand_CannotExecute_WhenNoRoots()
+    {
+        var vm = new MainViewModel();
+        Assert.False(vm.StartMoveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void BrowseToolPathCommand_SetsChdman()
+    {
+        // BrowseToolPathCommand with "Chdman" parameter should set ToolChdman
+        var stub = new StubDialogService { BrowseFileResult = @"C:\tools\chdman.exe" };
+        var vm = new MainViewModel(new ThemeService(), stub);
+        vm.BrowseToolPathCommand.Execute("Chdman");
+        Assert.Equal(@"C:\tools\chdman.exe", vm.ToolChdman);
+    }
+
+    [Fact]
+    public void BrowseFolderPathCommand_SetsDatRoot()
+    {
+        var stub = new StubDialogService { BrowseFolderResult = @"C:\dat" };
+        var vm = new MainViewModel(new ThemeService(), stub);
+        vm.BrowseFolderPathCommand.Execute("Dat");
+        Assert.Equal(@"C:\dat", vm.DatRoot);
+    }
+
+    [Fact]
+    public void BrowseToolPathCommand_NoOpWhenCancelled()
+    {
+        // BrowseFile returns null → property unchanged
+        var stub = new StubDialogService { BrowseFileResult = null };
+        var vm = new MainViewModel(new ThemeService(), stub);
+        vm.ToolChdman = "original";
+        vm.BrowseToolPathCommand.Execute("Chdman");
+        Assert.Equal("original", vm.ToolChdman);
+    }
+
+    /// <summary>Minimal dialog service stub for VM command tests (no UI).</summary>
+    private sealed class StubDialogService : IDialogService
+    {
+        public string? BrowseFileResult { get; set; }
+        public string? BrowseFolderResult { get; set; }
+
+        public string? BrowseFolder(string title = "Ordner auswählen") => BrowseFolderResult;
+        public string? BrowseFile(string title = "Datei auswählen", string filter = "Alle Dateien|*.*") => BrowseFileResult;
+        public string? SaveFile(string title = "Speichern unter", string filter = "Alle Dateien|*.*", string? defaultFileName = null) => null;
+        public bool Confirm(string message, string title = "Bestätigung") => true;
+        public void Info(string message, string title = "Information") { }
+        public void Error(string message, string title = "Fehler") { }
+        public ConfirmResult YesNoCancel(string message, string title = "Frage") => ConfirmResult.Yes;
+        public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
+        public void ShowText(string title, string content) { }
     }
 }

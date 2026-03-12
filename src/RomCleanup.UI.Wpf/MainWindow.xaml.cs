@@ -1,37 +1,23 @@
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Xml;
-using System.Xml.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using DragEventArgs = System.Windows.DragEventArgs;
-using RomCleanup.Contracts.Models;
-using RomCleanup.Infrastructure.Orchestration;
-using RomCleanup.Infrastructure.Reporting;
-using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.ViewModels;
 
 namespace RomCleanup.UI.Wpf;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IWindowHost
 {
     private readonly MainViewModel _vm;
     private readonly ThemeService _theme;
     private readonly SettingsService _settings = new();
     private readonly DispatcherTimer _settingsTimer;
-    private string? _lastAuditPath;
     private Task? _activeRunTask;
-
-    // Run result tracking for feature buttons
-    private IReadOnlyList<RomCandidate> _lastCandidates = Array.Empty<RomCandidate>();
-    private IReadOnlyList<DedupeResult> _lastDedupeGroups = Array.Empty<DedupeResult>();
-    private RunResult? _lastRunResult;
 
     // System tray service
     private TrayService? _trayService;
@@ -56,7 +42,7 @@ public partial class MainWindow : Window
 
         // Periodic settings save every 5 minutes (P3-BUG-051 / UX-07)
         _settingsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-        _settingsTimer.Tick += (_, _) => _settings.SaveFrom(_vm, _lastAuditPath);
+        _settingsTimer.Tick += (_, _) => _settings.SaveFrom(_vm, _vm.LastAuditPath);
         _settingsTimer.Start();
 
         Loaded += OnLoaded;
@@ -70,144 +56,93 @@ public partial class MainWindow : Window
         listRoots.DragEnter += OnRootsDragEnter;
         listRoots.Drop += OnRootsDrop;
 
-        // Browse buttons (code-behind — not bindable in lightweight MVVM)
-        btnBrowseChdman.Click += (_, _) => BrowseToolPath(path => _vm.ToolChdman = path);
-        btnBrowseDolphin.Click += (_, _) => BrowseToolPath(path => _vm.ToolDolphin = path);
-        btnBrowse7z.Click += (_, _) => BrowseToolPath(path => _vm.Tool7z = path);
-        btnBrowsePsxtract.Click += (_, _) => BrowseToolPath(path => _vm.ToolPsxtract = path);
-        btnBrowseCiso.Click += (_, _) => BrowseToolPath(path => _vm.ToolCiso = path);
-        btnBrowseDat.Click += (_, _) => BrowseFolderPath(path => _vm.DatRoot = path);
-        btnBrowseTrash.Click += (_, _) => BrowseFolderPath(path => _vm.TrashRoot = path);
-        btnBrowseAudit.Click += (_, _) => BrowseFolderPath(path => _vm.AuditRoot = path);
-        btnBrowsePs3.Click += (_, _) => BrowseFolderPath(path => _vm.Ps3DupesRoot = path);
+        // Browse buttons (VM command with parameter)
+        foreach (var (name, param, cmd) in new (string, string, ICommand)[]
+        {
+            ("btnBrowseChdman",  "Chdman",  _vm.BrowseToolPathCommand),
+            ("btnBrowseDolphin", "Dolphin", _vm.BrowseToolPathCommand),
+            ("btnBrowse7z",      "7z",      _vm.BrowseToolPathCommand),
+            ("btnBrowsePsxtract","Psxtract",_vm.BrowseToolPathCommand),
+            ("btnBrowseCiso",    "Ciso",    _vm.BrowseToolPathCommand),
+            ("btnBrowseDat",     "Dat",     _vm.BrowseFolderPathCommand),
+            ("btnBrowseTrash",   "Trash",   _vm.BrowseFolderPathCommand),
+            ("btnBrowseAudit",   "Audit",   _vm.BrowseFolderPathCommand),
+            ("btnBrowsePs3",     "Ps3",     _vm.BrowseFolderPathCommand),
+        })
+        {
+            if (FindName(name) is System.Windows.Controls.Button btn)
+            { btn.CommandParameter = param; btn.Command = cmd; }
+        }
 
         // ── Functional buttons ──────────────────────────────────────────
-        BindFeatureCommand(btnExportLog, "ExportLog");
         btnRefreshReportPreview.Click += OnRefreshReportPreview;
-        BindFeatureCommand(btnAutoFindTools, "AutoFindTools");
 
         // ── Profile/Config buttons ──────────────────────────────────────
         btnProfileSave.Click += (_, _) =>
         {
-            if (_settings.SaveFrom(_vm, _lastAuditPath))
+            if (_settings.SaveFrom(_vm, _vm.LastAuditPath))
                 _vm.AddLog("Einstellungen gespeichert.", "INFO");
             else
                 _vm.AddLog("Einstellungen konnten nicht gespeichert werden.", "ERROR");
         };
         btnProfileLoad.Click += (_, _) => { _settings.LoadInto(_vm); _vm.RefreshStatus(); _vm.AddLog("Einstellungen geladen.", "INFO"); };
-        BindFeatureCommand(btnProfileDelete, "ProfileDelete");
-        BindFeatureCommand(btnProfileImport, "ProfileImport");
-        BindFeatureCommand(btnConfigDiff, "ConfigDiff");
-        BindFeatureCommand(btnExportUnified, "ExportUnified");
-        BindFeatureCommand(btnConfigImport, "ConfigImport");
 
-        // ── Quick actions ───────────────────────────────────────────────
-        btnQuickPreview.Click += (_, _) => { if (_vm.Roots.Count > 0 && !_vm.IsBusy) { _vm.DryRun = true; _vm.RunCommand.Execute(null); } };
-        btnStartMove.Click += (_, _) => { if (_vm.Roots.Count > 0 && !_vm.IsBusy) { _vm.DryRun = false; _vm.RunCommand.Execute(null); } };
-
-        // ── Konfiguration tab misc buttons ──────────────────────────────
-        BindFeatureCommand(btnHealthScore, "HealthScore");
-        BindFeatureCommand(btnCollectionDiff, "CollectionDiff");
-        BindFeatureCommand(btnDuplicateInspector, "DuplicateInspector");
-        BindFeatureCommand(btnDuplicateExport, "DuplicateExport");
-        BindFeatureCommand(btnExportCsv, "ExportCsv");
-        BindFeatureCommand(btnExportExcel, "ExportExcel");
-        btnRollbackQuick.Click += (_, _) => { if (_vm.RollbackCommand is RelayCommand rc && rc.CanExecute(null)) rc.Execute(null); else _vm.AddLog("Kein Rollback möglich – keine Audit-Datei.", "WARN"); };
-        BindFeatureCommand(btnRollbackUndo, "RollbackUndo");
-        BindFeatureCommand(btnRollbackRedo, "RollbackRedo");
+        // ── Quick actions + misc ────────────────────────────────────────
+        btnQuickPreview.Command = _vm.QuickPreviewCommand;
+        btnStartMove.Command = _vm.StartMoveCommand;
+        btnRollbackQuick.Command = _vm.RollbackCommand;
         btnWatchApply.Click += OnWatchApply;
-        BindFeatureCommand(btnApplyLocale, "ApplyLocale");
-        BindFeatureCommand(btnPluginManager, "PluginManager");
-        BindFeatureCommand(btnAutoProfile, "AutoProfile");
 
         // ── Feature tab buttons ─────────────────────────────────────────
-        var featureCommands = new FeatureCommandService(_vm, _settings, new WpfDialogService());
+        var featureCommands = new FeatureCommandService(_vm, _settings, new WpfDialogService(), this);
         featureCommands.RegisterCommands();
-        WireFeatureButtons();
+        AutoWireFeatureButtons();
     }
 
-    /// <summary>Wire all Feature-tab buttons with real handlers.</summary>
-    private void WireFeatureButtons()
+    /// <summary>Wire ALL feature command buttons (config-tab + feature-tab) using naming convention: btn{Key} → FeatureCommands[Key].</summary>
+    private void AutoWireFeatureButtons()
     {
-        // ── VM-bound Feature Commands (TASK-111) ────────────────────────
-        // Analyse & Berichte
-        BindFeatureCommand(btnConversionEstimate, "ConversionEstimate");
-        BindFeatureCommand(btnJunkReport, "JunkReport");
-        BindFeatureCommand(btnRomFilter, "RomFilter");
-        BindFeatureCommand(btnDuplicateHeatmap, "DuplicateHeatmap");
-        BindFeatureCommand(btnMissingRom, "MissingRom");
-        BindFeatureCommand(btnCrossRootDupe, "CrossRootDupe");
-        BindFeatureCommand(btnHeaderAnalysis, "HeaderAnalysis");
-        BindFeatureCommand(btnCompleteness, "Completeness");
-        BindFeatureCommand(btnDryRunCompare, "DryRunCompare");
-        BindFeatureCommand(btnTrendAnalysis, "TrendAnalysis");
-        BindFeatureCommand(btnEmulatorCompat, "EmulatorCompat");
+        string[] keys =
+        [
+            // Config-tab buttons
+            "ExportLog", "AutoFindTools",
+            "ProfileDelete", "ProfileImport", "ConfigDiff", "ExportUnified", "ConfigImport",
+            "HealthScore", "CollectionDiff", "DuplicateInspector", "DuplicateExport",
+            "ExportCsv", "ExportExcel", "RollbackUndo", "RollbackRedo",
+            "ApplyLocale", "PluginManager", "AutoProfile",
+            // Analyse & Berichte
+            "ConversionEstimate", "JunkReport", "RomFilter", "DuplicateHeatmap",
+            "MissingRom", "CrossRootDupe", "HeaderAnalysis", "Completeness",
+            "DryRunCompare", "TrendAnalysis", "EmulatorCompat",
+            // Konvertierung & Hashing
+            "ConversionPipeline", "NKitConvert", "ConvertQueue", "ConversionVerify",
+            "FormatPriority", "ParallelHashing", "GpuHashing",
+            // DAT & Verifizierung
+            "DatAutoUpdate", "DatDiffViewer", "TosecDat", "CustomDatEditor", "HashDatabaseExport",
+            // Sammlungsverwaltung
+            "CollectionManager", "CloneListViewer", "CoverScraper", "GenreClassification",
+            "PlaytimeTracker", "CollectionSharing", "VirtualFolderPreview",
+            // Sicherheit & Integrität
+            "IntegrityMonitor", "BackupManager", "Quarantine", "RuleEngine",
+            "PatchEngine", "HeaderRepair",
+            // Workflow & Automatisierung
+            "CommandPalette", "SplitPanelPreview", "FilterBuilder", "SortTemplates",
+            "PipelineEngine", "SystemTray", "SchedulerAdvanced", "RulePackSharing", "ArcadeMergeSplit",
+            // Export & Integration
+            "PdfReport", "LauncherIntegration", "ToolImport",
+            // Infrastruktur & Deployment
+            "StorageTiering", "NasOptimization", "FtpSource", "CloudSync",
+            "PluginMarketplaceFeature", "PortableMode", "DockerContainer", "MobileWebUI",
+            "WindowsContextMenu", "HardlinkMode", "MultiInstanceSync",
+            // UI & Erscheinungsbild
+            "Accessibility", "ThemeEngine",
+        ];
 
-        // Konvertierung & Hashing
-        BindFeatureCommand(btnConversionPipeline, "ConversionPipeline");
-        BindFeatureCommand(btnNKitConvert, "NKitConvert");
-        BindFeatureCommand(btnConvertQueue, "ConvertQueue");
-        BindFeatureCommand(btnConversionVerify, "ConversionVerify");
-        BindFeatureCommand(btnFormatPriority, "FormatPriority");
-        BindFeatureCommand(btnParallelHashing, "ParallelHashing");
-        BindFeatureCommand(btnGpuHashing, "GpuHashing");
-
-        // DAT & Verifizierung
-        BindFeatureCommand(btnDatAutoUpdate, "DatAutoUpdate");
-        BindFeatureCommand(btnDatDiffViewer, "DatDiffViewer");
-        BindFeatureCommand(btnTosecDat, "TosecDat");
-        BindFeatureCommand(btnCustomDatEditor, "CustomDatEditor");
-        BindFeatureCommand(btnHashDatabaseExport, "HashDatabaseExport");
-
-        // Sammlungsverwaltung
-        BindFeatureCommand(btnCollectionManager, "CollectionManager");
-        BindFeatureCommand(btnCloneListViewer, "CloneListViewer");
-        BindFeatureCommand(btnCoverScraper, "CoverScraper");
-        BindFeatureCommand(btnGenreClassification, "GenreClassification");
-        BindFeatureCommand(btnPlaytimeTracker, "PlaytimeTracker");
-        BindFeatureCommand(btnCollectionSharing, "CollectionSharing");
-        BindFeatureCommand(btnVirtualFolderPreview, "VirtualFolderPreview");
-
-        // Sicherheit & Integrität
-        BindFeatureCommand(btnIntegrityMonitor, "IntegrityMonitor");
-        BindFeatureCommand(btnBackupManager, "BackupManager");
-        BindFeatureCommand(btnQuarantine, "Quarantine");
-        BindFeatureCommand(btnRuleEngine, "RuleEngine");
-        BindFeatureCommand(btnPatchEngine, "PatchEngine");
-        BindFeatureCommand(btnHeaderRepair, "HeaderRepair");
-
-        // Workflow & Automatisierung
-        btnCommandPalette.Click += OnCommandPalette;  // needs tabMain TabControl
-        BindFeatureCommand(btnSplitPanelPreview, "SplitPanelPreview");
-        BindFeatureCommand(btnFilterBuilder, "FilterBuilder");
-        BindFeatureCommand(btnSortTemplates, "SortTemplates");
-        BindFeatureCommand(btnPipelineEngine, "PipelineEngine");
-        btnSystemTray.Click += OnSystemTray;  // needs _trayService + Window
-        BindFeatureCommand(btnSchedulerAdvanced, "SchedulerAdvanced");
-        BindFeatureCommand(btnRulePackSharing, "RulePackSharing");
-        BindFeatureCommand(btnArcadeMergeSplit, "ArcadeMergeSplit");
-
-        // Export & Integration
-        BindFeatureCommand(btnPdfReport, "PdfReport");
-        BindFeatureCommand(btnLauncherIntegration, "LauncherIntegration");
-        BindFeatureCommand(btnToolImport, "ToolImport");
-
-        // Infrastruktur & Deployment
-        BindFeatureCommand(btnStorageTiering, "StorageTiering");
-        BindFeatureCommand(btnNasOptimization, "NasOptimization");
-        BindFeatureCommand(btnFtpSource, "FtpSource");
-        BindFeatureCommand(btnCloudSync, "CloudSync");
-        BindFeatureCommand(btnPluginMarketplaceFeature, "PluginMarketplaceFeature");
-        BindFeatureCommand(btnPortableMode, "PortableMode");
-        BindFeatureCommand(btnDockerContainer, "DockerContainer");
-        btnMobileWebUI.Click += OnMobileWebUI;   // needs _apiProcess + Dispatcher
-        BindFeatureCommand(btnWindowsContextMenu, "WindowsContextMenu");
-        BindFeatureCommand(btnHardlinkMode, "HardlinkMode");
-        BindFeatureCommand(btnMultiInstanceSync, "MultiInstanceSync");
-
-        // UI & Erscheinungsbild (stay in code-behind — need Window properties)
-        btnAccessibility.Click += OnAccessibility;
-        btnThemeEngine.Click += OnThemeEngine;
+        foreach (var key in keys)
+        {
+            if (FindName($"btn{key}") is System.Windows.Controls.Button btn)
+                BindFeatureCommand(btn, key);
+        }
     }
 
     private static void BindFeatureCommand(System.Windows.Controls.Button button, string key)
@@ -232,7 +167,7 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _settings.LoadInto(_vm);
-        _lastAuditPath = _settings.LastAuditPath;
+        _vm.LastAuditPath = _settings.LastAuditPath;
         _vm.RefreshStatus();
 
         // Auto-scroll log to bottom on new entries
@@ -276,14 +211,14 @@ public partial class MainWindow : Window
                 try { await runTask; } catch { /* already handled in RunCoreAsync */ }
             }
 
-            _settings.SaveFrom(_vm, _lastAuditPath);
+            _settings.SaveFrom(_vm, _vm.LastAuditPath);
             CleanupResources();
             _isClosing = true;
             Close(); // Re-trigger close now that task is done
             return;
         }
 
-        _settings.SaveFrom(_vm, _lastAuditPath);
+        _settings.SaveFrom(_vm, _vm.LastAuditPath);
         CleanupResources();
     }
 
@@ -333,20 +268,6 @@ public partial class MainWindow : Window
             if (Directory.Exists(path) && !_vm.Roots.Contains(path))
                 _vm.Roots.Add(path);
         }
-    }
-
-    // ═══ BROWSE HELPERS ═════════════════════════════════════════════════
-
-    private static void BrowseToolPath(Action<string> setter)
-    {
-        var path = DialogService.BrowseFile("Executable auswählen", "Executables (*.exe)|*.exe|Alle (*.*)|*.*");
-        if (path is not null) setter(path);
-    }
-
-    private static void BrowseFolderPath(Action<string> setter)
-    {
-        var path = DialogService.BrowseFolder("Ordner auswählen");
-        if (path is not null) setter(path);
     }
 
     // ═══ RUN ORCHESTRATION ══════════════════════════════════════════════
@@ -411,41 +332,8 @@ public partial class MainWindow : Window
 
             // All UI updates on the UI thread — no fire-and-forget Dispatcher.InvokeAsync
             var result = svcResult.Result;
-            _lastRunResult = result;
-            _lastCandidates = result.AllCandidates;
-            _lastDedupeGroups = result.DedupeGroups;
+            _vm.ApplyRunResult(result);
 
-            // Sync to VM for FeatureCommand access (TASK-111)
-            _vm.LastRunResult = result;
-            _vm.LastCandidates = result.AllCandidates;
-            _vm.LastDedupeGroups = result.DedupeGroups;
-
-            _vm.Progress = 100;
-            _vm.DashWinners = result.WinnerCount.ToString();
-            _vm.DashDupes = result.LoserCount.ToString();
-            var junkCount = result.AllCandidates.Count(c => c.Category == "JUNK");
-            _vm.DashJunk = junkCount.ToString();
-            _vm.DashDuration = $"{result.DurationMs / 1000.0:F1}s";
-            var total = result.AllCandidates.Count;
-            _vm.HealthScore = total > 0
-                ? $"{100.0 * result.WinnerCount / total:F0}%"
-                : "–";
-
-            if (result.Status == "blocked")
-            {
-                _vm.AddLog($"Preflight blockiert: {result.Preflight?.Reason}", "ERROR");
-            }
-            else
-            {
-                _vm.AddLog($"Scan: {result.TotalFilesScanned} Dateien", "INFO");
-                _vm.AddLog($"Dedupe: Keep={result.WinnerCount}, Move={result.LoserCount}, Junk={junkCount}", "INFO");
-                if (result.MoveResult is { } mv)
-                    _vm.AddLog($"Verschoben: {mv.MoveCount}, Fehler: {mv.FailCount}", mv.FailCount > 0 ? "WARN" : "INFO");
-                if (result.ConvertedCount > 0)
-                    _vm.AddLog($"Konvertiert: {result.ConvertedCount}", "INFO");
-            }
-
-            _lastAuditPath = auditPath;
             _vm.LastAuditPath = auditPath;
 
             if (!_vm.DryRun && auditPath is not null && File.Exists(auditPath))
@@ -459,7 +347,7 @@ public partial class MainWindow : Window
                 _vm.AddLog("Lauf abgeschlossen.", "INFO");
                 _vm.CompleteRun(true, reportPath);
                 RefreshReportPreview();
-                PopulateErrorSummary();
+                _vm.PopulateErrorSummary();
             }
             else
             {
@@ -489,7 +377,7 @@ public partial class MainWindow : Window
         if (!DialogService.Confirm("Letzten Lauf rückgängig machen?", "Rollback bestätigen"))
             return;
 
-        if (string.IsNullOrEmpty(_lastAuditPath) || !File.Exists(_lastAuditPath))
+        if (string.IsNullOrEmpty(_vm.LastAuditPath) || !File.Exists(_vm.LastAuditPath))
         {
             _vm.AddLog("Keine Audit-Datei gefunden — Rollback nicht möglich.", "WARN");
             return;
@@ -497,7 +385,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var auditPathCopy = _lastAuditPath;
+            var auditPathCopy = _vm.LastAuditPath;
             var roots = _vm.Roots.ToList();
             var restored = await Task.Run(() => RollbackService.Execute(auditPathCopy, roots));
             _vm.AddLog($"Rollback: {restored.Count} Dateien wiederhergestellt.", "INFO");
@@ -509,13 +397,6 @@ public partial class MainWindow : Window
             _vm.AddLog($"Rollback-Fehler: {ex.Message}", "ERROR");
         }
     }
-
-    // ═══ LOG AUTO-SCROLL ════════════════════════════════════════════════
-
-    // Auto-scroll log ListBox to bottom when new items arrive.
-    // Wired once via collection change in OnLoaded would be cleaner,
-    // but for simplicity we can also use an attached behavior later.
-    // For now, the ListBox virtualizes so scrolling is efficient.
 
     // ═══ FUNCTIONAL BUTTON HANDLERS ═════════════════════════════════════
 
@@ -540,7 +421,7 @@ public partial class MainWindow : Window
         {
             var fullPath = Path.GetFullPath(_vm.LastReportPath);
             webReportPreview.Navigate(new Uri(fullPath));
-            PopulateErrorSummary();
+            _vm.PopulateErrorSummary();
             _vm.AddLog($"Report-Vorschau geladen: {Path.GetFileName(fullPath)}", "INFO");
         }
         catch (Exception ex)
@@ -549,49 +430,6 @@ public partial class MainWindow : Window
             _vm.ErrorSummaryItems.Add($"Fehler: {ex.Message}");
             _vm.AddLog($"Report-Vorschau fehlgeschlagen: {ex.Message}", "ERROR");
         }
-    }
-
-    /// <summary>Populate the error/warning summary from log entries and run results.</summary>
-    private void PopulateErrorSummary()
-    {
-        _vm.ErrorSummaryItems.Clear();
-
-        // Collect warnings and errors from log
-        var issues = _vm.LogEntries
-            .Where(e => e.Level is "WARN" or "ERROR")
-            .Select(e => $"[{e.Level}] {e.Text}")
-            .ToList();
-
-        // Add run result details if available
-        if (_lastRunResult is not null)
-        {
-            if (_lastRunResult.Status == "blocked")
-                issues.Insert(0, $"[BLOCKED] Preflight: {_lastRunResult.Preflight?.Reason}");
-
-            if (_lastRunResult.MoveResult is { FailCount: > 0 } mv)
-                issues.Insert(0, $"[ERROR] {mv.FailCount} Dateien konnten nicht verschoben werden");
-
-            var junk = _lastCandidates.Count(c => c.Category == "JUNK");
-            if (junk > 0)
-                issues.Insert(0, $"[WARN] {junk} Junk-Dateien erkannt");
-
-            var unverified = _lastCandidates.Count(c => !c.DatMatch);
-            if (unverified > 0 && _lastCandidates.Count > 0)
-                issues.Insert(0, $"[INFO] {unverified}/{_lastCandidates.Count} Dateien ohne DAT-Verifizierung");
-        }
-
-        if (issues.Count == 0)
-        {
-            _vm.ErrorSummaryItems.Add("✓ Keine Fehler oder Warnungen.");
-            if (_lastRunResult is not null)
-                _vm.ErrorSummaryItems.Add($"Report geladen: {_lastRunResult.WinnerCount} Winner, {_lastRunResult.LoserCount} Dupes");
-            return;
-        }
-
-        foreach (var issue in issues.Take(50))
-            _vm.ErrorSummaryItems.Add(issue);
-        if (issues.Count > 50)
-            _vm.ErrorSummaryItems.Add($"… und {issues.Count - 50} weitere");
     }
 
     private void OnWatchApply(object sender, RoutedEventArgs e)
@@ -630,166 +468,54 @@ public partial class MainWindow : Window
 
     // ═══ WORKFLOW & AUTOMATISIERUNG ═════════════════════════════════════
 
-    private void OnCommandPalette(object sender, RoutedEventArgs e)
-    {
-        var input = DialogService.ShowInputBox("Befehl suchen:", "Command-Palette", "");
-        if (string.IsNullOrWhiteSpace(input)) return;
-        var results = FeatureService.SearchCommands(input);
-        if (results.Count == 0)
-        { _vm.AddLog($"Kein Befehl gefunden für: {input}", "WARN"); return; }
+    // ═══ IWindowHost IMPLEMENTATION ═════════════════════════════════════
 
-        ShowTextDialog("Command-Palette", FeatureService.BuildCommandPaletteReport(input, results));
-        if (results[0].score == 0) ExecuteCommand(results[0].key);
+    double IWindowHost.FontSize
+    {
+        get => FontSize;
+        set => FontSize = value;
     }
 
-    private void ExecuteCommand(string key)
-    {
-        switch (key)
-        {
-            case "dryrun": if (!_vm.IsBusy) { _vm.DryRun = true; _vm.RunCommand.Execute(null); } break;
-            case "move": if (!_vm.IsBusy) { _vm.DryRun = false; _vm.RunCommand.Execute(null); } break;
-            case "cancel": _vm.CancelCommand.Execute(null); break;
-            case "rollback": _vm.RollbackCommand.Execute(null); break;
-            case "theme": _theme.Toggle(); break;
-            case "clear-log": _vm.ClearLogCommand.Execute(null); break;
-            case "settings": tabMain.SelectedIndex = 1; break;
-            default: _vm.AddLog($"Befehl: {key}", "INFO"); break;
-        }
-    }
+    void IWindowHost.SelectTab(int index) => tabMain.SelectedIndex = index;
 
-    private void OnSystemTray(object sender, RoutedEventArgs e)
+    void IWindowHost.ShowTextDialog(string title, string content) =>
+        ResultDialog.ShowText(title, content, this);
+
+    void IWindowHost.ToggleSystemTray()
     {
         _trayService ??= new TrayService(this, _vm);
         _trayService.Toggle();
     }
 
-    private void OnMobileWebUI(object sender, RoutedEventArgs e)
+    void IWindowHost.StartApiProcess(string projectPath)
     {
-        var apiProject = FeatureService.FindApiProjectPath();
-
-        if (apiProject is not null)
+        var psi = new ProcessStartInfo
         {
-            if (DialogService.Confirm("REST API starten und Browser öffnen?\n\nhttp://127.0.0.1:5000", "Mobile Web UI"))
-            {
-                try
-                {
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "dotnet",
-                        Arguments = $"run --project \"{apiProject}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = false,
-                    };
-                    try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); } catch { }
-                    try { _apiProcess?.Dispose(); } catch { }
-                    _apiProcess = Process.Start(psi);
-                    _vm.AddLog("REST API gestartet: http://127.0.0.1:5000", "INFO");
-                    Task.Delay(2000).ContinueWith(_ =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            try { Process.Start(new ProcessStartInfo("http://127.0.0.1:5000/health") { UseShellExecute = true }); }
-                            catch { /* browser launch failed */ }
-                        });
-                    });
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    _vm.AddLog($"API-Start fehlgeschlagen: {ex.Message}", "ERROR");
-                }
-            }
-        }
-        else
-        {
-            ShowTextDialog("Mobile Web UI", "Mobile Web UI\n\n  API-Projekt nicht gefunden.\n\n" +
-                "  Zum manuellen Start:\n    dotnet run --project src/RomCleanup.Api\n\n" +
-                "  Dann im Browser öffnen:\n    http://127.0.0.1:5000");
-        }
-    }
-
-    // ═══ UI & ERSCHEINUNGSBILD ══════════════════════════════════════════
-
-    private void OnAccessibility(object sender, RoutedEventArgs e)
-    {
-        var isHC = FeatureService.IsHighContrastActive();
-        var currentSize = FontSize;
-
-        var input = DialogService.ShowInputBox(
-            $"Barrierefreiheit\n\n" +
-            $"High-Contrast: {(isHC ? "AKTIV" : "Inaktiv")}\n" +
-            $"Aktuelle Schriftgröße: {currentSize}\n\n" +
-            "Neue Schriftgröße eingeben (10-24):",
-            "Barrierefreiheit", currentSize.ToString("0"));
-        if (string.IsNullOrWhiteSpace(input)) return;
-
-        if (double.TryParse(input, System.Globalization.CultureInfo.InvariantCulture, out var newSize) && newSize >= 10 && newSize <= 24)
-        {
-            FontSize = newSize;
-            _vm.AddLog($"Schriftgröße geändert: {newSize}", "INFO");
-        }
-        else
-        {
-            _vm.AddLog($"Ungültige Schriftgröße: {input} (erlaubt: 10-24)", "WARN");
-        }
-    }
-
-    private void OnThemeEngine(object sender, RoutedEventArgs e)
-    {
-        var result = DialogService.YesNoCancel(
-            $"Aktuelles Theme: {(_theme.IsDark ? "Dark" : "Light")}\n\n" +
-            "JA = Dark Theme\nNEIN = Light Theme\nAbbrechen = High-Contrast",
-            "Theme-Engine");
-
-        switch (result)
-        {
-            case MessageBoxResult.Yes:
-                _theme.ApplyTheme(true);
-                _vm.AddLog("Theme gewechselt: Dark", "INFO");
-                break;
-            case MessageBoxResult.No:
-                _theme.ApplyTheme(false);
-                _vm.AddLog("Theme gewechselt: Light", "INFO");
-                break;
-            case MessageBoxResult.Cancel:
-                // Toggle as high-contrast approximation
-                _theme.Toggle();
-                _vm.AddLog($"Theme gewechselt: {(_theme.IsDark ? "Dark" : "Light")} (High-Contrast nicht separat verfügbar)", "INFO");
-                break;
-        }
-    }
-
-    // ═══ HELPER METHODS ═════════════════════════════════════════════════
-
-    /// <summary>
-    /// Delegates to ResultDialog.ShowText — provides Copy/Export buttons and proper theming.
-    /// Kept as wrapper to avoid touching 50+ call sites.
-    /// </summary>
-    private static void ShowTextDialog(string title, string content, UIElement? returnFocusTo = null)
-    {
-        ResultDialog.ShowText(title, content, Application.Current?.MainWindow);
-        returnFocusTo?.Focus();
-    }
-
-    private Dictionary<string, string> GetCurrentConfigMap()
-    {
-        return new Dictionary<string, string>
-        {
-            ["sortConsole"] = _vm.SortConsole.ToString(),
-            ["aliasKeying"] = _vm.AliasKeying.ToString(),
-            ["aggressiveJunk"] = _vm.AggressiveJunk.ToString(),
-            ["dryRun"] = _vm.DryRun.ToString(),
-            ["useDat"] = _vm.UseDat.ToString(),
-            ["datRoot"] = _vm.DatRoot ?? "",
-            ["datHashType"] = _vm.DatHashType ?? "SHA1",
-            ["convertEnabled"] = _vm.ConvertEnabled.ToString(),
-            ["trashRoot"] = _vm.TrashRoot ?? "",
-            ["auditRoot"] = _vm.AuditRoot ?? "",
-            ["toolChdman"] = _vm.ToolChdman ?? "",
-            ["toolDolphin"] = _vm.ToolDolphin ?? "",
-            ["tool7z"] = _vm.Tool7z ?? "",
-            ["locale"] = _vm.Locale ?? "de",
-            ["logLevel"] = _vm.LogLevel ?? "Info"
+            FileName = "dotnet",
+            Arguments = $"run --project \"{projectPath}\"",
+            UseShellExecute = false,
+            CreateNoWindow = false,
         };
+        try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); } catch { }
+        try { _apiProcess?.Dispose(); } catch { }
+        _apiProcess = Process.Start(psi);
+        _vm.AddLog("REST API gestartet: http://127.0.0.1:5000", "INFO");
+        Task.Delay(2000).ContinueWith(_ =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try { Process.Start(new ProcessStartInfo("http://127.0.0.1:5000/health") { UseShellExecute = true }); }
+                catch { /* browser launch failed */ }
+            });
+        });
     }
+
+    void IWindowHost.StopApiProcess()
+    {
+        try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); } catch { }
+        try { _apiProcess?.Dispose(); } catch { }
+        _apiProcess = null;
+    }
+
+
 }
