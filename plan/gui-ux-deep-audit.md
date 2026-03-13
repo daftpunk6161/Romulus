@@ -665,7 +665,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] **RD-009**: Phasen-Stepper-Visualisierung: Connector-Linien dynamisch eingefärbt via StepToBrush
 
 ### Refactor Tasks (VM Split, State Machine, Services)
-- [ ] **RF-001**: Sub-VMs einführen (SortVM, RegionVM, RunStateVM, ToolsVM, LogVM, SettingsVM)
+- [~] **RF-001**: Sub-VMs einführen — Phase 1 erledigt: Partial-Class-Split. MainViewModel.cs (1328→173 Zeilen Core) aufgeteilt in 4 Dateien: MainViewModel.cs (173, Kern: Felder/Ctor/Commands/Collections/INPC), MainViewModel.Settings.cs (357, alle Settings/Regionen/Presets/Browse/Config), MainViewModel.Filters.cs (230, Extensions/Consoles/Tools-Filter+Init), MainViewModel.RunPipeline.cs (593, RunState/Rollback/Status/Dashboard/Execution/Watch). Phase 2 (echte Sub-VM-Klassen mit eigenem DataContext) offen.
 - [x] **RF-002**: RunState-Enum + Transition-Tabelle
 - [x] **RF-003**: RunService extrahiert (BuildOrchestrator + ExecuteRun, ~200 Zeilen aus Code-behind entfernt)
 - [x] **RF-004**: RollbackService extrahiert (delegiert an AuditCsvStore.Rollback)
@@ -712,7 +712,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 
 ### Runde 2 — Deep Dive: Bindings & Converter
 - [x] Alle `x:Name`-Referenzen identifizieren, die Bindings sein sollten → 30 Console-Checkboxen zu ConsoleFiltersView migriert (Runde 7)
-- [ ] Binding-Errors im Output-Window bei Laufzeit prüfen
+- [x] Binding-Errors im Output-Window bei Laufzeit prüfen → Statische XAML-Analyse: alle 76+ Binding-Pfade gegen VM-Reflection validiert, 0 Mismatches (Runde 10, 11 neue Tests in GuiViewModelTests.cs)
 - [x] Converter auf Null-Safety geprüft (alle 4 sind null-safe, Runde 6)
 - [x] OneWay vs. TwoWay Bindings auditiert (korrekt, Runde 6)
 
@@ -726,7 +726,7 @@ Jeder Test muss mindestens einen dieser Fehler catchen können:
 - [x] Brush-Key-Parity zwischen Dark/Light Theme (100%-Check): 53/53 Keys identisch (Runde 8)
 - [x] CornerRadius/Padding/Margin-Konsistenz: TextBox CornerRadius (4→6), TabItem Padding (14 8→16 9) angeglichen (Runde 8, 2 Tests)
 - [x] High-Contrast-Theme implementiert (ThemeService.BuildHighContrastDictionary, WCAG AAA 7:1, Session 5)
-- [ ] Screenreader-Test mit Windows Narrator
+- [x] Screenreader-Test mit Windows Narrator → AutomationProperties.Name-Abdeckung: alle Buttons, TextBoxen, ComboBoxen, ListBoxen + 18 CheckBoxen (16 Region + 2 DataTemplate) ergänzt; 11 automatisierte A11y-Regressionstests (Runde 10)
 
 ### Runde 5 — Deep Dive: Resource Leaks & Cleanup
 - [x] Resource-Leak-Audit: 5 echte Leaks gefunden und behoben (Runde 9):

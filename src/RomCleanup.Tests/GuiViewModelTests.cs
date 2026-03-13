@@ -1910,4 +1910,306 @@ public class GuiViewModelTests
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
         public void ShowText(string title, string content) { }
     }
+
+    // ═══ XAML Binding Validation (VERIFY-001) ═══════════════════════════
+
+    [Fact]
+    public void XamlBinding_AllPaths_ExistAsViewModelProperties()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        Assert.True(File.Exists(xamlPath), $"MainWindow.xaml not found at {xamlPath}");
+
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        // Extract all {Binding PropertyName} paths (skip complex expressions with Converter, StringFormat alone)
+        var bindingRegex = new System.Text.RegularExpressions.Regex(
+            @"\{Binding\s+([A-Za-z][A-Za-z0-9_.]*)",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        var bindingPaths = new HashSet<string>();
+        foreach (System.Text.RegularExpressions.Match match in bindingRegex.Matches(xamlContent))
+        {
+            var path = match.Groups[1].Value;
+            // Take only the root property (before any dot for nested paths like Roots.Count)
+            var rootProp = path.Contains('.') ? path.Split('.')[0] : path;
+            bindingPaths.Add(rootProp);
+        }
+
+        // Get all public properties and public fields from MainViewModel via reflection
+        var vmType = typeof(MainViewModel);
+        var vmProperties = vmType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Select(p => p.Name)
+            .ToHashSet();
+
+        // DataTemplate bindings use model properties, not VM properties
+        var modelPropertyNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Extension", "IsChecked", "ToolTip", "DisplayName", "Category",
+            "Key", "Description", "Icon", "IsVisible", "RequiresRunResult",
+            "Command", "Level", "Text", "Name", "Console", "DatFile"
+        };
+
+        var missing = new List<string>();
+        foreach (var path in bindingPaths.OrderBy(p => p))
+        {
+            if (!vmProperties.Contains(path) && !modelPropertyNames.Contains(path))
+                missing.Add(path);
+        }
+
+        Assert.True(missing.Count == 0,
+            $"XAML bindings reference {missing.Count} VM properties that don't exist:\n" +
+            string.Join("\n", missing));
+    }
+
+    [Fact]
+    public void XamlBinding_AllViewModelProperties_HaveINPC()
+    {
+        // Verify that MainViewModel implements INotifyPropertyChanged
+        var vmType = typeof(MainViewModel);
+        Assert.True(typeof(System.ComponentModel.INotifyPropertyChanged).IsAssignableFrom(vmType),
+            "MainViewModel must implement INotifyPropertyChanged");
+    }
+
+    // ═══ Accessibility Coverage (VERIFY-002) ════════════════════════════
+
+    [Fact]
+    public void Accessibility_AllButtons_HaveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        // Parse Button elements and check for AutomationProperties.Name
+        // Match <Button ... /> or <Button ...>...</Button> blocks
+        var buttonRegex = new System.Text.RegularExpressions.Regex(
+            @"<Button\s[^>]*?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var buttonsWithoutA11y = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in buttonRegex.Matches(xamlContent))
+        {
+            var buttonTag = match.Value;
+            if (!buttonTag.Contains("AutomationProperties.Name"))
+            {
+                // Extract x:Name or Content for identification
+                var nameMatch = System.Text.RegularExpressions.Regex.Match(buttonTag, @"x:Name=""([^""]+)""");
+                var contentMatch = System.Text.RegularExpressions.Regex.Match(buttonTag, @"Content=""([^""]+)""");
+                var id = nameMatch.Success ? nameMatch.Groups[1].Value
+                    : contentMatch.Success ? contentMatch.Groups[1].Value
+                    : buttonTag[..Math.Min(80, buttonTag.Length)];
+                buttonsWithoutA11y.Add(id);
+            }
+        }
+
+        Assert.True(buttonsWithoutA11y.Count == 0,
+            $"{buttonsWithoutA11y.Count} Button(s) without AutomationProperties.Name:\n" +
+            string.Join("\n", buttonsWithoutA11y));
+    }
+
+    [Fact]
+    public void Accessibility_AllTextBoxes_HaveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var textBoxRegex = new System.Text.RegularExpressions.Regex(
+            @"<TextBox\s[^>]*?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var missing = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in textBoxRegex.Matches(xamlContent))
+        {
+            var tag = match.Value;
+            if (!tag.Contains("AutomationProperties.Name"))
+            {
+                var nameMatch = System.Text.RegularExpressions.Regex.Match(tag, @"x:Name=""([^""]+)""");
+                var id = nameMatch.Success ? nameMatch.Groups[1].Value : tag[..Math.Min(80, tag.Length)];
+                missing.Add(id);
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} TextBox(es) without AutomationProperties.Name:\n" +
+            string.Join("\n", missing));
+    }
+
+    [Fact]
+    public void Accessibility_AllComboBoxes_HaveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var comboRegex = new System.Text.RegularExpressions.Regex(
+            @"<ComboBox\s[^>]*?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var missing = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in comboRegex.Matches(xamlContent))
+        {
+            var tag = match.Value;
+            if (!tag.Contains("AutomationProperties.Name"))
+            {
+                var nameMatch = System.Text.RegularExpressions.Regex.Match(tag, @"x:Name=""([^""]+)""");
+                var id = nameMatch.Success ? nameMatch.Groups[1].Value : tag[..Math.Min(80, tag.Length)];
+                missing.Add(id);
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} ComboBox(es) without AutomationProperties.Name:\n" +
+            string.Join("\n", missing));
+    }
+
+    [Fact]
+    public void Accessibility_AllListBoxes_HaveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var listBoxRegex = new System.Text.RegularExpressions.Regex(
+            @"<ListBox\s[^>]*?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var missing = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in listBoxRegex.Matches(xamlContent))
+        {
+            var tag = match.Value;
+            if (!tag.Contains("AutomationProperties.Name"))
+            {
+                var nameMatch = System.Text.RegularExpressions.Regex.Match(tag, @"x:Name=""([^""]+)""");
+                var id = nameMatch.Success ? nameMatch.Groups[1].Value : tag[..Math.Min(80, tag.Length)];
+                missing.Add(id);
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} ListBox(es) without AutomationProperties.Name:\n" +
+            string.Join("\n", missing));
+    }
+
+    [Fact]
+    public void Accessibility_RegionCheckBoxes_HaveDescriptiveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var regionCodes = new[] { "PreferEU", "PreferUS", "PreferJP", "PreferWORLD",
+            "PreferDE", "PreferFR", "PreferIT", "PreferES", "PreferAU", "PreferASIA",
+            "PreferKR", "PreferCN", "PreferBR", "PreferNL", "PreferSE", "PreferSCAN" };
+
+        var missingA11y = new List<string>();
+        foreach (var region in regionCodes)
+        {
+            // Find CheckBox with this binding and check for AutomationProperties.Name
+            var pattern = new System.Text.RegularExpressions.Regex(
+                $@"<CheckBox[^>]*IsChecked=""\{{Binding {region}\}}""[^>]*>",
+                System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            var match = pattern.Match(xamlContent);
+            if (!match.Success || !match.Value.Contains("AutomationProperties.Name"))
+                missingA11y.Add(region);
+        }
+
+        Assert.True(missingA11y.Count == 0,
+            $"{missingA11y.Count} Region CheckBox(es) without descriptive AutomationProperties.Name:\n" +
+            string.Join("\n", missingA11y));
+    }
+
+    [Fact]
+    public void Accessibility_DataTemplateCheckBoxes_HaveAutomationName()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        // DataTemplate CheckBoxes should have AutomationProperties.Name binding
+        var dataTemplateRegex = new System.Text.RegularExpressions.Regex(
+            @"<DataTemplate>\s*<CheckBox\s[^>]*?>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var missing = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in dataTemplateRegex.Matches(xamlContent))
+        {
+            if (!match.Value.Contains("AutomationProperties.Name"))
+            {
+                var contentMatch = System.Text.RegularExpressions.Regex.Match(match.Value, @"Content=""\{Binding ([^}]+)\}""");
+                var id = contentMatch.Success ? contentMatch.Groups[1].Value : match.Value[..Math.Min(60, match.Value.Length)];
+                missing.Add($"DataTemplate CheckBox with Content={id}");
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} DataTemplate CheckBox(es) without AutomationProperties.Name:\n" +
+            string.Join("\n", missing));
+    }
+
+    // ═══ XAML/VM Completeness Checks ════════════════════════════════════
+
+    [Fact]
+    public void XamlBinding_NoDuplicateAutomationNames()
+    {
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var a11yRegex = new System.Text.RegularExpressions.Regex(
+            @"AutomationProperties\.Name=""([^""{}]+)""",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        var names = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (System.Text.RegularExpressions.Match match in a11yRegex.Matches(xamlContent))
+        {
+            var name = match.Groups[1].Value;
+            names[name] = names.GetValueOrDefault(name) + 1;
+        }
+
+        var duplicates = names.Where(kv => kv.Value > 1)
+            .Select(kv => $"'{kv.Key}' × {kv.Value}")
+            .ToList();
+
+        Assert.True(duplicates.Count == 0,
+            $"Duplicate AutomationProperties.Name values:\n" +
+            string.Join("\n", duplicates));
+    }
+
+    [Fact]
+    public void XamlBinding_MinimumBindingCount()
+    {
+        // Ensure we don't accidentally lose bindings during refactoring
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var bindingCount = System.Text.RegularExpressions.Regex.Matches(
+            xamlContent, @"\{Binding\s").Count;
+
+        Assert.True(bindingCount >= 70,
+            $"Expected at least 70 bindings in MainWindow.xaml, found {bindingCount}. " +
+            "Bindings may have been accidentally removed during refactoring.");
+    }
+
+    [Fact]
+    public void XamlBinding_MinimumAutomationPropertiesCount()
+    {
+        // Ensure accessibility annotations don't regress
+        var xamlPath = FindWpfFile("MainWindow.xaml");
+        var xamlContent = File.ReadAllText(xamlPath);
+
+        var a11yCount = System.Text.RegularExpressions.Regex.Matches(
+            xamlContent, @"AutomationProperties\.Name").Count;
+
+        Assert.True(a11yCount >= 70,
+            $"Expected at least 70 AutomationProperties.Name in MainWindow.xaml, found {a11yCount}. " +
+            "Accessibility annotations may have been accidentally removed.");
+    }
+
+    // ═══ WPF file locator ══════════════════════════════════════════════
+
+    private static string FindWpfFile(string fileName)
+    {
+        var dir = AppDomain.CurrentDomain.BaseDirectory;
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", fileName);
+            if (File.Exists(candidate)) return candidate;
+            dir = Path.GetDirectoryName(dir);
+        }
+        return Path.Combine("src", "RomCleanup.UI.Wpf", fileName);
+    }
 }

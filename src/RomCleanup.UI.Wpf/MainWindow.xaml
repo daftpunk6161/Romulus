@@ -442,25 +442,25 @@
                   <TextBlock Text="Aktivierte Regionen werden bei Duplikaten bevorzugt behalten."
                              Style="{StaticResource CaptionText}" Margin="{DynamicResource SpaceBottomSM}" TextWrapping="Wrap"/>
                   <WrapPanel>
-                    <CheckBox Content="EU"    Margin="0,0,12,4" IsChecked="{Binding PreferEU}"    ToolTip="Europa (EUR/PAL)"/>
-                    <CheckBox Content="US"    Margin="0,0,12,4" IsChecked="{Binding PreferUS}"    ToolTip="USA (NTSC)"/>
-                    <CheckBox Content="WORLD" Margin="0,0,12,4" IsChecked="{Binding PreferWORLD}" ToolTip="World-/Export-Versionen"/>
-                    <CheckBox Content="JP"    Margin="0,0,12,4" IsChecked="{Binding PreferJP}"    ToolTip="Japan"/>
+                    <CheckBox Content="EU"    Margin="0,0,12,4" IsChecked="{Binding PreferEU}"    ToolTip="Europa (EUR/PAL)" AutomationProperties.Name="Region Europa bevorzugen"/>
+                    <CheckBox Content="US"    Margin="0,0,12,4" IsChecked="{Binding PreferUS}"    ToolTip="USA (NTSC)" AutomationProperties.Name="Region USA bevorzugen"/>
+                    <CheckBox Content="WORLD" Margin="0,0,12,4" IsChecked="{Binding PreferWORLD}" ToolTip="World-/Export-Versionen" AutomationProperties.Name="Region World bevorzugen"/>
+                    <CheckBox Content="JP"    Margin="0,0,12,4" IsChecked="{Binding PreferJP}"    ToolTip="Japan" AutomationProperties.Name="Region Japan bevorzugen"/>
                   </WrapPanel>
                   <Expander Header="Weitere Regionen" IsExpanded="False" Margin="0,2,0,0">
                     <WrapPanel Margin="0,4,0,0">
-                      <CheckBox Content="DE"   Margin="0,0,12,4" IsChecked="{Binding PreferDE}"   ToolTip="Deutschland"/>
-                      <CheckBox Content="FR"   Margin="0,0,12,4" IsChecked="{Binding PreferFR}"   ToolTip="Frankreich"/>
-                      <CheckBox Content="IT"   Margin="0,0,12,4" IsChecked="{Binding PreferIT}"   ToolTip="Italien"/>
-                      <CheckBox Content="ES"   Margin="0,0,12,4" IsChecked="{Binding PreferES}"   ToolTip="Spanien"/>
-                      <CheckBox Content="AU"   Margin="0,0,12,4" IsChecked="{Binding PreferAU}"   ToolTip="Australien"/>
-                      <CheckBox Content="ASIA" Margin="0,0,12,4" IsChecked="{Binding PreferASIA}" ToolTip="Asien"/>
-                      <CheckBox Content="KR"   Margin="0,0,12,4" IsChecked="{Binding PreferKR}"   ToolTip="Südkorea"/>
-                      <CheckBox Content="CN"   Margin="0,0,12,4" IsChecked="{Binding PreferCN}"   ToolTip="China"/>
-                      <CheckBox Content="BR"   Margin="0,0,12,4" IsChecked="{Binding PreferBR}"   ToolTip="Brasilien"/>
-                      <CheckBox Content="NL"   Margin="0,0,12,4" IsChecked="{Binding PreferNL}"   ToolTip="Niederlande"/>
-                      <CheckBox Content="SE"   Margin="0,0,12,4" IsChecked="{Binding PreferSE}"   ToolTip="Schweden"/>
-                      <CheckBox Content="SCAN" Margin="0,0,12,4" IsChecked="{Binding PreferSCAN}" ToolTip="Skandinavien"/>
+                      <CheckBox Content="DE"   Margin="0,0,12,4" IsChecked="{Binding PreferDE}"   ToolTip="Deutschland" AutomationProperties.Name="Region Deutschland bevorzugen"/>
+                      <CheckBox Content="FR"   Margin="0,0,12,4" IsChecked="{Binding PreferFR}"   ToolTip="Frankreich" AutomationProperties.Name="Region Frankreich bevorzugen"/>
+                      <CheckBox Content="IT"   Margin="0,0,12,4" IsChecked="{Binding PreferIT}"   ToolTip="Italien" AutomationProperties.Name="Region Italien bevorzugen"/>
+                      <CheckBox Content="ES"   Margin="0,0,12,4" IsChecked="{Binding PreferES}"   ToolTip="Spanien" AutomationProperties.Name="Region Spanien bevorzugen"/>
+                      <CheckBox Content="AU"   Margin="0,0,12,4" IsChecked="{Binding PreferAU}"   ToolTip="Australien" AutomationProperties.Name="Region Australien bevorzugen"/>
+                      <CheckBox Content="ASIA" Margin="0,0,12,4" IsChecked="{Binding PreferASIA}" ToolTip="Asien" AutomationProperties.Name="Region Asien bevorzugen"/>
+                      <CheckBox Content="KR"   Margin="0,0,12,4" IsChecked="{Binding PreferKR}"   ToolTip="Südkorea" AutomationProperties.Name="Region Südkorea bevorzugen"/>
+                      <CheckBox Content="CN"   Margin="0,0,12,4" IsChecked="{Binding PreferCN}"   ToolTip="China" AutomationProperties.Name="Region China bevorzugen"/>
+                      <CheckBox Content="BR"   Margin="0,0,12,4" IsChecked="{Binding PreferBR}"   ToolTip="Brasilien" AutomationProperties.Name="Region Brasilien bevorzugen"/>
+                      <CheckBox Content="NL"   Margin="0,0,12,4" IsChecked="{Binding PreferNL}"   ToolTip="Niederlande" AutomationProperties.Name="Region Niederlande bevorzugen"/>
+                      <CheckBox Content="SE"   Margin="0,0,12,4" IsChecked="{Binding PreferSE}"   ToolTip="Schweden" AutomationProperties.Name="Region Schweden bevorzugen"/>
+                      <CheckBox Content="SCAN" Margin="0,0,12,4" IsChecked="{Binding PreferSCAN}" ToolTip="Skandinavien" AutomationProperties.Name="Region Skandinavien bevorzugen"/>
                     </WrapPanel>
                   </Expander>
                 </StackPanel>
@@ -597,7 +597,8 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <CheckBox Content="{Binding Extension}" IsChecked="{Binding IsChecked}"
-                                  ToolTip="{Binding ToolTip}" Margin="0,0,12,4"/>
+                                  ToolTip="{Binding ToolTip}" Margin="0,0,12,4"
+                                  AutomationProperties.Name="{Binding Extension, StringFormat='Dateityp {0} filtern'}"/>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
@@ -622,7 +623,8 @@
                       <DataTemplate>
                         <CheckBox Content="{Binding DisplayName}"
                                   IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                  Margin="0,0,12,4"/>
+                                  Margin="0,0,12,4"
+                                  AutomationProperties.Name="{Binding DisplayName, StringFormat='Konsole {0} filtern'}"/>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
@@ -874,7 +876,7 @@
                     </ComboBox>
                   </Grid>
                   <WrapPanel Margin="0,12,0,0">
-                    <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4"/>
+                    <Button Command="{Binding ThemeToggleCommand}" Content="{Binding ThemeToggleText}" Width="120" Margin="0,0,8,4" AutomationProperties.Name="Theme umschalten"/>
                     <ComboBox x:Name="cmbLocale" Width="120" Margin="0,0,8,4"
                               SelectedValuePath="Content"
                               SelectedValue="{Binding Locale, Mode=TwoWay}"
@@ -1037,7 +1039,7 @@
           <Border DockPanel.Dock="Bottom" Background="{DynamicResource BrushSurfaceAlt}"
                   BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,8">
             <StackPanel Orientation="Horizontal">
-              <Button Command="{Binding ClearLogCommand}" Content="Log leeren" Width="118" Margin="{DynamicResource SpaceRightSM}"/>
+              <Button Command="{Binding ClearLogCommand}" Content="Log leeren" Width="118" Margin="{DynamicResource SpaceRightSM}" AutomationProperties.Name="Log leeren"/>
               <Button x:Name="btnExportLog" Content="Log exportieren" MinWidth="130" Padding="8,2" AutomationProperties.Name="Log exportieren"/>
             </StackPanel>
           </Border>
