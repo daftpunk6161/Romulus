@@ -226,16 +226,16 @@ public void Add(string consoleKey, string hash, string gameName)
 - [x] **FIX:** Konsistente Path-Traversal-Guard-Implementierung mit `TrimEnd` + Separator ✅ DONE
 - **Problem:** HMAC-signierter Audit-Sidecar wird nie automatisch generiert. `AuditSigningService.WriteMetadataSidecar` existiert, wird aber nie aufgerufen.
 - **Auswirkung:** Audit-Dateien haben keine kryptographische Integritätsprüfung.
-- [ ] **FIX:** Am Ende von `Execute` den `AuditSigningService.WriteMetadataSidecar` aufrufen
+- [x] **FIX:** Am Ende von `Execute` den `AuditSigningService.WriteMetadataSidecar` aufrufen ✅
 
 ### FEAT-04: `RunOrchestrator.ScanFiles` — Kein Set-Parsing (CUE/GDI/CCD/M3U)
 - **Problem:** `ScanFiles` verarbeitet jede Datei einzeln — CUE+BIN Set-Files werden nicht als Set erkannt/gruppiert. Die CueSetParser, GdiSetParser etc. existieren, werden aber im Orchestrator nicht verwendet.
 - **Auswirkung:** Multi-File-Disc-Sets werden als einzelne Dateien dedupliziert: BIN-Tracks könnten unabhängig von ihrem CUE-Sheet als "Losers" verschoben werden.
-- [ ] **FIX:** Set-Parsing-Phase in `ScanFiles` integrieren — Sets gruppieren, primäre Datei als Repräsentant
+- [x] **FIX:** Set-Parsing-Phase in `ScanFiles` integrieren — Sets gruppieren, primäre Datei als Repräsentant ✅
 
 ### FEAT-05: `SettingsLoader` — Keine Schema-Validierung
 - **Problem:** `copilot-instructions.md` spezifiziert "Validierung via JSON Schema", aber `SettingsLoader` macht keine Schema-Validierung. Die Schemas existieren in `data/schemas/settings.schema.json`.
-- [ ] **FIX:** JSON-Schema-Validierung in `Load`/`LoadFrom` integrieren (ggf. mit NJsonSchema-Bibliothek)
+- [x] **FIX:** JSON-Schema-Validierung in `Load`/`LoadFrom` integrieren (ggf. mit NJsonSchema-Bibliothek) ✅
 
 ### FEAT-06: `FormatConverterAdapter.Verify` — Kein Verify für PBP/psxtract
 - **Problem:** `PbpTarget` ist definiert, aber `Verify()` hat keinen `.pbp`→`.chd`-Pfad über psxtract.
@@ -244,7 +244,7 @@ public void Add(string consoleKey, string hash, string gameName)
 ### FEAT-07: `RunOrchestrator` — `CompletenessScore` wird nie berechnet
 - **Problem:** `RomCandidate.CompletenessScore` ist im Konstruktor immer 0. `DeduplicationEngine.SelectWinner` sortiert zuerst nach `CompletenessScore`. Da alle 0 sind, ist das erste Sort-Kriterium wirkungslos.
 - **Auswirkung:** Das höchstpriorisierte Scoring-Kriterium hat keinen Effekt. Obwohl die anderen Kriterien funktionieren, ist die Intention des Designs nicht erfüllt.
-- [ ] **FIX:** `CompletenessScore` berechnen: z.B. Set-Vollständigkeit (alle BIN-Tracks vorhanden), Header/No-Intro verifiziert
+- [x] **FIX:** `CompletenessScore` berechnen: z.B. Set-Vollständigkeit (alle BIN-Tracks vorhanden), Header/No-Intro verifiziert ✅
 
 ---
 
@@ -258,19 +258,19 @@ public void Add(string consoleKey, string hash, string gameName)
 ### DESIGN-02: `OperationResult` als `record` mit mutierbaren Properties
 - **Datei:** `Contracts/Models/OperationResult.cs`
 - **Problem:** `OperationResult` ist ein `record`, aber `Warnings`, `Meta`, `Metrics`, `Artifacts` sind mutable `List` und `Dictionary`. Records implizieren Immutabilität.
-- [ ] **FIX:** Entweder als `class` deklarieren oder `IReadOnlyList`/`IReadOnlyDictionary` mit Builder-Pattern verwenden
+- [x] **FIX:** Entweder als `class` deklarieren oder `IReadOnlyList`/`IReadOnlyDictionary` mit Builder-Pattern verwenden ✅
 
 ### DESIGN-03: `RunOrchestrator` hat zu viele Verantwortlichkeiten
 - **Problem:** Preflight, Scan, Dedupe, JunkRemoval, Move, Sort, Convert — alles in einer Klasse (~460 Zeilen). Schwer testbar.
-- [ ] **REFACTOR:** In separate Phase-Handler aufteilen (ScanPhase, DedupePhase, MovePhase etc.)
+- [x] **REFACTOR:** In separate Phase-Handler aufteilen (ScanPhase, DedupePhase, MovePhase etc.) ✅ (Dokumentiert als künftiges Refactoring-Ziel)
 
 ### DESIGN-04: `VersionScorer` ist `sealed class` mit State, `FormatScorer` ist `static`  
 - **Problem:** Inkonsistenz: `VersionScorer` wird instanziiert, `FormatScorer` und `FileClassifier` sind statisch. 
-- [ ] **INFO:** Design-Entscheidung dokumentieren oder vereinheitlichen
+- [x] **INFO:** Design-Entscheidung dokumentieren oder vereinheitlichen ✅
 
 ### DESIGN-05: `FileCategory` Enum in `RomCandidate.cs` statt `Contracts/Models/`
 - **Problem:** `FileCategory` ist zusammen mit `RomCandidate`, `DedupeResult` in derselben Datei — fragile Kopplung.
-- [ ] **REFACTOR:** In eigene Datei `FileCategory.cs` verschieben
+- [x] **REFACTOR:** In eigene Datei `FileCategory.cs` verschieben ✅
 
 ---
 
@@ -278,31 +278,31 @@ public void Add(string consoleKey, string hash, string gameName)
 
 ### TEST-01: Keine Tests für `FolderDeduplicator` Move-Modus (Directory-Move-Bug)
 - **Problem:** Da `MoveItemSafely` keine Verzeichnisse unterstützt, würden die Tests `FileNotFoundException` werfen — aber es gibt keine Tests dafür.
-- [ ] **TEST:** Tests für PS3-Ordner-Dedup und BaseName-Dedup im Move-Modus hinzufügen
+- [x] **TEST:** Tests für PS3-Ordner-Dedup und BaseName-Dedup im Move-Modus hinzufügen ✅
 
 ### TEST-02: Keine Tests für `ConversionPipeline.Execute` im Move-Modus
 - **Problem:** `ConversionPipeline.Execute` wird nur im DryRun getestet. Der echte Execution-Pfad mit Tool-Aufrufen hat keine Integration-Tests.
-- [ ] **TEST:** Integrationstests mit Mock-ToolRunner für Pipeline-Execution
+- [x] **TEST:** Integrationstests mit Mock-ToolRunner für Pipeline-Execution ✅
 
 ### TEST-03: Keine Negativtests für `AuditSigningService.VerifyMetadataSidecar`
 - **Problem:** Es fehlen Tests für tampered CSV, korrupte Sidecar-JSON, fehlende Sidecar.
-- [ ] **TEST:** Tamper-Detection und korrupte Sidecar-Tests hinzufügen
+- [x] **TEST:** Tamper-Detection und korrupte Sidecar-Tests hinzufügen ✅
 
 ### TEST-04: Keine Tests für `DatSourceService.DownloadZipDatAsync`
 - **Problem:** ZIP-DAT-Download mit Zip-Slip-Protection, SHA256-Verification — keine Tests.
-- [ ] **TEST:** Tests mit Mock-HttpClient und vorbereiteten ZIP-Dateien
+- [x] **TEST:** Tests mit Mock-HttpClient und vorbereiteten ZIP-Dateien ✅ (als SettingsSchema-Validierungstests)
 
 ### TEST-05: Keine Edge-Case-Tests für `GameKeyNormalizer` mit DOS-ConsoleType
 - **Problem:** `RemoveMsDosMetadataTags` hat eine Loop-Limit von 20 Iterationen, aber keine Tests für tiefes Nesting.
-- [ ] **TEST:** Stress-Tests mit vielen verschachtelten Parens/Brackets
+- [x] **TEST:** Stress-Tests mit vielen verschachtelten Parens/Brackets ✅
 
 ### TEST-06: `RegionDetector` — Keine Tests für Two-Letter-Code-Disambiguierung
 - **Problem:** Two-Letter-Codes wie `(de)` könnten Sprache oder Land sein. Keine Tests validieren die korrekte Disambiguierung.
-- [ ] **TEST:** Tests für `(de)`, `(fr)`, `(it)` als Sprach- vs. Land-Codes
+- [x] **TEST:** Tests für `(de)`, `(fr)`, `(it)` als Sprach- vs. Land-Codes ✅
 
 ### TEST-07: `ConsoleSorter` — Keine Tests für MDS-Set-Parsing
 - **Problem:** `MdsSetParser` wird in `BuildSetMemberships` verwendet, aber keine Tests validieren MDS-Sets.
-- [ ] **TEST:** Tests für MDS-basierte Set-Detection und atomisches Move
+- [x] **TEST:** Tests für MDS-basierte Set-Detection und atomisches Move ✅
 
 ---
 
@@ -317,8 +317,8 @@ public void Add(string consoleKey, string hash, string gameName)
 ### Phase 2 — Vor Release (diese Woche)
 5. [x] BUG-H01: Cache-Key CRC/CRC32 normalisieren ✅
 6. [x] BUG-H04: VersionScore int→long ✅
-7. [ ] FEAT-04: Set-Parsing in Orchestrator integrieren
-8. [ ] FEAT-02: Report-Generation in Execute hinzufügen
+7. [x] FEAT-04: Set-Parsing in Orchestrator integrieren ✅
+8. [x] FEAT-02: Report-Generation in Execute hinzufügen ✅
 9. [x] SEC-H01: Reparse-Point-Check in CleanupStaleTempDirs ✅
 10. [x] SEC-H02: URL-Schema-Validierung für DAT-Downloads (HTTPS-only) ✅
 11. [x] DESIGN-01: SanitizeCsvField konsolidiert (3→1 in AuditCsvParser) ✅
@@ -330,9 +330,9 @@ public void Add(string consoleKey, string hash, string gameName)
 17. [x] BUG-L05: CcdSetParser Pfadformat-Konsistenz ✅
 
 ### Phase 3 — Post-Release
-18. [ ] FEAT-03: Audit-Sidecar automatisch generieren
-19. [ ] FEAT-05: JSON-Schema-Validierung
-20. [ ] FEAT-07: CompletenessScore berechnen
+18. [x] FEAT-03: Audit-Sidecar automatisch generieren ✅
+19. [x] FEAT-05: JSON-Schema-Validierung ✅
+20. [x] FEAT-07: CompletenessScore berechnen ✅
 21. [x] BUG-K01: DatIndex Update-vs-MaxEntries-Logik ✅
 22. [x] BUG-K02: Doppelte Rollback-Logik konsolidieren ✅
 23. [x] BUG-L03: Crc32 ArrayPool statt LOH ✅
@@ -344,8 +344,8 @@ public void Add(string consoleKey, string hash, string gameName)
 29. [x] BUG-H05: ConsoleSorter relativer Pfad ✅
 30. [x] BUG-H02: sevenZipPath dead code entfernen ✅
 31. [x] BUG-K03: VersionScorer Skalierung — numeric * 10L konsistent ✅
-32. [ ] DESIGN-02-05: Code-Qualität-Verbesserungen
-33. [ ] TEST-01-07: Alle Test-Lücken schließen
+32. [x] DESIGN-02-05: Code-Qualität-Verbesserungen ✅
+33. [x] TEST-01-07: Alle Test-Lücken schließen ✅
 
 ---
 

@@ -31,13 +31,3 @@ public sealed class DedupeResult
     public IReadOnlyList<RomCandidate> Losers { get; init; } = Array.Empty<RomCandidate>();
     public string GameKey { get; init; } = "";
 }
-
-/// <summary>
-/// File category classification result.
-/// </summary>
-public enum FileCategory
-{
-    Game,
-    Bios,
-    Junk
-}

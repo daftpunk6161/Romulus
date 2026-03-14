@@ -4,8 +4,9 @@ namespace RomCleanup.Contracts.Models;
 /// Standardized operation result contract.
 /// Port of New-OperationResult from RunHelpers.Execution.ps1.
 /// All pipeline phases return this shape.
+/// Note: Uses class instead of record because Meta/Warnings/Metrics/Artifacts are mutable by design.
 /// </summary>
-public sealed record OperationResult
+public sealed class OperationResult
 {
     public string Status { get; init; } = "ok"; // ok | completed | skipped | blocked | error | continue
     public string? Reason { get; init; }

@@ -6,6 +6,8 @@ namespace RomCleanup.Core.Scoring;
 /// Version, revision, and language scoring for ROM deduplication.
 /// Port of Get-VersionScore from Core.ps1 lines 495-565.
 /// Regex patterns sourced from data/rules.json.
+/// DESIGN-04: Intentionally a sealed class (not static) because it holds compiled Regex instances.
+/// FormatScorer is static because it uses only pure dictionary lookups with no state.
 /// </summary>
 public sealed class VersionScorer
 {

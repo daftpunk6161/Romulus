@@ -7,6 +7,9 @@
     <RootNamespace>RomCleanup.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="RomCleanup.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\RomCleanup.Contracts\RomCleanup.Contracts.csproj" />
   </ItemGroup>
 </Project>

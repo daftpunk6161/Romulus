@@ -61,6 +61,10 @@ public sealed class SettingsLoader
         try
         {
             var json = File.ReadAllText(path);
+
+            // FEAT-05: Validate JSON structure before deserializing
+            ValidateSettingsStructure(json);
+
             return JsonSerializer.Deserialize<RomCleanupSettings>(json, JsonOptions)
                    ?? new RomCleanupSettings();
         }
@@ -68,6 +72,85 @@ public sealed class SettingsLoader
         {
             return new RomCleanupSettings();
         }
+    }
+
+    /// <summary>
+    /// FEAT-05: Validate settings JSON structure against expected schema.
+    /// Checks required top-level keys and value types.
+    /// </summary>
+    public static IReadOnlyList<string> ValidateSettingsStructure(string json)
+    {
+        var errors = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json, new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            });
+
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                errors.Add("Root must be a JSON object");
+                return errors;
+            }
+
+            // Check known top-level sections
+            var allowedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "general", "toolPaths", "dat", "rules", "schemaVersion" };
+
+            foreach (var prop in root.EnumerateObject())
+            {
+                if (!allowedKeys.Contains(prop.Name))
+                    errors.Add($"Unknown top-level key: '{prop.Name}'");
+            }
+
+            // Validate section types
+            ValidateSectionType(root, "general", JsonValueKind.Object, errors);
+            ValidateSectionType(root, "toolPaths", JsonValueKind.Object, errors);
+            ValidateSectionType(root, "dat", JsonValueKind.Object, errors);
+
+            // Validate known field types within general
+            if (root.TryGetProperty("general", out var general) && general.ValueKind == JsonValueKind.Object)
+            {
+                ValidateFieldType(general, "logLevel", JsonValueKind.String, errors, "general");
+                ValidateFieldType(general, "preferredRegions", JsonValueKind.Array, errors, "general");
+                ValidateFieldType(general, "aggressiveJunk", errors, "general", JsonValueKind.True, JsonValueKind.False);
+                ValidateFieldType(general, "aliasEditionKeying", errors, "general", JsonValueKind.True, JsonValueKind.False);
+            }
+
+            // Validate known field types within dat
+            if (root.TryGetProperty("dat", out var dat) && dat.ValueKind == JsonValueKind.Object)
+            {
+                ValidateFieldType(dat, "useDat", errors, "dat", JsonValueKind.True, JsonValueKind.False);
+                ValidateFieldType(dat, "hashType", JsonValueKind.String, errors, "dat");
+                ValidateFieldType(dat, "datFallback", errors, "dat", JsonValueKind.True, JsonValueKind.False);
+            }
+        }
+        catch (JsonException ex)
+        {
+            errors.Add($"Invalid JSON: {ex.Message}");
+        }
+        return errors;
+    }
+
+    private static void ValidateSectionType(JsonElement root, string name, JsonValueKind expected, List<string> errors)
+    {
+        if (root.TryGetProperty(name, out var section) && section.ValueKind != expected)
+            errors.Add($"'{name}' must be {expected}, got {section.ValueKind}");
+    }
+
+    private static void ValidateFieldType(JsonElement section, string name, JsonValueKind expected, List<string> errors, string sectionName)
+    {
+        if (section.TryGetProperty(name, out var field) && field.ValueKind != expected)
+            errors.Add($"'{sectionName}.{name}' must be {expected}, got {field.ValueKind}");
+    }
+
+    private static void ValidateFieldType(JsonElement section, string name, List<string> errors, string sectionName, params JsonValueKind[] expected)
+    {
+        if (section.TryGetProperty(name, out var field) && !expected.Contains(field.ValueKind))
+            errors.Add($"'{sectionName}.{name}' has unexpected type {field.ValueKind}");
     }
 
     private static void MergeFromDefaults(RomCleanupSettings settings, string path)

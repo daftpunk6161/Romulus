@@ -4,8 +4,10 @@ using RomCleanup.Core.Classification;
 using RomCleanup.Core.Deduplication;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Scoring;
+using RomCleanup.Core.SetParsing;
 using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Metrics;
+using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Sorting;
 
 namespace RomCleanup.Infrastructure.Orchestration;
@@ -15,6 +17,9 @@ namespace RomCleanup.Infrastructure.Orchestration;
 /// Port of Invoke-CliRunAdapter / RunHelpers.Execution.ps1.
 /// Encapsulates: Preflight → Scan → Dedupe → JunkRemoval → Move → Sort → Convert → Report.
 /// Used by both CLI and API entry points.
+/// DESIGN-03: This class orchestrates all phases. Future refactor target: extract each phase
+/// into a dedicated handler (ScanPhase, DedupePhase, MovePhase, etc.) behind an IPipelinePhase
+/// interface for improved testability and SRP compliance.
 /// </summary>
 public sealed class RunOrchestrator
 {
@@ -238,6 +243,26 @@ public sealed class RunOrchestrator
         result.ExitCode = 0;
         result.DurationMs = sw.ElapsedMilliseconds;
         result.PhaseMetrics = metrics.GetMetrics();
+
+        // FEAT-03: Write final audit sidecar with HMAC signature
+        if (!string.IsNullOrEmpty(options.AuditPath) && File.Exists(options.AuditPath))
+        {
+            var auditLines = File.ReadAllLines(options.AuditPath);
+            var rowCount = Math.Max(0, auditLines.Length - 1); // exclude header
+            _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
+            {
+                ["RowCount"] = rowCount,
+                ["Mode"] = options.Mode,
+                ["Status"] = "completed"
+            });
+        }
+
+        // FEAT-02: Generate report at end of pipeline
+        if (!string.IsNullOrEmpty(options.ReportPath))
+        {
+            GenerateReport(result, groups, options);
+        }
+
         return result;
         }
         catch (OperationCanceledException)
@@ -255,6 +280,9 @@ public sealed class RunOrchestrator
     {
         var versionScorer = new VersionScorer();
         var candidates = new List<RomCandidate>();
+
+        // FEAT-04: Track set members so they are not independently deduplicated
+        var setMemberPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // V2-H11: Folder-level cache for ConsoleDetector — same folder always yields same console
         var folderConsoleCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -320,6 +348,14 @@ public sealed class RunOrchestrator
                 var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
                 var sizeTieBreak = FormatScorer.GetSizeTieBreakScore(null, ext, sizeBytes);
 
+                // FEAT-04: Discover set members (CUE→BIN, GDI→tracks, CCD→IMG/SUB, M3U→discs)
+                var setMembers = GetSetMembers(filePath, ext);
+                foreach (var member in setMembers)
+                    setMemberPaths.Add(member);
+
+                // FEAT-07: Calculate CompletenessScore
+                var completeness = CalculateCompletenessScore(filePath, ext, setMembers, datMatch);
+
                 candidates.Add(new RomCandidate
                 {
                     MainPath = filePath,
@@ -330,6 +366,7 @@ public sealed class RunOrchestrator
                     FormatScore = fmtScore,
                     VersionScore = verScore,
                     HeaderScore = headerScore,
+                    CompletenessScore = completeness,
                     SizeTieBreakScore = sizeTieBreak,
                     SizeBytes = sizeBytes,
                     Extension = ext,
@@ -337,6 +374,12 @@ public sealed class RunOrchestrator
                     ConsoleKey = consoleKey
                 });
             }
+        }
+
+        // FEAT-04: Remove candidates that are set members of a primary file
+        if (setMemberPaths.Count > 0)
+        {
+            candidates.RemoveAll(c => setMemberPaths.Contains(c.MainPath));
         }
 
         return candidates;
@@ -485,6 +528,125 @@ public sealed class RunOrchestrator
     private string NormalizeRootForContainment(string root)
         => _normalizedRoots.GetOrAdd(root, r =>
             Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+
+    /// <summary>FEAT-04: Get set member files for a primary file (CUE→BIN, GDI→tracks, etc.).</summary>
+    private static IReadOnlyList<string> GetSetMembers(string filePath, string ext)
+    {
+        return ext switch
+        {
+            ".cue" => CueSetParser.GetRelatedFiles(filePath),
+            ".gdi" => GdiSetParser.GetRelatedFiles(filePath),
+            ".ccd" => CcdSetParser.GetRelatedFiles(filePath),
+            ".m3u" => M3uPlaylistParser.GetRelatedFiles(filePath),
+            _ => Array.Empty<string>()
+        };
+    }
+
+    /// <summary>FEAT-07: Calculate completeness score based on set integrity and DAT match.</summary>
+    private static int CalculateCompletenessScore(string filePath, string ext, IReadOnlyList<string> setMembers, bool datMatch)
+    {
+        int score = 0;
+
+        // DAT-verified ROM gets a boost
+        if (datMatch)
+            score += 50;
+
+        // Set completeness: check if all referenced files exist
+        if (ext is ".cue" or ".gdi" or ".ccd" or ".m3u")
+        {
+            var missing = ext switch
+            {
+                ".cue" => CueSetParser.GetMissingFiles(filePath),
+                ".gdi" => GdiSetParser.GetMissingFiles(filePath),
+                ".ccd" => CcdSetParser.GetMissingFiles(filePath),
+                ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath),
+                _ => Array.Empty<string>()
+            };
+
+            // Complete set = +50, incomplete = -50
+            score += missing.Count == 0 ? 50 : -50;
+        }
+        else if (setMembers.Count == 0)
+        {
+            // Standalone file — neutral completeness
+            score += 25;
+        }
+
+        return score;
+    }
+
+    /// <summary>FEAT-02: Generate HTML and CSV reports from pipeline results.</summary>
+    private void GenerateReport(RunResult result, IReadOnlyList<DedupeResult> groups, RunOptions options)
+    {
+        try
+        {
+            var entries = new List<ReportEntry>();
+            foreach (var group in groups)
+            {
+                entries.Add(new ReportEntry
+                {
+                    GameKey = group.GameKey,
+                    Action = "KEEP",
+                    Category = group.Winner.Category,
+                    Region = group.Winner.Region,
+                    FilePath = group.Winner.MainPath,
+                    FileName = Path.GetFileName(group.Winner.MainPath),
+                    Extension = group.Winner.Extension,
+                    SizeBytes = group.Winner.SizeBytes,
+                    RegionScore = group.Winner.RegionScore,
+                    FormatScore = group.Winner.FormatScore,
+                    VersionScore = (int)group.Winner.VersionScore,
+                    Console = group.Winner.ConsoleKey,
+                    DatMatch = group.Winner.DatMatch
+                });
+
+                foreach (var loser in group.Losers)
+                {
+                    entries.Add(new ReportEntry
+                    {
+                        GameKey = group.GameKey,
+                        Action = loser.Category == "JUNK" ? "JUNK" : "MOVE",
+                        Category = loser.Category,
+                        Region = loser.Region,
+                        FilePath = loser.MainPath,
+                        FileName = Path.GetFileName(loser.MainPath),
+                        Extension = loser.Extension,
+                        SizeBytes = loser.SizeBytes,
+                        RegionScore = loser.RegionScore,
+                        FormatScore = loser.FormatScore,
+                        VersionScore = (int)loser.VersionScore,
+                        Console = loser.ConsoleKey,
+                        DatMatch = loser.DatMatch
+                    });
+                }
+            }
+
+            var summary = new ReportSummary
+            {
+                Mode = options.Mode,
+                TotalFiles = result.TotalFilesScanned,
+                KeepCount = entries.Count(e => e.Action == "KEEP"),
+                MoveCount = entries.Count(e => e.Action == "MOVE"),
+                JunkCount = entries.Count(e => e.Action == "JUNK"),
+                BiosCount = entries.Count(e => e.Category == "BIOS"),
+                DatMatches = entries.Count(e => e.DatMatch),
+                SavedBytes = result.MoveResult?.SavedBytes ?? 0,
+                GroupCount = result.GroupCount,
+                Duration = TimeSpan.FromMilliseconds(result.DurationMs)
+            };
+
+            var reportDir = Path.GetDirectoryName(options.ReportPath!);
+            if (!string.IsNullOrEmpty(reportDir))
+                Directory.CreateDirectory(reportDir);
+
+            ReportGenerator.WriteHtmlToFile(options.ReportPath!, reportDir ?? ".", summary, entries);
+            _onProgress?.Invoke($"Report written: {options.ReportPath}");
+        }
+        catch (Exception ex)
+        {
+            _onProgress?.Invoke($"WARNING: Report generation failed: {ex.Message}");
+        }
+    }
 }
 
 /// <summary>Options for a run execution.</summary>
