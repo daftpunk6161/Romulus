@@ -10,7 +10,8 @@ public sealed partial class MainViewModel
     // ═══ EXTENSION FILTERS (UX-004: VM-bound, replaces code-behind x:Name checkboxes) ═══
     public ObservableCollection<ExtensionFilterItem> ExtensionFilters { get; } = [];
 
-    /// <summary>Grouped view for XAML binding with category headers.</summary>
+    /// <summary>Grouped view for XAML binding with category headers.
+    /// V2-WPF-L01: Initialized via InitExtensionFilters() called from constructor — null! is safe.</summary>
     public ICollectionView ExtensionFiltersView { get; private set; } = null!;
 
     /// <summary>Returns checked extensions, or empty array if none selected (= scan all).</summary>

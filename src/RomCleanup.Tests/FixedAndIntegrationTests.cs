@@ -279,5 +279,6 @@ public sealed class FixedAndIntegrationTests
         public IReadOnlyList<string> Rollback(string p, string[] a, string[] c, bool d = false) => [];
         public void AppendAuditRow(string p, string r, string o, string n, string a,
             string cat = "", string h = "", string reason = "") { }
+        public void Flush(string auditCsvPath) { }
     }
 }

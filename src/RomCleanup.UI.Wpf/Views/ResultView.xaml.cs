@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -49,6 +50,7 @@ public partial class ResultView : UserControl
         _logScrollTimer.Stop();
         if (_logScrollHandler is not null && DataContext is MainViewModel vm)
             vm.LogEntries.CollectionChanged -= _logScrollHandler;
+        _logScrollHandler = null;
     }
 
     /// <summary>Load the last report into the WebView2 preview and update error summary.</summary>
@@ -94,8 +96,10 @@ public partial class ResultView : UserControl
         {
             vm.AddLog($"WebView2-Runtime nicht verf\u00fcgbar: {ex.Message}", "ERROR");
             webReportPreview.Visibility = Visibility.Collapsed;
-            if (webReportPreview.Parent is Panel panel)
+            // V2-WPF-H03: Guard against duplicate fallback TextBlocks
+            if (webReportPreview.Parent is Panel panel && !panel.Children.OfType<TextBlock>().Any(tb => tb.Name == "webView2Fallback"))
             {
+                panel.Children.Remove(webReportPreview);
                 var fallback = new TextBlock
                 {
                     Text = "WebView2-Runtime nicht installiert.\nBericht kann über 'Bericht öffnen' im Browser angezeigt werden.",
@@ -103,6 +107,7 @@ public partial class ResultView : UserControl
                     Foreground = (Brush)FindResource("BrushWarning"),
                     FontSize = 12,
                     Margin = new Thickness(8),
+                    Name = "webView2Fallback",
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 panel.Children.Add(fallback);

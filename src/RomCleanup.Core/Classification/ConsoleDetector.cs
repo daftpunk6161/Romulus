@@ -1,4 +1,5 @@
 using System.Text.Json;
+using RomCleanup.Core.Caching;
 
 namespace RomCleanup.Core.Classification;
 
@@ -17,7 +18,8 @@ public sealed class ConsoleDetector
     private readonly DiscHeaderDetector? _discHeaderDetector;
 
     // V2-H11: Folder-level detection cache — avoids re-scanning path segments per file
-    private readonly Dictionary<string, string> _folderDetectCache = new(StringComparer.OrdinalIgnoreCase);
+    // V2-BUG-H01: Bounded LruCache instead of unbounded Dictionary to prevent OOM at scale
+    private readonly LruCache<string, string> _folderDetectCache = new(65536);
 
     public ConsoleDetector(IReadOnlyList<ConsoleInfo> consoles, DiscHeaderDetector? discHeaderDetector = null)
     {
@@ -70,6 +72,9 @@ public sealed class ConsoleDetector
             foreach (var item in array.EnumerateArray())
             {
                 var key = item.GetProperty("key").GetString() ?? "";
+                // V2-BUG-M04: Reject consoles with empty keys from malformed consoles.json
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
                 var displayName = item.TryGetProperty("displayName", out var dn) ? dn.GetString() ?? key : key;
                 var discBased = item.TryGetProperty("discBased", out var db) && db.GetBoolean();
 
@@ -94,14 +99,14 @@ public sealed class ConsoleDetector
         // Cache key: directory of the file relative to root
         var dir = Path.GetDirectoryName(filePath) ?? "";
         var cacheKey = $"{rootPath}|{dir}";
-        if (_folderDetectCache.TryGetValue(cacheKey, out var cached))
+        if (_folderDetectCache.TryGet(cacheKey, out var cached))
             return cached.Length > 0 ? cached : null;
 
         // Only check path segments between root and file (relative path)
         var relativePath = GetRelativePath(filePath, rootPath);
         if (string.IsNullOrEmpty(relativePath))
         {
-            _folderDetectCache[cacheKey] = "";
+            _folderDetectCache.Set(cacheKey, "");
             return null;
         }
 
@@ -112,12 +117,12 @@ public sealed class ConsoleDetector
         {
             if (_folderMap.TryGetValue(segments[i], out var consoleKey))
             {
-                _folderDetectCache[cacheKey] = consoleKey;
+                _folderDetectCache.Set(cacheKey, consoleKey);
                 return consoleKey;
             }
         }
 
-        _folderDetectCache[cacheKey] = "";
+        _folderDetectCache.Set(cacheKey, "");
         return null;
     }
 

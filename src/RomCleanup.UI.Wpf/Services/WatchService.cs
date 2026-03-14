@@ -15,6 +15,8 @@ public sealed class WatchService : IDisposable
     private DateTime _firstChangeUtc = DateTime.MaxValue;
     private DateTime _lastRunCompletedUtc = DateTime.MinValue;
     private static readonly TimeSpan CooldownAfterRun = TimeSpan.FromSeconds(30);
+    /// <summary>V2-WPF-L03: Named constant for max-wait before forcing debounce fire.</summary>
+    private const int MaxWaitSeconds = 30;
     private bool _pendingWhileBusy;
     private bool _disposed;
 
@@ -109,8 +111,8 @@ public sealed class WatchService : IDisposable
             if (_firstChangeUtc == DateTime.MaxValue)
                 _firstChangeUtc = DateTime.UtcNow;
 
-            // Max-wait 30s: fire immediately instead of resetting debounce
-            if ((DateTime.UtcNow - _firstChangeUtc).TotalSeconds >= 30)
+            // Max-wait: fire immediately instead of resetting debounce
+            if ((DateTime.UtcNow - _firstChangeUtc).TotalSeconds >= MaxWaitSeconds)
             {
                 _debounceTimer?.Stop();
                 _firstChangeUtc = DateTime.MaxValue;

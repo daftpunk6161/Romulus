@@ -36,6 +36,8 @@ public sealed partial class FeatureCommandService
     public void RegisterCommands()
     {
         var cmds = _vm.FeatureCommands;
+        // V2-WPF-M02: Clear previous registrations to prevent orphaned command references
+        cmds.Clear();
 
         // ── Functional buttons ──────────────────────────────────────────
         cmds["ExportLog"] = new RelayCommand(ExportLog);

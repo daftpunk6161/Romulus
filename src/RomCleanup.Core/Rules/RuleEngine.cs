@@ -20,8 +20,9 @@ public static class RuleEngine
     /// <summary>Timeout for user-defined regex patterns to prevent ReDoS.</summary>
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(200);
 
-    /// <summary>Cache for compiled regex patterns from user rules.</summary>
+    /// <summary>Cache for compiled regex patterns from user rules. Bounded to 1024 entries to prevent memory exhaustion.</summary>
     private static readonly ConcurrentDictionary<string, Regex?> _regexCache = new(StringComparer.Ordinal);
+    private static readonly int MaxRegexCacheSize = 1024;
 
     /// <summary>
     /// Validate rule syntax. Returns errors if the rule is misconfigured.
@@ -159,6 +160,10 @@ public static class RuleEngine
     {
         try
         {
+            // V2-BUG-H02: Trim cache when it exceeds max size to prevent unbounded growth
+            if (_regexCache.Count >= MaxRegexCacheSize)
+                _regexCache.Clear();
+
             var rx = _regexCache.GetOrAdd(pattern, p =>
             {
                 try { return new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout); }

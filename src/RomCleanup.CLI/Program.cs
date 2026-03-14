@@ -489,7 +489,9 @@ internal static class Program
                     }
                     else
                     {
-                        Console.Error.WriteLine($"[Warning] Unknown flag '{arg}' ignored.");
+                        // V2-BUG-L02: Exit with error code for unknown flags instead of warning
+                        Console.Error.WriteLine($"[Error] Unknown flag '{arg}'. Use --help for usage.");
+                        return (null, 3);
                     }
                     break;
             }

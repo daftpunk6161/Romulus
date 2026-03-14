@@ -151,15 +151,15 @@ public class FileClassifierTests
     // ── Edge cases ──────────────────────────────────────────────────────
 
     [Fact]
-    public void EmptyString_ReturnsGame()
+    public void EmptyString_ReturnsUnknown()
     {
-        Assert.Equal(FileCategory.Game, FileClassifier.Classify(""));
+        Assert.Equal(FileCategory.Unknown, FileClassifier.Classify(""));
     }
 
     [Fact]
-    public void Whitespace_ReturnsGame()
+    public void Whitespace_ReturnsUnknown()
     {
-        Assert.Equal(FileCategory.Game, FileClassifier.Classify("   "));
+        Assert.Equal(FileCategory.Unknown, FileClassifier.Classify("   "));
     }
 
     [Fact]

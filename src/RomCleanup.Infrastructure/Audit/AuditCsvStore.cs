@@ -45,8 +45,12 @@ public sealed class AuditCsvStore : IAuditStore
         return File.Exists(sidecarPath);
     }
 
-    /// <summary>
-    /// Appends a single audit row to the CSV file.
+    /// <summary>    /// Flush buffered audit data to disk. Currently a no-op since AppendAuditRow
+    /// uses a using-statement StreamWriter that flushes on dispose per call.
+    /// </summary>
+    public void Flush(string auditCsvPath) { /* no-op: each AppendAuditRow auto-flushes */ }
+
+    /// <summary>    /// Appends a single audit row to the CSV file.
     /// Creates the file with header if it doesn't exist.
     /// Format: RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp
     /// </summary>

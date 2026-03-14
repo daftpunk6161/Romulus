@@ -87,7 +87,20 @@ public sealed class VersionScorer
                         suffixScore = (suffixScore * 26) + (ch - 'a' + 1);
                     }
                 }
-                score += (numeric * 10L) + suffixScore;
+                // V2-BUG-H03: Parse remaining segments after first numeric+suffix group
+                var remainder = rev.Substring(numericMatch.Length);
+                long remainderScore = 0;
+                if (remainder.Length > 0)
+                {
+                    foreach (var ch in remainder.ToLowerInvariant())
+                    {
+                        if (char.IsDigit(ch))
+                            remainderScore = (remainderScore * 10) + (ch - '0');
+                        else if (ch >= 'a' && ch <= 'z')
+                            remainderScore = (remainderScore * 26) + (ch - 'a' + 1);
+                    }
+                }
+                score += (numeric * 10L) + suffixScore + remainderScore;
             }
             else if (RxLeadingDigits.IsMatch(rev))
             {

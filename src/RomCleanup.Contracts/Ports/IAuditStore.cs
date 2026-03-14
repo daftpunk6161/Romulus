@@ -8,6 +8,8 @@ public interface IAuditStore
 {
     void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata);
     bool TestMetadataSidecar(string auditCsvPath);
+    /// <summary>Flush any buffered audit rows to disk.</summary>
+    void Flush(string auditCsvPath);
     IReadOnlyList<string> Rollback(string auditCsvPath, string[] allowedRestoreRoots, string[] allowedCurrentRoots, bool dryRun = false);
     void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath,
         string newPath, string action, string category = "", string hash = "", string reason = "");

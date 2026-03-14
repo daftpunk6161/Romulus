@@ -120,6 +120,7 @@ public sealed class DatRepositoryAdapter : IDatRepository
             }
         }
 
+        // V2-BUG-M01: Return deepest resolved parent (current) instead of null at MaxDepth
         return string.Equals(current, gameName, StringComparison.OrdinalIgnoreCase) ? null : current;
     }
 

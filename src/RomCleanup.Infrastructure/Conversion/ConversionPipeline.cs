@@ -169,6 +169,10 @@ public sealed class ConversionPipeline
                     break;
                 }
 
+                // DryRun semantics: No files are created, no external tools are executed.
+                // Each step is logged as a simulation with Status="dryrun" and Skipped=true.
+                // Intermediate outputs (e.g. CSO→ISO in a CSO→ISO→CHD chain) are NOT validated
+                // for existence, since they would only be created by actual tool execution.
                 if (mode == "DryRun")
                 {
                     results.Add(new PipelineStepResult
@@ -277,7 +281,8 @@ public sealed class ConversionPipeline
             Action = step.Action,
             Input = step.Input,
             Output = step.Output,
-            Error = result.Success ? null : $"Exit code {result.ExitCode}: {result.Output}"
+            // V2-MEM-H02: Truncate tool error output to prevent memory spikes from verbose tools
+            Error = result.Success ? null : TruncateOutput($"Exit code {result.ExitCode}: {result.Output}", 10_000)
         };
     }
 
@@ -292,4 +297,7 @@ public sealed class ConversionPipeline
             _ => throw new InvalidOperationException($"Unknown conversion tool: '{step.Tool}'")
         };
     }
+
+    private static string TruncateOutput(string output, int maxLength)
+        => output.Length <= maxLength ? output : output[..maxLength] + "… [truncated]";
 }

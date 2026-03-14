@@ -65,7 +65,10 @@ public sealed class AuditSigningService
                     var dir = Path.GetDirectoryName(_keyFilePath);
                     if (!string.IsNullOrEmpty(dir))
                         Directory.CreateDirectory(dir);
-                    File.WriteAllText(_keyFilePath, Convert.ToHexStringLower(key), Encoding.UTF8);
+                    // V2-SEC-H01: Atomic write via temp+rename to prevent corrupt key on crash
+                    var tmpPath = _keyFilePath + ".tmp";
+                    File.WriteAllText(tmpPath, Convert.ToHexStringLower(key), Encoding.UTF8);
+                    File.Move(tmpPath, _keyFilePath, overwrite: true);
 
                     // Restrict file permissions to current user only (Windows-only API)
                     if (OperatingSystem.IsWindows())
@@ -86,6 +89,12 @@ public sealed class AuditSigningService
                         {
                             _log?.Invoke("Could not restrict HMAC key file permissions — manual ACL recommended");
                         }
+                    }
+                    // V2-SEC-M02: Set Unix file permissions to owner-only (0600)
+                    else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+                    {
+                        try { File.SetUnixFileMode(_keyFilePath, UnixFileMode.UserRead | UnixFileMode.UserWrite); }
+                        catch { _log?.Invoke("Could not set HMAC key file permissions to 0600"); }
                     }
                 }
                 catch (Exception ex)

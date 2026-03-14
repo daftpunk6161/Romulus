@@ -43,7 +43,12 @@ public static class M3uPlaylistParser
         string m3uPath, List<string> result,
         HashSet<string> visited, int depth, bool existingOnly)
     {
-        if (depth >= MaxDepth) return;
+        if (depth >= MaxDepth)
+        {
+            // V2-BUG-M02: Warn instead of silent exit at max recursion depth
+            result.Add($"[WARNING] M3U recursion depth limit ({MaxDepth}) reached for: {m3uPath}");
+            return;
+        }
 
         var normalizedPath = Path.GetFullPath(m3uPath);
         if (!visited.Add(normalizedPath)) return; // circular reference guard

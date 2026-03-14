@@ -55,7 +55,8 @@ public sealed class RateLimiter
     {
         foreach (var (key, bucket) in _buckets)
         {
-            if (now - bucket.WindowStart > _window + _window)
+            // V2-THR-M01: Evict after window + 5s instead of 2x window to prevent unbounded growth
+            if (now - bucket.WindowStart > _window + TimeSpan.FromSeconds(5))
                 _buckets.TryRemove(key, out _);
         }
     }

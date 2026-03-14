@@ -209,7 +209,7 @@ public sealed class FolderDeduplicator
                         continue;
                     }
 
-                    if (_fs.MoveItemSafely(loserPath, dest))
+                    if (_fs.MoveDirectorySafely(loserPath, dest))
                     {
                         moved++;
                         _log?.Invoke($"    DUP -> {loserName}");
@@ -347,7 +347,7 @@ public sealed class FolderDeduplicator
 
                         try
                         {
-                            if (_fs.MoveItemSafely(srcPath, destPath))
+                            if (_fs.MoveDirectorySafely(srcPath, destPath))
                             {
                                 action = action with { Action = "MOVED", Dest = destPath };
                                 movedFolders++;

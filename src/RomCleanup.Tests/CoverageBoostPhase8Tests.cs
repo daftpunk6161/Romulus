@@ -400,6 +400,11 @@ internal sealed class AuditTestFs : IFileSystem
     public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
         => Directory.Exists(root) ? Directory.GetFiles(root) : [];
     public bool MoveItemSafely(string source, string destination) { File.Move(source, destination); return true; }
+    public bool MoveDirectorySafely(string source, string destination)
+    {
+        if (Directory.Exists(source)) { Directory.Move(source, destination); return true; }
+        return false;
+    }
     public string? ResolveChildPathWithinRoot(string root, string relativePath)
     {
         var full = Path.GetFullPath(Path.Combine(root, relativePath));
@@ -866,6 +871,7 @@ file sealed class TrackingFs : IFileSystem
     public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
         => Directory.Exists(root) ? Directory.GetFiles(root) : [];
     public bool MoveItemSafely(string source, string destination) { Moves.Add((source, destination)); return MoveResult; }
+    public bool MoveDirectorySafely(string source, string destination) { Moves.Add((source, destination)); return MoveResult; }
     public string? ResolveChildPathWithinRoot(string root, string relativePath)
     {
         var full = Path.GetFullPath(Path.Combine(root, relativePath));

@@ -15,6 +15,8 @@ public sealed class TrayService : IDisposable
     private readonly MainViewModel _vm;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle;
+    // V2-WPF-M03: Guard against rapid Toggle calls during icon creation
+    private bool _isCreating;
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -38,6 +40,8 @@ public sealed class TrayService : IDisposable
             _window.WindowState = WindowState.Minimized;
             return;
         }
+        if (_isCreating) return;
+        _isCreating = true;
 
         IntPtr hicon;
         using (var bitmap = new Bitmap(32, 32))

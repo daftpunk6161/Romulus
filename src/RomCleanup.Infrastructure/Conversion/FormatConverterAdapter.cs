@@ -139,6 +139,11 @@ public sealed class FormatConverterAdapter : IFormatConverter
             return result.Success;
         }
 
+        // PBP→CHD conversion produces a .chd output; verify via chdman.
+        // This path handles the case where Verify is called with the PbpTarget
+        // but the actual output file is .chd (already handled above via ext==".chd").
+        // If the target extension is something else for PBP, fall through.
+
         return false;
     }
 

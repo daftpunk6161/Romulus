@@ -7,5 +7,6 @@ public enum FileCategory
 {
     Game,
     Bios,
-    Junk
+    Junk,
+    Unknown
 }

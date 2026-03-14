@@ -455,7 +455,7 @@ public class RunOrchestratorTests : IDisposable
         public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath,
             string newPath, string action, string category = "", string hash = "", string reason = "")
             => AuditRows.Add((auditCsvPath, rootPath, oldPath, newPath, action));
-    }
+        public void Flush(string auditCsvPath) { }    }
 
     private sealed class FakeFormatConverter : IFormatConverter
     {

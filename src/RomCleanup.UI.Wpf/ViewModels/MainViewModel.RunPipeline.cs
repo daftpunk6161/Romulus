@@ -328,7 +328,12 @@ public sealed partial class MainViewModel
 
     private void OnCancel()
     {
-        var cts = Volatile.Read(ref _cts);
+        // V2-THR-H02: Use lock to prevent race between Cancel and CreateRunCancellation/Dispose
+        CancellationTokenSource? cts;
+        lock (_ctsLock)
+        {
+            cts = _cts;
+        }
         try { cts?.Cancel(); } catch (ObjectDisposedException) { }
         CurrentRunState = RunState.Cancelled;
         BusyHint = "Abbruch angefordert…";
@@ -414,7 +419,12 @@ public sealed partial class MainViewModel
     public CancellationToken CreateRunCancellation()
     {
         var newCts = new CancellationTokenSource();
-        var oldCts = Interlocked.Exchange(ref _cts, newCts);
+        CancellationTokenSource? oldCts;
+        lock (_ctsLock)
+        {
+            oldCts = _cts;
+            _cts = newCts;
+        }
         try { oldCts?.Dispose(); } catch (ObjectDisposedException) { }
         return newCts.Token;
     }

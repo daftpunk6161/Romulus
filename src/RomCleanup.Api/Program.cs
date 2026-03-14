@@ -261,6 +261,8 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
 
 app.MapGet("/runs/{runId}", (string runId, RunManager mgr) =>
 {
+    if (!Guid.TryParse(runId, out _))
+        return Results.BadRequest(new { error = "Invalid run ID format." });
     var run = mgr.Get(runId);
     return run is null
         ? Results.NotFound(new { error = "Run not found.", runId })
@@ -269,6 +271,8 @@ app.MapGet("/runs/{runId}", (string runId, RunManager mgr) =>
 
 app.MapGet("/runs/{runId}/result", (string runId, RunManager mgr) =>
 {
+    if (!Guid.TryParse(runId, out _))
+        return Results.BadRequest(new { error = "Invalid run ID format." });
     var run = mgr.Get(runId);
     if (run is null)
         return Results.NotFound(new { error = "Run not found.", runId });
@@ -279,6 +283,8 @@ app.MapGet("/runs/{runId}/result", (string runId, RunManager mgr) =>
 
 app.MapPost("/runs/{runId}/cancel", (string runId, RunManager mgr) =>
 {
+    if (!Guid.TryParse(runId, out _))
+        return Results.BadRequest(new { error = "Invalid run ID format." });
     var run = mgr.Get(runId);
     if (run is null)
         return Results.NotFound(new { error = "Run not found.", runId });
@@ -292,6 +298,12 @@ app.MapPost("/runs/{runId}/cancel", (string runId, RunManager mgr) =>
 
 app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunManager mgr) =>
 {
+    if (!Guid.TryParse(runId, out _))
+    {
+        ctx.Response.StatusCode = 400;
+        await ctx.Response.WriteAsJsonAsync(new { error = "Invalid run ID format." });
+        return;
+    }
     var run = mgr.Get(runId);
     if (run is null)
     {

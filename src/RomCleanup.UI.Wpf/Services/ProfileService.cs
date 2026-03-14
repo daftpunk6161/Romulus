@@ -26,7 +26,10 @@ public sealed class ProfileService
     public static void Import(string sourcePath)
     {
         var json = File.ReadAllText(sourcePath);
-        JsonDocument.Parse(json).Dispose(); // validate
+        // V2-BUG-L04: Validate JSON structure by deserializing, not just parsing syntax
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("Profile must be a JSON object.");
 
         Directory.CreateDirectory(SettingsDir);
         if (File.Exists(SettingsPath))

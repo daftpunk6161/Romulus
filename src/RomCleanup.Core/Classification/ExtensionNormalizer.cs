@@ -9,7 +9,7 @@ namespace RomCleanup.Core.Classification;
 public static class ExtensionNormalizer
 {
     private static readonly Regex RxDoubleExt = new(
-        @"\.(nkit\.iso|nkit\.gcz|ecm\.bin|ecm\.img|wia\.gcz)$",
+        @"\.(nkit\.iso|nkit\.gcz|nkit\.chd|ecm\.bin|ecm\.img|wia\.gcz)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>

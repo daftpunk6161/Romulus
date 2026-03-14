@@ -5,6 +5,7 @@ namespace RomCleanup.Contracts.Models;
 /// Port of New-OperationResult from RunHelpers.Execution.ps1.
 /// All pipeline phases return this shape.
 /// Note: Uses class instead of record because Meta/Warnings/Metrics/Artifacts are mutable by design.
+/// V2-BUG-M06: init + mutable List is intentional — callers accumulate warnings during pipeline phases.
 /// </summary>
 public sealed class OperationResult
 {

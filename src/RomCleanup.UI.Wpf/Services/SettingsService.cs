@@ -100,7 +100,10 @@ public sealed class SettingsService : ISettingsService
             {
                 var cp = Models.ConflictPolicy.Rename;
                 if (ui.TryGetProperty("conflictPolicy", out var cpEl) && cpEl.ValueKind == JsonValueKind.String)
-                    Enum.TryParse(cpEl.GetString(), true, out cp);
+                {
+                    if (!Enum.TryParse(cpEl.GetString(), true, out cp))
+                        System.Diagnostics.Debug.WriteLine($"[WARN] Unknown ConflictPolicy '{cpEl.GetString()}', using default Rename");
+                }
 
                 dto = dto with
                 {

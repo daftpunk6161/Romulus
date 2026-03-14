@@ -31,6 +31,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     private readonly SynchronizationContext? _syncContext;
     private readonly WatchService _watchService = new();
     private CancellationTokenSource? _cts;
+    // V2-THR-H02: Lock for consistent CTS access between OnCancel and CreateRunCancellation
+    private readonly object _ctsLock = new();
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 

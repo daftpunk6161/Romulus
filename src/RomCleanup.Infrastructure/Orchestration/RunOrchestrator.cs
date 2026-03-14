@@ -493,6 +493,8 @@ public sealed class RunOrchestrator
                     // BUG RUN-001: Incremental audit flush every 50 moves
                     if (moveCount % 50 == 0 && !string.IsNullOrEmpty(options.AuditPath))
                     {
+                        // V2-BUG-H04: Flush CSV before writing sidecar to ensure consistency
+                        _audit.Flush(options.AuditPath);
                         _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
                         {
                             ["IncrementalFlush"] = true,

@@ -344,13 +344,18 @@ public sealed class ApiIntegrationTests
         using var factory = CreateFactory();
         using var client = CreateClientWithApiKey(factory);
 
-        var response = await client.GetAsync("/runs/nonexistent-run-id");
+        // V2-SEC-M01: Non-GUID runId returns BadRequest, valid GUID returns NotFound
+        var badIdResponse = await client.GetAsync("/runs/nonexistent-run-id");
+        Assert.Equal(HttpStatusCode.BadRequest, badIdResponse.StatusCode);
+
+        var validGuid = Guid.NewGuid().ToString();
+        var response = await client.GetAsync($"/runs/{validGuid}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
 
-        var resultResponse = await client.GetAsync("/runs/nonexistent-run-id/result");
+        var resultResponse = await client.GetAsync($"/runs/{validGuid}/result");
         Assert.Equal(HttpStatusCode.NotFound, resultResponse.StatusCode);
 
-        var cancelResponse = await client.PostAsync("/runs/nonexistent-run-id/cancel", null);
+        var cancelResponse = await client.PostAsync($"/runs/{validGuid}/cancel", null);
         Assert.Equal(HttpStatusCode.NotFound, cancelResponse.StatusCode);
     }
 

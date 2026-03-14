@@ -48,8 +48,9 @@ public static class FileClassifier
     /// <returns>The file category.</returns>
     public static FileCategory Classify(string baseName, bool aggressiveJunk = false)
     {
+        // V2-BUG-M05: Return Unknown for empty inputs instead of misclassifying as Game
         if (string.IsNullOrWhiteSpace(baseName))
-            return FileCategory.Game;
+            return FileCategory.Unknown;
 
         // 1. BIOS — highest priority
         if (RxBios.IsMatch(baseName))

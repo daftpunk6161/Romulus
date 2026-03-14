@@ -364,6 +364,11 @@ public sealed class FolderDeduplicatorTests
             if (File.Exists(src)) { File.Move(src, dest); return true; }
             return false;
         }
+        public bool MoveDirectorySafely(string src, string dest)
+        {
+            if (Directory.Exists(src)) { Directory.Move(src, dest); return true; }
+            return false;
+        }
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
         {
             var full = Path.GetFullPath(Path.Combine(rootPath, relativePath));

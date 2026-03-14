@@ -33,7 +33,7 @@ public partial class MainWindow : Window, IWindowHost
 
         // Periodic settings save every 5 minutes (P3-BUG-051 / UX-07)
         _settingsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-        _settingsTimer.Tick += (_, _) => _vm.SaveSettings();
+        _settingsTimer.Tick += OnSettingsTimerTick;
         _settingsTimer.Start();
 
         Loaded += OnLoaded;
@@ -49,6 +49,8 @@ public partial class MainWindow : Window, IWindowHost
     }
 
     // ═══ LIFECYCLE ══════════════════════════════════════════════════════
+
+    private void OnSettingsTimerTick(object? sender, EventArgs e) => _vm.SaveSettings();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -75,6 +77,8 @@ public partial class MainWindow : Window, IWindowHost
 
             // User chose to close — cancel the operation and wait for it to finish
             _vm.CancelCommand.Execute(null);
+            // V2-WPF-M01: Set _isClosing immediately to prevent race on multiple close clicks
+            _isClosing = true;
             e.Cancel = true; // Cancel this close; re-close after task completes
 
             var runTask = _activeRunTask;
@@ -99,6 +103,8 @@ public partial class MainWindow : Window, IWindowHost
     {
         // Stop periodic save timer
         _settingsTimer.Stop();
+        // V2-WPF-H02: Unsubscribe tick to prevent stale callbacks
+        _settingsTimer.Tick -= OnSettingsTimerTick;
 
         // Unsubscribe VM events to prevent leaks
         _vm.RunRequested -= OnRunRequested;
@@ -125,6 +131,11 @@ public partial class MainWindow : Window, IWindowHost
     {
         _activeRunTask = ExecuteAndRefreshAsync();
         try { await _activeRunTask; }
+        catch (Exception ex)
+        {
+            // V2-THR-H01: Prevent unhandled exception from crashing the app
+            _vm.AddLog($"Pipeline-Fehler: {ex.Message}", "ERROR");
+        }
         finally { _activeRunTask = null; }
     }
 
