@@ -9,6 +9,7 @@
     <RootNamespace>RomCleanup.UI.Wpf</RootNamespace>
     <AssemblyName>RomCleanup.Wpf</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <NoWarn>NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="RomCleanup.Tests" />
