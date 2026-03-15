@@ -744,7 +744,10 @@ public sealed partial class MainViewModel
         DashJunk = junkCount.ToString();
         DashDuration = $"{result.DurationMs / 1000.0:F1}s";
         var total = result.AllCandidates.Count;
-        HealthScore = total > 0 ? $"{100.0 * result.WinnerCount / total:F0}%" : "–";
+        var verified = result.AllCandidates.Count(c => c.DatMatch);
+        HealthScore = total > 0
+            ? $"{FeatureService.CalculateHealthScore(total, result.LoserCount, junkCount, verified)}%"
+            : "–";
 
         var gameCount = result.DedupeGroups.Count;
         DashGames = gameCount.ToString();

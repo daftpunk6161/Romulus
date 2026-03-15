@@ -31,9 +31,13 @@ public sealed partial class FeatureCommandService
             GroupCount = _vm.LastDedupeGroups.Count,
             Duration = TimeSpan.FromMilliseconds(_vm.LastRunResult?.DurationMs ?? 0)
         };
+        var loserPaths = new HashSet<string>(
+            _vm.LastDedupeGroups.SelectMany(g => g.Losers.Select(l => l.MainPath)),
+            StringComparer.OrdinalIgnoreCase);
         var entries = _vm.LastCandidates.Select(c => new ReportEntry
         {
-            GameKey = c.GameKey, Action = c.Category == "JUNK" ? "JUNK" : "KEEP",
+            GameKey = c.GameKey,
+            Action = c.Category == "JUNK" ? "JUNK" : loserPaths.Contains(c.MainPath) ? "MOVE" : "KEEP",
             Category = c.Category, Region = c.Region, FilePath = c.MainPath,
             FileName = Path.GetFileName(c.MainPath), Extension = c.Extension,
             SizeBytes = c.SizeBytes, RegionScore = c.RegionScore, FormatScore = c.FormatScore,

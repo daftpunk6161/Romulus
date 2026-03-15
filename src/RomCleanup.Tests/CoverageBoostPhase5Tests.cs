@@ -1372,6 +1372,7 @@ public class RunServiceDeepTests
 // SettingsService SaveFrom deeper
 // ═══════════════════════════════════════════════════════════════════
 
+[Collection("SettingsFile")]
 public class SettingsServiceSaveFromTests
 {
     [Fact]

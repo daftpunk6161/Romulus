@@ -13,6 +13,7 @@ namespace RomCleanup.Tests;
 /// to maximize code coverage in the FCS partial files and FeatureService.
 /// Also covers SettingsService Load/SaveFrom round-trip.
 /// </summary>
+[Collection("SettingsFile")]
 public sealed class FcsExecutionAndSettingsTests : IDisposable
 {
     private readonly string _tempDir;

@@ -189,9 +189,9 @@ public sealed partial class FeatureCommandService
                 var setA = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var setB = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var line in File.ReadLines(fileA).Skip(1))
-                { var mainPath = line.Split(';')[0].Trim('"'); if (!string.IsNullOrWhiteSpace(mainPath)) setA.Add(mainPath); }
+                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setA.Add(mainPath); }
                 foreach (var line in File.ReadLines(fileB).Skip(1))
-                { var mainPath = line.Split(';')[0].Trim('"'); if (!string.IsNullOrWhiteSpace(mainPath)) setB.Add(mainPath); }
+                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setB.Add(mainPath); }
 
                 var added = setB.Except(setA).ToList();
                 var removed = setA.Except(setB).ToList();

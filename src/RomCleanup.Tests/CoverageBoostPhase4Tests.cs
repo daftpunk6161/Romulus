@@ -666,6 +666,7 @@ public class SettingsLoaderDeepTests : IDisposable
 // SettingsService WPF Tests
 // ═══════════════════════════════════════════════════════════════════
 
+[Collection("SettingsFile")]
 public class SettingsServiceCoverageTests
 {
     private sealed class StubTheme : IThemeService

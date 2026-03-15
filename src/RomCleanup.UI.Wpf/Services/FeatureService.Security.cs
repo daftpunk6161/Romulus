@@ -104,7 +104,7 @@ public static partial class FeatureService
     {
         var history = LoadTrendHistory();
         history.Add(new TrendSnapshot(DateTime.Now, totalFiles, sizeBytes, verified, dupes, junk,
-            totalFiles > 0 ? (int)(100.0 * verified / totalFiles) : 0));
+            CalculateHealthScore(totalFiles, dupes, junk, verified)));
         if (history.Count > 365) history.RemoveRange(0, history.Count - 365);
         Directory.CreateDirectory(Path.GetDirectoryName(TrendFile)!);
         File.WriteAllText(TrendFile, JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
