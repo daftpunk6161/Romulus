@@ -47,6 +47,20 @@ public sealed class DatIndex
         return null;
     }
 
+    /// <summary>
+    /// Look up a hash across ALL loaded consoles (fallback when console is unknown).
+    /// Returns the first match found: (consoleKey, gameName).
+    /// </summary>
+    public (string ConsoleKey, string GameName)? LookupAny(string hash)
+    {
+        foreach (var kvp in _data)
+        {
+            if (kvp.Value.TryGetValue(hash, out var name))
+                return (kvp.Key, name);
+        }
+        return null;
+    }
+
     /// <summary>Check if a console key exists in the index.</summary>
     public bool HasConsole(string consoleKey) => _data.ContainsKey(consoleKey);
 

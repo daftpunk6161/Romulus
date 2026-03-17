@@ -1,5 +1,7 @@
 using System.IO;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
@@ -506,5 +508,187 @@ public sealed partial class MainViewModel
             ["locale"] = Locale ?? "de",
             ["logLevel"] = LogLevel ?? "Info"
         };
+    }
+
+    // ═══ CONSOLE KEYS (from consoles.json) ══════════════════════════════
+
+    private string[]? _allConsoleKeys;
+
+    /// <summary>All console keys from consoles.json, lazily loaded.</summary>
+    public string[] AllConsoleKeys => _allConsoleKeys ??= LoadAllConsoleKeys();
+
+    private static string[] LoadAllConsoleKeys()
+    {
+        var dataDir = FeatureService.ResolveDataDirectory()
+                      ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var consolesPath = Path.Combine(dataDir, "consoles.json");
+        if (!File.Exists(consolesPath))
+            return [];
+
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(consolesPath));
+            if (!doc.RootElement.TryGetProperty("consoles", out var arr) || arr.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var keys = new List<string>();
+            foreach (var item in arr.EnumerateArray())
+            {
+                if (item.TryGetProperty("key", out var k) && k.GetString() is { Length: > 0 } key)
+                    keys.Add(key);
+            }
+            keys.Sort(StringComparer.OrdinalIgnoreCase);
+            return [.. keys];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    // ═══ DAT-MAPPING AUTO-DETECT ════════════════════════════════════════
+
+    public IRelayCommand AutoDetectDatMappingsCommand => new RelayCommand(OnAutoDetectDatMappings, () => !string.IsNullOrWhiteSpace(DatRoot));
+
+    private void OnAutoDetectDatMappings()
+    {
+        if (string.IsNullOrWhiteSpace(DatRoot) || !Directory.Exists(DatRoot))
+        {
+            AddLog("DAT-Ordner nicht gefunden. Bitte DAT-Ordner zuerst setzen.", "WARN");
+            return;
+        }
+
+        // Load dat-catalog.json for console key → system name mapping
+        var dataDir = FeatureService.ResolveDataDirectory()
+                      ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+        if (!File.Exists(catalogPath))
+        {
+            AddLog("dat-catalog.json nicht gefunden.", "WARN");
+            return;
+        }
+
+        try
+        {
+            var catalogJson = File.ReadAllText(catalogPath);
+            using var doc = JsonDocument.Parse(catalogJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return;
+
+            // Build lookup: system name (lowercase) → console key
+            var systemToKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in doc.RootElement.EnumerateArray())
+            {
+                var consoleKey = entry.TryGetProperty("ConsoleKey", out var ck) ? ck.GetString() : null;
+                var system = entry.TryGetProperty("System", out var sys) ? sys.GetString() : null;
+                if (consoleKey is { Length: > 0 } && system is { Length: > 0 })
+                    systemToKey.TryAdd(system, consoleKey);
+            }
+
+            // Scan DatRoot for .dat and .xml files
+            var datFiles = Directory.GetFiles(DatRoot, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
+                         || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (datFiles.Count == 0)
+            {
+                AddLog("Keine DAT-Dateien im DAT-Ordner gefunden.", "WARN");
+                return;
+            }
+
+            // Keep existing manual mappings that have a valid DatFile
+            var existingByConsole = DatMappings
+                .Where(m => !string.IsNullOrWhiteSpace(m.Console) && !string.IsNullOrWhiteSpace(m.DatFile))
+                .ToDictionary(m => m.Console, m => m.DatFile, StringComparer.OrdinalIgnoreCase);
+
+            var detectedMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var datFile in datFiles)
+            {
+                var fileName = Path.GetFileNameWithoutExtension(datFile) ?? "";
+
+                // Strategy 1: Match by system name from catalog
+                foreach (var (system, consoleKey) in systemToKey)
+                {
+                    if (fileName.Contains(system, StringComparison.OrdinalIgnoreCase)
+                        || fileName.Contains(consoleKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // If multiple DATs match, prefer the one with more entries (larger file)
+                        if (!detectedMappings.ContainsKey(consoleKey))
+                            detectedMappings[consoleKey] = datFile;
+                        else if (new FileInfo(datFile).Length > new FileInfo(detectedMappings[consoleKey]).Length)
+                            detectedMappings[consoleKey] = datFile;
+                    }
+                }
+
+                // Strategy 2: Match common console name patterns in filename  
+                foreach (var key in AllConsoleKeys)
+                {
+                    if (!detectedMappings.ContainsKey(key) && MatchesConsoleName(fileName, key))
+                        detectedMappings[key] = datFile;
+                }
+            }
+
+            // Merge: keep manual, add detected
+            foreach (var (console, datFile) in existingByConsole)
+            {
+                if (!detectedMappings.ContainsKey(console))
+                    detectedMappings[console] = datFile;
+            }
+
+            DatMappings.Clear();
+            foreach (var (console, datFile) in detectedMappings.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+                DatMappings.Add(new DatMapRow { Console = console, DatFile = datFile });
+
+            AddLog($"DAT-Mapping: {detectedMappings.Count} Zuordnungen erkannt.", "INFO");
+            SaveSettings();
+        }
+        catch (Exception ex)
+        {
+            AddLog($"DAT-Auto-Erkennung fehlgeschlagen: {ex.Message}", "ERROR");
+        }
+    }
+
+    private static bool MatchesConsoleName(string fileName, string consoleKey)
+    {
+        // Common display name patterns for well-known consoles
+        var patterns = consoleKey.ToUpperInvariant() switch
+        {
+            "PSX" or "PS1" => new[] { "playstation", "psx", "ps1" },
+            "PS2" => new[] { "playstation 2", "ps2" },
+            "PS3" => new[] { "playstation 3", "ps3" },
+            "PSP" => new[] { "playstation portable", "psp" },
+            "DC" => new[] { "dreamcast", "dc" },
+            "SAT" => new[] { "saturn", "sat" },
+            "GC" => new[] { "gamecube", "gc", "ngc" },
+            "WII" => new[] { "wii" },
+            "NES" => new[] { "nintendo entertainment system", "nes" },
+            "SNES" => new[] { "super nintendo", "snes", "super nes" },
+            "N64" => new[] { "nintendo 64", "n64" },
+            "GB" => new[] { "game boy", "gameboy" },
+            "GBA" => new[] { "game boy advance", "gba" },
+            "GBC" => new[] { "game boy color", "gbc" },
+            "NDS" => new[] { "nintendo ds", "nds" },
+            "3DS" => new[] { "nintendo 3ds", "3ds" },
+            "NSW" => new[] { "nintendo switch", "nsw" },
+            "MD" => new[] { "mega drive", "genesis", "megadrive" },
+            "SMS" => new[] { "master system", "sms" },
+            "GG" => new[] { "game gear", "gamegear" },
+            "MCD" => new[] { "mega cd", "sega cd" },
+            "ARCADE" => new[] { "arcade", "mame", "fbneo", "fbalpha" },
+            "LYNX" => new[] { "lynx" },
+            "JAG" => new[] { "jaguar" },
+            "COLECO" => new[] { "colecovision", "coleco" },
+            "INTV" => new[] { "intellivision" },
+            "VEC" => new[] { "vectrex" },
+            "PCE" => new[] { "pc engine", "turbografx" },
+            "PCECD" => new[] { "pc engine cd", "turbografx cd" },
+            "NEO" => new[] { "neo geo", "neogeo" },
+            "NEOCD" => new[] { "neo geo cd" },
+            _ => new[] { consoleKey.ToLowerInvariant() }
+        };
+
+        return patterns.Any(p => fileName.Contains(p, StringComparison.OrdinalIgnoreCase));
     }
 }

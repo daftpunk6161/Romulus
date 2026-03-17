@@ -22,7 +22,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var root = FindRootForPath(loser.MainPath, input.Options.Roots);
+                var root = PipelinePhaseHelpers.FindRootForPath(loser.MainPath, input.Options.Roots);
                 if (root is null)
                 {
                     failCount++;
@@ -89,18 +89,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount);
     }
 
-    private static string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
-    {
-        var fullPath = Path.GetFullPath(filePath);
-        foreach (var root in roots)
-        {
-            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            if (fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                return root;
-        }
 
-        return null;
-    }
 }
 
 public sealed record MovePhaseInput(

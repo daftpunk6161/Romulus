@@ -160,9 +160,13 @@ public static class RuleEngine
     {
         try
         {
-            // V2-BUG-H02: Trim cache when it exceeds max size to prevent unbounded growth
+            // Evict ~25% of cache entries when capacity exceeded to prevent stampede
             if (_regexCache.Count >= MaxRegexCacheSize)
-                _regexCache.Clear();
+            {
+                var keysToRemove = _regexCache.Keys.Take(MaxRegexCacheSize / 4).ToList();
+                foreach (var key in keysToRemove)
+                    _regexCache.TryRemove(key, out _);
+            }
 
             var rx = _regexCache.GetOrAdd(pattern, p =>
             {

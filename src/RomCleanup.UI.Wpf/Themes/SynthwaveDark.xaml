@@ -446,6 +446,44 @@
       <Setter Property="RowBackground"          Value="{DynamicResource BrushSurface}"/>
       <Setter Property="AlternatingRowBackground" Value="{DynamicResource BrushSurfaceAlt}"/>
     </Style>
+    <Style TargetType="DataGridColumnHeader">
+      <Setter Property="Background"    Value="{DynamicResource BrushSurfaceAlt}"/>
+      <Setter Property="Foreground"    Value="{DynamicResource BrushAccentCyan}"/>
+      <Setter Property="FontWeight"    Value="SemiBold"/>
+      <Setter Property="FontSize"      Value="12"/>
+      <Setter Property="Padding"       Value="8,6"/>
+      <Setter Property="BorderBrush"   Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="0,0,1,1"/>
+    </Style>
+    <Style TargetType="DataGridCell">
+      <Setter Property="Foreground"    Value="{DynamicResource BrushTextPrimary}"/>
+      <Setter Property="BorderBrush"   Value="Transparent"/>
+      <Setter Property="Padding"       Value="6,4"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="DataGridCell">
+            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" BorderThickness="0">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource BrushAccentCyan}"/>
+          <Setter Property="Foreground" Value="{DynamicResource BrushBackground}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style TargetType="DataGridRow">
+      <Setter Property="Background" Value="{DynamicResource BrushSurface}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource BrushSurfaceAlt}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
 
     <!-- ═══ EXPANDER STYLE ═══════════════════════════════════════════════ -->
     <Style TargetType="Expander">

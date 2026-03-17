@@ -192,7 +192,13 @@ public static class DialogService
     /// </summary>
     private static Window? GetMainWindow()
     {
-        try { return Application.Current?.MainWindow; }
+        try
+        {
+            var w = Application.Current?.MainWindow;
+            if (w is not null && w.IsLoaded && w.IsVisible)
+                return w;
+            return null;
+        }
         catch { return null; }
     }
 }

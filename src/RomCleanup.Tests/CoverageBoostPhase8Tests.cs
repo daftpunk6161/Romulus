@@ -165,6 +165,47 @@ public sealed class DatIndexFullTests
         Assert.Equal("", idx.Lookup("", ""));
         Assert.Equal(1, idx.TotalEntries);
     }
+
+    [Fact]
+    public void LookupAny_FindsHashAcrossConsoles()
+    {
+        var idx = new DatIndex();
+        idx.Add("NES", "h1", "Mario");
+        idx.Add("SNES", "h2", "Zelda");
+        idx.Add("GBA", "h3", "Metroid");
+
+        var result = idx.LookupAny("h2");
+        Assert.NotNull(result);
+        Assert.Equal("SNES", result!.Value.ConsoleKey);
+        Assert.Equal("Zelda", result.Value.GameName);
+    }
+
+    [Fact]
+    public void LookupAny_CaseInsensitiveHash()
+    {
+        var idx = new DatIndex();
+        idx.Add("NES", "AbCdEf", "Game1");
+
+        var result = idx.LookupAny("abcdef");
+        Assert.NotNull(result);
+        Assert.Equal("NES", result!.Value.ConsoleKey);
+    }
+
+    [Fact]
+    public void LookupAny_NoMatch_ReturnsNull()
+    {
+        var idx = new DatIndex();
+        idx.Add("NES", "h1", "Game1");
+
+        Assert.Null(idx.LookupAny("nonexistent"));
+    }
+
+    [Fact]
+    public void LookupAny_EmptyIndex_ReturnsNull()
+    {
+        var idx = new DatIndex();
+        Assert.Null(idx.LookupAny("anything"));
+    }
 }
 
 // =============================================================================

@@ -105,8 +105,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
         Assert.NotNull(result.MoveResult);
         var mr = result.MoveResult!;
         // Summeninvariante: alle geplanten Loser müssen entweder moved, failed oder skipped sein
-        // LoserCount is reconciled after move phase, so MoveCount + FailCount + SkipCount should match
-        Assert.Equal(result.LoserCount + mr.FailCount + mr.SkipCount, mr.MoveCount + mr.FailCount + mr.SkipCount);
+        Assert.Equal(result.LoserCount, mr.MoveCount + mr.FailCount + mr.SkipCount);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -138,12 +137,14 @@ public sealed class HardRegressionInvariantTests : IDisposable
 
         var result = orch.Execute(options);
 
-        // Summeninvariante: converted + errors + skipped == total conversion attempts
-        var totalConverted = result.ConvertedCount + result.ConvertErrorCount + result.ConvertSkippedCount;
-        // Mindestens 1 Versuch muss stattgefunden haben
-        Assert.True(totalConverted >= 0, "Conversion sum must be non-negative");
-        // Hier prüfen wir nur dass die Summe konsistent ist — keine Lücke
-        Assert.Equal(totalConverted, result.ConvertedCount + result.ConvertErrorCount + result.ConvertSkippedCount);
+        // Summeninvariante: Jede Einzelkomponente muss nicht-negativ sein
+        Assert.True(result.ConvertedCount >= 0, "ConvertedCount must be non-negative");
+        Assert.True(result.ConvertErrorCount >= 0, "ConvertErrorCount must be non-negative");
+        Assert.True(result.ConvertSkippedCount >= 0, "ConvertSkippedCount must be non-negative");
+        // Konvertierungsversuche dürfen nicht mehr als Winner sein
+        var totalConversionOutcomes = result.ConvertedCount + result.ConvertErrorCount + result.ConvertSkippedCount;
+        Assert.True(totalConversionOutcomes <= result.WinnerCount,
+            $"Conversion outcomes ({totalConversionOutcomes}) cannot exceed winners ({result.WinnerCount})");
     }
 
     // ═══════════════════════════════════════════════════════════════════

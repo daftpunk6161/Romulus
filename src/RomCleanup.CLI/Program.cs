@@ -36,6 +36,11 @@ internal static class Program
             {
                 if (exitCode == 0)
                     PrintUsage();
+                else if (exitCode == -1)
+                {
+                    SafeStandardWriteLine(typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0");
+                    return 0;
+                }
                 return exitCode;
             }
 
@@ -440,6 +445,9 @@ internal static class Program
                 case "-help" or "--help" or "-h" or "-?":
                     return (null, 0);
 
+                case "--version" or "-v":
+                    return (null, -1);
+
                 default:
                     // Positional: treat as root path
                     if (!arg.StartsWith("-"))
@@ -728,6 +736,7 @@ Exit codes:
         {
             Path.Combine(AppContext.BaseDirectory, "data"),
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data"),
             Path.Combine(Directory.GetCurrentDirectory(), "data")
         };
 

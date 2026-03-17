@@ -98,13 +98,25 @@ public static class RunReportWriter
         // Invariant: report breakdown must account for all scanned files.
         // Junk/bios candidates that are also dedupe losers are counted in both Dupes
         // and Junk/Bios, so subtract the overlap to avoid double-counting.
+        // Unknown and FilteredNonGame candidates are not in any dedupe group.
         var groupedJunkBios = result.DedupeGroups
             .SelectMany(g => g.Losers.Append(g.Winner))
             .Count(c => c.Category is FileCategory.Junk or FileCategory.Bios);
         var ungroupedJunkBios = Math.Max(0, junkCount + biosCount - groupedJunkBios);
-        var accountedTotal = projection.Keep + projection.Dupes + ungroupedJunkBios;
+        var accountedTotal = projection.Keep + projection.Dupes + ungroupedJunkBios
+                           + projection.Unknown + projection.FilteredNonGameCount;
         if (projection.TotalFiles > 0 && accountedTotal > projection.TotalFiles)
             throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} > scanned={projection.TotalFiles}");
+        // Soft warning instead of hard failure for under-count — edge cases with
+        // overlapping categories can cause small discrepancies that are not bugs.
+        // Only throw on significant gaps (>1% of total).
+        if (projection.TotalFiles > 0 && accountedTotal < projection.TotalFiles)
+        {
+            var gap = projection.TotalFiles - accountedTotal;
+            var threshold = Math.Max(1, projection.TotalFiles / 100);
+            if (gap > threshold)
+                throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} < scanned={projection.TotalFiles} — {gap} candidates unaccounted");
+        }
 
         var totalErrorCount = projection.FailCount + projection.JunkFailCount + projection.ConsoleSortFailed;
 

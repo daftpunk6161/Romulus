@@ -50,8 +50,8 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                 if (verificationOk)
                 {
                     converted++;
-                    AppendConversionAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
-                    MoveConvertedSourceToTrash(context, input.Options, path, convResult.TargetPath);
+                    PipelinePhaseHelpers.AppendConversionAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
+                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, path, convResult.TargetPath);
                 }
                 else
                 {
@@ -59,7 +59,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                     if (convResult.TargetPath is not null)
                     {
                         context.OnProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                        AppendConversionFailedAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
+                        PipelinePhaseHelpers.AppendConversionFailedAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
                         // SEC-CONV-04: Clean up failed output to prevent orphaned corrupt files
                         try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
                         catch { /* best-effort cleanup */ }
@@ -74,7 +74,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
             {
                 convertErrors++;
                 context.OnProgress?.Invoke($"WARNING: Conversion failed for {path}: {convResult.Reason}");
-                AppendConversionErrorAudit(context, input.Options, path, convResult.Reason);
+                PipelinePhaseHelpers.AppendConversionErrorAudit(context, input.Options, path, convResult.Reason);
             }
         }
 
@@ -84,75 +84,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped);
     }
 
-    private static void AppendConversionAudit(PipelineContext context, RunOptions options, string sourcePath, string? targetPath, string toolName)
-    {
-        if (string.IsNullOrEmpty(options.AuditPath) || string.IsNullOrEmpty(targetPath))
-            return;
 
-        var root = FindRootForPath(sourcePath, options.Roots);
-        if (root is not null)
-            context.AuditStore.AppendAuditRow(options.AuditPath, root, sourcePath, targetPath, "CONVERT", "GAME", "", $"format-convert:{toolName}");
-    }
-
-    private static void AppendConversionFailedAudit(PipelineContext context, RunOptions options, string sourcePath, string? targetPath, string toolName)
-    {
-        if (string.IsNullOrEmpty(options.AuditPath) || string.IsNullOrEmpty(targetPath))
-            return;
-
-        var root = FindRootForPath(sourcePath, options.Roots);
-        if (root is not null)
-            context.AuditStore.AppendAuditRow(options.AuditPath, root, sourcePath, targetPath, "CONVERT_FAILED", "GAME", "", $"verify-failed:{toolName}");
-    }
-
-    private static void AppendConversionErrorAudit(PipelineContext context, RunOptions options, string sourcePath, string? reason)
-    {
-        if (string.IsNullOrEmpty(options.AuditPath))
-            return;
-
-        var root = FindRootForPath(sourcePath, options.Roots);
-        if (root is not null)
-            context.AuditStore.AppendAuditRow(options.AuditPath, root, sourcePath, "", "CONVERT_ERROR", "GAME", "", $"convert-error:{reason}");
-    }
-
-    private static void MoveConvertedSourceToTrash(PipelineContext context, RunOptions options, string sourcePath, string? convertedPath)
-    {
-        if (string.IsNullOrEmpty(convertedPath) || !File.Exists(convertedPath))
-            return;
-
-        var root = FindRootForPath(sourcePath, options.Roots);
-        if (root is null)
-            return;
-
-        var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-        var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
-        context.FileSystem.EnsureDirectory(trashDir);
-        var fileName = Path.GetFileName(sourcePath);
-        var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
-        if (trashDest is null)
-            return;
-
-        try
-        {
-            context.FileSystem.MoveItemSafely(sourcePath, trashDest);
-        }
-        catch (Exception ex)
-        {
-            context.OnProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}");
-        }
-    }
-
-    private static string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
-    {
-        var fullPath = Path.GetFullPath(filePath);
-        foreach (var root in roots)
-        {
-            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            if (fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                return root;
-        }
-
-        return null;
-    }
 }
 
 public sealed record ConvertOnlyPhaseInput(

@@ -28,7 +28,7 @@ public sealed class JunkRemovalPipelinePhase : IPipelinePhase<JunkRemovalPhaseIn
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var root = FindRootForPath(junk.MainPath, input.Options.Roots);
+            var root = PipelinePhaseHelpers.FindRootForPath(junk.MainPath, input.Options.Roots);
             if (root is null)
             {
                 failCount++;
@@ -71,20 +71,7 @@ public sealed class JunkRemovalPipelinePhase : IPipelinePhase<JunkRemovalPhaseIn
         return new JunkRemovalPhaseOutput(new MovePhaseResult(moveCount, failCount, savedBytes), removedPaths);
     }
 
-    private static string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
-    {
-        var fullPath = Path.GetFullPath(filePath);
-        foreach (var root in roots)
-        {
-            // SEC-MOVE-01: Append separator to prevent C:\Roms matching C:\Roms-Other
-            var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar)
-                         + Path.DirectorySeparatorChar;
-            if (fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
-                return root;
-        }
 
-        return null;
-    }
 }
 
 public sealed record JunkRemovalPhaseInput(

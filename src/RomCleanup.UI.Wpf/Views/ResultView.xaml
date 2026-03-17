@@ -152,54 +152,62 @@
             </WrapPanel>
           </Expander>
 
-          <!-- GUI-071: Console Distribution Bars -->
-          <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                  BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,12"
-                  Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-              <TextBlock Text="{Binding Loc[Result.ConsoleDistribution]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-              <ItemsControl ItemsSource="{Binding ConsoleDistribution}" Margin="0,4,0,0"
-                            AutomationProperties.Name="{Binding Loc[Result.ConsoleDistribution]}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Grid Margin="0,2" Height="24">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="50"/>
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="{DynamicResource BrushTextPrimary}"
-                                 FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                      <Border Grid.Column="1" Background="{DynamicResource BrushSurface}" CornerRadius="3" Height="14" VerticalAlignment="Center">
-                        <Border CornerRadius="3" Height="14" Background="{DynamicResource BrushAccentCyan}"
-                                HorizontalAlignment="Left">
-                          <Border.Width>
-                            <MultiBinding Converter="{StaticResource FractionToWidth}" ConverterParameter="bar">
-                              <Binding Path="Fraction"/>
-                              <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Border}"/>
-                            </MultiBinding>
-                          </Border.Width>
-                        </Border>
-                      </Border>
-                      <TextBlock Grid.Column="2" Text="{Binding FileCount}" Foreground="{DynamicResource BrushTextMuted}"
-                                 FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </Border>
+          <!-- GUI-071 + GUI-104: Console Distribution — Bars + Pie side by side -->
+          <Grid Margin="0,0,0,12"
+                Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-          <!-- GUI-104: Console Distribution Pie Chart -->
-          <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                  BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,12"
-                  Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-              <TextBlock Text="{Binding Loc[Result.ChartConsole]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-              <scott:WpfPlot x:Name="chartConsolePie" Height="280"
-                             AutomationProperties.Name="{Binding Loc[Result.ChartConsole]}"/>
-            </StackPanel>
-          </Border>
+            <!-- Bars (left) -->
+            <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,6,0">
+              <StackPanel>
+                <TextBlock Text="{Binding Loc[Result.ConsoleDistribution]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
+                <ItemsControl ItemsSource="{Binding ConsoleDistribution}" Margin="0,4,0,0"
+                              AutomationProperties.Name="{Binding Loc[Result.ConsoleDistribution]}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Margin="0,2" Height="24">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="100"/>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="50"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="{DynamicResource BrushTextPrimary}"
+                                   FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Background="{DynamicResource BrushSurface}" CornerRadius="3" Height="14" VerticalAlignment="Center">
+                          <Border CornerRadius="3" Height="14" Background="{DynamicResource BrushAccentCyan}"
+                                  HorizontalAlignment="Left">
+                            <Border.Width>
+                              <MultiBinding Converter="{StaticResource FractionToWidth}" ConverterParameter="bar">
+                                <Binding Path="Fraction"/>
+                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Border}"/>
+                              </MultiBinding>
+                            </Border.Width>
+                          </Border>
+                        </Border>
+                        <TextBlock Grid.Column="2" Text="{Binding FileCount}" Foreground="{DynamicResource BrushTextMuted}"
+                                   FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Pie Chart (right) -->
+            <Border Grid.Column="1" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="6,0,0,0"
+                    Width="620">
+              <StackPanel>
+                <TextBlock Text="{Binding Loc[Result.ChartConsole]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
+                <scott:WpfPlot x:Name="chartConsolePie" Height="520"
+                               AutomationProperties.Name="{Binding Loc[Result.ChartConsole]}"/>
+              </StackPanel>
+            </Border>
+          </Grid>
 
           <!-- GUI-106: Before/After Summary -->
           <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"

@@ -241,4 +241,45 @@ public class ConsoleDetectorTests
         Assert.Equal("TEST", detector.DetectByExtension(".tst"));
         Assert.Equal("TEST", detector.DetectByFolder(@"C:\roms\test\game.bin", @"C:\roms"));
     }
+
+    // ── Spaceless folder aliases (fix for user folders like atari2600) ───
+
+    [Theory]
+    [InlineData("atari2600", "A26")]
+    [InlineData("atari5200", "A52")]
+    [InlineData("atari7800", "A78")]
+    [InlineData("atari800", "A800")]
+    [InlineData("msx1", "MSX")]
+    [InlineData("wswan", "WS")]
+    [InlineData("wswanc", "WSC")]
+    public void DetectByFolder_SpacelessAliases_Recognized(string folderName, string expectedKey)
+    {
+        var consoles = new[]
+        {
+            new ConsoleInfo("A26", "Atari 2600", false,
+                new[] { ".a26" }, Array.Empty<string>(),
+                new[] { "a26", "atari 2600", "atari2600", "vcs" }),
+            new ConsoleInfo("A52", "Atari 5200", false,
+                new[] { ".a52" }, Array.Empty<string>(),
+                new[] { "a52", "atari 5200", "atari5200" }),
+            new ConsoleInfo("A78", "Atari 7800", false,
+                new[] { ".a78" }, Array.Empty<string>(),
+                new[] { "a78", "atari 7800", "atari7800" }),
+            new ConsoleInfo("A800", "Atari 8-bit", false,
+                new[] { ".atr", ".xex", ".xfd" }, Array.Empty<string>(),
+                new[] { "a800", "atari800", "atari 800" }),
+            new ConsoleInfo("MSX", "MSX", false,
+                new[] { ".mx1", ".mx2" }, Array.Empty<string>(),
+                new[] { "msx", "msx1", "msx2" }),
+            new ConsoleInfo("WS", "WonderSwan", false,
+                new[] { ".ws" }, Array.Empty<string>(),
+                new[] { "ws", "wswan", "wonderswan" }),
+            new ConsoleInfo("WSC", "WonderSwan Color", false,
+                new[] { ".wsc" }, Array.Empty<string>(),
+                new[] { "wsc", "wswanc", "wonderswan color" }),
+        };
+
+        var detector = new ConsoleDetector(consoles);
+        Assert.Equal(expectedKey, detector.DetectByFolder($@"D:\Roms\{folderName}\game.bin", @"D:\Roms"));
+    }
 }

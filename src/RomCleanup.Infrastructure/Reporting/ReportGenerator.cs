@@ -206,6 +206,8 @@ tr:hover { background: rgba(137,180,250,0.05); }
         AppendCard(sb, "", s.Candidates.ToString(), "Kandidaten");
         if (s.ConvertedCount > 0)
             AppendCard(sb, "", s.ConvertedCount.ToString(), "Konvertiert");
+        if (s.ConvertSkippedCount > 0)
+            AppendCard(sb, "", s.ConvertSkippedCount.ToString(), "Convert-Skip");
         if (s.ConvertErrorCount > 0)
             AppendCard(sb, "junk", s.ConvertErrorCount.ToString(), "Convert-Fehler");
         if (s.ErrorCount > 0)

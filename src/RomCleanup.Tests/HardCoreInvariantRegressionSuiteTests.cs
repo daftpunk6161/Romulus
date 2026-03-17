@@ -719,7 +719,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
     // P2-04: DAT matching skip for UNKNOWN console must emit warning
 
     [Fact]
-    public void Enrichment_DatSkippedForUnknownConsole_EmitsWarning()
+    public void Enrichment_DatMatchAttemptedEvenForUnknownConsole()
     {
         var root = Path.Combine(_tempDir, "dat_warn");
         Directory.CreateDirectory(root);
@@ -743,8 +743,8 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         var datIndex = repo.GetDatIndex(datRoot, new Dictionary<string, string> { ["TEST"] = "test.dat" });
         var hashService = new FileHashService();
 
-        // No ConsoleDetector → all files get consoleKey="" → DAT skip
-        var warnings = new List<string>();
+        // No ConsoleDetector → all files get consoleKey="" → LookupAny fallback
+        var messages = new List<string>();
         var context = CreateContext(options);
         context = new PipelineContext
         {
@@ -752,7 +752,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             FileSystem = new FileSystemAdapter(),
             AuditStore = new AuditCsvStore(),
             Metrics = context.Metrics,
-            OnProgress = msg => warnings.Add(msg)
+            OnProgress = msg => messages.Add(msg)
         };
 
         var enriched = new EnrichmentPipelinePhase().Execute(
@@ -760,10 +760,9 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             context,
             CancellationToken.None);
 
-        // INVARIANT: Warning must be emitted when DAT matching is skipped due to unknown console
-        Assert.Contains(warnings, w => w.Contains("DAT-Verifizierung übersprungen", StringComparison.OrdinalIgnoreCase));
-        // File should NOT have DAT match
-        Assert.All(enriched, c => Assert.False(c.DatMatch));
+        // INVARIANT: DAT matching is always attempted, even when console is unknown.
+        // The old "DAT-Verifizierung übersprungen" warning must NOT appear.
+        Assert.DoesNotContain(messages, w => w.Contains("DAT-Verifizierung übersprungen", StringComparison.OrdinalIgnoreCase));
     }
 
     // 10) GUI / CLI / API parity

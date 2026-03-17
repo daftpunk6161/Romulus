@@ -95,11 +95,27 @@ public partial class ResultView : UserControl
                     FillColor = palette.GetColor(i),
                 });
             }
+            // Only show labels on slices > 3% to prevent overlap
+            double total = slices.Sum(s => s.Value);
+            foreach (var s in slices)
+            {
+                s.LabelFontSize = 15;
+                s.LabelFontColor = ScottPlot.Colors.White;
+                if (total > 0 && s.Value / total < 0.03)
+                    s.Label = string.Empty;
+            }
+
             var pie = chartConsolePie.Plot.Add.Pie(slices);
             pie.DonutFraction = 0.4;
-            chartConsolePie.Plot.ShowLegend();
+            pie.SliceLabelDistance = 1.35;
+
+            var legend = chartConsolePie.Plot.ShowLegend();
+            legend.FontSize = 13;
+            legend.FontColor = ScottPlot.Colors.White;
         }
         StyleChart(chartConsolePie);
+        chartConsolePie.Plot.Axes.Frameless();
+        chartConsolePie.Plot.HideGrid();
         chartConsolePie.Refresh();
 
         // ── Bar Chart: Before/After (Keep vs Move vs Junk) ──
