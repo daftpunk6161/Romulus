@@ -7,6 +7,8 @@ namespace RomCleanup.Infrastructure.Hashing;
 /// Cached file hashing service. Port of Get-FileHashCached from Dat.ps1.
 /// Uses LruCache for O(1) lookups, supports SHA1/SHA256/MD5/CRC32.
 /// Thread-safe — multiple callers can hash concurrently.
+/// Cache key is hashType|path (no timestamp) to avoid per-call stat syscalls.
+/// Create a new instance per run to ensure cache freshness.
 /// </summary>
 public sealed class FileHashService
 {
@@ -27,25 +29,7 @@ public sealed class FileHashService
     public string? GetHash(string path, string hashType = "SHA1")
     {
         var fullPath = Path.GetFullPath(path);
-
-        DateTime lastWrite;
-        try
-        {
-            var fi = new FileInfo(fullPath);
-            if (!fi.Exists)
-                return null;
-            lastWrite = fi.LastWriteTimeUtc;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-
-        var cacheKey = $"{NormalizeHashType(hashType)}|{fullPath}|{lastWrite.Ticks}";
+        var cacheKey = $"{NormalizeHashType(hashType)}|{fullPath}";
 
         if (_cache.TryGet(cacheKey, out var cached))
             return cached;

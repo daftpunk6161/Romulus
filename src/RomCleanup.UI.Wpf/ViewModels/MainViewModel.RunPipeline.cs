@@ -995,6 +995,9 @@ public sealed partial class MainViewModel
 
     private void OnMovePreviewGateChanged()
     {
+        if (!CanStartMoveWithCurrentPreview && !DryRun && !ConvertOnly && !string.IsNullOrEmpty(_lastSuccessfulPreviewFingerprint))
+            MoveConsequenceText = "Konfiguration seit der letzten Vorschau geändert. Bitte Vorschau erneut ausführen, bevor Änderungen angewendet werden.";
+
         OnPropertyChanged(nameof(CanStartMoveWithCurrentPreview));
         OnPropertyChanged(nameof(ShowStartMoveButton));
         OnPropertyChanged(nameof(MoveApplyGateText));

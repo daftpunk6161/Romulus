@@ -84,6 +84,19 @@ public sealed class RunManager
             }
 
             var runId = Guid.NewGuid().ToString("N");
+            var normalizedExtensions = (request.Extensions is { Length: > 0 }
+                    ? request.Extensions
+                    : RunOptions.DefaultExtensions)
+                .Where(ext => !string.IsNullOrWhiteSpace(ext))
+                .Select(ext => ext.Trim())
+                .Select(ext => ext.StartsWith('.') ? ext : "." + ext)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var normalizedHashType = string.IsNullOrWhiteSpace(request.HashType)
+                ? "SHA1"
+                : request.HashType.Trim().ToUpperInvariant();
+
             var record = new RunRecord
             {
                 RunId = runId,
@@ -93,6 +106,14 @@ public sealed class RunManager
                 PreferRegions = request.PreferRegions is { Length: > 0 }
                     ? request.PreferRegions
                     : new[] { "EU", "US", "WORLD", "JP" },
+                RemoveJunk = request.RemoveJunk,
+                AggressiveJunk = request.AggressiveJunk,
+                SortConsole = request.SortConsole,
+                EnableDat = request.EnableDat,
+                HashType = normalizedHashType,
+                ConvertFormat = string.IsNullOrWhiteSpace(request.ConvertFormat) ? null : request.ConvertFormat.Trim(),
+                TrashRoot = string.IsNullOrWhiteSpace(request.TrashRoot) ? null : request.TrashRoot.Trim(),
+                Extensions = normalizedExtensions,
                 StartedUtc = DateTime.UtcNow,
                 IdempotencyKey = idempotencyKey,
                 RequestFingerprint = requestFingerprint,
@@ -279,7 +300,14 @@ public sealed class RunManager
             Roots = run.Roots,
             Mode = run.Mode,
             PreferRegions = run.PreferRegions,
-            Extensions = RunOptions.DefaultExtensions,
+            Extensions = run.Extensions,
+            RemoveJunk = run.RemoveJunk,
+            AggressiveJunk = run.AggressiveJunk,
+            SortConsole = run.SortConsole,
+            EnableDat = run.EnableDat,
+            HashType = run.HashType,
+            ConvertFormat = run.ConvertFormat,
+            TrashRoot = run.TrashRoot,
             AuditPath = auditPath,
             ReportPath = reportPath
         };
@@ -358,7 +386,19 @@ public sealed class RunManager
         {
             mode.Trim(),
             string.Join(";", roots),
-            string.Join(",", regions)
+            string.Join(",", regions),
+            request.RemoveJunk ? "1" : "0",
+            request.AggressiveJunk ? "1" : "0",
+            request.SortConsole ? "1" : "0",
+            request.EnableDat ? "1" : "0",
+            string.IsNullOrWhiteSpace(request.HashType) ? "SHA1" : request.HashType.Trim().ToUpperInvariant(),
+            string.IsNullOrWhiteSpace(request.ConvertFormat) ? "" : request.ConvertFormat.Trim().ToUpperInvariant(),
+            string.IsNullOrWhiteSpace(request.TrashRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.TrashRoot),
+            string.Join(",", (request.Extensions ?? Array.Empty<string>())
+                .Where(ext => !string.IsNullOrWhiteSpace(ext))
+                .Select(ext => ext.Trim().ToLowerInvariant())
+                .Select(ext => ext.StartsWith('.') ? ext : "." + ext)
+                .OrderBy(ext => ext, StringComparer.Ordinal))
         });
 
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
@@ -435,6 +475,14 @@ public sealed class RunRecord
     public string Mode { get; init; } = "DryRun";
     public string[] Roots { get; init; } = Array.Empty<string>();
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
+    public bool RemoveJunk { get; init; } = true;
+    public bool AggressiveJunk { get; init; }
+    public bool SortConsole { get; init; }
+    public bool EnableDat { get; init; }
+    public string HashType { get; init; } = "SHA1";
+    public string? ConvertFormat { get; init; }
+    public string? TrashRoot { get; init; }
+    public string[] Extensions { get; init; } = RunOptions.DefaultExtensions;
     public DateTime StartedUtc { get; init; }
     public DateTime? CompletedUtc
     {

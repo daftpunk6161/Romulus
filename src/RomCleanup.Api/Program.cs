@@ -85,7 +85,10 @@ app.Use(async (ctx, next) =>
     }
 
     // Rate limiting
-    var clientIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var forwardedFor = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+    var clientIp = !string.IsNullOrWhiteSpace(forwardedFor)
+        ? forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "unknown"
+        : ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     if (!rateLimiter.TryAcquire(clientIp))
     {
         await WriteApiError(ctx, 429, "RUN-RATE-LIMIT", "Too many requests.", ErrorKind.Transient);
@@ -237,6 +240,34 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
             if (string.IsNullOrWhiteSpace(region) || region.Length > 10 ||
                 !region.All(c => char.IsLetterOrDigit(c) || c == '-'))
                 return ApiError(400, "RUN-INVALID-REGION", $"Invalid region: '{region}'. Only alphanumeric and '-' allowed.");
+        }
+    }
+
+    // Validate hash type
+    if (!string.IsNullOrWhiteSpace(request.HashType))
+    {
+        var hashType = request.HashType.Trim().ToUpperInvariant();
+        if (hashType is not "SHA1" and not "SHA256" and not "MD5")
+            return ApiError(400, "RUN-INVALID-HASH-TYPE", "hashType must be one of: SHA1, SHA256, MD5.");
+    }
+
+    // Validate extensions
+    if (request.Extensions is { Length: > 0 })
+    {
+        foreach (var extension in request.Extensions)
+        {
+            if (string.IsNullOrWhiteSpace(extension))
+                return ApiError(400, "RUN-INVALID-EXTENSION", "extensions must not contain empty values.");
+
+            var normalized = extension.Trim();
+            if (!normalized.StartsWith('.'))
+                normalized = "." + normalized;
+
+            if (normalized.Length < 2 || normalized.Length > 20 ||
+                !normalized.Skip(1).All(ch => char.IsLetterOrDigit(ch)))
+            {
+                return ApiError(400, "RUN-INVALID-EXTENSION", $"Invalid extension '{extension}'. Use alphanumeric values like .chd, .iso, .zip.");
+            }
         }
     }
 

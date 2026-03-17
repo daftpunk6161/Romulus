@@ -75,6 +75,17 @@ public sealed class CliProgramTests : IDisposable
         Assert.Equal(3, exitCode);
     }
 
+    [Fact]
+    public void ParseArgs_MissingModeValue_ReturnsExitCode3_AndWriteOnlyStderr()
+    {
+        var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(new[] { "--roots", _tempDir, "--mode" });
+
+        Assert.Null(opts);
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, stdout);
+        Assert.Contains("Missing value for --mode", stderr, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ ParseArgs: Default mode ═══════════════════════════════════════
 
     [Fact]

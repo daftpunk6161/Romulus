@@ -168,7 +168,7 @@ internal static class Program
         {
             var auditDir = ArtifactPathResolver.GetArtifactDirectory(opts.Roots, "audit-logs");
             auditPath = Path.Combine(Path.GetFullPath(auditDir),
-                $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+                $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.csv");
         }
 
         // Build RunOptions and execute via RunOrchestrator
@@ -328,18 +328,21 @@ internal static class Program
                     break;
 
                 case "-mode" or "--mode":
-                    if (++i < args.Length)
+                    if (++i >= args.Length)
                     {
-                        var modeVal = args[i];
-                        if (string.Equals(modeVal, "DryRun", StringComparison.OrdinalIgnoreCase))
-                            opts.Mode = "DryRun";
-                        else if (string.Equals(modeVal, "Move", StringComparison.OrdinalIgnoreCase))
-                            opts.Mode = "Move";
-                        else
-                        {
-                            SafeErrorWriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
-                            return (null, 3);
-                        }
+                        SafeErrorWriteLine("[Error] Missing value for --mode.");
+                        return (null, 3);
+                    }
+
+                    var modeVal = args[i];
+                    if (string.Equals(modeVal, "DryRun", StringComparison.OrdinalIgnoreCase))
+                        opts.Mode = "DryRun";
+                    else if (string.Equals(modeVal, "Move", StringComparison.OrdinalIgnoreCase))
+                        opts.Mode = "Move";
+                    else
+                    {
+                        SafeErrorWriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
+                        return (null, 3);
                     }
                     break;
 
@@ -708,7 +711,8 @@ Exit codes:
                 return full;
         }
 
-        // Fallback: return the first candidate path even if it doesn't exist
-        return Path.GetFullPath(candidates[0]);
+        throw new DirectoryNotFoundException(
+            "Could not locate required data directory. Checked: " +
+            string.Join(", ", candidates.Select(Path.GetFullPath)));
     }
 }

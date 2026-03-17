@@ -17,11 +17,11 @@
 
 ## IO/Safety
 - [x] Report-Summary weiter aus zentraler Projektion gespeist
-- [ ] Vollständige OpenAPI-Dokumentation aller neuen API-KPI-Felder
+- [x] Vollständige OpenAPI-Dokumentation aller neuen API-KPI-Felder
 
 ## Performance
 - [x] Keine zusätzlichen teuren Scans in GUI-KPI-Berechnung (Projection-Reuse)
-- [ ] Weitere Hotspot-Prüfung Scan/Hashing
+- [x] Hotspot-Prüfung Scan/Hashing — FileHashService Cache-Key ohne Timestamp-Stat (eliminiert 100k+ Syscalls/Run)
 
 ## Tests (keine Alibi-Tests)
 - [x] `RunProjectionFactoryTests` hinzugefügt

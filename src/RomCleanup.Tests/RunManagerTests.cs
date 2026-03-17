@@ -337,6 +337,69 @@ public class RunManagerTests
         Assert.Null(restartedManager.GetActive());
     }
 
+    [Fact]
+    public async Task TryCreateOrReuse_MapsExtendedRequestOptions_IntoRunRecord()
+    {
+        var mgr = CreateManager();
+        var request = new RunRequest
+        {
+            Roots = new[] { GetTestRoot() },
+            Mode = "Move",
+            PreferRegions = new[] { "US", "EU" },
+            RemoveJunk = false,
+            AggressiveJunk = true,
+            SortConsole = true,
+            EnableDat = true,
+            HashType = "sha256",
+            ConvertFormat = "auto",
+            TrashRoot = GetTestRoot(),
+            Extensions = new[] { "chd", ".rvz" }
+        };
+
+        var create = mgr.TryCreateOrReuse(request, "Move", "idem-options-map");
+        Assert.Equal(RunCreateDisposition.Created, create.Disposition);
+
+        var run = create.Run!;
+        Assert.False(run.RemoveJunk);
+        Assert.True(run.AggressiveJunk);
+        Assert.True(run.SortConsole);
+        Assert.True(run.EnableDat);
+        Assert.Equal("SHA256", run.HashType);
+        Assert.Equal("auto", run.ConvertFormat);
+        Assert.Equal(GetTestRoot(), run.TrashRoot);
+        Assert.Contains(".chd", run.Extensions);
+        Assert.Contains(".rvz", run.Extensions);
+
+        await mgr.WaitForCompletion(run.RunId, 50);
+    }
+
+    [Fact]
+    public void TryCreateOrReuse_SameIdempotencyKey_DifferentExtendedOptions_ReturnsConflict()
+    {
+        var mgr = CreateManager();
+        var key = "idem-extended-conflict";
+
+        var first = mgr.TryCreateOrReuse(new RunRequest
+        {
+            Roots = new[] { GetTestRoot() },
+            EnableDat = false,
+            HashType = "SHA1",
+            RemoveJunk = true
+        }, "DryRun", key);
+
+        var second = mgr.TryCreateOrReuse(new RunRequest
+        {
+            Roots = new[] { GetTestRoot() },
+            EnableDat = true,
+            HashType = "SHA256",
+            RemoveJunk = false
+        }, "DryRun", key);
+
+        Assert.Equal(RunCreateDisposition.Created, first.Disposition);
+        Assert.Equal(RunCreateDisposition.IdempotencyConflict, second.Disposition);
+        Assert.Equal(first.Run!.RunId, second.Run!.RunId);
+    }
+
     private static string GetTestRoot()
     {
         // Return a path that exists for run creation, even if it will fail during scan

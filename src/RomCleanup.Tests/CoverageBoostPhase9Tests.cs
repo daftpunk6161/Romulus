@@ -198,21 +198,34 @@ public sealed class FileHashServicePhase9Tests : IDisposable
     }
 
     [Fact]
-    public void GetHash_FileModified_RecalculatesHash()
+    public void GetHash_FileModified_NewInstance_RecalculatesHash()
     {
         var f = Path.Combine(_tmp, "modified.bin");
+        File.WriteAllBytes(f, [1, 2, 3]);
+        var svc1 = new FileHashService();
+        var h1 = svc1.GetHash(f, "SHA1");
+
+        // Modify file
+        File.WriteAllBytes(f, [4, 5, 6]);
+
+        // New instance (as in a new pipeline run) sees current content
+        var svc2 = new FileHashService();
+        var h2 = svc2.GetHash(f, "SHA1");
+        Assert.NotEqual(h1, h2);
+    }
+
+    [Fact]
+    public void GetHash_FileModified_SameInstance_ReturnsCached()
+    {
+        var f = Path.Combine(_tmp, "cached.bin");
         File.WriteAllBytes(f, [1, 2, 3]);
         var svc = new FileHashService();
         var h1 = svc.GetHash(f, "SHA1");
 
-        // Wait a bit and modify file
-        Thread.Sleep(50);
+        // Modify file — same instance returns cached hash (per-run invariant)
         File.WriteAllBytes(f, [4, 5, 6]);
-        // Force different timestamp
-        File.SetLastWriteTimeUtc(f, DateTime.UtcNow.AddSeconds(1));
-
         var h2 = svc.GetHash(f, "SHA1");
-        Assert.NotEqual(h1, h2);
+        Assert.Equal(h1, h2);
     }
 
     [Fact]

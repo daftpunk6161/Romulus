@@ -40,7 +40,15 @@ public static class OpenApiSpec
                 ""properties"": {
                   ""roots"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } },
                   ""mode"": { ""type"": ""string"", ""enum"": [""DryRun"", ""Move""], ""default"": ""DryRun"" },
-                  ""preferRegions"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }
+                  ""preferRegions"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } },
+                  ""removeJunk"": { ""type"": ""boolean"", ""default"": true },
+                  ""aggressiveJunk"": { ""type"": ""boolean"", ""default"": false },
+                  ""sortConsole"": { ""type"": ""boolean"", ""default"": false },
+                  ""enableDat"": { ""type"": ""boolean"", ""default"": false },
+                  ""hashType"": { ""type"": ""string"", ""enum"": [""SHA1"", ""SHA256"", ""MD5""], ""default"": ""SHA1"" },
+                  ""convertFormat"": { ""type"": ""string"", ""nullable"": true, ""description"": ""Target conversion mode, e.g. 'auto'"" },
+                  ""trashRoot"": { ""type"": ""string"", ""nullable"": true },
+                  ""extensions"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }
                 }
               }
             }

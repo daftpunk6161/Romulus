@@ -9,7 +9,7 @@ public static class FormatScorer
 {
     private static readonly HashSet<string> DiscExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".iso", ".bin", ".img", ".cue", ".gdi", ".ccd", ".chd", ".rvz", ".gcz",
+        ".iso", ".bin", ".img", ".cue", ".gdi", ".ccd", ".chd", ".rvz", ".gcz", ".m3u",
         ".wbfs", ".wia", ".wbf1", ".cso", ".pbp", ".nrg", ".mdf", ".mds", ".cdi"
     };
 
@@ -134,7 +134,7 @@ public static class FormatScorer
             or ".nds" or ".gba" or ".gbc" or ".gb" or ".nes" or ".sfc" or ".smc"
             or ".n64" or ".z64" or ".v64" or ".md" or ".gen" or ".sms"
             or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78"
-            or ".ecm" or ".zip" or ".7z" or ".rar" => true,
+            or ".ecm" or ".zip" or ".7z" or ".rar" or ".m3u" => true,
             _ => false
         };
     }

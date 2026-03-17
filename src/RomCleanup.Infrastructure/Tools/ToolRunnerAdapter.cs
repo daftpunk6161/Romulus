@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using RomCleanup.Contracts.Ports;
 
@@ -215,7 +216,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
             && cached.LastWriteUtc == lastWrite
             && cached.Length == fileLength)
         {
-            return string.Equals(cached.Hash, expectedHash, StringComparison.OrdinalIgnoreCase);
+            return FixedTimeEqualsHash(cached.Hash, expectedHash);
         }
 
         using var sha256 = SHA256.Create();
@@ -225,7 +226,14 @@ public sealed class ToolRunnerAdapter : IToolRunner
 
         _hashCache[fullPath] = (actualHash, lastWrite, fileLength);
 
-        return string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase);
+        return FixedTimeEqualsHash(actualHash, expectedHash);
+    }
+
+    private static bool FixedTimeEqualsHash(string actualHash, string expectedHash)
+    {
+        var actualBytes = Encoding.ASCII.GetBytes(actualHash.ToLowerInvariant());
+        var expectedBytes = Encoding.ASCII.GetBytes(expectedHash.ToLowerInvariant());
+        return CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes);
     }
 
     private void EnsureToolHashesLoaded()
