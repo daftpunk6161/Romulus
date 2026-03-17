@@ -133,7 +133,7 @@ public sealed partial class FeatureCommandService
         cmds["SplitPanelPreview"] = new RelayCommand(SplitPanelPreview);
         cmds["FilterBuilder"] = new RelayCommand(FilterBuilder);
         cmds["SortTemplates"] = new RelayCommand(SortTemplates);
-        cmds["PipelineEngine"] = new RelayCommand(PipelineEngine);
+        cmds["PipelineStatus"] = new RelayCommand(PipelineStatus);
         cmds["SchedulerAdvanced"] = new RelayCommand(SchedulerAdvanced);
         cmds["SchedulerApply"] = new RelayCommand(() => _vm.ApplyScheduler());
         cmds["RulePackSharing"] = new RelayCommand(RulePackSharing);

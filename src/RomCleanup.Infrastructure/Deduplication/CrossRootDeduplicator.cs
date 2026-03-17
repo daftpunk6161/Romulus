@@ -6,8 +6,8 @@ using RomCleanup.Core.Scoring;
 namespace RomCleanup.Infrastructure.Deduplication;
 
 /// <summary>
-/// Cross-root deduplication — finds identical ROMs across multiple root directories.
-/// Mirrors CrossRootDedupe.ps1.
+/// [v2.1 deferred] Cross-root deduplication — finds identical ROMs across multiple root directories.
+/// Mirrors CrossRootDedupe.ps1. Not wired into RunOrchestrator pipeline yet.
 /// </summary>
 public sealed class CrossRootDeduplicator
 {

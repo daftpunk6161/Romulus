@@ -66,7 +66,7 @@ public static class FeatureCommandKeys
     public const string SplitPanelPreview = "SplitPanelPreview";
     public const string FilterBuilder = "FilterBuilder";
     public const string SortTemplates = "SortTemplates";
-    public const string PipelineEngine = "PipelineEngine";
+    public const string PipelineStatus = "PipelineStatus";
     public const string SystemTray = "SystemTray";
     public const string SchedulerAdvanced = "SchedulerAdvanced";
     public const string RulePackSharing = "RulePackSharing";

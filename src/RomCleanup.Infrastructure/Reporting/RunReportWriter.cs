@@ -96,7 +96,13 @@ public static class RunReportWriter
         var biosCount = projection.Bios;
 
         // Invariant: report breakdown must account for all scanned files.
-        var accountedTotal = projection.Keep + projection.Dupes + junkCount + biosCount;
+        // Junk/bios candidates that are also dedupe losers are counted in both Dupes
+        // and Junk/Bios, so subtract the overlap to avoid double-counting.
+        var groupedJunkBios = result.DedupeGroups
+            .SelectMany(g => g.Losers.Append(g.Winner))
+            .Count(c => c.Category is FileCategory.Junk or FileCategory.Bios);
+        var ungroupedJunkBios = Math.Max(0, junkCount + biosCount - groupedJunkBios);
+        var accountedTotal = projection.Keep + projection.Dupes + ungroupedJunkBios;
         if (projection.TotalFiles > 0 && accountedTotal > projection.TotalFiles)
             throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} > scanned={projection.TotalFiles}");
 
@@ -119,6 +125,13 @@ public static class RunReportWriter
             HealthScore = projection.HealthScore,
             ConvertedCount = projection.ConvertedCount,
             ConvertErrorCount = projection.ConvertErrorCount,
+            ConvertSkippedCount = projection.ConvertSkippedCount,
+            JunkRemovedCount = projection.JunkRemovedCount,
+            JunkFailCount = projection.JunkFailCount,
+            SkipCount = projection.SkipCount,
+            ConsoleSortMoved = projection.ConsoleSortMoved,
+            ConsoleSortFailed = projection.ConsoleSortFailed,
+            FailCount = projection.FailCount,
             ErrorCount = totalErrorCount,
             SkippedCount = projection.ConvertSkippedCount + projection.SkipCount,
             SavedBytes = projection.SavedBytes,

@@ -187,10 +187,43 @@ public class DatSourceServiceTests : IDisposable
         Assert.True(await svc.VerifyDatSignatureAsync(path, "https://example.invalid/test.dat"));
     }
 
+    [Fact]
+    public async Task VerifyDatSignature_SidecarHashMismatch_ReturnsFalse_Issue9()
+    {
+        var path = Path.Combine(_tempDir, "sidecar-mismatch.dat");
+        File.WriteAllText(path, "trusted-content");
+
+        // Sidecar exists and is parseable but intentionally wrong -> must fail-closed
+        var handler = new SidecarMismatchHandler();
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        var ok = await svc.VerifyDatSignatureAsync(path, "https://example.invalid/test.dat");
+
+        Assert.False(ok);
+    }
+
     private sealed class FixedStatusHandler(HttpStatusCode status) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(new HttpResponseMessage(status));
+    }
+
+    private sealed class SidecarMismatchHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri?.ToString() ?? string.Empty;
+            if (uri.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("0000000000000000000000000000000000000000000000000000000000000000")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
     }
 
     // ═══ Path-Traversal Tests ═══════════════════════════════════════════

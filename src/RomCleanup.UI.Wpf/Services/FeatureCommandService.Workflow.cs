@@ -80,7 +80,7 @@ public sealed partial class FeatureCommandService
         _dialog.ShowText("Sort-Templates", sb.ToString());
     }
 
-    private void PipelineEngine()
+    private void PipelineStatus()
     {
         if (_vm.LastRunResult is not null)
         {

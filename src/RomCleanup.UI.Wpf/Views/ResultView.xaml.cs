@@ -69,6 +69,11 @@ public partial class ResultView : UserControl
     {
         if (e.PropertyName == nameof(MainViewModel.HasRunResult) && sender is MainViewModel vm && vm.HasRunResult)
             RefreshCharts(vm);
+
+        // Auto-refresh report preview when user navigates to Report-Vorschau tab
+        if (e.PropertyName == nameof(MainViewModel.SelectedResultSection) && sender is MainViewModel vm2
+            && vm2.SelectedResultSection == "Report-Vorschau")
+            RefreshReportPreview();
     }
 
     /// <summary>GUI-104/106: Populate ScottPlot charts with run result data.</summary>

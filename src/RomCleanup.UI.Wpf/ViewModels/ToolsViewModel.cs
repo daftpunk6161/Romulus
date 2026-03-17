@@ -192,7 +192,7 @@ public sealed class ToolsViewModel : ObservableObject
             ("SplitPanelPreview",  "Workflow",       "\xE8A0", true),
             ("FilterBuilder",      "Workflow",       "\xE71C", true),
             ("SortTemplates",      "Workflow",       "\xE8CB", false),
-            ("PipelineEngine",     "Workflow",       "\xE8CB", false),
+            ("PipelineStatus",     "Workflow",       "\xE8CB", false),
             ("SystemTray",         "Workflow",       "\xE8CB", false),
             ("SchedulerAdvanced",  "Workflow",       "\xE787", false),
             ("RulePackSharing",    "Workflow",       "\xE72D", false),

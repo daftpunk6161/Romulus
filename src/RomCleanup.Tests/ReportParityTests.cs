@@ -189,6 +189,67 @@ public sealed class ReportParityTests : IDisposable
     }
 
     [Fact]
+    public async Task DryRun_ThreeWayEntryPointParity_UsesExactlySameCoreCounters_Issue9()
+    {
+        var root = Path.Combine(_tempDir, "explicit_parity");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Title (USA).zip"), "1");
+        File.WriteAllText(Path.Combine(root, "Title (Europe).zip"), "2");
+        File.WriteAllText(Path.Combine(root, "Title (Beta).zip"), "3");
+
+        var cliOptions = new CliProgram.CliOptions
+        {
+            Roots = [root],
+            Mode = "DryRun",
+            PreferRegions = ["US", "EU", "JP", "WORLD"]
+        };
+        var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
+        using var cliJson = ParseCliSummaryJson(cliStdout, cliStderr);
+
+        var vm = CreateViewModel();
+        vm.Roots.Add(root);
+        vm.DryRun = true;
+        vm.PreferEU = true;
+        vm.PreferUS = true;
+        vm.PreferJP = true;
+        vm.PreferWORLD = true;
+
+        var runService = new RunService();
+        var (orchestrator, options, auditPath, reportPath) = runService.BuildOrchestrator(vm);
+        var wpfExecution = runService.ExecuteRun(orchestrator, options, auditPath, reportPath, CancellationToken.None);
+
+        var manager = new RunManager(new FileSystemAdapter(), new AuditCsvStore());
+        var apiRun = manager.TryCreate(new RunRequest
+        {
+            Roots = [root],
+            Mode = "DryRun",
+            PreferRegions = ["US", "EU", "JP", "WORLD"]
+        }, "DryRun");
+
+        Assert.NotNull(apiRun);
+        await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var apiCompleted = manager.Get(apiRun.RunId);
+
+        Assert.Equal(0, cliExitCode);
+        Assert.NotNull(apiCompleted?.Result);
+
+        var cliTotal = cliJson.RootElement.GetProperty("TotalFiles").GetInt32();
+        var cliGroups = cliJson.RootElement.GetProperty("Groups").GetInt32();
+        var cliKeep = cliJson.RootElement.GetProperty("Keep").GetInt32();
+        var cliDupes = cliJson.RootElement.GetProperty("Dupes").GetInt32();
+
+        Assert.Equal(cliTotal, wpfExecution.Result.TotalFilesScanned);
+        Assert.Equal(cliGroups, wpfExecution.Result.GroupCount);
+        Assert.Equal(cliKeep, wpfExecution.Result.WinnerCount);
+        Assert.Equal(cliDupes, wpfExecution.Result.LoserCount);
+
+        Assert.Equal(cliTotal, apiCompleted!.Result!.TotalFiles);
+        Assert.Equal(cliGroups, apiCompleted.Result.Groups);
+        Assert.Equal(cliKeep, apiCompleted.Result.Keep);
+        Assert.Equal(cliDupes, apiCompleted.Result.Dupes);
+    }
+
+    [Fact]
     public void CliRun_WhenReportCreationFails_LogsWarningInsteadOfFakeReportPath()
     {
         var root = Path.Combine(_tempDir, "invalid-report-root");

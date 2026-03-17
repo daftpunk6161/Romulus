@@ -3,8 +3,8 @@ using RomCleanup.Contracts.Models;
 namespace RomCleanup.Infrastructure.Linking;
 
 /// <summary>
-/// Hardlink/symlink mode support for storage-efficient ROM organization.
-/// Mirrors HardlinkMode.ps1.
+/// [v2.1 deferred] Hardlink/symlink mode support for storage-efficient ROM organization.
+/// Mirrors HardlinkMode.ps1. Not wired into RunOrchestrator pipeline yet.
 /// </summary>
 public sealed class HardlinkService
 {

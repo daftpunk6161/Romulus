@@ -69,7 +69,16 @@ public static class OpenApiSpec
         ""summary"": ""Get completed run result"",
         ""parameters"": [{ ""name"": ""runId"", ""in"": ""path"", ""required"": true, ""schema"": { ""type"": ""string"" } }],
         ""responses"": {
-          ""200"": { ""description"": ""Full result"" },
+          ""200"": {
+            ""description"": ""Full result"",
+            ""content"": {
+              ""application/json"": {
+                ""schema"": {
+                  ""$ref"": ""#/components/schemas/ApiRunResult""
+                }
+              }
+            }
+          },
           ""404"": { ""description"": ""Run not found"" },
           ""409"": { ""description"": ""Run still in progress"" }
         }
@@ -97,6 +106,40 @@ public static class OpenApiSpec
     }
   },
   ""components"": {
+    ""schemas"": {
+      ""ApiRunResult"": {
+        ""type"": ""object"",
+        ""properties"": {
+          ""orchestratorStatus"": { ""type"": ""string"" },
+          ""exitCode"": { ""type"": ""integer"" },
+          ""totalFiles"": { ""type"": ""integer"" },
+          ""candidates"": { ""type"": ""integer"" },
+          ""groups"": { ""type"": ""integer"" },
+          ""keep"": { ""type"": ""integer"" },
+          ""dupes"": { ""type"": ""integer"" },
+          ""games"": { ""type"": ""integer"" },
+          ""junk"": { ""type"": ""integer"" },
+          ""bios"": { ""type"": ""integer"" },
+          ""datMatches"": { ""type"": ""integer"" },
+          ""healthScore"": { ""type"": ""integer"" },
+          ""convertedCount"": { ""type"": ""integer"" },
+          ""convertErrorCount"": { ""type"": ""integer"" },
+          ""convertSkippedCount"": { ""type"": ""integer"" },
+          ""junkRemovedCount"": { ""type"": ""integer"" },
+          ""junkFailCount"": { ""type"": ""integer"" },
+          ""moveCount"": { ""type"": ""integer"" },
+          ""skipCount"": { ""type"": ""integer"" },
+          ""consoleSortMoved"": { ""type"": ""integer"" },
+          ""consoleSortFailed"": { ""type"": ""integer"" },
+          ""failCount"": { ""type"": ""integer"" },
+          ""savedBytes"": { ""type"": ""integer"", ""format"": ""int64"" },
+          ""durationMs"": { ""type"": ""integer"", ""format"": ""int64"" },
+          ""error"": { ""type"": ""string"", ""nullable"": true },
+          ""auditPath"": { ""type"": ""string"", ""nullable"": true },
+          ""reportPath"": { ""type"": ""string"", ""nullable"": true }
+        }
+      }
+    },
     ""securitySchemes"": {
       ""ApiKey"": {
         ""type"": ""apiKey"",

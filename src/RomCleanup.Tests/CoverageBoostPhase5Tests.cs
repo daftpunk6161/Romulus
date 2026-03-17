@@ -628,10 +628,10 @@ public class FcsWorkflowCommandTests
     }
 
     [Fact]
-    public void PipelineEngine_ShowsPhases()
+    public void PipelineStatus_ShowsPhases()
     {
         var (_, vm, dialog) = Setup();
-        Exec(vm, "PipelineEngine");
+        Exec(vm, "PipelineStatus");
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 

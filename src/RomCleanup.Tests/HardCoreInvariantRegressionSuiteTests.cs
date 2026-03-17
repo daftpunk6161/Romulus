@@ -185,6 +185,34 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         Assert.Contains(enriched, c => c.Category == FileCategory.Junk);
     }
 
+    [Fact]
+    public void Enrichment_CompletenessScore_CueWithMissingTrack_IsNegative_Issue9()
+    {
+        var root = Path.Combine(_tempDir, "completeness");
+        Directory.CreateDirectory(root);
+
+        // .cue references a missing .bin track -> set should be incomplete
+        var cuePath = Path.Combine(root, "Game (USA).cue");
+        File.WriteAllText(cuePath, "FILE \"missing.bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n");
+
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Extensions = new[] { ".cue" },
+            Mode = "DryRun"
+        };
+
+        var scan = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
+        var enriched = new EnrichmentPipelinePhase().Execute(
+            new EnrichmentPhaseInput(scan, null, null, null),
+            CreateContext(options),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(enriched);
+        Assert.Equal(cuePath, candidate.MainPath);
+        Assert.Equal(-50, candidate.CompletenessScore);
+    }
+
     // 3) GameKey / Grouping
 
     [Fact]

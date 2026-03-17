@@ -44,6 +44,13 @@ public sealed record ReportSummary
     public int HealthScore { get; init; }
     public int ConvertedCount { get; init; }
     public int ConvertErrorCount { get; init; }
+    public int ConvertSkippedCount { get; init; }
+    public int JunkRemovedCount { get; init; }
+    public int JunkFailCount { get; init; }
+    public int SkipCount { get; init; }
+    public int ConsoleSortMoved { get; init; }
+    public int ConsoleSortFailed { get; init; }
+    public int FailCount { get; init; }
     public int ErrorCount { get; init; }
     public int SkippedCount { get; init; }
     public long SavedBytes { get; init; }

@@ -1003,10 +1003,10 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_PipelineEngine_NoResult_ShowsOverview()
+    public void FCS_PipelineStatus_NoResult_ShowsOverview()
     {
         var (vm, dialog, _) = SetupFcs();
-        ExecCommand(vm, "PipelineEngine");
+        ExecCommand(vm, "PipelineStatus");
         Assert.True(dialog.ShowTextCalls.Count > 0);
         Assert.Contains(dialog.ShowTextCalls, c => c.content.Contains("Pipeline"));
     }

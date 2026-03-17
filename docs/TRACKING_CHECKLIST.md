@@ -28,7 +28,12 @@
 - [x] `RunReportWriterTests` hinzugefügt
 - [x] API-Integrationstest für neue Ergebnisfelder hinzugefügt
 - [x] Kompletter `dotnet test src/RomCleanup.sln` Lauf lokal ausführen
+- [x] ADR-0007 Punkt 5: XXE-Payload-Test für DAT-Parser ergänzt
+- [x] ADR-0007 Punkt 5: expliziter 3-Way Entry-Point Parity-Guard ergänzt
+- [x] ADR-0007 Punkt 5: CompletenessScore-Test für unvollständige CUE-Sets ergänzt
+- [x] ADR-0007 Punkt 5: NTFS-Reparse-Point-Blocking (Windows/Junction) testseitig abgesichert
+- [x] ADR-0007 Punkt 5: DAT-Sidecar-Hash-Mismatch-Ablehnung testseitig ergänzt
 
 ## Backlog
-- [ ] Report/CLI/API/OpenAPI-Dokumentationsparität vollständig automatisiert prüfen
-- [ ] Weitere Channel-Parity-Tests (CLI vs API vs Report) für alle KPI-Felder
+- [x] Report/CLI/API/OpenAPI-Dokumentationsparität vollständig automatisiert prüfen
+- [x] Weitere Channel-Parity-Tests (CLI vs API vs Report) für alle KPI-Felder

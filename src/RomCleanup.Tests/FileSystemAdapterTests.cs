@@ -224,4 +224,36 @@ public class FileSystemAdapterTests : IDisposable
     {
         Assert.Null(_fs.ResolveChildPathWithinRoot(null!, "file.rom"));
     }
+
+    [Fact]
+    public void GetFilesSafe_JunctionSubdirectory_IsBlockedAsReparsePoint_Issue9()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(_tempDir, "root");
+        var target = Path.Combine(_tempDir, "target");
+        var junction = Path.Combine(root, "junction");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(target);
+
+        var regularFile = Path.Combine(root, "regular.rom");
+        var linkedFile = Path.Combine(target, "linked.rom");
+        File.WriteAllText(regularFile, "regular");
+        File.WriteAllText(linkedFile, "linked");
+
+        try
+        {
+            Directory.CreateSymbolicLink(junction, target);
+        }
+        catch
+        {
+            return;
+        }
+
+        var files = _fs.GetFilesSafe(root);
+
+        Assert.Contains(regularFile, files, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(files, f => f.Contains("linked.rom", StringComparison.OrdinalIgnoreCase));
+    }
 }

@@ -11,12 +11,15 @@ namespace RomCleanup.Infrastructure.Conversion;
 public sealed class FormatConverterAdapter : IFormatConverter
 {
     private readonly IToolRunner _tools;
+    private readonly IReadOnlyDictionary<string, ConversionTarget> _bestFormats;
 
     /// <summary>
-    /// Best target format per console type.
+    /// Default best target format per console type.
     /// Port of $script:BEST_FORMAT from Convert.ps1.
+    /// Injected via constructor to allow configuration override (ADR-0007 §3.3).
     /// </summary>
-    private static readonly Dictionary<string, ConversionTarget> BestFormats = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly IReadOnlyDictionary<string, ConversionTarget> DefaultBestFormats =
+        new Dictionary<string, ConversionTarget>(StringComparer.OrdinalIgnoreCase)
     {
         // CD-based → CHD (chdman createcd)
         ["PS1"]   = new(".chd", "chdman", "createcd"),
@@ -52,9 +55,20 @@ public sealed class FormatConverterAdapter : IFormatConverter
 
     private static readonly ConversionTarget PbpTarget = new(".chd", "psxtract", "pbp2chd");
 
+    /// <summary>
+    /// Creates a FormatConverterAdapter with default format mappings.
+    /// </summary>
     public FormatConverterAdapter(IToolRunner tools)
+        : this(tools, null) { }
+
+    /// <summary>
+    /// Creates a FormatConverterAdapter with optional custom format mappings.
+    /// Falls back to <see cref="DefaultBestFormats"/> when <paramref name="bestFormats"/> is null.
+    /// </summary>
+    public FormatConverterAdapter(IToolRunner tools, IReadOnlyDictionary<string, ConversionTarget>? bestFormats)
     {
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
+        _bestFormats = bestFormats ?? DefaultBestFormats;
     }
 
     public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
@@ -66,7 +80,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (string.IsNullOrWhiteSpace(consoleKey))
             return null;
 
-        return BestFormats.TryGetValue(consoleKey.Trim(), out var target) ? target : null;
+        return _bestFormats.TryGetValue(consoleKey.Trim(), out var target) ? target : null;
     }
 
     public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)

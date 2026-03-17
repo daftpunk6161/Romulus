@@ -87,7 +87,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
             var sizeTieBreak = FormatScorer.GetSizeTieBreakScore(null, ext, sizeBytes);
             var setMembers = GetSetMembers(filePath, ext);
-            var completeness = CalculateCompletenessScore(filePath, ext, setMembers, datMatch);
+            var completeness = CompletenessScorer.Calculate(filePath, ext, setMembers, datMatch);
 
             candidates.Add(CandidateFactory.Create(
                 normalizedPath: filePath,
@@ -121,33 +121,6 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         };
     }
 
-    private static int CalculateCompletenessScore(string filePath, string ext, IReadOnlyList<string> setMembers, bool datMatch)
-    {
-        int score = 0;
-
-        if (datMatch)
-            score += 50;
-
-        if (ext is ".cue" or ".gdi" or ".ccd" or ".m3u")
-        {
-            var missing = ext switch
-            {
-                ".cue" => CueSetParser.GetMissingFiles(filePath),
-                ".gdi" => GdiSetParser.GetMissingFiles(filePath),
-                ".ccd" => CcdSetParser.GetMissingFiles(filePath),
-                ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath),
-                _ => Array.Empty<string>()
-            };
-
-            score += missing.Count == 0 ? 50 : -50;
-        }
-        else if (setMembers.Count == 0)
-        {
-            score += 25;
-        }
-
-        return score;
-    }
 }
 
 public sealed record EnrichmentPhaseInput(

@@ -237,7 +237,7 @@ public sealed partial class MainViewModel
             ("SplitPanelPreview",  "Split-Panel",                "Workflow & Automatisierung", "Winner/Loser-Vergleich",                       "\xE8A0", true),
             ("FilterBuilder",      "Filter-Builder",             "Workflow & Automatisierung", "Erweiterte Filter erstellen",                  "\xE71C", true),
             ("SortTemplates",      "Sort-Templates",             "Workflow & Automatisierung", "Sortierungs-Vorlagen",                         "\xE8CB", false),
-            ("PipelineEngine",     "Pipeline-Engine",            "Workflow & Automatisierung", "Pipeline-Status anzeigen",                     "\xE8CB", false),
+            ("PipelineStatus",     "Pipeline-Engine",            "Workflow & Automatisierung", "Pipeline-Status anzeigen",                     "\xE8CB", false),
             ("SystemTray",         "System-Tray",                "Workflow & Automatisierung", "System-Tray ein-/ausschalten",                 "\xE8CB", false),
             ("SchedulerAdvanced",  "Cron-Tester",                "Workflow & Automatisierung", "Cron-Expressions testen",                     "\xE787", false),
             ("RulePackSharing",    "Regel-Pakete",               "Workflow & Automatisierung", "Regeln importieren/exportieren",               "\xE72D", false),

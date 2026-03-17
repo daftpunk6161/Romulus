@@ -4,8 +4,8 @@ using RomCleanup.Contracts.Ports;
 namespace RomCleanup.Infrastructure.Quarantine;
 
 /// <summary>
-/// Quarantine service for suspicious ROM files.
-/// Mirrors Quarantine.ps1 logic.
+/// [v2.1 deferred] Quarantine service for suspicious ROM files.
+/// Mirrors Quarantine.ps1 logic. Not wired into RunOrchestrator pipeline yet.
 /// </summary>
 public sealed class QuarantineService
 {

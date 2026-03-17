@@ -14,9 +14,6 @@ namespace RomCleanup.Infrastructure.Orchestration;
 /// Port of Invoke-CliRunAdapter / RunHelpers.Execution.ps1.
 /// Encapsulates: Preflight → Scan → Dedupe → JunkRemoval → Move → Sort → Convert → Report.
 /// Used by both CLI and API entry points.
-/// DESIGN-03: This class orchestrates all phases. Future refactor target: extract each phase
-/// into a dedicated handler (ScanPhase, DedupePhase, MovePhase, etc.) behind an IPipelinePhase
-/// interface for improved testability and SRP compliance.
 /// </summary>
 public sealed class RunOrchestrator
 {

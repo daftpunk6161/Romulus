@@ -3,8 +3,13 @@ using System.Security.Cryptography;
 using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Core.Classification;
+using RomCleanup.Infrastructure.Conversion;
+using RomCleanup.Infrastructure.Dat;
+using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Tools;
 
 namespace RomCleanup.Api;
 
@@ -397,6 +402,16 @@ public sealed class RunRequest
     public string[]? Roots { get; set; }
     public string? Mode { get; set; }
     public string[]? PreferRegions { get; set; }
+
+    // ADR-0007 §3.1: Additional options for API parity with CLI/WPF
+    public bool RemoveJunk { get; set; } = true;
+    public bool AggressiveJunk { get; set; }
+    public bool SortConsole { get; set; }
+    public bool EnableDat { get; set; }
+    public string? HashType { get; set; }
+    public string? ConvertFormat { get; set; }
+    public string? TrashRoot { get; set; }
+    public string[]? Extensions { get; set; }
 }
 
 public sealed class RunRecord

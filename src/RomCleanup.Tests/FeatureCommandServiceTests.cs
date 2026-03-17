@@ -110,7 +110,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("SplitPanelPreview")]
     [InlineData("FilterBuilder")]
     [InlineData("SortTemplates")]
-    [InlineData("PipelineEngine")]
+    [InlineData("PipelineStatus")]
     [InlineData("SchedulerAdvanced")]
     [InlineData("RulePackSharing")]
     [InlineData("ArcadeMergeSplit")]
@@ -318,10 +318,10 @@ public sealed class FeatureCommandServiceTests : IDisposable
     // ═══ PIPELINE ENGINE ════════════════════════════════════════════════
 
     [Fact]
-    public void PipelineEngine_ShowsPipelineInfo()
+    public void PipelineStatus_ShowsPipelineInfo()
     {
         _sut.RegisterCommands();
-        _vm.FeatureCommands["PipelineEngine"].Execute(null);
+        _vm.FeatureCommands["PipelineStatus"].Execute(null);
         Assert.True(HasOutput());
     }
 
