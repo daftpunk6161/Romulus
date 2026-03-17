@@ -30,14 +30,20 @@ public sealed record ReportEntry
 public sealed record ReportSummary
 {
     public string Mode { get; init; } = "DryRun";
+    public string RunStatus { get; init; } = "ok";
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     public int TotalFiles { get; init; }
+    public int Candidates { get; init; }
     public int KeepCount { get; init; }
+    public int DupesCount { get; init; }
+    public int GamesCount { get; init; }
     public int MoveCount { get; init; }
     public int JunkCount { get; init; }
     public int BiosCount { get; init; }
     public int DatMatches { get; init; }
+    public int HealthScore { get; init; }
     public int ConvertedCount { get; init; }
+    public int ConvertErrorCount { get; init; }
     public int ErrorCount { get; init; }
     public int SkippedCount { get; init; }
     public long SavedBytes { get; init; }
@@ -183,15 +189,21 @@ tr:hover { background: rgba(137,180,250,0.05); }
     private static void AppendSummaryCards(StringBuilder sb, ReportSummary s)
     {
         sb.AppendLine("<div class=\"cards\">");
+        AppendCard(sb, "", $"{s.HealthScore}%", "Health");
         AppendCard(sb, "keep", s.KeepCount.ToString(), "Spiele (KEEP)");
         AppendCard(sb, "move", s.MoveCount.ToString(), "Duplikate");
         AppendCard(sb, "junk", s.JunkCount.ToString(), "Junk");
         AppendCard(sb, "bios", s.BiosCount.ToString(), "BIOS");
+        AppendCard(sb, "", s.GamesCount.ToString(), "Games");
         AppendCard(sb, "dat", s.DatMatches.ToString(), "DAT Matches");
+        AppendCard(sb, "", s.Candidates.ToString(), "Kandidaten");
         if (s.ConvertedCount > 0)
             AppendCard(sb, "", s.ConvertedCount.ToString(), "Konvertiert");
+        if (s.ConvertErrorCount > 0)
+            AppendCard(sb, "junk", s.ConvertErrorCount.ToString(), "Convert-Fehler");
         if (s.ErrorCount > 0)
             AppendCard(sb, "junk", s.ErrorCount.ToString(), "Fehler");
+        AppendCard(sb, "", s.RunStatus, "Status");
         AppendCard(sb, "", FormatSize(s.SavedBytes), "Gespart");
         AppendCard(sb, "", s.TotalFiles.ToString(), "Gescannt");
         AppendCard(sb, "", s.Duration.ToString(@"mm\:ss"), "Laufzeit");

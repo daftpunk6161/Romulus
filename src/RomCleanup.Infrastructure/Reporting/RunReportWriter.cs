@@ -1,4 +1,5 @@
 using System.Text;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Orchestration;
 
 namespace RomCleanup.Infrastructure.Reporting;
@@ -19,7 +20,7 @@ public static class RunReportWriter
             {
                 GameKey = group.GameKey,
                 Action = "KEEP",
-                Category = group.Winner.Category,
+                Category = ToReportCategory(group.Winner.Category),
                 Region = group.Winner.Region,
                 FilePath = group.Winner.MainPath,
                 FileName = Path.GetFileName(group.Winner.MainPath),
@@ -38,8 +39,8 @@ public static class RunReportWriter
                 entries.Add(new ReportEntry
                 {
                     GameKey = group.GameKey,
-                    Action = loser.Category == "JUNK" ? "JUNK" : "MOVE",
-                    Category = loser.Category,
+                        Action = loser.Category == FileCategory.Junk ? "JUNK" : "MOVE",
+                        Category = ToReportCategory(loser.Category),
                     Region = loser.Region,
                     FilePath = loser.MainPath,
                     FileName = Path.GetFileName(loser.MainPath),
@@ -55,7 +56,7 @@ public static class RunReportWriter
             }
         }
 
-        foreach (var candidate in result.AllCandidates.Where(c => c.Category is "JUNK" or "BIOS"))
+        foreach (var candidate in result.AllCandidates.Where(c => c.Category is FileCategory.Junk or FileCategory.Bios))
         {
             if (!seenPaths.Add(candidate.MainPath))
                 continue;
@@ -63,8 +64,8 @@ public static class RunReportWriter
             entries.Add(new ReportEntry
             {
                 GameKey = candidate.GameKey,
-                Action = candidate.Category,
-                Category = candidate.Category,
+                Action = ToReportCategory(candidate.Category),
+                Category = ToReportCategory(candidate.Category),
                 Region = candidate.Region,
                 FilePath = candidate.MainPath,
                 FileName = Path.GetFileName(candidate.MainPath),
@@ -81,26 +82,48 @@ public static class RunReportWriter
         return entries;
     }
 
+    private static string ToReportCategory(FileCategory category)
+        => category.ToString().ToUpperInvariant();
+
     public static ReportSummary BuildSummary(RunResult result, string mode)
     {
         var entries = BuildEntries(result);
+        var projection = RunProjectionFactory.Create(result);
+        var moveCount = string.Equals(mode, "DryRun", StringComparison.OrdinalIgnoreCase)
+            ? projection.Dupes
+            : projection.MoveCount;
+        var junkCount = projection.Junk;
+        var biosCount = projection.Bios;
+
+        // Invariant: report breakdown must account for all scanned files.
+        var accountedTotal = projection.Keep + projection.Dupes + junkCount + biosCount;
+        if (projection.TotalFiles > 0 && accountedTotal > projection.TotalFiles)
+            throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} > scanned={projection.TotalFiles}");
+
+        var totalErrorCount = projection.FailCount + projection.JunkFailCount + projection.ConsoleSortFailed;
 
         return new ReportSummary
         {
             Mode = mode,
+            RunStatus = projection.Status,
             Timestamp = DateTime.UtcNow,
-            TotalFiles = result.TotalFilesScanned,
-            KeepCount = entries.Count(e => e.Action == "KEEP"),
-            MoveCount = entries.Count(e => e.Action == "MOVE"),
-            JunkCount = entries.Count(e => e.Action == "JUNK"),
-            BiosCount = entries.Count(e => e.Category == "BIOS"),
-            DatMatches = entries.Count(e => e.DatMatch),
-            ConvertedCount = result.ConvertedCount,
-            ErrorCount = (result.MoveResult?.FailCount ?? 0) + result.ConvertErrorCount,
-            SkippedCount = result.ConvertSkippedCount,
-            SavedBytes = result.MoveResult?.SavedBytes ?? 0,
-            GroupCount = result.GroupCount,
-            Duration = TimeSpan.FromMilliseconds(result.DurationMs)
+            TotalFiles = projection.TotalFiles,
+            Candidates = projection.Candidates,
+            KeepCount = projection.Keep,
+            DupesCount = projection.Dupes,
+            GamesCount = projection.Games,
+            MoveCount = moveCount,
+            JunkCount = junkCount,
+            BiosCount = biosCount,
+            DatMatches = projection.DatMatches,
+            HealthScore = projection.HealthScore,
+            ConvertedCount = projection.ConvertedCount,
+            ConvertErrorCount = projection.ConvertErrorCount,
+            ErrorCount = totalErrorCount,
+            SkippedCount = projection.ConvertSkippedCount + projection.SkipCount,
+            SavedBytes = projection.SavedBytes,
+            GroupCount = projection.Groups,
+            Duration = TimeSpan.FromMilliseconds(projection.DurationMs)
         };
     }
 

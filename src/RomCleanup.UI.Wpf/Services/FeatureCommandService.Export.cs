@@ -27,7 +27,7 @@ public sealed partial class FeatureCommandService
             TotalFiles = _vm.LastCandidates.Count,
             KeepCount = _vm.LastDedupeGroups.Count,
             MoveCount = _vm.LastDedupeGroups.Sum(g => g.Losers.Count),
-            JunkCount = _vm.LastCandidates.Count(c => c.Category == "JUNK"),
+            JunkCount = _vm.LastCandidates.Count(c => c.Category == FileCategory.Junk),
             GroupCount = _vm.LastDedupeGroups.Count,
             Duration = TimeSpan.FromMilliseconds(_vm.LastRunResult?.DurationMs ?? 0)
         };
@@ -37,8 +37,8 @@ public sealed partial class FeatureCommandService
         var entries = _vm.LastCandidates.Select(c => new ReportEntry
         {
             GameKey = c.GameKey,
-            Action = c.Category == "JUNK" ? "JUNK" : loserPaths.Contains(c.MainPath) ? "MOVE" : "KEEP",
-            Category = c.Category, Region = c.Region, FilePath = c.MainPath,
+            Action = c.Category == FileCategory.Junk ? "JUNK" : loserPaths.Contains(c.MainPath) ? "MOVE" : "KEEP",
+            Category = FeatureService.ToCategoryLabel(c.Category), Region = c.Region, FilePath = c.MainPath,
             FileName = Path.GetFileName(c.MainPath), Extension = c.Extension,
             SizeBytes = c.SizeBytes, RegionScore = c.RegionScore, FormatScore = c.FormatScore,
             VersionScore = (int)c.VersionScore, DatMatch = c.DatMatch

@@ -19,7 +19,7 @@ public sealed class RomCandidate
     public string Extension { get; init; } = "";
     public string ConsoleKey { get; init; } = "";
     public bool DatMatch { get; init; }
-    public string Category { get; init; } = "GAME";
+    public FileCategory Category { get; init; } = FileCategory.Game;
 }
 
 /// <summary>

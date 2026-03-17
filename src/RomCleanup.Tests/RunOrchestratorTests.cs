@@ -420,11 +420,11 @@ public class RunOrchestratorTests : IDisposable
         // The Beta file should be classified as JUNK
         var betaCandidate = result.AllCandidates.FirstOrDefault(c => c.MainPath.Contains("Beta"));
         Assert.NotNull(betaCandidate);
-        Assert.Equal("JUNK", betaCandidate!.Category);
+        Assert.Equal(FileCategory.Junk, betaCandidate!.Category);
         // The non-Beta file should be classified as GAME
         var normalCandidate = result.AllCandidates.FirstOrDefault(c => !c.MainPath.Contains("Beta"));
         Assert.NotNull(normalCandidate);
-        Assert.Equal("GAME", normalCandidate!.Category);
+        Assert.Equal(FileCategory.Game, normalCandidate!.Category);
     }
 
     // ── Helpers ───────────────────────────────────────────────────

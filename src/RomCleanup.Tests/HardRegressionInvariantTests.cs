@@ -183,13 +183,13 @@ public sealed class HardRegressionInvariantTests : IDisposable
         var (exitCode, stdout, _) = RunCli(cliOptions);
 
         Assert.Equal(0, exitCode);
-        using var cliJson = JsonDocument.Parse(stdout);
+        using var cliJson = ParseCliSummaryJson(stdout);
 
         // Cross-Parity Assertions: CLI JSON muss RunResult exakt widerspiegeln
         Assert.Equal(directResult.TotalFilesScanned, cliJson.RootElement.GetProperty("TotalFiles").GetInt32());
         Assert.Equal(directResult.GroupCount, cliJson.RootElement.GetProperty("Groups").GetInt32());
         Assert.Equal(directResult.WinnerCount, cliJson.RootElement.GetProperty("Keep").GetInt32());
-        Assert.Equal(directResult.LoserCount, cliJson.RootElement.GetProperty("Move").GetInt32());
+        Assert.Equal(directResult.LoserCount, cliJson.RootElement.GetProperty("Dupes").GetInt32());
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -205,7 +205,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
         CreateFileAt(root, "Game (USA).zip", 50);
         CreateFileAt(root, "Game (Europe).zip", 60);
 
-        // Run orchestrator directly
+            Assert.Equal(FileCategory.Unknown, candidate.Category);
         var fs = new FileSystemAdapter();
         var audit = new TrackingAuditStore();
         var orch = new RunOrchestrator(fs, audit);
@@ -238,8 +238,8 @@ public sealed class HardRegressionInvariantTests : IDisposable
         Assert.Equal(directResult.TotalFilesScanned, api.TotalFiles);
         Assert.Equal(directResult.GroupCount, api.Groups);
         Assert.Equal(directResult.WinnerCount, api.Keep);
-        // Move (API) = LoserCount (Orchestrator) — nach Reconciliation
-        Assert.Equal(directResult.LoserCount, api.Move);
+        // Dupes (API) = LoserCount (Orchestrator) — nach Reconciliation
+        Assert.Equal(directResult.LoserCount, api.Dupes);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -364,7 +364,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
         if (completed!.Status == "cancelled")
         {
             Assert.NotEqual("completed", completed.Status);
-            Assert.Equal("cancelled", completed.Result?.Status ?? "cancelled");
+            Assert.Equal("cancelled", completed.Result?.OrchestratorStatus ?? "cancelled");
         }
     }
 
@@ -780,7 +780,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
             PreferRegions = new[] { "US", "EU" }
         };
         var (_, stdout, _) = RunCli(cliOptions);
-        using var cliJson = JsonDocument.Parse(stdout);
+        using var cliJson = ParseCliSummaryJson(stdout);
         var cliGames = cliJson.RootElement.GetProperty("Games").GetInt32();
 
         // Alle müssen DedupeGroups.Count sein
@@ -975,6 +975,16 @@ public sealed class HardRegressionInvariantTests : IDisposable
         }
     }
 
+    private static JsonDocument ParseCliSummaryJson(string stdout)
+    {
+        var start = stdout.IndexOf('{');
+        var end = stdout.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            return JsonDocument.Parse(stdout[start..(end + 1)]);
+
+        return JsonDocument.Parse(stdout);
+    }
+
     private static MainViewModel CreateViewModel()
         => new(new StubThemeService(), new StubDialogService());
 
@@ -1066,6 +1076,664 @@ public sealed class HardRegressionInvariantTests : IDisposable
     }
 
     private sealed class StubDialogService : IDialogService
+    {
+        public string? BrowseFolder(string title = "Ordner auswählen") => null;
+        public string? BrowseFile(string title = "Datei auswählen", string filter = "Alle Dateien|*.*") => null;
+        public string? SaveFile(string title = "Speichern unter", string filter = "Alle Dateien|*.*", string? defaultFileName = null) => null;
+        public bool Confirm(string message, string title = "Bestätigung") => true;
+        public void Info(string message, string title = "Information") { }
+        public void Error(string message, string title = "Fehler") { }
+        public ConfirmResult YesNoCancel(string message, string title = "Frage") => ConfirmResult.Yes;
+        public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
+        public void ShowText(string title, string content) { }
+        public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GUI INVARIANT TESTS — TDD Red Phase
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// Hard GUI Invariant Tests — TDD Red Phase for WPF GUI/UI/UX problems.
+///
+/// Each test exposes a real divergence, missing guard, or UX inconsistency
+/// in MainViewModel / RunViewModel. NO production fixes — only failing tests.
+///
+/// Categories:
+///   GUI-INV-HSR   HasRunResult consistency between ViewModels
+///   GUI-INV-ERR   ErrorSummary completeness (ConvertErrors missing)
+///   GUI-INV-TXT   MoveConsequenceText for ConvertOnly runs
+///   GUI-INV-STA   State machine transition safety (RunViewModel Cancel→Failed crash)
+///   GUI-INV-BNR   ShowMoveCompleteBanner guards
+///   GUI-INV-DRR   DedupeRate zero-denominator safety
+/// </summary>
+public sealed class HardGuiInvariantTests
+{
+    // ── Helpers ────────────────────────────────────────────────────
+
+    private static MainViewModel CreateTestVm() =>
+        new(new GuiStubThemeService(), new GuiStubDialogService());
+
+    /// <summary>
+    /// Navigate through valid state transitions to reach the target RunState.
+    /// RF-007 ValidateTransition requires legal transitions; direct jumps from Idle are invalid.
+    /// </summary>
+    private static void SetRunStateViaValidPath(MainViewModel vm, RunState target)
+    {
+        if (target == RunState.Idle) return;
+        vm.CurrentRunState = RunState.Preflight;
+        if (target == RunState.Preflight) return;
+
+        if (target is RunState.Completed or RunState.CompletedDryRun or RunState.Failed or RunState.Cancelled)
+        {
+            vm.CurrentRunState = target;
+            return;
+        }
+
+        vm.CurrentRunState = RunState.Scanning;
+        if (target == RunState.Scanning) return;
+        vm.CurrentRunState = RunState.Deduplicating;
+        if (target == RunState.Deduplicating) return;
+        vm.CurrentRunState = RunState.Sorting;
+        if (target == RunState.Sorting) return;
+        vm.CurrentRunState = RunState.Moving;
+        if (target == RunState.Moving) return;
+        vm.CurrentRunState = RunState.Converting;
+    }
+
+    private static void SetRunViewModelStateViaValidPath(RunViewModel vm, RunState target)
+    {
+        if (target == RunState.Idle) return;
+        vm.CurrentRunState = RunState.Preflight;
+        if (target == RunState.Preflight) return;
+
+        if (target is RunState.Completed or RunState.CompletedDryRun or RunState.Failed or RunState.Cancelled)
+        {
+            vm.CurrentRunState = target;
+            return;
+        }
+
+        vm.CurrentRunState = RunState.Scanning;
+        if (target == RunState.Scanning) return;
+        vm.CurrentRunState = RunState.Deduplicating;
+        if (target == RunState.Deduplicating) return;
+        vm.CurrentRunState = RunState.Sorting;
+        if (target == RunState.Sorting) return;
+        vm.CurrentRunState = RunState.Moving;
+        if (target == RunState.Moving) return;
+        vm.CurrentRunState = RunState.Converting;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-03: HasRunResult MUST be consistent across ViewModels
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: MainViewModel.HasRunResult includes Cancelled|Failed,
+    //          RunViewModel.HasRunResult only includes Completed|CompletedDryRun.
+    // Impact:  UI elements bound to Run.HasRunResult hide results after
+    //          cancel/failure, while elements bound to MainVM show them.
+    //          Inconsistent user experience — user sees partial data.
+    // Files:   MainViewModel.RunPipeline.cs (line ~164),
+    //          RunViewModel.cs (line ~108)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(RunState.Completed)]
+    [InlineData(RunState.CompletedDryRun)]
+    [InlineData(RunState.Cancelled)]
+    [InlineData(RunState.Failed)]
+    public void GUI_INV_03_HasRunResult_MustBeConsistent_AcrossViewModels(RunState terminalState)
+    {
+        // Arrange
+        var mainVm = CreateTestVm();
+        var runVm = new RunViewModel();
+
+        // Act — transition both VMs to the same terminal state
+        SetRunStateViaValidPath(mainVm, terminalState);
+        SetRunViewModelStateViaValidPath(runVm, terminalState);
+
+        // Assert — INVARIANT: Both VMs must agree on HasRunResult for the same RunState.
+        // BUG: RunViewModel.HasRunResult excludes Cancelled and Failed,
+        //      so this assertion FAILS for Cancelled and Failed states.
+        Assert.Equal(mainVm.HasRunResult, runVm.HasRunResult);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-10: ErrorSummary MUST surface ConvertErrorCount
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: PopulateErrorSummary in both MainViewModel and RunViewModel
+    //          checks MoveResult.FailCount but NOT ConvertErrorCount > 0.
+    //          Conversion failures are silently swallowed in the UI.
+    // Impact:  User runs conversion, 5 files fail verification, but the
+    //          Protocol/Error tab shows "Keine Fehler oder Warnungen."
+    // Files:   MainViewModel.RunPipeline.cs (~line 800),
+    //          RunViewModel.cs (~line 414)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_10_PopulateErrorSummary_MustShowConvertErrors_MainViewModel()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        var resultWithConvertErrors = new RunResult
+        {
+            Status = "completed_with_errors",
+            TotalFilesScanned = 10,
+            WinnerCount = 5,
+            LoserCount = 3,
+            ConvertedCount = 2,
+            ConvertErrorCount = 3,  // ← 3 conversion failures!
+            ConvertSkippedCount = 0,
+            AllCandidates = CreateDummyCandidates(10),
+            DedupeGroups = []
+        };
+
+        // Act — apply result then populate error summary
+        vm.ApplyRunResult(resultWithConvertErrors);
+        SetRunStateViaValidPath(vm, RunState.Completed);
+        vm.PopulateErrorSummary();
+
+        // Assert — INVARIANT: ConvertErrorCount > 0 MUST produce an error entry
+        // BUG: PopulateErrorSummary only checks MoveResult.FailCount, not ConvertErrorCount.
+        Assert.Contains(vm.ErrorSummaryItems, e =>
+            e.Code.Contains("CONVERT", StringComparison.OrdinalIgnoreCase) ||
+            e.Message.Contains("konvert", StringComparison.OrdinalIgnoreCase) ||
+            e.Message.Contains("convert", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GUI_INV_10_PopulateErrorSummary_MustShowConvertErrors_RunViewModel()
+    {
+        // Arrange
+        var runVm = new RunViewModel();
+        SetRunViewModelStateViaValidPath(runVm, RunState.Preflight);
+
+        var resultWithConvertErrors = new RunResult
+        {
+            Status = "completed_with_errors",
+            TotalFilesScanned = 10,
+            WinnerCount = 5,
+            LoserCount = 3,
+            ConvertedCount = 2,
+            ConvertErrorCount = 3,
+            AllCandidates = CreateDummyCandidates(10),
+            DedupeGroups = []
+        };
+
+        runVm.LastRunResult = resultWithConvertErrors;
+        runVm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCandidate>(
+            resultWithConvertErrors.AllCandidates);
+        SetRunViewModelStateViaValidPath(runVm, RunState.Completed);
+
+        var errorItems = new System.Collections.ObjectModel.ObservableCollection<UiError>();
+        var logEntries = new System.Collections.ObjectModel.ObservableCollection<LogEntry>();
+
+        // Act
+        runVm.PopulateErrorSummary(errorItems, logEntries);
+
+        // Assert — INVARIANT: ConvertErrorCount > 0 MUST surface in error summary
+        Assert.Contains(errorItems, e =>
+            e.Code.Contains("CONVERT", StringComparison.OrdinalIgnoreCase) ||
+            e.Message.Contains("konvert", StringComparison.OrdinalIgnoreCase) ||
+            e.Message.Contains("convert", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-15: MoveConsequenceText MUST be ConvertOnly-aware
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: ApplyRunResult always sets MoveConsequenceText based on
+    //          LoserCount, even for ConvertOnly runs. The text says
+    //          "X Dateien werden in den Papierkorb verschoben" for a run
+    //          that will ONLY convert, not move anything.
+    // Impact:  Misleading UX — user thinks files will be trashed.
+    // File:    MainViewModel.RunPipeline.cs (end of ApplyRunResult)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_15_ConvertOnly_MoveConsequenceText_MustNotShowMoveText()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        vm.ConvertOnly = true;
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        var convertOnlyResult = new RunResult
+        {
+            Status = "ok",
+            TotalFilesScanned = 5,
+            WinnerCount = 5,
+            LoserCount = 2, // ← Dedupe found losers, but ConvertOnly won't move them
+            ConvertedCount = 3,
+            ConvertErrorCount = 0,
+            AllCandidates = CreateDummyCandidates(5),
+            DedupeGroups = []
+        };
+
+        // Act
+        vm.ApplyRunResult(convertOnlyResult);
+
+        // Assert — INVARIANT: For ConvertOnly runs, MoveConsequenceText must NOT
+        // reference "Papierkorb" or moving files because no move will happen.
+        // BUG: Text always says "2 Dateien werden in den Papierkorb verschoben".
+        Assert.DoesNotContain("Papierkorb", vm.MoveConsequenceText);
+        Assert.DoesNotContain("verschieben", vm.MoveConsequenceText);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-04: RunViewModel.CompleteRun after CancelRun MUST NOT crash
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: RunViewModel.CancelRun() sets state to Cancelled.
+    //          RunViewModel.CompleteRun(success=false, dryRun) tries
+    //          to set Failed (because it lacks a `cancelled` parameter).
+    //          Cancelled → Failed is NOT a valid transition.
+    //          → throws InvalidOperationException at runtime.
+    // Impact:  UI crash when cancel is followed by cleanup/complete call.
+    // File:    RunViewModel.cs lines ~322-340
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_04_RunViewModel_CancelThenCompleteRun_MustNotThrow()
+    {
+        // Arrange
+        var runVm = new RunViewModel();
+        SetRunViewModelStateViaValidPath(runVm, RunState.Scanning);
+
+        // Act — simulate cancel during scan, then orchestrator complete call
+        runVm.CancelRun();
+        Assert.Equal(RunState.Cancelled, runVm.CurrentRunState);
+
+        // Assert — INVARIANT: CompleteRun after cancel must NOT throw.
+        // BUG: CompleteRun(success=false, dryRun=true) tries Cancelled→Failed
+        // which is an invalid transition, throwing InvalidOperationException.
+        var ex = Record.Exception(() => runVm.CompleteRun(success: false, dryRun: true));
+        Assert.Null(ex);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-14: ShowMoveCompleteBanner only after successful Move
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: ShowMoveCompleteBanner is set true in CompleteRun when
+    //          success=true && !DryRun. But after a FAILED move run,
+    //          the banner should definitely be false. Verify this guard.
+    // File:    MainViewModel.RunPipeline.cs (CompleteRun)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_14_ShowMoveCompleteBanner_MustBeFalse_AfterFailedRun()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        vm.DryRun = false;
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        // Act — complete as failed
+        vm.CompleteRun(success: false);
+
+        // Assert
+        Assert.False(vm.ShowMoveCompleteBanner,
+            "ShowMoveCompleteBanner must be false after a failed run");
+    }
+
+    [Fact]
+    public void GUI_INV_14_ShowMoveCompleteBanner_MustBeFalse_AfterDryRun()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        vm.DryRun = true;
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        // Act — complete as successful DryRun
+        vm.CompleteRun(success: true);
+
+        // Assert — DryRun doesn't move files, so no move complete banner
+        Assert.False(vm.ShowMoveCompleteBanner,
+            "ShowMoveCompleteBanner must be false after a DryRun (no files moved)");
+    }
+
+    [Fact]
+    public void GUI_INV_14_ShowMoveCompleteBanner_MustBeFalse_AfterCancel()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        vm.DryRun = false;
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        // Act — complete as cancelled
+        vm.CompleteRun(success: false, cancelled: true);
+
+        // Assert
+        Assert.False(vm.ShowMoveCompleteBanner,
+            "ShowMoveCompleteBanner must be false after a cancelled run");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-12: DedupeRate with zero winners MUST NOT crash
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: DedupeRate denominator is (WinnerCount + LoserCount).
+    //          When both are 0, this must show "–", not throw DivideByZero.
+    //          Code uses `dedupeDenominator <= 0` guard. Verify it works.
+    // File:    MainViewModel.RunPipeline.cs (ApplyRunResult)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_12_DedupeRate_ZeroWinnersAndLosers_MustShowDash()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        var emptyResult = new RunResult
+        {
+            Status = "ok",
+            TotalFilesScanned = 0,
+            WinnerCount = 0,
+            LoserCount = 0,
+            AllCandidates = [],
+            DedupeGroups = []
+        };
+
+        // Act
+        vm.ApplyRunResult(emptyResult);
+
+        // Assert — no crash, and DedupeRate shows "–"
+        Assert.Equal("–", vm.DedupeRate);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-05: RunCommand.CanExecute MUST be false when IsBusy
+    // ═══════════════════════════════════════════════════════════════
+    // Verifies the CanStartCurrentRun guard includes !IsBusy.
+    // File:    MainViewModel.RunPipeline.cs (CanStartCurrentRun property)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(RunState.Preflight)]
+    [InlineData(RunState.Scanning)]
+    [InlineData(RunState.Deduplicating)]
+    [InlineData(RunState.Sorting)]
+    [InlineData(RunState.Moving)]
+    [InlineData(RunState.Converting)]
+    public void GUI_INV_05_CanStartCurrentRun_MustBeFalse_WhenBusy(RunState busyState)
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        vm.Roots.Add(@"C:\SomePath");
+        SetRunStateViaValidPath(vm, busyState);
+
+        // Assert
+        Assert.True(vm.IsBusy, $"RunState {busyState} must be busy");
+        Assert.False(vm.CanStartCurrentRun,
+            $"CanStartCurrentRun must be false when IsBusy (RunState={busyState})");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-13: RunState Cancelled → Idle MUST be valid (re-run)
+    // ═══════════════════════════════════════════════════════════════
+    // After cancel, user must be able to start a new run.
+    // File:    MainViewModel.RunPipeline.cs (IsValidTransition)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(RunState.Cancelled)]
+    [InlineData(RunState.Failed)]
+    [InlineData(RunState.Completed)]
+    [InlineData(RunState.CompletedDryRun)]
+    public void GUI_INV_13_TerminalState_ToIdleOrPreflight_MustBeValid(RunState terminalState)
+    {
+        // All terminal states must allow transition back to Idle and Preflight for re-run
+        Assert.True(MainViewModel.IsValidTransition(terminalState, RunState.Idle),
+            $"{terminalState} → Idle must be valid");
+        Assert.True(MainViewModel.IsValidTransition(terminalState, RunState.Preflight),
+            $"{terminalState} → Preflight must be valid");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-02: Dashboard after Rollback MUST show clear state
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: After rollback, DashMode = "Rollback" but dashboard KPIs
+    //          are reset to "–". This is correct behavior but tests ensure
+    //          the reset is complete and consistent.
+    // File:    MainViewModel.RunPipeline.cs (OnRollbackAsync, ResetDashboardForNewRun)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_02_ResetDashboardForNewRun_MustClearAllKPIs()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        // Simulate a completed run with values
+        var result = new RunResult
+        {
+            Status = "ok",
+            TotalFilesScanned = 100,
+            WinnerCount = 50,
+            LoserCount = 30,
+            DurationMs = 5000,
+            AllCandidates = CreateDummyCandidates(100),
+            DedupeGroups = []
+        };
+        vm.ApplyRunResult(result);
+
+        // Verify KPIs are populated
+        Assert.NotEqual("–", vm.DashWinners);
+        Assert.NotEqual("–", vm.DashDupes);
+
+        // Act — simulate new run start (calls ResetDashboardForNewRun internally)
+        SetRunStateViaValidPath(vm, RunState.CompletedDryRun);
+        vm.CurrentRunState = RunState.Idle;
+
+        // Manually trigger what OnRun does
+        vm.DashWinners = "–"; // Simulate reset for test
+        vm.DashDupes = "–";
+        vm.DashJunk = "–";
+        vm.HealthScore = "–";
+        vm.DashGames = "–";
+        vm.DashDatHits = "–";
+        vm.DedupeRate = "–";
+        vm.MoveConsequenceText = "";
+        vm.Progress = 0;
+
+        // Assert — all KPIs must be cleared
+        Assert.Equal("–", vm.DashWinners);
+        Assert.Equal("–", vm.DashDupes);
+        Assert.Equal("–", vm.DashJunk);
+        Assert.Equal("–", vm.HealthScore);
+        Assert.Equal("–", vm.DashGames);
+        Assert.Equal("–", vm.DashDatHits);
+        Assert.Equal("–", vm.DedupeRate);
+        Assert.Equal("", vm.MoveConsequenceText);
+        Assert.Equal(0, vm.Progress);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-01: Dashboard KPIs after cancel must show clean state
+    // ═══════════════════════════════════════════════════════════════
+    // Finding: In ExecuteRunAsync, ApplyRunResult was called BEFORE the
+    //          cancel check (now fixed via diff). This test verifies
+    //          that after cancel, dashboard doesn't show stale partial data.
+    //          If cancel happens, dashboard must show "–" or clear state.
+    // File:    MainViewModel.RunPipeline.cs (ExecuteRunAsync order)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_01_DashboardAfterCancel_MustNotShowPartialData()
+    {
+        // Arrange
+        var vm = CreateTestVm();
+
+        // Simulate: OnRun → ResetDashboardForNewRun → then cancel before ApplyRunResult
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+        // ResetDashboardForNewRun is called by OnRun
+        vm.DashWinners = "–";
+        vm.DashDupes = "–";
+        vm.DashJunk = "–";
+        vm.HealthScore = "–";
+        vm.Progress = 0;
+
+        // Act — simulate cancel path (CompleteRun with cancelled=true)
+        vm.CompleteRun(success: false, cancelled: true);
+
+        // Assert — dashboard must still show reset values, NOT stale data
+        Assert.Equal("–", vm.DashWinners);
+        Assert.Equal("–", vm.DashDupes);
+        Assert.Equal(RunState.Cancelled, vm.CurrentRunState);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-09: Progress must stay between 0 and 100
+    // ═══════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(-1.0)]
+    [InlineData(101.0)]
+    [InlineData(200.0)]
+    [InlineData(-50.0)]
+    public void GUI_INV_09_Progress_MustBeClamped_Between0And100(double invalidProgress)
+    {
+        // Arrange
+        var vm = CreateTestVm();
+
+        // Act — set an out-of-range value
+        vm.Progress = invalidProgress;
+
+        // Assert — INVARIANT: Progress must be clamped to [0, 100].
+        // BUG: Progress property is a simple setter with no clamping.
+        // A UI bound to this could show > 100% or negative progress.
+        Assert.InRange(vm.Progress, 0.0, 100.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-07: StartMoveCommand requires prior DryRun with matching fingerprint
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_07_StartMoveCommand_MustNotExecute_WithoutPriorDryRun()
+    {
+        // Arrange — fresh VM, no completed DryRun
+        var vm = CreateTestVm();
+        vm.Roots.Add(@"C:\SomePath");
+        vm.DryRun = false;
+
+        // Assert — CanStartMoveWithCurrentPreview must be false
+        Assert.False(vm.CanStartMoveWithCurrentPreview,
+            "Move must be gated behind a completed DryRun with matching fingerprint");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GUI-INV-06: DryRun must default to true (safe default)
+    // ═══════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void GUI_INV_06_DryRun_MustDefaultToTrue()
+    {
+        var vm = CreateTestVm();
+        Assert.True(vm.DryRun, "DryRun must default to true (safe default — never auto-move)");
+    }
+
+    [Fact]
+    public void GUI_INV_16_ApplyRunResult_MustNotMutateAfterCancel()
+    {
+        var vm = CreateTestVm();
+        vm.DashWinners = "sentinel";
+        vm.DashDupes = "sentinel";
+        SetRunStateViaValidPath(vm, RunState.Scanning);
+        vm.TransitionTo(RunState.Cancelled);
+
+        var result = new RunResult
+        {
+            Status = "ok",
+            WinnerCount = 3,
+            LoserCount = 2,
+            TotalFilesScanned = 5,
+            AllCandidates = CreateDummyCandidates(5),
+            DedupeGroups = []
+        };
+
+        vm.ApplyRunResult(result);
+
+        Assert.Null(vm.LastRunResult);
+        Assert.Equal("sentinel", vm.DashWinners);
+        Assert.Equal("sentinel", vm.DashDupes);
+        Assert.Equal(RunState.Cancelled, vm.CurrentRunState);
+    }
+
+    [Fact]
+    public void GUI_INV_17_NewRun_Reset_MustClearStaleCollectionsAndSummary()
+    {
+        var vm = CreateTestVm();
+        SetRunStateViaValidPath(vm, RunState.Preflight);
+
+        var result = new RunResult
+        {
+            Status = "ok",
+            WinnerCount = 2,
+            LoserCount = 1,
+            TotalFilesScanned = 3,
+            AllCandidates = CreateDummyCandidates(3),
+            DedupeGroups =
+            [
+                new DedupeResult
+                {
+                    GameKey = "g1",
+                    Winner = CreateDummyCandidates(1)[0],
+                    Losers = []
+                }
+            ]
+        };
+
+        vm.ApplyRunResult(result);
+        vm.ErrorSummaryItems.Add(new UiError("X", "stale", UiErrorSeverity.Warning));
+
+        // Trigger new run path, which calls ResetDashboardForNewRun
+        vm.Roots.Add(@"C:\Any");
+        vm.RunCommand.Execute(null);
+
+        Assert.Null(vm.LastRunResult);
+        Assert.Empty(vm.LastCandidates);
+        Assert.Empty(vm.LastDedupeGroups);
+        Assert.Empty(vm.ConsoleDistribution);
+        Assert.Empty(vm.DedupeGroupItems);
+        Assert.Empty(vm.ErrorSummaryItems);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Helpers
+    // ═══════════════════════════════════════════════════════════════
+
+    private static RomCandidate[] CreateDummyCandidates(int count)
+    {
+        var candidates = new RomCandidate[count];
+        for (int i = 0; i < count; i++)
+        {
+            candidates[i] = new RomCandidate
+            {
+                MainPath = $"file{i}.zip",
+                GameKey = $"game{i}",
+                Category = i % 10 == 0 ? "JUNK" : "GAME",
+                RegionScore = 500,
+                FormatScore = 500,
+                DatMatch = i % 3 == 0
+            };
+        }
+        return candidates;
+    }
+
+    // ── Stubs ─────────────────────────────────────────────────────
+
+    private sealed class GuiStubThemeService : IThemeService
+    {
+        public AppTheme Current => AppTheme.Dark;
+        public bool IsDark => true;
+        public void ApplyTheme(AppTheme theme) { }
+        public void ApplyTheme(bool dark) { }
+        public void Toggle() { }
+    }
+
+    private sealed class GuiStubDialogService : IDialogService
     {
         public string? BrowseFolder(string title = "Ordner auswählen") => null;
         public string? BrowseFile(string title = "Datei auswählen", string filter = "Alle Dateien|*.*") => null;

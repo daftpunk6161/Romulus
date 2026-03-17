@@ -1483,7 +1483,7 @@ public class GuiViewModelTests
     {
         var candidates = new List<RomCandidate>
         {
-            new() { MainPath = @"C:\Roms\game1.rom", GameKey = "game1", DatMatch = true, Category = "GAME", Extension = ".rom", Region = "EU", SizeBytes = 100 }
+            new() { MainPath = @"C:\Roms\game1.rom", GameKey = "game1", DatMatch = true, Category = FileCategory.Game, Extension = ".rom", Region = "EU", SizeBytes = 100 }
         };
         var result = FeatureService.BuildMissingRomReport(candidates, new[] { @"C:\Roms" });
         Assert.Null(result);
@@ -1494,8 +1494,8 @@ public class GuiViewModelTests
     {
         var candidates = new List<RomCandidate>
         {
-            new() { MainPath = @"C:\Roms\SNES\game1.rom", GameKey = "game1", DatMatch = false, Category = "GAME", Extension = ".rom", Region = "EU", SizeBytes = 100 },
-            new() { MainPath = @"C:\Roms\SNES\game2.rom", GameKey = "game2", DatMatch = true, Category = "GAME", Extension = ".rom", Region = "US", SizeBytes = 200 }
+            new() { MainPath = @"C:\Roms\SNES\game1.rom", GameKey = "game1", DatMatch = false, Category = FileCategory.Game, Extension = ".rom", Region = "EU", SizeBytes = 100 },
+            new() { MainPath = @"C:\Roms\SNES\game2.rom", GameKey = "game2", DatMatch = true, Category = FileCategory.Game, Extension = ".rom", Region = "US", SizeBytes = 200 }
         };
         var result = FeatureService.BuildMissingRomReport(candidates, new[] { @"C:\Roms" });
         Assert.NotNull(result);
@@ -1590,8 +1590,8 @@ public class GuiViewModelTests
         };
         var candidates = new List<RomCandidate>
         {
-            new() { MainPath = "a.rom", GameKey = "a", Category = "GAME" },
-            new() { MainPath = "b.rom", GameKey = "b", Category = "JUNK" }
+            new() { MainPath = "a.rom", GameKey = "a", Category = FileCategory.Game },
+            new() { MainPath = "b.rom", GameKey = "b", Category = FileCategory.Junk }
         };
         var report = FeatureService.BuildPipelineReport(result, candidates);
         Assert.Contains("Status: ok", report);
@@ -1743,8 +1743,8 @@ public class GuiViewModelTests
     {
         var candidates = new List<RomCandidate>
         {
-            new() { MainPath = @"C:\game.rom", GameKey = "game", Category = "GAME", Extension = ".rom", Region = "EU", SizeBytes = 100, RegionScore = 50, FormatScore = 500, VersionScore = 100, DatMatch = true },
-            new() { MainPath = @"C:\junk.rom", GameKey = "junk", Category = "JUNK", Extension = ".rom", Region = "US", SizeBytes = 200 }
+            new() { MainPath = @"C:\game.rom", GameKey = "game", Category = FileCategory.Game, Extension = ".rom", Region = "EU", SizeBytes = 100, RegionScore = 50, FormatScore = 500, VersionScore = 100, DatMatch = true },
+            new() { MainPath = @"C:\junk.rom", GameKey = "junk", Category = FileCategory.Junk, Extension = ".rom", Region = "US", SizeBytes = 200 }
         };
         var groups = new List<DedupeResult>
         {
@@ -1887,9 +1887,9 @@ public class GuiViewModelTests
     {
         var candidates = new List<RomCandidate>
         {
-            new() { MainPath = "a.rom", GameKey = "Super Mario", Category = "GAME" },
-            new() { MainPath = "b.rom", GameKey = "Zelda", Category = "GAME" },
-            new() { MainPath = "c.rom", GameKey = "Doom", Category = "GAME" }
+            new() { MainPath = "a.rom", GameKey = "Super Mario", Category = FileCategory.Game },
+            new() { MainPath = "b.rom", GameKey = "Zelda", Category = FileCategory.Game },
+            new() { MainPath = "c.rom", GameKey = "Doom", Category = FileCategory.Game }
         };
         var report = FeatureService.BuildCollectionManagerReport(candidates);
         Assert.Contains("Gesamt: 3 ROMs", report);

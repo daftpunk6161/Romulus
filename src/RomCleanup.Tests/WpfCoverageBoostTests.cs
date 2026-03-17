@@ -91,9 +91,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var winners = new[] {
             new RomCandidate { MainPath = @"D:\Roms\SNES\game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" },
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game },
             new RomCandidate { MainPath = @"D:\Roms\NES\mario.nes", GameKey = "Mario", Region = "US",
-                Extension = ".nes", SizeBytes = 512, Category = "GAME" }
+                Extension = ".nes", SizeBytes = 512, Category = FileCategory.Game }
         };
 
         var json = FeatureService.ExportRetroArchPlaylist(winners, "MyROMs");
@@ -166,9 +166,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var candidates = new[]
         {
             new RomCandidate { MainPath = @"D:\Roms\SNES\game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" },
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" },
             new RomCandidate { MainPath = @"D:\Roms\NES\mario.nes", GameKey = "Mario", Region = "US",
-                Extension = ".nes", SizeBytes = 512, Category = "GAME", ConsoleKey = "NES" }
+                Extension = ".nes", SizeBytes = 512, Category = FileCategory.Game, ConsoleKey = "NES" }
         };
         var result = FeatureService.BuildVirtualFolderPreview(candidates);
         Assert.NotEmpty(result);
@@ -516,8 +516,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var candidates = new[]
         {
-            new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Category = "GAME", Region = "EU" },
-            new RomCandidate { MainPath = "demo.sfc", GameKey = "Demo (Beta)", Category = "JUNK", Region = "US" }
+            new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Category = FileCategory.Game, Region = "EU" },
+            new RomCandidate { MainPath = "demo.sfc", GameKey = "Demo (Beta)", Category = FileCategory.Junk, Region = "US" }
         };
         var report = FeatureService.BuildJunkReport(candidates, aggressive: true);
         Assert.NotEmpty(report);
@@ -538,7 +538,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var candidates = new[]
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
         };
         var csv = FeatureService.ExportCollectionCsv(candidates);
         Assert.Contains("Dateiname", csv);
@@ -553,7 +553,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var candidates = new[]
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
         };
         var csv = FeatureService.ExportCollectionCsv(candidates, ',');
         Assert.Contains(",", csv);
@@ -567,7 +567,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var candidates = new[]
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
         };
         var xml = FeatureService.ExportExcelXml(candidates);
         Assert.Contains("Workbook", xml);
@@ -847,9 +847,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var candidates = new[]
         {
             new RomCandidate { MainPath = "game.iso", GameKey = "Game", Region = "EU",
-                Extension = ".iso", SizeBytes = 700_000_000, Category = "GAME" },
+                Extension = ".iso", SizeBytes = 700_000_000, Category = FileCategory.Game },
             new RomCandidate { MainPath = "other.sfc", GameKey = "Other", Region = "US",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game }
         };
         var result = FeatureService.GetConversionEstimate(candidates);
         Assert.NotNull(result);
@@ -991,8 +991,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var candidates = new[]
         {
-            new RomCandidate { MainPath = "a.sfc", GameKey = "A", Region = "EU", Extension = ".sfc", SizeBytes = 1024, Category = "GAME" },
-            new RomCandidate { MainPath = "b.sfc", GameKey = "B", Region = "US", Extension = ".sfc", SizeBytes = 2048, Category = "GAME" }
+            new RomCandidate { MainPath = "a.sfc", GameKey = "A", Region = "EU", Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game },
+            new RomCandidate { MainPath = "b.sfc", GameKey = "B", Region = "US", Extension = ".sfc", SizeBytes = 2048, Category = FileCategory.Game }
         };
         var result = FeatureService.ApplyFilter(candidates, "region", "eq", "EU");
         Assert.Single(result);

@@ -113,10 +113,12 @@ public sealed class AuditCsvStore : IAuditStore
             var newPath = parts[2];
             var action = parts[3];
 
-            // Rollback MOVE and JUNK_REMOVE actions (Issue #22)
+            // Rollback MOVE, JUNK_REMOVE, CONSOLE_SORT, and CONVERT actions (R-05)
             if (!string.Equals(action, "Move", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, "MOVED", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, "JUNK_REMOVE", StringComparison.OrdinalIgnoreCase))
+                !string.Equals(action, "JUNK_REMOVE", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(action, "CONSOLE_SORT", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(action, "CONVERT", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             // Validate paths within allowed roots
@@ -125,7 +127,13 @@ public sealed class AuditCsvStore : IAuditStore
             if (!IsWithinAnyRoot(newPath, allowedCurrentRoots))
                 continue;
 
-            if (!dryRun && File.Exists(newPath))
+            if (dryRun)
+            {
+                restoredPaths.Add(oldPath);
+                continue;
+            }
+
+            if (File.Exists(newPath))
             {
                 // BUG-FIX: Block reparse points on source/destination to prevent symlink attacks
                 // from crafted audit CSV entries.
@@ -172,9 +180,9 @@ public sealed class AuditCsvStore : IAuditStore
                 {
                     continue; // Both attempts failed — skip this entry
                 }
-            }
 
-            restoredPaths.Add(oldPath);
+                restoredPaths.Add(oldPath);
+            }
         }
 
         // Issue #22: Write rollback trail

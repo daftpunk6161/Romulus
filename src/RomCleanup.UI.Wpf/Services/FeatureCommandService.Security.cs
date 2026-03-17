@@ -68,7 +68,7 @@ public sealed partial class FeatureCommandService
         if (_vm.LastCandidates.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
         var quarantined = _vm.LastCandidates.Where(c =>
-            c.Category == "JUNK" || (!c.DatMatch && c.Region == "UNKNOWN")).ToList();
+            c.Category == FileCategory.Junk || (!c.DatMatch && c.Region == "UNKNOWN")).ToList();
         var sb = new StringBuilder();
         sb.AppendLine($"Quarantäne-Kandidaten: {quarantined.Count}\n");
         sb.AppendLine("Kriterien: Junk-Kategorie ODER (kein DAT-Match + Unbekannte Region)\n");

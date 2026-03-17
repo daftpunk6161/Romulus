@@ -150,7 +150,7 @@ public class RunManagerTests
             var completed = mgr.Get(run.RunId);
             Assert.Equal("completed", completed!.Status);
             Assert.NotNull(completed.Result);
-            Assert.Equal("ok", completed.Result!.Status);
+            Assert.Equal("ok", completed.Result!.OrchestratorStatus);
             Assert.Equal(0, completed.Result.ExitCode);
             Assert.True(completed.Result.TotalFiles >= 3);
         }
@@ -236,7 +236,7 @@ public class RunManagerTests
         var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, ct) =>
         {
             Task.Delay(150, ct).GetAwaiter().GetResult();
-            return new RunExecutionOutcome("completed", new ApiRunResult { Status = "ok", ExitCode = 0 });
+            return new RunExecutionOutcome("completed", new ApiRunResult { OrchestratorStatus = "ok", ExitCode = 0 });
         });
 
         var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "idem-003").Run!;
@@ -263,7 +263,7 @@ public class RunManagerTests
             var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
                 new RunExecutionOutcome("cancelled", new ApiRunResult
                 {
-                    Status = "cancelled",
+                    OrchestratorStatus = "cancelled",
                     ExitCode = 2,
                     AuditPath = auditPath
                 }));
@@ -294,7 +294,7 @@ public class RunManagerTests
             var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
                 new RunExecutionOutcome("failed", new ApiRunResult
                 {
-                    Status = "failed",
+                    OrchestratorStatus = "failed",
                     ExitCode = 1,
                     AuditPath = auditPath
                 }));
@@ -322,7 +322,7 @@ public class RunManagerTests
         var firstManager = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
             new RunExecutionOutcome("failed", new ApiRunResult
             {
-                Status = "failed",
+                OrchestratorStatus = "failed",
                 ExitCode = 1,
                 Error = "Simulated crash"
             }));

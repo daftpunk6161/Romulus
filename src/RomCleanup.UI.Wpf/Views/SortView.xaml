@@ -203,12 +203,12 @@
           </StackPanel>
           <!-- DryRun Banner -->
           <Border Margin="0,8,0,0" Padding="12,8"
-                  Background="{DynamicResource BrushSuccessBg}" BorderBrush="{DynamicResource BrushSuccess}" BorderThickness="1"
+                  Background="{DynamicResource BrushInfoBg}" BorderBrush="{DynamicResource BrushAccentCyan}" BorderThickness="1"
                   CornerRadius="6"
                   Visibility="{Binding DryRun, Converter={StaticResource BoolToVis}}">
             <StackPanel>
               <TextBlock Text="{Binding Loc[Sort.DryRunBanner]}"
-                         Foreground="{DynamicResource BrushSuccess}" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{DynamicResource BrushAccentCyan}" FontWeight="SemiBold" TextWrapping="Wrap"
                          VerticalAlignment="Center"/>
               <TextBlock Text="{Binding MoveApplyGateText}" Margin="0,6,0,0" TextWrapping="Wrap"
                          Foreground="{DynamicResource BrushTextPrimary}"/>
@@ -224,17 +224,17 @@
           </Border>
           <!-- Move Complete Banner -->
           <Border Margin="0,8,0,0" Padding="12,8"
-                  Background="{DynamicResource BrushDangerBg}" BorderBrush="{DynamicResource BrushAccentPurple}" BorderThickness="1"
+              Background="{DynamicResource BrushWarningBg}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
                   CornerRadius="6"
                   Visibility="{Binding ShowMoveCompleteBanner, Converter={StaticResource BoolToVis}}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{Binding Loc[Sort.MoveComplete]}"
-                         Foreground="{DynamicResource BrushAccentPurple}" FontWeight="SemiBold" TextWrapping="Wrap"
+               Foreground="{DynamicResource BrushWarning}" FontWeight="SemiBold" TextWrapping="Wrap"
                          VerticalAlignment="Center"/>
               <Button Command="{Binding RollbackCommand}"
                       Margin="16,0,0,0" Padding="12,4" FontWeight="SemiBold"
-                      Background="{DynamicResource BrushDangerBg}" Foreground="{DynamicResource BrushAccentPurple}"
-                      BorderBrush="{DynamicResource BrushAccentPurple}" BorderThickness="1" Cursor="Hand"
+                  Background="{DynamicResource BrushWarningBg}" Foreground="{DynamicResource BrushWarning}"
+                  BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1" Cursor="Hand"
                       ToolTip="{Binding Loc[Sort.RollbackTip]}"
                       AutomationProperties.Name="{Binding Loc[Sort.RollbackTip]}">
                 <StackPanel Orientation="Horizontal">

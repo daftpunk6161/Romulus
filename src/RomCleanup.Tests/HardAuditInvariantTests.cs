@@ -1,9 +1,11 @@
+using System.Text.Json;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.UI.Wpf.Services;
 using Xunit;
+using CliProgram = RomCleanup.CLI.Program;
 
 namespace RomCleanup.Tests;
 
@@ -227,7 +229,7 @@ public sealed class HardAuditInvariantTests : IDisposable
         var guiGames = result.DedupeGroups.Count;
 
         // CLI-Definition: "Games" = AllCandidates.Count(c => c.Category == "GAME")
-        var cliGames = result.AllCandidates.Count(c => c.Category == "GAME");
+        var cliGames = result.AllCandidates.Count(c => c.Category == FileCategory.Game);
 
         // Assert: MÜSSEN identisch sein.
         // BUG: GUI zählt alle Gruppen (inkl. BIOS), CLI zählt nur GAME-Dateien.
@@ -468,12 +470,12 @@ public sealed class HardAuditInvariantTests : IDisposable
         // Act
         var result = orch.Execute(options);
 
-        // Assert: LoserCount und MoveCount MÜSSEN übereinstimmen,
-        // damit CLI-Sidecar ["move"] = result.LoserCount korrekt wäre.
-        // BUG: LoserCount = 1 (geplant), MoveCount = 0 (tatsächlich).
-        // Da CLI LoserCount schreibt, enthält der Sidecar 1 statt 0.
+        // Assert (fixed behavior): LoserCount ist geplant, MoveCount ist tatsächlich.
+        // Bei Move-Fehlern dürfen die Werte divergieren. Entscheidend ist, dass
+        // Sidecar/Projection MoveCount aus MoveResult ableitet, nicht aus LoserCount.
         Assert.NotNull(result.MoveResult);
-        Assert.Equal(result.LoserCount, result.MoveResult!.MoveCount);
+        Assert.True(result.MoveResult!.FailCount > 0);
+        Assert.NotEqual(result.LoserCount, result.MoveResult.MoveCount);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -545,12 +547,12 @@ public sealed class HardAuditInvariantTests : IDisposable
                     "completed",
                     new RomCleanup.Api.ApiRunResult
                     {
-                        Status = "ok",
+                        OrchestratorStatus = "ok",
                         ExitCode = 0,
                         TotalFiles = 10,
                         Groups = 5,
                         Keep = 5,
-                        Move = 5
+                        Dupes = 5
                     });
             });
 
@@ -578,6 +580,95 @@ public sealed class HardAuditInvariantTests : IDisposable
         var hasFailCount = resultType.GetProperty("FailCount") is not null;
         Assert.True(hasConvertErrors || hasFailCount,
             "ApiRunResult hat weder ConvertErrorCount noch FailCount — Fehler werden komplett maskiert");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // R-02 | CLI Sidecar überschreibt Orchestrator-Sidecar → Datenverlust
+    // Finding: Architecture Review R-02
+    // Ursache: CLI.Program.cs schreibt nach Orchestrator.Execute() einen
+    //          zweiten WriteMetadataSidecar mit nur 6 Feldern, der den
+    //          umfassenden 14-Feld-Sidecar des Orchestrators überschreibt.
+    // Betroffen: CLI Program.cs (Move-Modus)
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void R02_CliMoveSidecar_MustContainOrchestratorFields_NotOverwrittenWith6Fields()
+    {
+        // Arrange: ROM-Dateien für Move anlegen
+        var root = Path.Combine(_tempDir, "roms");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Game (USA).zip"), "usa-content");
+        File.WriteAllText(Path.Combine(root, "Game (Europe).zip"), "eu-content");
+
+        var auditPath = Path.Combine(_tempDir, "audit-r02.csv");
+        var trashRoot = Path.Combine(_tempDir, "trash");
+        Directory.CreateDirectory(trashRoot);
+
+        var cliOptions = new CliProgram.CliOptions
+        {
+            Roots = [root],
+            Mode = "Move",
+            PreferRegions = ["US", "EU"],
+            AuditPath = auditPath,
+            TrashRoot = trashRoot
+        };
+
+        // Act: CLI Move-Run ausführen
+        RunCliSilent(cliOptions);
+
+        // Assert: Sidecar muss existieren
+        var sidecarPath = auditPath + ".meta.json";
+        Assert.True(File.Exists(sidecarPath), "Sidecar .meta.json muss existieren");
+
+        var json = File.ReadAllText(sidecarPath);
+        using var doc = JsonDocument.Parse(json);
+        var meta = doc.RootElement;
+
+        // Der Orchestrator schreibt diese Felder als [JsonExtensionData] → root-level.
+        // Wenn die CLI sie überschreibt, fehlen sie → Test schlägt fehl.
+
+        // Orchestrator-Felder die vorhanden sein MÜSSEN:
+        Assert.True(meta.TryGetProperty("GroupCount", out _),
+            "Sidecar fehlt 'GroupCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("WinnerCount", out _),
+            "Sidecar fehlt 'WinnerCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("LoserCount", out _),
+            "Sidecar fehlt 'LoserCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("FailCount", out _),
+            "Sidecar fehlt 'FailCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("SkipCount", out _),
+            "Sidecar fehlt 'SkipCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("ConvertedCount", out _),
+            "Sidecar fehlt 'ConvertedCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("ConvertErrorCount", out _),
+            "Sidecar fehlt 'ConvertErrorCount' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.True(meta.TryGetProperty("DurationMs", out _),
+            "Sidecar fehlt 'DurationMs' — CLI hat Orchestrator-Sidecar überschrieben");
+
+        // Felder die NUR die CLI schreibt (und nicht der Orchestrator) dürfen NICHT da sein:
+        Assert.False(meta.TryGetProperty("roots", out _),
+            "Sidecar enthält CLI-only Feld 'roots' — CLI hat Orchestrator-Sidecar überschrieben");
+        Assert.False(meta.TryGetProperty("timestamp", out _),
+            "Sidecar enthält CLI-only Feld 'timestamp' — CLI hat Orchestrator-Sidecar überschrieben");
+    }
+
+    private static void RunCliSilent(CliProgram.CliOptions options)
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        try
+        {
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
+            CliProgram.RunForTests(options);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════

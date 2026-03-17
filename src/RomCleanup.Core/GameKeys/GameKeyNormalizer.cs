@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace RomCleanup.Core.GameKeys;
@@ -257,9 +258,15 @@ public static class GameKeyNormalizer
             key = baseName.Trim().ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(key))
-            key = "__empty_key_" + baseName.GetHashCode().ToString("x8");
+            key = "__empty_key_" + ComputeStableKeySuffix(baseName);
 
         return key;
+    }
+
+    private static string ComputeStableKeySuffix(string value)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(bytes.AsSpan(0, 4)).ToLowerInvariant();
     }
 
     /// <summary>

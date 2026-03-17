@@ -113,13 +113,17 @@ public class FcsExportCommandTests : IDisposable
         string category = "GAME", long size = 1024, string ext = ".zip",
         string consoleKey = "nes", bool datMatch = false, string gameKey = "")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
             GameKey = gameKey.Length > 0 ? gameKey : name,
             Region = region, RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, DatMatch = datMatch, Category = category
+            ConsoleKey = consoleKey, DatMatch = datMatch, Category = parsedCategory
         };
     }
 
@@ -305,12 +309,16 @@ public class FcsDatCommandTests : IDisposable
         string category = "GAME", long size = 1024, string ext = ".zip",
         string consoleKey = "nes", bool datMatch = false)
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
             GameKey = name, Region = region, RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, DatMatch = datMatch, Category = category
+            ConsoleKey = consoleKey, DatMatch = datMatch, Category = parsedCategory
         };
     }
 
@@ -451,7 +459,7 @@ public class FcsConversionCommandTests
             MainPath = $@"C:\Roms\{name}{ext}",
             GameKey = name, Region = "EU", RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, Category = "GAME"
+            ConsoleKey = consoleKey, Category = FileCategory.Game
         };
     }
 
@@ -560,12 +568,16 @@ public class FcsWorkflowCommandTests
     private static RomCandidate MakeCandidate(string name, string region = "EU",
         string category = "GAME", string ext = ".zip", string consoleKey = "nes")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{name}{ext}",
             GameKey = name, Region = region, RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = 1024, Extension = ext,
-            ConsoleKey = consoleKey, Category = category
+            ConsoleKey = consoleKey, Category = parsedCategory
         };
     }
 
@@ -697,7 +709,7 @@ public class FcsInfraCommandTests
             MainPath = $@"C:\Roms\{name}{ext}",
             GameKey = name, Region = "EU", RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, Category = "GAME"
+            ConsoleKey = consoleKey, Category = FileCategory.Game
         };
     }
 
@@ -927,12 +939,16 @@ public class FcsAnalysisDeepTests
         string category = "GAME", long size = 1024, string ext = ".zip",
         string consoleKey = "nes", bool datMatch = false)
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
             GameKey = name, Region = region, RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, DatMatch = datMatch, Category = category
+            ConsoleKey = consoleKey, DatMatch = datMatch, Category = parsedCategory
         };
     }
 

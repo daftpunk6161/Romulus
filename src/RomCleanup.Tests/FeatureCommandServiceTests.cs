@@ -534,7 +534,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "test.sfc", GameKey = "TestGame", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game }
         };
         _vm.FeatureCommands["HealthScore"].Execute(null);
         Assert.True(HasOutput());
@@ -547,9 +547,9 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" },
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game },
             new RomCandidate { MainPath = "demo.sfc", GameKey = "Demo", Region = "US",
-                Extension = ".sfc", SizeBytes = 512, Category = "JUNK" }
+                Extension = ".sfc", SizeBytes = 512, Category = FileCategory.Junk }
         };
         _vm.FeatureCommands["JunkReport"].Execute(null);
         Assert.True(HasOutput());
@@ -562,9 +562,9 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "a.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" },
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game },
             new RomCandidate { MainPath = "b.sfc", GameKey = "Game", Region = "US",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game }
         };
         _vm.FeatureCommands["DuplicateHeatmap"].Execute(null);
         Assert.True(HasOutput());
@@ -577,7 +577,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.iso", GameKey = "Game", Region = "EU",
-                Extension = ".iso", SizeBytes = 700_000_000, Category = "GAME" }
+                Extension = ".iso", SizeBytes = 700_000_000, Category = FileCategory.Game }
         };
         _vm.FeatureCommands["ConversionEstimate"].Execute(null);
         Assert.True(HasOutput());
@@ -590,9 +590,9 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "Super Mario World.sfc", GameKey = "Super Mario World",
-                Region = "US", Extension = ".sfc", SizeBytes = 2048, Category = "GAME" },
+                Region = "US", Extension = ".sfc", SizeBytes = 2048, Category = FileCategory.Game },
             new RomCandidate { MainPath = "Zelda.sfc", GameKey = "The Legend of Zelda",
-                Region = "EU", Extension = ".sfc", SizeBytes = 2048, Category = "GAME" }
+                Region = "EU", Extension = ".sfc", SizeBytes = 2048, Category = FileCategory.Game }
         };
         _vm.FeatureCommands["GenreClassification"].Execute(null);
         Assert.True(HasOutput());
@@ -605,7 +605,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU", ConsoleKey = "SNES",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game }
         };
         _vm.FeatureCommands["EmulatorCompat"].Execute(null);
         Assert.True(HasOutput());
@@ -622,7 +622,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
         };
         _vm.FeatureCommands["ExportCsv"].Execute(null);
         Assert.True(File.Exists(csvPath));
@@ -637,7 +637,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
+                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
         };
         _vm.FeatureCommands["ExportExcel"].Execute(null);
         Assert.True(File.Exists(xmlPath));

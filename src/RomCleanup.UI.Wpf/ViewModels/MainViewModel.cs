@@ -433,7 +433,7 @@ public sealed partial class MainViewModel : ObservableObject
         Tools.WireToolItemCommands();
     }
 
-    /// <summary>Add a log entry (thread-safe via Dispatcher if needed). Caps at 10,000 entries.</summary>
+    /// <summary>Add a log entry (thread-safe via Dispatcher if needed). Caps at 10,000 entries with batch trimming.</summary>
     public void AddLog(string text, string level = "INFO")
     {
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
@@ -459,15 +459,18 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     private const int MaxLogEntries = 10_000;
+    private const int LogTrimBatchSize = 256;
 
     private void AddLogCore(string text, string level)
     {
         if (LogEntries.Count >= MaxLogEntries)
         {
-            LogEntries.RemoveAt(0);
-            // Keep _runLogStartIndex consistent after removing oldest entry
-            if (_runLogStartIndex > 0)
-                _runLogStartIndex--;
+            var removeCount = Math.Min(LogTrimBatchSize, LogEntries.Count);
+            for (var i = 0; i < removeCount; i++)
+                LogEntries.RemoveAt(0);
+
+            // Keep _runLogStartIndex consistent after trimming oldest entries
+            _runLogStartIndex = Math.Max(0, _runLogStartIndex - removeCount);
         }
         LogEntries.Add(new LogEntry(text, level));
     }

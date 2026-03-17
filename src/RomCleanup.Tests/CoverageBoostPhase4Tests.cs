@@ -808,13 +808,17 @@ public class FcsDeepBranchTests
         string category = "GAME", long size = 1024, string ext = ".zip",
         string consoleKey = "nes", bool datMatch = false, string gameKey = "")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
             GameKey = gameKey.Length > 0 ? gameKey : name,
             Region = region, RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = size, Extension = ext,
-            ConsoleKey = consoleKey, DatMatch = datMatch, Category = category
+            ConsoleKey = consoleKey, DatMatch = datMatch, Category = parsedCategory
         };
     }
 
@@ -1092,14 +1096,14 @@ public class FcsDeepBranchTests
             MainPath = @"C:\Roms1\game1.zip", GameKey = "game1",
             Region = "EU", RegionScore = 100, FormatScore = 500,
             VersionScore = 0, SizeBytes = 1024, Extension = ".zip",
-            ConsoleKey = "nes", Category = "GAME"
+            ConsoleKey = "nes", Category = FileCategory.Game
         };
         var l = new RomCandidate
         {
             MainPath = @"D:\Roms2\game1.zip", GameKey = "game1",
             Region = "JP", RegionScore = 50, FormatScore = 500,
             VersionScore = 0, SizeBytes = 1024, Extension = ".zip",
-            ConsoleKey = "nes", Category = "GAME"
+            ConsoleKey = "nes", Category = FileCategory.Game
         };
         vm.LastDedupeGroups = new ObservableCollection<DedupeResult>
         {
@@ -1373,7 +1377,7 @@ public class MainViewModelRunPipelineTests
         var vm = CreateVm();
         vm.LastCandidates.Add(new RomCandidate
         {
-            MainPath = "a.zip", GameKey = "A", Region = "EU", Extension = ".zip", Category = "GAME"
+            MainPath = "a.zip", GameKey = "A", Region = "EU", Extension = ".zip", Category = FileCategory.Game
         });
         Assert.Single(vm.LastCandidates);
         vm.LastCandidates.Clear();
@@ -1386,7 +1390,7 @@ public class MainViewModelRunPipelineTests
         var vm = CreateVm();
         var winner = new RomCandidate
         {
-            MainPath = "w.zip", GameKey = "W", Region = "EU", Extension = ".zip", Category = "GAME"
+            MainPath = "w.zip", GameKey = "W", Region = "EU", Extension = ".zip", Category = FileCategory.Game
         };
         vm.LastDedupeGroups.Add(new DedupeResult
         {

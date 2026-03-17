@@ -298,10 +298,12 @@ public sealed class AuditSigningService
             var newPath = fields.Length > 2 ? fields[2] : "";
             var action = fields.Length > 3 ? fields[3] : "";
 
-            // Rollback MOVE and JUNK_REMOVE actions (Issue #22)
+            // Rollback MOVE, JUNK_REMOVE, CONSOLE_SORT, and CONVERT actions
             if (!string.Equals(action, "MOVE", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, "MOVED", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, "JUNK_REMOVE", StringComparison.OrdinalIgnoreCase))
+                !string.Equals(action, "JUNK_REMOVE", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(action, "CONSOLE_SORT", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(action, "CONVERT", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             eligible++;

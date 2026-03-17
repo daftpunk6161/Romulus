@@ -109,13 +109,17 @@ public sealed class PhaseMetricsCollector
             // Include the currently active (non-stopped) phase
             if (_activePhase != null && _activeStopwatch != null)
             {
+                var activeDuration = _activeStopwatch.Elapsed;
+                var activeItemsPerSec = activeDuration.TotalSeconds > 0
+                    ? Math.Round(_activePhase.ItemCount / activeDuration.TotalSeconds, 1)
+                    : 0;
                 snapshot.Add(new PhaseMetricEntry
                 {
                     Phase = _activePhase.Phase,
                     StartedAt = _activePhase.StartedAt,
-                    Duration = _activeStopwatch.Elapsed,
+                    Duration = activeDuration,
                     ItemCount = _activePhase.ItemCount,
-                    ItemsPerSec = 0,
+                    ItemsPerSec = activeItemsPerSec,
                     Status = "Running",
                     Meta = _activePhase.Meta
                 });

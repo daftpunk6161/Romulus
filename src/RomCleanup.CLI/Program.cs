@@ -23,6 +23,10 @@ namespace RomCleanup.CLI;
 /// </summary>
 internal static class Program
 {
+    private static readonly AsyncLocal<TextWriter?> StdoutOverride = new();
+    private static readonly AsyncLocal<TextWriter?> StderrOverride = new();
+    private static readonly AsyncLocal<bool> ConsoleOverrideEnabled = new();
+
     private static int Main(string[] args)
     {
         try
@@ -39,13 +43,13 @@ internal static class Program
         }
         catch (OperationCanceledException)
         {
-            Console.Error.WriteLine("[Cancelled]");
+            SafeErrorWriteLine("[Cancelled]");
             return 2;
         }
         catch (Exception ex)
         {
             var error = ErrorClassifier.FromException(ex, "CLI");
-            Console.Error.WriteLine($"[{error.Kind}] {error.Code}: {error.Message}");
+            SafeErrorWriteLine($"[{error.Kind}] {error.Code}: {error.Message}");
             return 1;
         }
     }
@@ -60,17 +64,17 @@ internal static class Program
             if (cancelCount >= 2)
             {
                 // V2-M05: Second Ctrl+C force-kills the process
-                Console.Error.WriteLine("Force exit.");
+                SafeErrorWriteLine("Force exit.");
                 Environment.Exit(2);
                 return;
             }
             e.Cancel = true; // Prevent immediate process kill
             cts.Cancel();
-            Console.Error.WriteLine("Cancelling… press Ctrl+C again to force exit.");
+            SafeErrorWriteLine("Cancelling… press Ctrl+C again to force exit.");
         };
 
         var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore(fs, Console.Error.WriteLine, AuditSecurityPaths.GetDefaultSigningKeyPath());
+        var audit = new AuditCsvStore(fs, SafeErrorWriteLine, AuditSecurityPaths.GetDefaultSigningKeyPath());
 
         // JSONL logging
         JsonlLogWriter? log = null;
@@ -131,7 +135,7 @@ internal static class Program
             }
             else if (opts.SortConsole || enableDat)
             {
-                Console.Error.WriteLine("[Warning] consoles.json not found, --SortConsole/--EnableDat require it");
+                SafeErrorWriteLine("[Warning] consoles.json not found, --SortConsole/--EnableDat require it");
             }
         }
 
@@ -144,18 +148,18 @@ internal static class Program
             if (consoleMap.Count > 0)
             {
                 datIndex = datRepo.GetDatIndex(datRoot, consoleMap, hashType);
-                Console.Error.WriteLine($"[DAT] Loaded {datIndex.TotalEntries} hashes for {datIndex.ConsoleCount} consoles");
+                SafeErrorWriteLine($"[DAT] Loaded {datIndex.TotalEntries} hashes for {datIndex.ConsoleCount} consoles");
                 log?.Info("CLI", "dat-loaded",
                     $"{datIndex.TotalEntries} hashes for {datIndex.ConsoleCount} consoles (hashType={hashType})", "init");
             }
             else
             {
-                Console.Error.WriteLine("[Warning] No DAT files mapped — check dat-catalog.json and DatRoot");
+                SafeErrorWriteLine("[Warning] No DAT files mapped — check dat-catalog.json and DatRoot");
             }
         }
         else if (enableDat)
         {
-            Console.Error.WriteLine("[Warning] DAT enabled but DatRoot not set or not found");
+            SafeErrorWriteLine("[Warning] DAT enabled but DatRoot not set or not found");
         }
 
         // Audit path
@@ -188,9 +192,10 @@ internal static class Program
         log?.Info("CLI", "start", $"Run started: Mode={opts.Mode}, Roots={string.Join(";", opts.Roots)}", "scan");
 
         var orchestrator = new RunOrchestrator(fs, audit, consoleDetector, hashService,
-            converter, datIndex, onProgress: msg => Console.Error.WriteLine(msg));
+            converter, datIndex, onProgress: SafeErrorWriteLine);
 
         var result = orchestrator.Execute(runOptions, cts.Token);
+        var projection = RunProjectionFactory.Create(result);
 
         // Output results
         log?.Info("CLI", "scan-complete", $"{result.TotalFilesScanned} files scanned", "scan");
@@ -200,25 +205,21 @@ internal static class Program
         // DryRun: JSON summary to stdout
         if (opts.Mode == "DryRun")
         {
-            var junkCount = result.AllCandidates.Count(c => c.Category == "JUNK");
-            var biosCount = result.AllCandidates.Count(c => c.Category == "BIOS");
-            var gameCount = result.DedupeGroups.Count;
-            var datMatchCount = result.AllCandidates.Count(c => c.DatMatch);
-
             var summary = new
             {
-                Status = result.Status ?? "ok",
-                ExitCode = result.ExitCode,
+                Status = projection.Status,
+                ExitCode = projection.ExitCode,
                 Mode = "DryRun",
-                TotalFiles = result.TotalFilesScanned,
-                Candidates = result.AllCandidates.Count,
-                Games = gameCount,
-                Junk = junkCount,
-                Bios = biosCount,
-                DatMatches = datMatchCount,
-                Groups = result.GroupCount,
-                Keep = result.WinnerCount,
-                Move = result.LoserCount,
+                TotalFiles = projection.TotalFiles,
+                Candidates = projection.Candidates,
+                Games = projection.Games,
+                Junk = projection.Junk,
+                Bios = projection.Bios,
+                DatMatches = projection.DatMatches,
+                Groups = projection.Groups,
+                Keep = projection.Keep,
+                Dupes = projection.Dupes,
+                HealthScore = projection.HealthScore,
                 Results = result.DedupeGroups.Select(r => new
                 {
                     r.GameKey,
@@ -229,40 +230,29 @@ internal static class Program
             };
 
             var json = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
-            Console.WriteLine(json);
+            SafeStandardWriteLine(json);
         }
         else if (opts.Mode == "Move")
         {
             var mr = result.MoveResult;
-            Console.Error.WriteLine($"[Done] Moved {mr?.MoveCount ?? 0} files ({mr?.SavedBytes ?? 0:N0} bytes saved), {mr?.FailCount ?? 0} failed");
+            SafeErrorWriteLine($"[Done] Moved {mr?.MoveCount ?? 0} files ({mr?.SavedBytes ?? 0:N0} bytes saved), {mr?.FailCount ?? 0} failed");
 
             if (result.ConvertedCount > 0)
-                Console.Error.WriteLine($"[Convert] {result.ConvertedCount} files converted");
+                SafeErrorWriteLine($"[Convert] {result.ConvertedCount} files converted");
 
-            // Write final audit sidecar
+            // Audit sidecar is already written by RunOrchestrator with comprehensive fields.
             if (!string.IsNullOrEmpty(auditPath) && File.Exists(auditPath))
-            {
-                audit.WriteMetadataSidecar(auditPath, new Dictionary<string, object>
-                {
-                    ["mode"] = opts.Mode,
-                    ["roots"] = string.Join(";", opts.Roots),
-                    ["timestamp"] = DateTime.UtcNow.ToString("o"),
-                    ["totalFiles"] = result.TotalFilesScanned,
-                    ["keep"] = result.WinnerCount,
-                    ["move"] = result.MoveResult?.MoveCount ?? 0
-                });
-                Console.Error.WriteLine($"[Audit] {auditPath}");
-            }
+                SafeErrorWriteLine($"[Audit] {auditPath}");
         }
 
         if (!string.IsNullOrEmpty(opts.ReportPath) && !string.IsNullOrEmpty(result.ReportPath))
         {
-            Console.Error.WriteLine($"[Report] {result.ReportPath}");
+            SafeErrorWriteLine($"[Report] {result.ReportPath}");
             log?.Info("CLI", "report", $"Report written: {result.ReportPath}", "report");
         }
         else if (!string.IsNullOrEmpty(opts.ReportPath))
         {
-            Console.Error.WriteLine("[Warning] Report requested but not written");
+            SafeErrorWriteLine("[Warning] Report requested but not written");
             log?.Warning("CLI", "Report requested but not written", "report");
         }
 
@@ -278,7 +268,22 @@ internal static class Program
         return result.ExitCode;
     }
 
-    internal static int RunForTests(CliOptions opts) => Run(opts);
+    internal static int RunForTests(CliOptions opts)
+    {
+        StdoutOverride.Value = Console.Out;
+        StderrOverride.Value = Console.Error;
+        ConsoleOverrideEnabled.Value = true;
+        try
+        {
+            return Run(opts);
+        }
+        finally
+        {
+            ConsoleOverrideEnabled.Value = false;
+            StdoutOverride.Value = null;
+            StderrOverride.Value = null;
+        }
+    }
 
     internal static (CliOptions?, int exitCode) ParseArgs(string[] args)
     {
@@ -297,13 +302,13 @@ internal static class Program
                     rootsSpecified = true;
                     if (++i >= args.Length)
                     {
-                        Console.Error.WriteLine("[Error] Missing value for --roots.");
+                        SafeErrorWriteLine("[Error] Missing value for --roots.");
                         return (null, 3);
                     }
 
                     if (!TryParseRootsArgument(args[i], out var parsedRoots, out var rootsError))
                     {
-                        Console.Error.WriteLine($"[Error] {rootsError}");
+                        SafeErrorWriteLine($"[Error] {rootsError}");
                         return (null, 3);
                     }
 
@@ -320,7 +325,7 @@ internal static class Program
                             opts.Mode = "Move";
                         else
                         {
-                            Console.Error.WriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
+                            SafeErrorWriteLine($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
                             return (null, 3);
                         }
                     }
@@ -414,7 +419,7 @@ internal static class Program
                     else
                     {
                         // V2-BUG-L02: Exit with error code for unknown flags instead of warning
-                        Console.Error.WriteLine($"[Error] Unknown flag '{arg}'. Use --help for usage.");
+                        SafeErrorWriteLine($"[Error] Unknown flag '{arg}'. Use --help for usage.");
                         return (null, 3);
                     }
                     break;
@@ -425,7 +430,7 @@ internal static class Program
         {
             if (rootsSpecified)
             {
-                Console.Error.WriteLine("[Error] No valid root paths were provided.");
+                SafeErrorWriteLine("[Error] No valid root paths were provided.");
                 return (null, 3);
             }
 
@@ -437,7 +442,7 @@ internal static class Program
         {
             if (string.IsNullOrWhiteSpace(root))
             {
-                Console.Error.WriteLine("[Error] Empty root path provided.");
+                SafeErrorWriteLine("[Error] Empty root path provided.");
                 return (null, 3);
             }
 
@@ -450,13 +455,13 @@ internal static class Program
                 (!string.IsNullOrEmpty(sysDir) && fullRoot.StartsWith(sysDir, StringComparison.OrdinalIgnoreCase)) ||
                 (!string.IsNullOrEmpty(progDir) && fullRoot.StartsWith(progDir, StringComparison.OrdinalIgnoreCase)))
             {
-                Console.Error.WriteLine($"[Error] Root directory is in a protected system path: {fullRoot}");
+                SafeErrorWriteLine($"[Error] Root directory is in a protected system path: {fullRoot}");
                 return (null, 3);
             }
 
             if (!Directory.Exists(fullRoot))
             {
-                Console.Error.WriteLine($"[Error] Root directory not found: {fullRoot}");
+                SafeErrorWriteLine($"[Error] Root directory not found: {fullRoot}");
                 return (null, 3);
             }
         }
@@ -465,7 +470,7 @@ internal static class Program
         var invalidExts = opts.Extensions.Where(e => !e.StartsWith('.')).ToList();
         if (invalidExts.Count > 0)
         {
-            Console.Error.WriteLine($"[Error] Extensions must start with '.': {string.Join(", ", invalidExts)}");
+            SafeErrorWriteLine($"[Error] Extensions must start with '.': {string.Join(", ", invalidExts)}");
             return (null, 3);
         }
 
@@ -501,7 +506,7 @@ internal static class Program
 
     private static void PrintUsage()
     {
-        Console.WriteLine(@"ROM Cleanup CLI — Region Deduplication
+        SafeStandardWriteLine(@"ROM Cleanup CLI — Region Deduplication
 
 Usage:
   romcleanup -Roots ""D:\Roms"" [-Mode DryRun|Move] [-Prefer EU,US,JP]
@@ -530,6 +535,41 @@ Exit codes:
   1  Runtime error
   2  Cancelled
   3  Preflight / validation failure");
+    }
+
+    private static void SafeStandardWriteLine(string message)
+        => SafeWriteLine(
+            ConsoleOverrideEnabled.Value ? (StdoutOverride.Value ?? Console.Out) : Console.Out,
+            Console.Out,
+            message);
+
+    private static void SafeErrorWriteLine(string message)
+        => SafeWriteLine(
+            ConsoleOverrideEnabled.Value ? (StderrOverride.Value ?? Console.Error) : Console.Error,
+            Console.Error,
+            message);
+
+    private static void SafeWriteLine(TextWriter writer, TextWriter fallbackWriter, string message)
+    {
+        try
+        {
+            writer.WriteLine(message);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Stale AsyncLocal override can outlive its writer in parallel tests.
+            if (!ReferenceEquals(writer, fallbackWriter))
+            {
+                try { fallbackWriter.WriteLine(message); } catch { }
+            }
+        }
+        catch (IOException)
+        {
+            if (!ReferenceEquals(writer, fallbackWriter))
+            {
+                try { fallbackWriter.WriteLine(message); } catch { }
+            }
+        }
     }
 
     internal sealed class CliOptions

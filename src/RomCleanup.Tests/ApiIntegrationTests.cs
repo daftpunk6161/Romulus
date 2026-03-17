@@ -286,12 +286,12 @@ public sealed class ApiIntegrationTests
             Task.Delay(1_500, ct).GetAwaiter().GetResult();
             return new RunExecutionOutcome("completed", new ApiRunResult
             {
-                Status = "ok",
+                OrchestratorStatus = "ok",
                 ExitCode = 0,
                 TotalFiles = 1,
                 Groups = 1,
                 Keep = 1,
-                Move = 0,
+                Dupes = 0,
                 DurationMs = 1_500
             });
         });
@@ -313,6 +313,38 @@ public sealed class ApiIntegrationTests
             await Task.Delay(1_700);
             var resultResponse = await client.GetAsync($"/runs/{runId}/result");
             Assert.Equal(HttpStatusCode.OK, resultResponse.StatusCode);
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public async Task Runs_WaitTrue_ResultContainsProjectionFields()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            var payload = JsonSerializer.Serialize(new { roots = new[] { root }, mode = "DryRun" });
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("/runs?wait=true", content);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var result = doc.RootElement.GetProperty("result");
+
+            Assert.True(result.TryGetProperty("candidates", out _));
+            Assert.True(result.TryGetProperty("games", out _));
+            Assert.True(result.TryGetProperty("junk", out _));
+            Assert.True(result.TryGetProperty("bios", out _));
+            Assert.True(result.TryGetProperty("datMatches", out _));
+            Assert.True(result.TryGetProperty("healthScore", out _));
+            Assert.True(result.TryGetProperty("convertSkippedCount", out _));
         }
         finally
         {

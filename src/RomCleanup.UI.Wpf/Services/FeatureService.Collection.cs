@@ -34,7 +34,7 @@ public static partial class FeatureService
         "console" => DetectConsoleFromPath(c.MainPath),
         "region" => c.Region,
         "format" => c.Extension,
-        "category" => c.Category,
+        "category" => ToCategoryLabel(c.Category),
         "sizemb" => (c.SizeBytes / 1048576.0).ToString("F2", CultureInfo.InvariantCulture),
         "datstatus" => c.DatMatch ? "Verified" : "Unverified",
         "filename" => Path.GetFileName(c.MainPath),
@@ -246,7 +246,7 @@ public static partial class FeatureService
             string fieldValue = field switch
             {
                 "region" => c.Region,
-                "category" => c.Category,
+                "category" => ToCategoryLabel(c.Category),
                 "extension" or "ext" => c.Extension,
                 "gamekey" or "game" => c.GameKey,
                 "type" or "consolekey" or "console" => c.ConsoleKey,

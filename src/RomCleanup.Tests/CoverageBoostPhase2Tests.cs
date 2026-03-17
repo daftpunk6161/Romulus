@@ -37,6 +37,10 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         long size = 1024, string ext = ".zip", string consoleKey = "SNES", bool datMatch = false,
         string gameKey = "")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = Path.Combine("C:", "roms", consoleKey, name + ext),
@@ -49,7 +53,7 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
             Extension = ext,
             ConsoleKey = consoleKey,
             DatMatch = datMatch,
-            Category = category
+            Category = parsedCategory
         };
     }
 
@@ -99,10 +103,10 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         {
             new() { MainPath = @"C:\roms\SNES\Game1.zip", GameKey = "Game1", Region = "EU",
                 RegionScore = 100, FormatScore = 500, VersionScore = 0, SizeBytes = 1024,
-                Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = "GAME" },
+                Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = FileCategory.Game },
             new() { MainPath = @"C:\roms\NES\Game2.zip", GameKey = "Game2", Region = "US",
                 RegionScore = 100, FormatScore = 500, VersionScore = 0, SizeBytes = 2048,
-                Extension = ".zip", ConsoleKey = "NES", DatMatch = false, Category = "GAME" }
+                Extension = ".zip", ConsoleKey = "NES", DatMatch = false, Category = FileCategory.Game }
         };
         var result = FeatureService.BuildMissingRomReport(candidates, new[] { @"C:\roms" });
         Assert.NotNull(result);
@@ -131,13 +135,13 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         {
             MainPath = @"C:\roms1\SNES\Game1.zip", GameKey = "Game1", Region = "EU",
             RegionScore = 100, FormatScore = 500, VersionScore = 0, SizeBytes = 1024,
-            Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = "GAME"
+            Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = FileCategory.Game
         };
         var loser = new RomCandidate
         {
             MainPath = @"C:\roms2\SNES\Game1.zip", GameKey = "Game1", Region = "JP",
             RegionScore = 50, FormatScore = 500, VersionScore = 0, SizeBytes = 1024,
-            Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = "GAME"
+            Extension = ".zip", ConsoleKey = "SNES", DatMatch = false, Category = FileCategory.Game
         };
         var groups = new ObservableCollection<DedupeResult> { MakeGroup("Game1", winner, loser) };
         var result = FeatureService.BuildCrossRootReport(groups, new[] { @"C:\roms1", @"C:\roms2" });

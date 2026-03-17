@@ -577,7 +577,7 @@ public class RunManagerAdvancedTests
     public void ApiRunResult_DefaultValues()
     {
         var r = new ApiRunResult();
-        Assert.Equal("", r.Status);
+        Assert.Equal("", r.OrchestratorStatus);
         Assert.Equal(0, r.ExitCode);
         Assert.Equal(0, r.TotalFiles);
         Assert.Null(r.Error);

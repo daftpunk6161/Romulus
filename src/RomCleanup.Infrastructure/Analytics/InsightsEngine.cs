@@ -111,7 +111,7 @@ public sealed class InsightsEngine
                     SizeBytes = c.SizeBytes,
                     SizeTieBreakScore = c.SizeBytes,
                     Extension = c.Extension,
-                    Category = "GAME"
+                    Category = FileCategory.Game
                 })
                 .ToList();
 

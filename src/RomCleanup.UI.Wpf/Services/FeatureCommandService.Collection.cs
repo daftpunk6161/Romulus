@@ -127,7 +127,7 @@ public sealed partial class FeatureCommandService
         { _vm.AddLog("Keine Daten zum Teilen.", "WARN"); return; }
         var path = _dialog.SaveFile("Sammlung exportieren", "JSON (*.json)|*.json|HTML (*.html)|*.html", "meine-sammlung.json");
         if (path is null) return;
-        var entries = _vm.LastCandidates.Where(c => c.Category == "GAME")
+        var entries = _vm.LastCandidates.Where(c => c.Category == FileCategory.Game)
             .Select(c => new { Name = Path.GetFileNameWithoutExtension(c.MainPath), c.Region, c.Extension, SizeMB = c.SizeBytes / 1048576.0 }).ToList();
         File.WriteAllText(path, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
         _vm.AddLog($"Sammlung exportiert: {path} ({entries.Count} Spiele, keine Pfade/Hashes)", "INFO");

@@ -126,6 +126,7 @@ public sealed class SettingsService : ISettingsService
                 dto = dto with
                 {
                     SortConsole = GetBool(ui, "sortConsole"),
+                    RemoveJunk = GetBool(ui, "removeJunk", true),
                     DryRun = GetBool(ui, "dryRun", true),
                     ConvertEnabled = GetBool(ui, "convertEnabled"),
                     ConfirmMove = GetBool(ui, "confirmMove", true),
@@ -250,6 +251,7 @@ public sealed class SettingsService : ISettingsService
 
         // UI
         vm.SortConsole = dto.SortConsole;
+        vm.RemoveJunk = dto.RemoveJunk;
         vm.DryRun = dto.DryRun;
         vm.ConvertEnabled = dto.ConvertEnabled;
         vm.ConfirmMove = dto.ConfirmMove;
@@ -304,6 +306,7 @@ public sealed class SettingsService : ISettingsService
                 ui = new
                 {
                     sortConsole = vm.SortConsole,
+                    removeJunk = vm.RemoveJunk,
                     dryRun = vm.DryRun,
                     convertEnabled = vm.ConvertEnabled,
                     confirmMove = vm.ConfirmMove,

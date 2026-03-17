@@ -181,9 +181,17 @@ public sealed class FormatConverterAdapter : IFormatConverter
         return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success);
     }
 
+    /// <summary>Maximum number of entries allowed in a ZIP archive during conversion extraction.</summary>
+    private const int MaxZipEntryCount = 10_000;
+
+    /// <summary>Maximum total uncompressed size for archive extraction (10 GB, generous for DVD images).</summary>
+    private const long MaxExtractedTotalBytes = 10L * 1024 * 1024 * 1024;
+
     /// <summary>
     /// Extract a ZIP/7Z archive, find the .cue file inside, convert to CHD, then clean up.
     /// Handles the common case of disc-based ROMs distributed as ZIP containing .bin/.cue.
+    /// SEC-CONV-01: Per-entry Zip-Slip-safe extraction (no ZipFile.ExtractToDirectory).
+    /// SEC-CONV-02/03: Entry count + total size limits to block zip bombs.
     /// </summary>
     private ConversionResult ConvertArchiveToChdman(
         string sourcePath, string targetPath, string toolPath, string command, string sourceExt)
@@ -194,10 +202,12 @@ public sealed class FormatConverterAdapter : IFormatConverter
 
         try
         {
-            // Step 1: Extract archive
+            // Step 1: Extract archive with Zip-Slip protection
             if (sourceExt == ".zip")
             {
-                ZipFile.ExtractToDirectory(sourcePath, extractDir);
+                var extractError = ExtractZipSafe(sourcePath, extractDir);
+                if (extractError is not null)
+                    return new ConversionResult(sourcePath, null, ConversionOutcome.Error, extractError);
             }
             else
             {
@@ -211,6 +221,10 @@ public sealed class FormatConverterAdapter : IFormatConverter
                     new[] { "x", "-y", $"-o{extractDir}", sourcePath }, "7z extract");
                 if (!extractResult.Success)
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "7z-extract-failed");
+
+                // Post-extraction: validate all files are within extractDir
+                if (!ValidateExtractedContents(extractDir))
+                    return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-path-traversal-detected");
             }
 
             // Step 2: Find the .cue file (preferred) or .gdi, or fall back to .iso/.bin
@@ -218,7 +232,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
             var gdiFiles = Directory.GetFiles(extractDir, "*.gdi", SearchOption.AllDirectories);
             var isoFiles = Directory.GetFiles(extractDir, "*.iso", SearchOption.AllDirectories);
 
-            // Path traversal guard: Ensure all extracted files are within extractDir
+            // Path traversal guard: Ensure selected files are within extractDir
             static bool IsWithinDir(string filePath, string baseDir)
             {
                 var fullBase = Path.GetFullPath(baseDir) + Path.DirectorySeparatorChar;
@@ -335,6 +349,81 @@ public sealed class FormatConverterAdapter : IFormatConverter
             return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "output-not-created");
 
         return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success);
+    }
+
+    /// <summary>
+    /// SEC-CONV-01: Safe per-entry ZIP extraction with Zip-Slip protection.
+    /// Validates each entry path before extraction, enforces entry count and total size limits.
+    /// </summary>
+    private static string? ExtractZipSafe(string zipPath, string extractDir)
+    {
+        Directory.CreateDirectory(extractDir);
+        var normalizedBase = Path.GetFullPath(extractDir) + Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+
+        // SEC-CONV-02: Entry count limit (zip bomb protection)
+        if (archive.Entries.Count > MaxZipEntryCount)
+            return $"archive-too-many-entries:{archive.Entries.Count}";
+
+        // SEC-CONV-03: Total uncompressed size limit
+        long totalUncompressed = 0;
+        foreach (var entry in archive.Entries)
+        {
+            totalUncompressed += entry.Length;
+            if (totalUncompressed > MaxExtractedTotalBytes)
+                return "archive-extraction-size-exceeded";
+        }
+
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrEmpty(entry.Name))
+                continue; // Skip directory entries
+
+            var destPath = Path.GetFullPath(Path.Combine(extractDir, entry.FullName));
+
+            // Zip-Slip protection: reject entries that escape extractDir
+            if (!destPath.StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
+                return "archive-zip-slip-detected";
+
+            // Ensure parent directory exists
+            var entryDir = Path.GetDirectoryName(destPath);
+            if (!string.IsNullOrEmpty(entryDir))
+                Directory.CreateDirectory(entryDir);
+
+            entry.ExtractToFile(destPath, overwrite: false);
+        }
+
+        return null; // success
+    }
+
+    /// <summary>
+    /// Post-extraction validation: ensure all files and directories are within the expected root
+    /// and no reparse points were created during extraction.
+    /// </summary>
+    private static bool ValidateExtractedContents(string extractDir)
+    {
+        var normalizedBase = Path.GetFullPath(extractDir) + Path.DirectorySeparatorChar;
+
+        foreach (var dir in Directory.GetDirectories(extractDir, "*", SearchOption.AllDirectories))
+        {
+            if (!Path.GetFullPath(dir).StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
+                return false;
+            var dirInfo = new DirectoryInfo(dir);
+            if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                return false;
+        }
+
+        foreach (var file in Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories))
+        {
+            if (!Path.GetFullPath(file).StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
+                return false;
+            var attrs = File.GetAttributes(file);
+            if ((attrs & FileAttributes.ReparsePoint) != 0)
+                return false;
+        }
+
+        return true;
     }
 
     private static void CleanupPartialOutput(string path)

@@ -64,8 +64,18 @@ public sealed class RunManager
             if (_activeRunId is not null)
             {
                 var activeRun = Get(_activeRunId);
-                return new RunCreateResult(RunCreateDisposition.ActiveConflict, activeRun,
-                    "A run is already active.");
+                if (activeRun is null || activeRun.Status != "running")
+                {
+                    // Stale active marker from a run that already completed.
+                    // This closes a race where status flips before finally clears _activeRunId.
+                    _activeRunId = null;
+                    _activeTask = null;
+                }
+                else
+                {
+                    return new RunCreateResult(RunCreateDisposition.ActiveConflict, activeRun,
+                        "A run is already active.");
+                }
             }
 
             var runId = Guid.NewGuid().ToString("N");
@@ -188,7 +198,7 @@ public sealed class RunManager
             run.Status = "cancelled";
             run.Result = new ApiRunResult
             {
-                Status = "cancelled",
+                OrchestratorStatus = "cancelled",
                 ExitCode = 2,
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = File.Exists(reportPath) ? reportPath : null
@@ -199,7 +209,7 @@ public sealed class RunManager
             run.Status = "failed";
             run.Result = new ApiRunResult
             {
-                Status = "failed",
+                OrchestratorStatus = "failed",
                 ExitCode = 1,
                 Error = "Internal error during run execution.",
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
@@ -270,6 +280,7 @@ public sealed class RunManager
         };
 
         var result = orchestrator.Execute(options, ct);
+        var projection = RunProjectionFactory.Create(result);
         var status = RunOutcomeExtensions.ParseRunOutcome(result.Status) switch
         {
             RunOutcome.Ok => "completed",
@@ -284,18 +295,30 @@ public sealed class RunManager
             status,
             new ApiRunResult
             {
-                Status = result.Status,
-                ExitCode = result.ExitCode,
-                TotalFiles = result.TotalFilesScanned,
-                Groups = result.GroupCount,
-                Keep = result.WinnerCount,
-                Move = result.LoserCount,
-                ConvertedCount = result.ConvertedCount,
-                ConvertErrorCount = result.ConvertErrorCount,
-                JunkRemovedCount = result.JunkRemovedCount,
-                FailCount = (result.MoveResult?.FailCount ?? 0) + result.ConvertErrorCount,
-                SavedBytes = result.MoveResult?.SavedBytes ?? 0,
-                DurationMs = result.DurationMs,
+                OrchestratorStatus = projection.Status,
+                ExitCode = projection.ExitCode,
+                TotalFiles = projection.TotalFiles,
+                Candidates = projection.Candidates,
+                Groups = projection.Groups,
+                Keep = projection.Keep,
+                Dupes = projection.Dupes,
+                Games = projection.Games,
+                Junk = projection.Junk,
+                Bios = projection.Bios,
+                DatMatches = projection.DatMatches,
+                HealthScore = projection.HealthScore,
+                ConvertedCount = projection.ConvertedCount,
+                ConvertErrorCount = projection.ConvertErrorCount,
+                ConvertSkippedCount = projection.ConvertSkippedCount,
+                JunkRemovedCount = projection.JunkRemovedCount,
+                JunkFailCount = projection.JunkFailCount,
+                MoveCount = projection.MoveCount,
+                SkipCount = projection.SkipCount,
+                ConsoleSortMoved = projection.ConsoleSortMoved,
+                ConsoleSortFailed = projection.ConsoleSortFailed,
+                FailCount = projection.FailCount,
+                SavedBytes = projection.SavedBytes,
+                DurationMs = projection.DurationMs,
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = result.ReportPath
             });
@@ -434,15 +457,31 @@ public sealed class RunRecord
 
 public sealed class ApiRunResult
 {
-    public string Status { get; init; } = "";
+    /// <summary>Orchestrator-level status (ok, completed_with_errors, blocked, cancelled).
+    /// Distinct from RunRecord.Status which tracks lifecycle (pending, running, completed, failed).</summary>
+    public string OrchestratorStatus { get; init; } = "";
     public int ExitCode { get; init; }
     public int TotalFiles { get; init; }
+    public int Candidates { get; init; }
     public int Groups { get; init; }
     public int Keep { get; init; }
-    public int Move { get; init; }
+    /// <summary>Number of duplicate ROMs identified (losers in deduplication).
+    /// In DryRun mode this is the count of files that *would* be moved, not actually moved files.</summary>
+    public int Dupes { get; init; }
+    public int Games { get; init; }
+    public int Junk { get; init; }
+    public int Bios { get; init; }
+    public int DatMatches { get; init; }
+    public int HealthScore { get; init; }
     public int ConvertedCount { get; init; }
     public int ConvertErrorCount { get; init; }
+    public int ConvertSkippedCount { get; init; }
     public int JunkRemovedCount { get; init; }
+    public int JunkFailCount { get; init; }
+    public int MoveCount { get; init; }
+    public int SkipCount { get; init; }
+    public int ConsoleSortMoved { get; init; }
+    public int ConsoleSortFailed { get; init; }
     public int FailCount { get; init; }
     public long SavedBytes { get; init; }
     public long DurationMs { get; init; }

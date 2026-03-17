@@ -233,7 +233,7 @@ public sealed partial class FeatureCommandService
         if (_vm.LastCandidates.Count > 0)
         {
             var dupes = _vm.LastDedupeGroups.Sum(g => g.Losers.Count);
-            var junk = _vm.LastCandidates.Count(c => c.Category == "JUNK");
+            var junk = _vm.LastCandidates.Count(c => c.Category == FileCategory.Junk);
             var verified = _vm.LastCandidates.Count(c => c.DatMatch);
             var totalSize = _vm.LastCandidates.Sum(c => c.SizeBytes);
             FeatureService.SaveTrendSnapshot(_vm.LastCandidates.Count, totalSize, verified, dupes, junk);

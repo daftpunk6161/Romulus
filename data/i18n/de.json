@@ -245,7 +245,7 @@
   "Sort.DryRunOptionTip": "Es werden keine Dateien verschoben; nur Analyse + Bericht.",
   "Sort.ConvertOption": "Winner nach Move konvertieren (CHD/RVZ/ZIP)",
   "Sort.ConvertOptionTip": "Aktiviert Format-Konvertierung im Move-Lauf.",
-  "Sort.DryRunBanner": "DryRun aktiv: Es werden keine Dateien verschoben.",
+  "Sort.DryRunBanner": "Vorschau aktiv: Es werden noch keine Dateien verschoben.",
   "Sort.StartMoveNow": "▶ Jetzt als Move ausführen",
   "Sort.StartMoveTip": "Startet den Lauf erneut im Move-Modus.",
   "Sort.MoveComplete": "Move abgeschlossen.",
@@ -307,6 +307,7 @@
   "Result.ChartConsole": "Konsolen-Verteilung (Diagramm)",
   "Result.BeforeAfter": "Vorher / Nachher",
   "Result.DedupeDecisions": "Deduplizierungs-Entscheidungen",
+  "Result.ApplyWarningTitle": "⚠ Änderungen anwenden",
   "Result.TrustSignal": "\u2714 Alles reversibel \u2014 R\u00fcckg\u00e4ngig jederzeit m\u00f6glich",
 
   "Tools.NavQuickAccess": "Schnellzugriff",
@@ -765,7 +766,7 @@
   "Nav.Analyse": "Analyse",
   "Nav.Setup": "Setup",
   "Nav.Tools": "Tools",
-  "Nav.Log": "Log",
+  "Nav.Log": "Einstellungen",
 
   "Start.DropZoneLabel": "ROM-Verzeichnisse hierher ziehen",
   "Start.DropHero": "ROM-Verzeichnisse ablegen",

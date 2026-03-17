@@ -9,7 +9,8 @@ public sealed record ConsoleSortResult(
     int SetMembersMoved,
     int Skipped,
     int Unknown,
-    IReadOnlyDictionary<string, int> UnknownReasons);
+    IReadOnlyDictionary<string, int> UnknownReasons,
+    int Failed = 0);
 
 /// <summary>
 /// Result of a ZIP sort operation.

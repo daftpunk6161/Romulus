@@ -28,6 +28,10 @@ public class FeatureServiceExportTests
         long size = 1024, string ext = ".zip", string consoleKey = "nes",
         bool datMatch = false, string gameKey = "")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
@@ -40,7 +44,7 @@ public class FeatureServiceExportTests
             Extension = ext,
             ConsoleKey = consoleKey,
             DatMatch = datMatch,
-            Category = category
+            Category = parsedCategory
         };
     }
 
@@ -1577,6 +1581,10 @@ public class FcsCommandDeepTests
         string category = "GAME", long size = 1024, string ext = ".zip",
         string consoleKey = "nes", bool datMatch = false, string gameKey = "")
     {
+        var parsedCategory = Enum.TryParse<FileCategory>(category, true, out var fileCategory)
+            ? fileCategory
+            : FileCategory.Unknown;
+
         return new RomCandidate
         {
             MainPath = $@"C:\Roms\{consoleKey}\{name}{ext}",
@@ -1589,7 +1597,7 @@ public class FcsCommandDeepTests
             Extension = ext,
             ConsoleKey = consoleKey,
             DatMatch = datMatch,
-            Category = category
+            Category = parsedCategory
         };
     }
 
@@ -2465,7 +2473,7 @@ public class MainViewModelSettingsTests
         var vm = CreateVm();
         var candidates = new ObservableCollection<RomCandidate>
         {
-            new() { MainPath = "a.zip", GameKey = "A", Region = "EU", Extension = ".zip", Category = "GAME" }
+            new() { MainPath = "a.zip", GameKey = "A", Region = "EU", Extension = ".zip", Category = FileCategory.Game }
         };
         vm.LastCandidates = candidates;
         Assert.Single(vm.LastCandidates);

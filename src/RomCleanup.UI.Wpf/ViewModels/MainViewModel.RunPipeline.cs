@@ -15,6 +15,7 @@ public sealed partial class MainViewModel
 {
     private static readonly HashSet<string> PreviewRelevantPropertyNames =
     [
+        nameof(RemoveJunk),
         nameof(SortConsole),
         nameof(AliasKeying),
         nameof(AggressiveJunk),
@@ -76,7 +77,12 @@ public sealed partial class MainViewModel
     public string? LastAuditPath
     {
         get => _lastAuditPath;
-        set { _lastAuditPath = value; OnPropertyChanged(); }
+        set
+        {
+            _lastAuditPath = value;
+            OnPropertyChanged();
+            CanRollback = !string.IsNullOrEmpty(_lastAuditPath) && File.Exists(_lastAuditPath);
+        }
     }
 
     private string? _lastSuccessfulPreviewFingerprint;
@@ -93,10 +99,13 @@ public sealed partial class MainViewModel
         string.Equals(_lastSuccessfulPreviewFingerprint, BuildPreviewConfigurationFingerprint(), StringComparison.Ordinal);
 
     public string MoveApplyGateText => CanStartMoveWithCurrentPreview
-        ? "Danger-Zone freigeschaltet: Diese exakte Konfiguration wurde bereits als Vorschau geprüft. Move ist jetzt erlaubt."
+        ? "Änderungen anwenden ist freigeschaltet: Diese Konfiguration wurde bereits als Vorschau geprüft."
         : string.IsNullOrEmpty(_lastSuccessfulPreviewFingerprint)
-            ? "Move gesperrt: Führe zuerst eine Vorschau für die aktuelle Konfiguration aus."
-            : "Move gesperrt: Die Konfiguration wurde seit der letzten Vorschau geändert. Bitte Vorschau erneut ausführen.";
+            ? "Änderungen anwenden ist gesperrt: Führe zuerst eine Vorschau für die aktuelle Konfiguration aus."
+            : "Änderungen anwenden ist gesperrt: Die Konfiguration wurde seit der letzten Vorschau geändert. Bitte Vorschau erneut ausführen.";
+
+    public bool IsMovePhaseApplicable => !DryRun && !ConvertOnly;
+    public bool IsConvertPhaseApplicable => ConvertOnly || (!DryRun && ConvertEnabled);
 
     // ═══ RUN STATE (UX-002: explicit state machine) ════════════════════
     private RunState _runState = RunState.Idle;
@@ -122,32 +131,7 @@ public sealed partial class MainViewModel
 
     /// <summary>RF-007: Checks whether the state transition is valid.</summary>
     internal static bool IsValidTransition(RunState from, RunState to)
-    {
-        if (from == to) return true;
-        return (from, to) switch
-        {
-            // From Idle: can start preflight, or be cancelled/failed
-            (RunState.Idle, RunState.Preflight) => true,
-            // Pipeline forward progression
-            (RunState.Preflight, RunState.Scanning) => true,
-            (RunState.Scanning, RunState.Deduplicating) => true,
-            (RunState.Deduplicating, RunState.Sorting) => true,
-            (RunState.Sorting, RunState.Moving) => true,
-            (RunState.Moving, RunState.Converting) => true,
-            // Completion from any active phase
-            (RunState.Preflight or RunState.Scanning or RunState.Deduplicating or
-             RunState.Sorting or RunState.Moving or RunState.Converting,
-             RunState.Completed or RunState.CompletedDryRun or RunState.Failed or RunState.Cancelled) => true,
-            // Skip phases (e.g. no conversion step)
-            (RunState.Scanning, RunState.Sorting or RunState.Moving or RunState.Converting) => true,
-            (RunState.Deduplicating, RunState.Moving or RunState.Converting) => true,
-            (RunState.Sorting, RunState.Converting) => true,
-            // Reset from terminal states back to Idle
-            (RunState.Completed or RunState.CompletedDryRun or RunState.Failed or RunState.Cancelled,
-             RunState.Idle or RunState.Preflight) => true,
-            _ => false,
-        };
-    }
+        => RunStateMachine.IsValidTransition(from, to);
 
     public bool IsBusy => _runState is RunState.Preflight or RunState.Scanning
         or RunState.Deduplicating or RunState.Sorting or RunState.Moving or RunState.Converting;
@@ -208,7 +192,15 @@ public sealed partial class MainViewModel
 
     // ═══ PROGRESS & PERFORMANCE ═════════════════════════════════════════
     private double _progress;
-    public double Progress { get => _progress; set => SetProperty(ref _progress, value); }
+    public double Progress
+    {
+        get => _progress;
+        set
+        {
+            var clamped = Math.Clamp(value, 0d, 100d);
+            SetProperty(ref _progress, clamped);
+        }
+    }
 
     private string _progressText = "";
     public string ProgressText { get => _progressText; set => SetProperty(ref _progressText, value); }
@@ -249,6 +241,37 @@ public sealed partial class MainViewModel
 
     private bool _showMoveCompleteBanner;
     public bool ShowMoveCompleteBanner { get => _showMoveCompleteBanner; set => SetProperty(ref _showMoveCompleteBanner, value); }
+
+    private bool _isResultPerfDetailsExpanded = true;
+    public bool IsResultPerfDetailsExpanded
+    {
+        get => _isResultPerfDetailsExpanded;
+        set => SetProperty(ref _isResultPerfDetailsExpanded, value);
+    }
+
+    private string _runSummaryText = "";
+    public string RunSummaryText
+    {
+        get => _runSummaryText;
+        set
+        {
+            if (SetProperty(ref _runSummaryText, value))
+                OnPropertyChanged(nameof(HasRunSummary));
+        }
+    }
+
+    private UiErrorSeverity _runSummarySeverity = UiErrorSeverity.Info;
+    public UiErrorSeverity RunSummarySeverity
+    {
+        get => _runSummarySeverity;
+        set => SetProperty(ref _runSummarySeverity, value);
+    }
+
+    public bool HasRunSummary => !string.IsNullOrWhiteSpace(RunSummaryText);
+
+    public string RollbackActionHint => CanRollback
+        ? "Letzten Move-Lauf rückgängig machen (Ctrl+Z)"
+        : "Kein Rollback möglich: Es wurde keine gültige Audit-Datei gefunden.";
 
     // ═══ STATUS INDICATORS ══════════════════════════════════════════════
     private string _statusRoots = "Roots: –";
@@ -348,9 +371,11 @@ public sealed partial class MainViewModel
             ? $"Dedupe: {r3.WinnerCount} behalten, {r3.LoserCount} Duplikate"
             : "Dedupe: Duplikate erkennen und beste Version wählen",
         4 => "Sort: Dateien nach Konsole gruppieren",
+        5 when !IsMovePhaseApplicable => "Move: In diesem Modus übersprungen",
         5 => HasRunResult && LastRunResult?.MoveResult is { } mv
             ? $"Move: {mv.MoveCount} verschoben, {mv.FailCount} Fehler"
             : "Move: Duplikate in Papierkorb verschieben",
+        6 when !IsConvertPhaseApplicable => "Convert: In diesem Modus übersprungen",
         6 => HasRunResult && LastRunResult is { } r6 && r6.ConvertedCount > 0
             ? $"Convert: {r6.ConvertedCount} Dateien konvertiert"
             : "Convert: Formate optimieren (CHD/RVZ/ZIP)",
@@ -372,12 +397,17 @@ public sealed partial class MainViewModel
     /// <summary>Confirm before destructive Move operations (uses injected IDialogService).</summary>
     public bool ConfirmMoveDialog()
     {
-        // V2-M20: Show statistics in move confirmation dialog
-        return _dialog.Confirm(
-            $"Modus 'Move' verschiebt Dateien in den Papierkorb.\n"
+        var message =
+            $"{MoveConsequenceText}\n\n"
             + $"Roots: {string.Join(", ", Roots)}\n"
-            + $"Gewinner: {DashWinners} | Duplikate: {DashDupes} | Junk: {DashJunk}\n\nFortfahren?",
-            "Move bestätigen");
+            + $"Gewinner: {DashWinners} | Duplikate: {DashDupes} | Junk: {DashJunk}\n\n"
+            + "Diese Aktion verschiebt Dateien in den Papierkorb-Ordner und ist nur über Rollback rückgängig zu machen.";
+
+        return _dialog.DangerConfirm(
+            "Änderungen anwenden",
+            message,
+            "VERSCHIEBEN",
+            "Jetzt verschieben");
     }
 
     private void OnRun()
@@ -400,6 +430,7 @@ public sealed partial class MainViewModel
         }
 
         CurrentRunState = RunState.Preflight;
+        ResetDashboardForNewRun();
         BusyHint = ConvertOnly ? "Konvertierung läuft…" : DryRun ? (IsSimpleMode ? "Vorschau läuft…" : "DryRun läuft…") : "Move läuft…";
         DashMode = ConvertOnly ? "Convert" : DryRun ? (IsSimpleMode ? "Vorschau" : "DryRun") : "Move";
         Progress = 0;
@@ -407,6 +438,8 @@ public sealed partial class MainViewModel
         PerfPhase = "Phase: –";
         PerfFile = "Datei: –";
         ShowMoveCompleteBanner = false;
+        RunSummaryText = "";
+        RunSummarySeverity = UiErrorSeverity.Info;
 
         RunRequested?.Invoke(this, EventArgs.Empty);
     }
@@ -422,11 +455,17 @@ public sealed partial class MainViewModel
         try { cts?.Cancel(); } catch (ObjectDisposedException) { }
         CurrentRunState = RunState.Cancelled;
         BusyHint = "Abbruch angefordert…";
+        ShowMoveCompleteBanner = false;
+        SetRunSummary("Abbruch angefordert. Bereits verarbeitete Teilergebnisse bleiben sichtbar.", UiErrorSeverity.Warning);
     }
 
     private async Task OnRollbackAsync()
     {
-        if (!_dialog.Confirm("Letzten Lauf rückgängig machen?", "Rollback bestätigen"))
+        var rollbackPreview = $"{MoveConsequenceText}\n\n"
+                              + $"Bisherige Kennzahlen: Gewinner {DashWinners}, Duplikate {DashDupes}, Junk {DashJunk}.\n"
+                              + "Letzten Lauf jetzt rückgängig machen?";
+
+        if (!_dialog.Confirm(rollbackPreview, "Rollback bestätigen"))
             return;
 
         if (string.IsNullOrEmpty(LastAuditPath) || !File.Exists(LastAuditPath))
@@ -440,13 +479,22 @@ public sealed partial class MainViewModel
             var auditPathCopy = LastAuditPath;
             var roots = Roots.ToList();
             var restored = await Task.Run(() => RollbackService.Execute(auditPathCopy, roots));
-            AddLog($"Rollback: {restored.RolledBack} Dateien wiederhergestellt.", "INFO");
+            AddLog($"Rollback: wiederhergestellt={restored.RolledBack}, fehlend={restored.SkippedMissingDest}, Kollisionen={restored.SkippedCollision}, Fehler={restored.Failed}.",
+                restored.Failed > 0 ? "WARN" : "INFO");
             CanRollback = false;
             ShowMoveCompleteBanner = false;
+            ResetDashboardForNewRun();
+            DashMode = "Rollback";
+            SelectedNavTag = "Analyse";
+            SelectedResultSection = "Dashboard";
+            SetRunSummary(
+                $"Rollback abgeschlossen: {restored.RolledBack} wiederhergestellt, {restored.SkippedMissingDest} fehlend, {restored.SkippedCollision} Kollisionen, {restored.Failed} Fehler.",
+                restored.Failed > 0 ? UiErrorSeverity.Warning : UiErrorSeverity.Info);
         }
         catch (Exception ex)
         {
             AddLog($"Rollback-Fehler: {ex.Message}", "ERROR");
+            SetRunSummary($"Rollback fehlgeschlagen: {ex.Message}", UiErrorSeverity.Error);
         }
     }
 
@@ -478,25 +526,46 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>Complete a run (call from UI thread when orchestration finishes).</summary>
-    public void CompleteRun(bool success, string? reportPath = null)
+    public void CompleteRun(bool success, string? reportPath = null, bool cancelled = false)
     {
         BusyHint = "";
         ConvertOnly = false; // Reset transient flag
         LastReportPath = reportPath ?? string.Empty;
+        CanRollback = !string.IsNullOrEmpty(LastAuditPath) && File.Exists(LastAuditPath);
         if (success && DryRun)
         {
             _lastSuccessfulPreviewFingerprint = BuildPreviewConfigurationFingerprint();
             CurrentRunState = RunState.CompletedDryRun;
+            SelectedNavTag = "Analyse";
+            SelectedResultSection = "Dashboard";
+            IsResultPerfDetailsExpanded = true;
+            SetRunSummary(
+                $"Vorschau abgeschlossen: {DashDupes} Duplikate und {DashJunk} Junk-Dateien erkannt.",
+                UiErrorSeverity.Info);
         }
         else if (success && !DryRun)
         {
             CurrentRunState = RunState.Completed;
             CanRollback = true;
             ShowMoveCompleteBanner = true;
+            SelectedNavTag = "Analyse";
+            SelectedResultSection = "Dashboard";
+            IsResultPerfDetailsExpanded = true;
+            SetRunSummary($"Änderungen angewendet: {MoveConsequenceText}", UiErrorSeverity.Info);
+        }
+        else if (cancelled)
+        {
+            CurrentRunState = RunState.Cancelled;
+            SelectedNavTag = "Analyse";
+            SelectedResultSection = "Dashboard";
+            SetRunSummary("Lauf abgebrochen. Teilweise Ergebnisse können weiterhin sichtbar sein.", UiErrorSeverity.Warning);
         }
         else
         {
             CurrentRunState = RunState.Failed;
+            SelectedNavTag = "Analyse";
+            SelectedResultSection = "Dashboard";
+            SetRunSummary("Lauf fehlgeschlagen. Prüfe Protokoll und Fehler-Summary für Details.", UiErrorSeverity.Error);
         }
         RefreshStatus();
         OnMovePreviewGateChanged();
@@ -628,6 +697,9 @@ public sealed partial class MainViewModel
                     lastProgressUpdate = now;
                     _syncContext?.Post(_ =>
                     {
+                        var phaseProgress = EstimatePhaseProgress(msg);
+                        if (phaseProgress >= 0)
+                            Progress = phaseProgress;
                         ProgressText = msg;
                         if (msg.StartsWith("[") && msg.Contains(']'))
                         {
@@ -644,8 +716,18 @@ public sealed partial class MainViewModel
             var svcResult = await Task.Run(
                 () => _runService.ExecuteRun(orchestrator, runOptions, auditPath, reportPath, ct), ct);
 
-            ApplyRunResult(svcResult.Result);
             LastAuditPath = auditPath;
+            var runWasCancelled = ct.IsCancellationRequested ||
+                                  string.Equals(svcResult.Result.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
+
+            if (runWasCancelled)
+            {
+                AddLog("Lauf abgebrochen.", "WARN");
+                CompleteRun(false, cancelled: true);
+                return;
+            }
+
+            ApplyRunResult(svcResult.Result);
 
             if (!DryRun && auditPath is not null && File.Exists(auditPath))
                 PushRollbackUndo(auditPath);
@@ -662,13 +744,13 @@ public sealed partial class MainViewModel
             else
             {
                 AddLog("Lauf abgebrochen.", "WARN");
-                CompleteRun(false);
+                CompleteRun(false, cancelled: true);
             }
         }
         catch (OperationCanceledException)
         {
             AddLog("Lauf abgebrochen.", "WARN");
-            CompleteRun(false);
+            CompleteRun(false, cancelled: true);
         }
         catch (Exception ex)
         {
@@ -764,73 +846,44 @@ public sealed partial class MainViewModel
     {
         ErrorSummaryItems.Clear();
 
-        var issues = new List<UiError>();
+        var projected = ErrorSummaryProjection.Build(
+            LastRunResult,
+            LastCandidates,
+            LogEntries.Skip(_runLogStartIndex));
 
-        // Collect log-based warnings/errors
-        foreach (var e in LogEntries.Skip(_runLogStartIndex))
-        {
-            if (e.Level is "WARN")
-                issues.Add(new UiError("RUN-WARN", e.Text, UiErrorSeverity.Warning));
-            else if (e.Level is "ERROR")
-                issues.Add(new UiError("RUN-ERR", e.Text, UiErrorSeverity.Error));
-        }
-
-        if (LastRunResult is not null)
-        {
-            if (LastRunResult.Status == "blocked")
-                issues.Insert(0, new UiError("RUN-BLOCKED", $"Preflight: {LastRunResult.Preflight?.Reason}", UiErrorSeverity.Blocked));
-
-            if (LastRunResult.MoveResult is { FailCount: > 0 } mv)
-                issues.Insert(0, new UiError("IO-MOVE", $"{mv.FailCount} Dateien konnten nicht verschoben werden", UiErrorSeverity.Error));
-
-            var junk = LastCandidates.Count(c => c.Category == "JUNK");
-            if (junk > 0)
-                issues.Insert(0, new UiError("RUN-JUNK", $"{junk} Junk-Dateien erkannt", UiErrorSeverity.Warning));
-
-            var unverified = LastCandidates.Count(c => !c.DatMatch);
-            if (unverified > 0 && LastCandidates.Count > 0)
-                issues.Insert(0, new UiError("DAT-UNVERIFIED", $"{unverified}/{LastCandidates.Count} Dateien ohne DAT-Verifizierung", UiErrorSeverity.Info));
-        }
-
-        if (issues.Count == 0)
-        {
-            ErrorSummaryItems.Add(new UiError("RUN-OK", "Keine Fehler oder Warnungen.", UiErrorSeverity.Info));
-            if (LastRunResult is not null)
-                ErrorSummaryItems.Add(new UiError("RUN-STATS", $"Report geladen: {LastRunResult.WinnerCount} Winner, {LastRunResult.LoserCount} Dupes", UiErrorSeverity.Info));
-            return;
-        }
-
-        foreach (var issue in issues.Take(50))
+        foreach (var issue in projected)
             ErrorSummaryItems.Add(issue);
-        if (issues.Count > 50)
-            ErrorSummaryItems.Add(new UiError("RUN-TRUNC", $"… und {issues.Count - 50} weitere", UiErrorSeverity.Warning));
     }
 
     /// <summary>Apply run results from orchestrator to all dashboard/state properties.</summary>
     public void ApplyRunResult(RunResult result)
     {
+        if (CurrentRunState is RunState.Cancelled or RunState.Failed)
+        {
+            AddLog("Ergebnis ignoriert: Lauf wurde bereits beendet/abgebrochen.", "WARN");
+            return;
+        }
+
         LastRunResult = result;
         LastCandidates = new ObservableCollection<RomCandidate>(result.AllCandidates);
         LastDedupeGroups = new ObservableCollection<DedupeResult>(result.DedupeGroups);
         RefreshToolLockState();
+        var projection = RunProjectionFactory.Create(result);
 
         Progress = 100;
-        DashWinners = result.WinnerCount.ToString();
-        DashDupes = result.LoserCount.ToString();
-        var junkCount = result.AllCandidates.Count(c => c.Category == "JUNK");
-        DashJunk = junkCount.ToString();
-        DashDuration = $"{result.DurationMs / 1000.0:F1}s";
-        var total = result.AllCandidates.Count;
-        var verified = result.AllCandidates.Count(c => c.DatMatch);
-        HealthScore = total > 0
-            ? $"{FeatureService.CalculateHealthScore(total, result.LoserCount, junkCount, verified)}%"
-            : "–";
+        var isConvertOnlyRun = ConvertOnly ||
+                               (result.MoveResult is null && result.JunkMoveResult is null &&
+                                (result.ConvertedCount > 0 || result.ConvertErrorCount > 0 || result.ConvertSkippedCount > 0));
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun);
 
-        var gameCount = result.DedupeGroups.Count;
-        DashGames = gameCount.ToString();
-        var datHits = result.AllCandidates.Count(c => c.DatMatch);
-        DashDatHits = datHits.ToString();
-        DedupeRate = gameCount > 0 ? $"{100.0 * result.LoserCount / (result.WinnerCount + result.LoserCount):F0}%" : "–";
+        DashWinners = dashboard.Winners;
+        DashDupes = dashboard.Dupes;
+        DashJunk = dashboard.Junk;
+        DashDuration = dashboard.Duration;
+        HealthScore = dashboard.HealthScore;
+        DashGames = dashboard.Games;
+        DashDatHits = dashboard.DatHits;
+        DedupeRate = dashboard.DedupeRate;
 
         if (result.Status == "blocked")
         {
@@ -839,64 +892,30 @@ public sealed partial class MainViewModel
         else
         {
             AddLog($"Scan: {result.TotalFilesScanned} Dateien", "INFO");
-            AddLog($"Dedupe: Keep={result.WinnerCount}, Move={result.LoserCount}, Junk={junkCount}", "INFO");
+            AddLog($"Dedupe: Keep={projection.Keep}, Move={projection.Dupes}, Junk={projection.Junk}", "INFO");
             if (result.MoveResult is { } mv)
                 AddLog($"Verschoben: {mv.MoveCount}, Fehler: {mv.FailCount}", mv.FailCount > 0 ? "WARN" : "INFO");
+            if (result.ConsoleSortResult is { } sort)
+            {
+                var sortFailures = GetConsoleSortFailureCount(sort);
+                AddLog($"Konsolen-Sortierung: {sort.Moved} verschoben, {sortFailures} Fehler, {sort.Unknown} unbekannt", sortFailures > 0 ? "WARN" : "INFO");
+            }
             if (result.ConvertedCount > 0)
                 AddLog($"Konvertiert: {result.ConvertedCount}", "INFO");
         }
 
         // GUI-071: Console distribution bars
         ConsoleDistribution.Clear();
-        var consoleCounts = result.AllCandidates
-            .Where(c => !string.IsNullOrEmpty(c.ConsoleKey))
-            .GroupBy(c => c.ConsoleKey)
-            .Select(g => (Key: g.Key, Count: g.Count()))
-            .OrderByDescending(x => x.Count)
-            .Take(20)
-            .ToList();
-        int maxCount = consoleCounts.Count > 0 ? consoleCounts[0].Count : 1;
-        foreach (var (key, count) in consoleCounts)
-            ConsoleDistribution.Add(new Models.ConsoleDistributionItem
-            {
-                ConsoleKey = key,
-                DisplayName = key,
-                FileCount = count,
-                Fraction = (double)count / maxCount
-            });
+        foreach (var item in dashboard.ConsoleDistribution)
+            ConsoleDistribution.Add(item);
 
         // GUI-072/073: Dedup decision browser
         DedupeGroupItems.Clear();
-        foreach (var grp in result.DedupeGroups.Take(200))
-        {
-            DedupeGroupItems.Add(new Models.DedupeGroupItem
-            {
-                GameKey = grp.GameKey,
-                Winner = new Models.DedupeEntryItem
-                {
-                    FileName = System.IO.Path.GetFileName(grp.Winner.MainPath),
-                    Region = grp.Winner.Region,
-                    RegionScore = grp.Winner.RegionScore,
-                    FormatScore = grp.Winner.FormatScore,
-                    VersionScore = grp.Winner.VersionScore,
-                    IsWinner = true
-                },
-                Losers = grp.Losers.Select(l => new Models.DedupeEntryItem
-                {
-                    FileName = System.IO.Path.GetFileName(l.MainPath),
-                    Region = l.Region,
-                    RegionScore = l.RegionScore,
-                    FormatScore = l.FormatScore,
-                    VersionScore = l.VersionScore,
-                    IsWinner = false
-                }).ToList()
-            });
-        }
+        foreach (var item in dashboard.DedupeGroups)
+            DedupeGroupItems.Add(item);
 
         // GUI-074: Move consequence text
-        MoveConsequenceText = result.LoserCount > 0
-            ? $"{result.LoserCount} Dateien werden in den Papierkorb verschoben"
-            : "Keine Dateien zum Verschieben";
+        MoveConsequenceText = dashboard.MoveConsequenceText;
 
         OnMovePreviewGateChanged();
     }
@@ -917,6 +936,12 @@ public sealed partial class MainViewModel
     {
         if (e.PropertyName is not null && PreviewRelevantPropertyNames.Contains(e.PropertyName))
             OnMovePreviewGateChanged();
+
+        if (e.PropertyName is nameof(DryRun) or nameof(ConvertOnly) or nameof(ConvertEnabled))
+        {
+            OnPropertyChanged(nameof(IsMovePhaseApplicable));
+            OnPropertyChanged(nameof(IsConvertPhaseApplicable));
+        }
     }
 
     private string BuildPreviewConfigurationFingerprint()
@@ -925,6 +950,7 @@ public sealed partial class MainViewModel
         builder.Append("roots=").AppendJoin(";", Roots).Append('|');
         builder.Append("regions=").AppendJoin(";", GetPreferredRegions()).Append('|');
         builder.Append("extensions=").AppendJoin(";", GetSelectedExtensions()).Append('|');
+        builder.Append("removeJunk=").Append(RemoveJunk).Append('|');
         builder.Append("sortConsole=").Append(SortConsole).Append('|');
         builder.Append("aliasKeying=").Append(AliasKeying).Append('|');
         builder.Append("aggressiveJunk=").Append(AggressiveJunk).Append('|');
@@ -943,11 +969,75 @@ public sealed partial class MainViewModel
         return builder.ToString();
     }
 
+    private void ResetDashboardForNewRun()
+    {
+        LastRunResult = null;
+        LastCandidates = [];
+        LastDedupeGroups = [];
+        ErrorSummaryItems.Clear();
+        ConsoleDistribution.Clear();
+        DedupeGroupItems.Clear();
+
+        DashWinners = "–";
+        DashDupes = "–";
+        DashJunk = "–";
+        DashDuration = "00:00";
+        HealthScore = "–";
+        DashGames = "–";
+        DashDatHits = "–";
+        DedupeRate = "–";
+        MoveConsequenceText = "";
+        Progress = 0;
+        ProgressText = "0%";
+        RunSummaryText = "";
+        RunSummarySeverity = UiErrorSeverity.Info;
+    }
+
     private void OnMovePreviewGateChanged()
     {
         OnPropertyChanged(nameof(CanStartMoveWithCurrentPreview));
         OnPropertyChanged(nameof(ShowStartMoveButton));
         OnPropertyChanged(nameof(MoveApplyGateText));
+        OnPropertyChanged(nameof(RollbackActionHint));
         DeferCommandRequery();
+    }
+
+    private void SetRunSummary(string text, UiErrorSeverity severity)
+    {
+        RunSummaryText = text;
+        RunSummarySeverity = severity;
+    }
+
+    private static double EstimatePhaseProgress(string message)
+    {
+        if (string.IsNullOrEmpty(message) || !message.StartsWith("[", StringComparison.Ordinal))
+            return -1;
+
+        return message switch
+        {
+            var m when m.StartsWith("[Preflight]", StringComparison.OrdinalIgnoreCase) => 8,
+            var m when m.StartsWith("[Scan]", StringComparison.OrdinalIgnoreCase) => 22,
+            var m when m.StartsWith("[Dedupe]", StringComparison.OrdinalIgnoreCase) => 40,
+            var m when m.StartsWith("[Junk]", StringComparison.OrdinalIgnoreCase) => 50,
+            var m when m.StartsWith("[Move]", StringComparison.OrdinalIgnoreCase) => 65,
+            var m when m.StartsWith("[Sort]", StringComparison.OrdinalIgnoreCase) => 78,
+            var m when m.StartsWith("[Convert]", StringComparison.OrdinalIgnoreCase) => 90,
+            var m when m.StartsWith("[Report]", StringComparison.OrdinalIgnoreCase) => 96,
+            var m when m.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase) => 100,
+            _ => -1,
+        };
+    }
+
+    private static int GetConsoleSortFailureCount(object sortResult)
+    {
+        var type = sortResult.GetType();
+
+        if (type.GetProperty("Failed")?.GetValue(sortResult) is int failed)
+            return failed;
+
+        if (type.GetProperty("FailCount")?.GetValue(sortResult) is int failCount)
+            return failCount;
+
+        return 0;
     }
 }

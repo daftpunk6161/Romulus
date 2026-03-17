@@ -635,7 +635,7 @@ Messbare, nicht verhandelbare Kriterien:
 - **Nach Phase 2:** Alle Zahlen auf allen Channels konsistent.
 - **Nach Phase 5:** Durch Invarianten-Tests bewiesen.
 
-### Die 5 wichtigsten Punkte jetzt:
+### Die 5 wichtigsten Punkte jetzt
 
 1. **Convert-Verify-Fix** — Datenverlust ist ein Release-Blocker. Sofort.
 2. **Overlapping-Roots-Dedup** — Alle Folge-Fixes arbeiten sonst auf falschen Basiszahlen.

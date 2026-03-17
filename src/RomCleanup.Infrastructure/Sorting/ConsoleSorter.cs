@@ -48,7 +48,7 @@ public sealed class ConsoleSorter
         bool dryRun = true,
         CancellationToken cancellationToken = default)
     {
-        int total = 0, moved = 0, skipped = 0, unknown = 0, setMembersMoved = 0;
+        int total = 0, moved = 0, skipped = 0, unknown = 0, setMembersMoved = 0, failed = 0;
         var unknownReasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var root in roots)
@@ -120,6 +120,7 @@ public sealed class ConsoleSorter
                         var (primaryMoved, membersMoved) = MoveSetAtomically(
                             root, filePath, members, expectedDir, dryRun);
                         if (primaryMoved) moved++;
+                        else failed += members.Count + 1;
                         setMembersMoved += membersMoved;
                     }
                 }
@@ -131,11 +132,15 @@ public sealed class ConsoleSorter
                         moved++;
                         WriteAuditRow(root, filePath, Path.Combine(expectedDir, fileName), consoleKey);
                     }
+                    else
+                    {
+                        failed++;
+                    }
                 }
             }
         }
 
-        return new ConsoleSortResult(total, moved, setMembersMoved, skipped, unknown, unknownReasons);
+        return new ConsoleSortResult(total, moved, setMembersMoved, skipped, unknown, unknownReasons, failed);
     }
 
     /// <summary>

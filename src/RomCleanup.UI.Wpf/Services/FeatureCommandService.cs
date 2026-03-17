@@ -324,7 +324,7 @@ public sealed partial class FeatureCommandService
         { _vm.AddLog(_vm.Loc["Cmd.HealthScoreNoData"], "WARN"); return; }
         var total = _vm.LastCandidates.Count;
         var dupes = _vm.LastDedupeGroups.Sum(g => g.Losers.Count);
-        var junk = _vm.LastCandidates.Count(c => c.Category == "JUNK");
+        var junk = _vm.LastCandidates.Count(c => c.Category == FileCategory.Junk);
         var verified = _vm.LastCandidates.Count(c => c.DatMatch);
         var score = FeatureService.CalculateHealthScore(total, dupes, junk, verified);
         _vm.HealthScore = $"{score}%";

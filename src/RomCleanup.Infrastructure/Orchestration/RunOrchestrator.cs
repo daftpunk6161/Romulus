@@ -2,9 +2,6 @@ using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
 using RomCleanup.Core.Deduplication;
-using RomCleanup.Core.GameKeys;
-using RomCleanup.Core.Scoring;
-using RomCleanup.Core.SetParsing;
 using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Metrics;
 using RomCleanup.Infrastructure.Reporting;
@@ -105,7 +102,7 @@ public sealed class RunOrchestrator
     /// </summary>
     public RunResult Execute(RunOptions options, CancellationToken cancellationToken = default)
     {
-        var result = new RunResult();
+        var result = new RunResultBuilder();
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         // V2-M09: Structured phase metrics collection
@@ -126,7 +123,7 @@ public sealed class RunOrchestrator
             _onProgress?.Invoke($"[Preflight] Blockiert: {preflight.Reason}");
             result.Status = RunOutcome.Blocked.ToStatusString();
             result.ExitCode = 3;
-            return result;
+            return result.Build();
         }
         _onProgress?.Invoke($"[Preflight] OK — {options.Roots.Count} Root(s), {options.Extensions.Count} Extension(s), Modus: {options.Mode}");
         if (preflight.Warnings.Count > 0)
@@ -142,7 +139,22 @@ public sealed class RunOrchestrator
         foreach (var root in options.Roots)
             _onProgress?.Invoke($"[Scan] Root: {root}");
         var scanSw = System.Diagnostics.Stopwatch.StartNew();
-        var candidates = ScanFiles(options, cancellationToken);
+        var scanContext = new PipelineContext
+        {
+            Options = options,
+            FileSystem = _fs,
+            AuditStore = _audit,
+            Metrics = metrics,
+            OnProgress = _onProgress
+        };
+        var scanPhase = new ScanPipelinePhase();
+        var scannedFiles = scanPhase.Execute(options, scanContext, cancellationToken);
+
+        var enrichmentPhase = new EnrichmentPipelinePhase();
+        var candidates = enrichmentPhase.Execute(
+            new EnrichmentPhaseInput(scannedFiles, _consoleDetector, _hashService, _datIndex),
+            scanContext,
+            cancellationToken);
         scanSw.Stop();
         result.TotalFilesScanned = candidates.Count;
         _onProgress?.Invoke($"[Scan] Abgeschlossen: {candidates.Count} Dateien in {scanSw.ElapsedMilliseconds}ms");
@@ -156,7 +168,7 @@ public sealed class RunOrchestrator
         {
             result.Status = RunOutcome.Ok.ToStatusString();
             result.ExitCode = 0;
-            return result;
+            return result.Build();
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -164,85 +176,9 @@ public sealed class RunOrchestrator
         // ConvertOnly mode: skip Dedupe/Junk/Move/Sort — go straight to conversion
         if (options.ConvertOnly && _converter is not null)
         {
-            metrics.StartPhase("FormatConvert");
-            _onProgress?.Invoke($"[Convert] Nur-Konvertierung: {candidates.Count} Dateien…");
-            int converted = 0, convertErrors = 0, convertSkipped = 0;
-            foreach (var candidate in candidates)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var path = candidate.MainPath;
-                if (!File.Exists(path)) continue;
-                var ext = Path.GetExtension(path).ToLowerInvariant();
-                var consoleKey = candidate.ConsoleKey ?? "";
-                var target = _converter.GetTargetFormat(consoleKey, ext);
-                if (target is null) { convertSkipped++; continue; }
-                // Skip files already in target format
-                if (string.Equals(ext, target.Extension, StringComparison.OrdinalIgnoreCase)) { convertSkipped++; continue; }
-                _onProgress?.Invoke($"[Convert] {Path.GetFileName(path)} → {target.Extension}");
-                var convResult = _converter.Convert(path, target, cancellationToken);
-                if (convResult.Outcome == ConversionOutcome.Success)
-                {
-                    var verificationOk = convResult.TargetPath is not null && _converter.Verify(convResult.TargetPath, target);
-                    if (verificationOk)
-                    {
-                        converted++;
-                        if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
-                        {
-                            var root = FindRootForPath(path, options.Roots);
-                            if (root is not null)
-                                _audit.AppendAuditRow(options.AuditPath, root, path, convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
-                        }
-                        // Move source to trash only after successful conversion + verification
-                        if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
-                        {
-                            var root = FindRootForPath(path, options.Roots);
-                            if (root is not null)
-                            {
-                                var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-                                var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
-                                _fs.EnsureDirectory(trashDir);
-                                var fileName = Path.GetFileName(path);
-                                var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
-                                if (trashDest is not null)
-                                    try { _fs.MoveItemSafely(path, trashDest); } catch (Exception ex) { _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}"); }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        convertErrors++;
-                        if (convResult.TargetPath is not null)
-                        {
-                            _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                            if (!string.IsNullOrEmpty(options.AuditPath))
-                            {
-                                var root = FindRootForPath(path, options.Roots);
-                                if (root is not null)
-                                    _audit.AppendAuditRow(options.AuditPath, root, path, convResult.TargetPath, "CONVERT_FAILED", "GAME", "", $"verify-failed:{target.ToolName}");
-                            }
-                        }
-                    }
-                }
-                else if (convResult.Outcome == ConversionOutcome.Skipped) convertSkipped++;
-                else
-                {
-                    convertErrors++;
-                    _onProgress?.Invoke($"WARNING: Conversion failed for {path}: {convResult.Reason}");
-                    if (!string.IsNullOrEmpty(options.AuditPath))
-                    {
-                        var root = FindRootForPath(path, options.Roots);
-                        if (root is not null)
-                            _audit.AppendAuditRow(options.AuditPath, root, path, "", "CONVERT_ERROR", "GAME", "", $"convert-error:{convResult.Reason}");
-                    }
-                }
-            }
-            result.ConvertedCount = converted;
-            result.ConvertErrorCount = convertErrors;
-            result.ConvertSkippedCount = convertSkipped;
+            ExecuteConvertOnlyPhase(candidates, options, result, metrics, cancellationToken);
             result.AllCandidates = candidates;
             result.TotalFilesScanned = candidates.Count;
-            _onProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertErrors} Fehler");
-            metrics.CompletePhase(converted);
 
             sw.Stop();
             result.DurationMs = sw.ElapsedMilliseconds;
@@ -252,39 +188,16 @@ public sealed class RunOrchestrator
             var convertOnlyOutcome = convertOnlyHasErrors ? RunOutcome.CompletedWithErrors : RunOutcome.Ok;
             result.Status = convertOnlyOutcome.ToStatusString();
             result.ExitCode = convertOnlyHasErrors ? 1 : 0;
-            return result;
+            return result.Build();
         }
 
         // Phase 3: Deduplicate
-        metrics.StartPhase("Deduplicate");
-        _onProgress?.Invoke($"[Dedupe] Gruppiere {candidates.Count} Dateien nach GameKey…");
-        var dedupeSw = System.Diagnostics.Stopwatch.StartNew();
-        var groups = DeduplicationEngine.Deduplicate(candidates);
-        var gameGroups = GetGameGroups(groups);
-        dedupeSw.Stop();
-        result.GroupCount = gameGroups.Count;
-        result.WinnerCount = gameGroups.Count;
-        result.LoserCount = gameGroups.Sum(g => g.Losers.Count);
-        result.AllCandidates = candidates;
-        result.DedupeGroups = gameGroups;
-        var junkGroupCount = groups.Count(g => g.Winner.Category == "JUNK");
-        _onProgress?.Invoke($"[Dedupe] Abgeschlossen in {dedupeSw.ElapsedMilliseconds}ms: {gameGroups.Count} Gruppen, Keep={gameGroups.Count - result.LoserCount}, Move={result.LoserCount}, Junk={junkGroupCount}");
-        metrics.CompletePhase(gameGroups.Count);
+        var (groups, gameGroups) = ExecuteDedupePhase(candidates, options, result, metrics, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 
         // Phase 3b: Remove junk (if enabled)
-        var junkRemovedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (options.RemoveJunk && options.Mode == "Move")
-        {
-            metrics.StartPhase("JunkRemoval");
-            _onProgress?.Invoke("[Junk] Entferne Junk-Dateien…");
-            var junkResult = ExecuteJunkRemovalPhase(candidates, groups, options, junkRemovedPaths, cancellationToken);
-            result.JunkRemovedCount = junkResult.MoveCount;
-            result.JunkMoveResult = junkResult;
-            _onProgress?.Invoke($"[Junk] {junkResult.MoveCount} Junk-Dateien entfernt");
-            metrics.CompletePhase(junkResult.MoveCount);
-        }
+        var junkRemovedPaths = ExecuteJunkPhaseIfEnabled(groups, options, result, metrics, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -294,11 +207,18 @@ public sealed class RunOrchestrator
             metrics.StartPhase("Move");
             var totalLosers = gameGroups.Sum(g => g.Losers.Count);
             _onProgress?.Invoke($"[Move] Verschiebe {totalLosers} Duplikate in Trash…");
-            var moveResult = ExecuteMovePhase(gameGroups, options, cancellationToken);
+            var movePhase = new MovePipelinePhase();
+            var moveContext = new PipelineContext
+            {
+                Options = options,
+                FileSystem = _fs,
+                AuditStore = _audit,
+                Metrics = metrics,
+                OnProgress = _onProgress
+            };
+            var moveResult = movePhase.Execute(new MovePhaseInput(gameGroups, options), moveContext, cancellationToken);
             _onProgress?.Invoke($"[Move] Abgeschlossen: {moveResult.MoveCount} verschoben, {moveResult.FailCount} Fehler");
             result.MoveResult = moveResult;
-            // Reconcile LoserCount to reflect actual moves (not planned)
-            result.LoserCount = moveResult.MoveCount;
             metrics.CompletePhase(moveResult.MoveCount);
         }
 
@@ -321,109 +241,7 @@ public sealed class RunOrchestrator
         // Phase 6: Format Conversion (optional, Move mode only)
         // Issue #16: Use actual file paths — after Sort, files may have moved.
         if (options.ConvertFormat is not null && options.Mode == "Move" && _converter is not null)
-        {
-            metrics.StartPhase("FormatConvert");
-            _onProgress?.Invoke($"[Convert] Starte Formatkonvertierung für {gameGroups.Count} Gruppen…");
-            int converted = 0;
-            int convertErrors = 0;
-            int convertSkipped = 0;
-            foreach (var group in gameGroups)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var winnerPath = group.Winner.MainPath;
-
-                if (junkRemovedPaths.Contains(winnerPath))
-                    continue;
-
-                // After Sort phase, files may have moved — skip if winner no longer at original path
-                if (!File.Exists(winnerPath))
-                    continue;
-
-                var ext = Path.GetExtension(winnerPath).ToLowerInvariant();
-                var consoleKey = group.Winner.ConsoleKey ?? "";
-                var target = _converter.GetTargetFormat(consoleKey, ext);
-                if (target is not null)
-                {
-                    var convResult = _converter.Convert(winnerPath, target, cancellationToken);
-                    if (convResult.Outcome == ConversionOutcome.Success)
-                    {
-                        var verificationOk = convResult.TargetPath is not null && _converter.Verify(convResult.TargetPath, target);
-                        if (verificationOk)
-                        {
-                            converted++;
-
-                            // Issue #17: Audit entry for successful conversion
-                            if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
-                            {
-                                var root = FindRootForPath(winnerPath, options.Roots);
-                                if (root is not null)
-                                {
-                                    _audit.AppendAuditRow(options.AuditPath, root, winnerPath,
-                                        convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
-                                }
-                            }
-
-                            // Move source to trash only after successful conversion + verification
-                            if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
-                            {
-                                var root = FindRootForPath(winnerPath, options.Roots);
-                                if (root is not null)
-                                {
-                                    var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-                                    var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
-                                    _fs.EnsureDirectory(trashDir);
-                                    var fileName = Path.GetFileName(winnerPath);
-                                    var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
-                                    if (trashDest is not null)
-                                    {
-                                        try
-                                        {
-                                            _fs.MoveItemSafely(winnerPath, trashDest);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            convertErrors++;
-                            if (convResult.TargetPath is not null)
-                            {
-                                _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                                if (!string.IsNullOrEmpty(options.AuditPath))
-                                {
-                                    var root = FindRootForPath(winnerPath, options.Roots);
-                                    if (root is not null)
-                                    {
-                                        _audit.AppendAuditRow(options.AuditPath, root, winnerPath,
-                                            convResult.TargetPath, "CONVERT_FAILED", "GAME", "", $"verify-failed:{target.ToolName}");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if (convResult.Outcome == ConversionOutcome.Skipped)
-                    {
-                        convertSkipped++;
-                    }
-                    else
-                    {
-                        convertErrors++;
-                        _onProgress?.Invoke($"WARNING: Conversion failed for {winnerPath}: {convResult.Reason}");
-                    }
-                }
-            }
-            result.ConvertedCount = converted;
-            result.ConvertErrorCount = convertErrors;
-            result.ConvertSkippedCount = convertSkipped;
-            _onProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertErrors} Fehler");
-            metrics.CompletePhase(converted);
-        }
+            ExecuteWinnerConversionPhase(gameGroups, options, junkRemovedPaths, result, metrics, cancellationToken);
 
         sw.Stop();
         // Derive status based on actual errors
@@ -471,7 +289,7 @@ public sealed class RunOrchestrator
         }
 
         _onProgress?.Invoke($"[Fertig] Pipeline abgeschlossen in {sw.ElapsedMilliseconds}ms — {result.TotalFilesScanned} Dateien, {result.GroupCount} Gruppen");
-        return result;
+        return result.Build();
         }
         catch (OperationCanceledException)
         {
@@ -493,6 +311,7 @@ public sealed class RunOrchestrator
                     ["Status"] = "partial",
                     ["CancelledAtUtc"] = DateTime.UtcNow.ToString("o"),
                     ["LastPhase"] = metrics.GetCurrentPhaseName() ?? "unknown",
+                    ["PhaseProgressPct"] = result.PhaseMetrics?.Phases.LastOrDefault()?.PercentOfTotal ?? 0,
                     ["TotalFilesScanned"] = result.TotalFilesScanned,
                     ["GroupCount"] = result.GroupCount,
                     ["MoveCount"] = result.MoveResult?.MoveCount ?? 0,
@@ -503,367 +322,118 @@ public sealed class RunOrchestrator
                 });
             }
 
-            return result;
+            return result.Build();
         }
     }
 
-    // V2-MEM-H01 DEFERRED (langfristig): ScanFiles lädt alle Kandidaten synchron in eine
-    // List<RomCandidate>. Bei >100k Dateien verursacht das hohen Speicherverbrauch (~2x durch
-    // Deduplizierung mit GroupBy/OrderBy/ToList). Langfristige Lösung: IAsyncEnumerable-basiertes
-    // Streaming durch die gesamte Pipeline (ScanFiles → Deduplicate → Move → Sort). Dies
-    // erfordert Änderungen an DeduplicationEngine, RunOrchestrator und allen nachgelagerten
-    // Phasen. Aktuell zeigt der Orchestrator bei >100k Dateien eine Speicher-Warnung an.
-    private List<RomCandidate> ScanFiles(RunOptions options, CancellationToken ct)
-    {
-        var versionScorer = new VersionScorer();
-        var candidates = new List<RomCandidate>();
-        var seenCandidatePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // FEAT-04: Track set members so they are not independently deduplicated
-        var setMemberPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // V2-H11: Folder-level cache for ConsoleDetector — same folder always yields same console
-        var folderConsoleCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var root in options.Roots)
-        {
-            ct.ThrowIfCancellationRequested();
-            _onProgress?.Invoke($"[Scan] {root}: Dateien sammeln…");
-            var files = _fs.GetFilesSafe(root, options.Extensions);
-            _onProgress?.Invoke($"[Scan] {root}: {files.Count} Dateien gefunden");
-
-            int processed = 0;
-            int fileCount = files.Count;
-            foreach (var filePath in files)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var normalizedPath = Path.GetFullPath(filePath);
-                if (!seenCandidatePaths.Add(normalizedPath))
-                    continue;
-
-                // Skip files in blocklisted directories
-                if (ExecutionHelpers.IsBlocklisted(filePath))
-                    continue;
-
-                processed++;
-                if (processed % 500 == 0)
-                    _onProgress?.Invoke($"[Scan] {processed}/{fileCount} Dateien verarbeitet…");
-
-                var fileName = Path.GetFileNameWithoutExtension(filePath);
-                var ext = Path.GetExtension(filePath).ToLowerInvariant();
-                var gameKey = GameKeyNormalizer.Normalize(fileName);
-                var category = FileClassifier.Classify(fileName, options.AggressiveJunk);
-
-                var categoryStr = category switch
-                {
-                    FileCategory.Bios => "BIOS",
-                    FileCategory.Junk => "JUNK",
-                    _ => "GAME"
-                };
-
-                string consoleKey = "";
-                if (_consoleDetector is not null)
-                {
-                    var folder = Path.GetDirectoryName(filePath) ?? "";
-                    if (!folderConsoleCache.TryGetValue(folder, out var cachedKey))
-                    {
-                        cachedKey = _consoleDetector.Detect(filePath, root);
-                        folderConsoleCache[folder] = cachedKey;
-                    }
-                    consoleKey = cachedKey;
-                }
-
-                var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
-                var regionScore = FormatScorer.GetRegionScore(regionTag, options.PreferRegions);
-                var fmtScore = FormatScorer.GetFormatScore(ext);
-                var verScore = versionScorer.GetVersionScore(fileName);
-
-                long sizeBytes = 0;
-                if (File.Exists(filePath))
-                    try { sizeBytes = new FileInfo(filePath).Length; }
-                    catch (Exception ex)
-                    {
-                        _onProgress?.Invoke($"WARNING: Could not read file size for {filePath}: {ex.Message}");
-                    }
-
-                bool datMatch = false;
-                if (_datIndex is not null && _hashService is not null && consoleKey != "UNKNOWN")
-                {
-                    // Show progress for large-file hashing so the user knows what's happening
-                    if (sizeBytes > 50_000_000) // >50MB
-                    {
-                        var sizeMb = sizeBytes / (1024.0 * 1024.0);
-                        _onProgress?.Invoke($"[Scan] Hash: {Path.GetFileName(filePath)} ({sizeMb:F0} MB)…");
-                    }
-                    var hash = _hashService.GetHash(filePath, options.HashType);
-                    if (hash is not null)
-                        datMatch = _datIndex.Lookup(consoleKey, hash) is not null;
-                }
-
-                var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
-                var sizeTieBreak = FormatScorer.GetSizeTieBreakScore(null, ext, sizeBytes);
-
-                // FEAT-04: Discover set members (CUE→BIN, GDI→tracks, CCD→IMG/SUB, M3U→discs)
-                var setMembers = GetSetMembers(filePath, ext);
-                foreach (var member in setMembers)
-                    setMemberPaths.Add(member);
-
-                // FEAT-07: Calculate CompletenessScore
-                var completeness = CalculateCompletenessScore(filePath, ext, setMembers, datMatch);
-
-                candidates.Add(new RomCandidate
-                {
-                    MainPath = normalizedPath,
-                    GameKey = gameKey,
-                    Region = regionTag,
-                    Category = categoryStr,
-                    RegionScore = regionScore,
-                    FormatScore = fmtScore,
-                    VersionScore = verScore,
-                    HeaderScore = headerScore,
-                    CompletenessScore = completeness,
-                    SizeTieBreakScore = sizeTieBreak,
-                    SizeBytes = sizeBytes,
-                    Extension = ext,
-                    DatMatch = datMatch,
-                    ConsoleKey = consoleKey
-                });
-            }
-        }
-
-        // FEAT-04: Remove candidates that are set members of a primary file
-        if (setMemberPaths.Count > 0)
-        {
-            candidates.RemoveAll(c => setMemberPaths.Contains(c.MainPath));
-        }
-
-        return candidates;
-    }
-
-    /// <summary>
-    /// Move standalone junk files (sole members of their GameKey group) to trash.
-    /// These are never in any Losers list because deduplication only makes losers
-    /// when there are multiple candidates for the same GameKey.
-    /// </summary>
-    private MovePhaseResult ExecuteJunkRemovalPhase(
-        IReadOnlyList<RomCandidate> allCandidates,
-        IReadOnlyList<DedupeResult> groups,
+    private (IReadOnlyList<DedupeResult> Groups, List<DedupeResult> GameGroups) ExecuteDedupePhase(
+        IReadOnlyList<RomCandidate> candidates,
         RunOptions options,
-        HashSet<string> junkRemovedPaths,
-        CancellationToken ct)
+        RunResultBuilder result,
+        PhaseMetricsCollector metrics,
+        CancellationToken cancellationToken)
     {
-        // Collect all junk candidates: JUNK winners that are the sole member of their group,
-        // plus any JUNK losers (already handled by ExecuteMovePhase, but we also catch solo junk here).
-        var junkToRemove = groups
-            .Where(g => g.Losers.Count == 0 && g.Winner.Category == "JUNK")
-            .Select(g => g.Winner)
-            .ToList();
-
-        int moveCount = 0, failCount = 0;
-        long savedBytes = 0;
-
-        foreach (var junk in junkToRemove)
+        var phase = new DeduplicatePipelinePhase();
+        var context = new PipelineContext
         {
-            ct.ThrowIfCancellationRequested();
-
-            var root = FindRootForPath(junk.MainPath, options.Roots);
-            if (root is null) { failCount++; continue; }
-
-            var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-            var trashDir = Path.Combine(trashBase, "_TRASH_JUNK");
-            _fs.EnsureDirectory(trashDir);
-
-            var fileName = Path.GetFileName(junk.MainPath);
-            var destPath = _fs.ResolveChildPathWithinRoot(
-                trashBase, Path.Combine("_TRASH_JUNK", fileName));
-
-            if (destPath is null) { failCount++; continue; }
-
-            var actualDest = _fs.MoveItemSafely(junk.MainPath, destPath);
-            if (actualDest is not null)
-            {
-                moveCount++;
-                savedBytes += junk.SizeBytes;
-                junkRemovedPaths.Add(junk.MainPath);
-
-                if (!string.IsNullOrEmpty(options.AuditPath))
-                {
-                    // V2-M01: Distinct JUNK_REMOVE action for audit differentiation
-                    // Issue #12: Log actual destination path (may include __DUP suffix)
-                    _audit.AppendAuditRow(options.AuditPath, root, junk.MainPath, actualDest,
-                        "JUNK_REMOVE", "JUNK", "", "junk-removal");
-                }
-            }
-            else
-            {
-                failCount++;
-            }
-        }
-
-        return new MovePhaseResult(moveCount, failCount, savedBytes);
-    }
-
-    /// <summary>
-    /// Move losers/junk to trash with incremental audit flush.
-    /// Port of Invoke-MovePhase from RunHelpers.Execution.ps1.
-    /// </summary>
-    private MovePhaseResult ExecuteMovePhase(
-        IReadOnlyList<DedupeResult> groups,
-        RunOptions options,
-        CancellationToken ct)
-    {
-        int moveCount = 0, failCount = 0, skipCount = 0;
-        long savedBytes = 0;
-
-        foreach (var group in groups)
-        {
-            foreach (var loser in group.Losers)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                // Derive root from the file path
-                var root = FindRootForPath(loser.MainPath, options.Roots);
-                if (root is null) { failCount++; continue; }
-
-                var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-                var trashDir = Path.Combine(trashBase, "_TRASH_REGION_DEDUPE");
-                _fs.EnsureDirectory(trashDir);
-
-                var fileName = Path.GetFileName(loser.MainPath);
-                var destPath = _fs.ResolveChildPathWithinRoot(
-                    trashBase, Path.Combine("_TRASH_REGION_DEDUPE", fileName));
-
-                if (destPath is null) { failCount++; continue; }
-
-                // Issue #24: ConflictPolicy support
-                if (string.Equals(options.ConflictPolicy, "Skip", StringComparison.OrdinalIgnoreCase)
-                    && File.Exists(destPath))
-                {
-                    _onProgress?.Invoke($"Skip (conflict): {Path.GetFileName(loser.MainPath)}");
-                    if (!string.IsNullOrEmpty(options.AuditPath))
-                    {
-                        _audit.AppendAuditRow(options.AuditPath, root, loser.MainPath, destPath,
-                            "SKIP", loser.Category, "", "conflict-policy:skip");
-                    }
-                    skipCount++;
-                    continue;
-                }
-
-                var actualDest = _fs.MoveItemSafely(loser.MainPath, destPath);
-                if (actualDest is not null)
-                {
-                    moveCount++;
-                    savedBytes += loser.SizeBytes;
-
-                    // Audit row per move
-                    // Issue #12: Log actual destination path (may include __DUP suffix)
-                    if (!string.IsNullOrEmpty(options.AuditPath))
-                    {
-                        _audit.AppendAuditRow(options.AuditPath, root, loser.MainPath, actualDest,
-                            "Move", loser.Category, "", "region-dedupe");
-                    }
-
-                    // BUG RUN-001: Incremental audit flush every 50 moves
-                    if (moveCount % 50 == 0 && !string.IsNullOrEmpty(options.AuditPath))
-                    {
-                        // V2-BUG-H04: Flush CSV before writing sidecar to ensure consistency
-                        _audit.Flush(options.AuditPath);
-                        _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
-                        {
-                            ["IncrementalFlush"] = true,
-                            ["MoveCount"] = moveCount
-                        });
-                    }
-                }
-                else
-                {
-                    failCount++;
-                }
-            }
-        }
-
-        return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount);
-    }
-
-    private string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
-    {
-        var fullPath = Path.GetFullPath(filePath);
-        foreach (var root in roots)
-        {
-            if (fullPath.StartsWith(
-                    NormalizeRootForContainment(root), StringComparison.OrdinalIgnoreCase))
-                return root;
-        }
-        return null;
-    }
-
-    /// <summary>Cache normalized root paths to avoid repeated Path.GetFullPath on UNC per file.</summary>
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _normalizedRoots = new();
-
-    private string NormalizeRootForContainment(string root)
-        => _normalizedRoots.GetOrAdd(root, r =>
-            Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
-
-    /// <summary>FEAT-04: Get set member files for a primary file (CUE→BIN, GDI→tracks, etc.).</summary>
-    private static IReadOnlyList<string> GetSetMembers(string filePath, string ext)
-    {
-        return ext switch
-        {
-            ".cue" => CueSetParser.GetRelatedFiles(filePath),
-            ".gdi" => GdiSetParser.GetRelatedFiles(filePath),
-            ".ccd" => CcdSetParser.GetRelatedFiles(filePath),
-            ".m3u" => M3uPlaylistParser.GetRelatedFiles(filePath),
-            _ => Array.Empty<string>()
+            Options = options,
+            FileSystem = _fs,
+            AuditStore = _audit,
+            Metrics = metrics,
+            OnProgress = _onProgress
         };
+
+        var output = phase.Execute(candidates, context, cancellationToken);
+
+        result.GroupCount = output.GameGroups.Count;
+        result.WinnerCount = output.GameGroups.Count;
+        result.LoserCount = output.LoserCount;
+        result.AllCandidates = candidates;
+        result.DedupeGroups = output.GameGroups;
+
+        return (output.Groups, output.GameGroups);
     }
 
-    /// <summary>FEAT-07: Calculate completeness score based on set integrity and DAT match.</summary>
-    private static int CalculateCompletenessScore(string filePath, string ext, IReadOnlyList<string> setMembers, bool datMatch)
+    private HashSet<string> ExecuteJunkPhaseIfEnabled(
+        IReadOnlyList<DedupeResult> groups,
+        RunOptions options,
+        RunResultBuilder result,
+        PhaseMetricsCollector metrics,
+        CancellationToken cancellationToken)
     {
-        int score = 0;
+        var junkRemovedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!options.RemoveJunk || options.Mode != "Move")
+            return junkRemovedPaths;
 
-        // DAT-verified ROM gets a boost
-        if (datMatch)
-            score += 50;
-
-        // Set completeness: check if all referenced files exist
-        if (ext is ".cue" or ".gdi" or ".ccd" or ".m3u")
+        var phase = new JunkRemovalPipelinePhase();
+        var context = new PipelineContext
         {
-            var missing = ext switch
-            {
-                ".cue" => CueSetParser.GetMissingFiles(filePath),
-                ".gdi" => GdiSetParser.GetMissingFiles(filePath),
-                ".ccd" => CcdSetParser.GetMissingFiles(filePath),
-                ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath),
-                _ => Array.Empty<string>()
-            };
+            Options = options,
+            FileSystem = _fs,
+            AuditStore = _audit,
+            Metrics = metrics,
+            OnProgress = _onProgress
+        };
+        var output = phase.Execute(new JunkRemovalPhaseInput(groups, options), context, cancellationToken);
 
-            // Complete set = +50, incomplete = -50
-            score += missing.Count == 0 ? 50 : -50;
-        }
-        else if (setMembers.Count == 0)
-        {
-            // Standalone file — neutral completeness
-            score += 25;
-        }
-
-        return score;
+        result.JunkRemovedCount = output.MoveResult.MoveCount;
+        result.JunkMoveResult = output.MoveResult;
+        return output.RemovedPaths;
     }
 
-    private static List<DedupeResult> GetGameGroups(IReadOnlyList<DedupeResult> groups)
+    private void ExecuteConvertOnlyPhase(
+        IReadOnlyList<RomCandidate> candidates,
+        RunOptions options,
+        RunResultBuilder result,
+        PhaseMetricsCollector metrics,
+        CancellationToken cancellationToken)
     {
-        return groups
-            .Where(g => g.Winner.Category == "GAME" || g.Losers.Any(l => l.Category == "GAME"))
-            .ToList();
+        var phase = new ConvertOnlyPipelinePhase();
+        var context = new PipelineContext
+        {
+            Options = options,
+            FileSystem = _fs,
+            AuditStore = _audit,
+            Metrics = metrics,
+            OnProgress = _onProgress
+        };
+        var output = phase.Execute(new ConvertOnlyPhaseInput(candidates, options, _converter!), context, cancellationToken);
+
+        result.ConvertedCount = output.Converted;
+        result.ConvertErrorCount = output.ConvertErrors;
+        result.ConvertSkippedCount = output.ConvertSkipped;
+    }
+
+    private void ExecuteWinnerConversionPhase(
+        IReadOnlyList<DedupeResult> gameGroups,
+        RunOptions options,
+        IReadOnlySet<string> junkRemovedPaths,
+        RunResultBuilder result,
+        PhaseMetricsCollector metrics,
+        CancellationToken cancellationToken)
+    {
+        var phase = new WinnerConversionPipelinePhase();
+        var context = new PipelineContext
+        {
+            Options = options,
+            FileSystem = _fs,
+            AuditStore = _audit,
+            Metrics = metrics,
+            OnProgress = _onProgress
+        };
+        var output = phase.Execute(new WinnerConversionPhaseInput(gameGroups, options, junkRemovedPaths, _converter!), context, cancellationToken);
+
+        result.ConvertedCount = output.Converted;
+        result.ConvertErrorCount = output.ConvertErrors;
+        result.ConvertSkippedCount = output.ConvertSkipped;
     }
 
     /// <summary>FEAT-02: Generate HTML and CSV reports from pipeline results.</summary>
-    private string? GenerateReport(RunResult result, RunOptions options)
+    private string? GenerateReport(RunResultBuilder result, RunOptions options)
     {
         try
         {
-            var actualPath = RunReportWriter.WriteReport(options.ReportPath!, result, options.Mode);
+            var actualPath = RunReportWriter.WriteReport(options.ReportPath!, result.Build(), options.Mode);
             _onProgress?.Invoke($"Report written: {actualPath}");
             return actualPath;
         }
@@ -911,6 +481,38 @@ public sealed class RunOptions
 /// <summary>Full result of a pipeline execution.</summary>
 public sealed class RunResult
 {
+    public string Status { get; init; } = "ok";
+    public int ExitCode { get; init; }
+    public OperationResult? Preflight { get; init; }
+    public int TotalFilesScanned { get; init; }
+    public int GroupCount { get; init; }
+    public int WinnerCount { get; init; }
+    public int LoserCount { get; init; }
+    public MovePhaseResult? MoveResult { get; init; }
+    public MovePhaseResult? JunkMoveResult { get; init; }
+    public ConsoleSortResult? ConsoleSortResult { get; init; }
+    public int JunkRemovedCount { get; init; }
+    public int ConvertedCount { get; init; }
+    public int ConvertErrorCount { get; init; }
+    public int ConvertSkippedCount { get; init; }
+    public long DurationMs { get; init; }
+    public string? ReportPath { get; init; }
+
+    /// <summary>All scanned candidates (for report generation).</summary>
+    public IReadOnlyList<RomCandidate> AllCandidates { get; init; } = Array.Empty<RomCandidate>();
+
+    /// <summary>Dedupe group results (for DryRun JSON output and reports).</summary>
+    public IReadOnlyList<DedupeResult> DedupeGroups { get; init; } = Array.Empty<DedupeResult>();
+
+    /// <summary>V2-M09: Structured phase timing metrics.</summary>
+    public PhaseMetricsResult? PhaseMetrics { get; init; }
+}
+
+/// <summary>
+/// Mutable builder for assembling a RunResult across orchestrator phases.
+/// </summary>
+public sealed class RunResultBuilder
+{
     public string Status { get; set; } = "ok";
     public int ExitCode { get; set; }
     public OperationResult? Preflight { get; set; }
@@ -927,15 +529,32 @@ public sealed class RunResult
     public int ConvertSkippedCount { get; set; }
     public long DurationMs { get; set; }
     public string? ReportPath { get; set; }
-
-    /// <summary>All scanned candidates (for report generation).</summary>
     public IReadOnlyList<RomCandidate> AllCandidates { get; set; } = Array.Empty<RomCandidate>();
-
-    /// <summary>Dedupe group results (for DryRun JSON output and reports).</summary>
     public IReadOnlyList<DedupeResult> DedupeGroups { get; set; } = Array.Empty<DedupeResult>();
-
-    /// <summary>V2-M09: Structured phase timing metrics.</summary>
     public PhaseMetricsResult? PhaseMetrics { get; set; }
+
+    public RunResult Build() => new()
+    {
+        Status = Status,
+        ExitCode = ExitCode,
+        Preflight = Preflight,
+        TotalFilesScanned = TotalFilesScanned,
+        GroupCount = GroupCount,
+        WinnerCount = WinnerCount,
+        LoserCount = LoserCount,
+        MoveResult = MoveResult,
+        JunkMoveResult = JunkMoveResult,
+        ConsoleSortResult = ConsoleSortResult,
+        JunkRemovedCount = JunkRemovedCount,
+        ConvertedCount = ConvertedCount,
+        ConvertErrorCount = ConvertErrorCount,
+        ConvertSkippedCount = ConvertSkippedCount,
+        DurationMs = DurationMs,
+        ReportPath = ReportPath,
+        AllCandidates = AllCandidates,
+        DedupeGroups = DedupeGroups,
+        PhaseMetrics = PhaseMetrics
+    };
 }
 
 /// <summary>Result of the move phase.</summary>

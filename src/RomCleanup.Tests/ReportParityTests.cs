@@ -53,7 +53,7 @@ public sealed class ReportParityTests : IDisposable
         };
 
         var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
-        using var cliJson = JsonDocument.Parse(cliStdout);
+        using var cliJson = ParseCliSummaryJson(cliStdout);
 
         var vm = CreateViewModel();
         vm.Roots.Add(root);
@@ -89,12 +89,12 @@ public sealed class ReportParityTests : IDisposable
         Assert.Equal(wpfExecution.Result.TotalFilesScanned, cliJson.RootElement.GetProperty("TotalFiles").GetInt32());
         Assert.Equal(wpfExecution.Result.GroupCount, cliJson.RootElement.GetProperty("Groups").GetInt32());
         Assert.Equal(wpfExecution.Result.WinnerCount, cliJson.RootElement.GetProperty("Keep").GetInt32());
-        Assert.Equal(wpfExecution.Result.LoserCount, cliJson.RootElement.GetProperty("Move").GetInt32());
+        Assert.Equal(wpfExecution.Result.LoserCount, cliJson.RootElement.GetProperty("Dupes").GetInt32());
 
         Assert.Equal(wpfExecution.Result.TotalFilesScanned, apiCompleted.Result!.TotalFiles);
         Assert.Equal(wpfExecution.Result.GroupCount, apiCompleted.Result.Groups);
         Assert.Equal(wpfExecution.Result.WinnerCount, apiCompleted.Result.Keep);
-        Assert.Equal(wpfExecution.Result.LoserCount, apiCompleted.Result.Move);
+        Assert.Equal(wpfExecution.Result.LoserCount, apiCompleted.Result.Dupes);
 
         Assert.True(File.Exists(cliReportPath));
         Assert.Contains($"[Report] {Path.GetFullPath(cliReportPath)}", cliStderr, StringComparison.OrdinalIgnoreCase);
@@ -105,6 +105,87 @@ public sealed class ReportParityTests : IDisposable
 
         Assert.False(string.IsNullOrWhiteSpace(apiCompleted.Result.ReportPath));
         Assert.True(File.Exists(apiCompleted.Result.ReportPath));
+    }
+
+    [Fact]
+    public async Task DryRun_RunProjection_Parity_AcrossCliApiAndWpfDashboard()
+    {
+        var root = Path.Combine(_tempDir, "projection_parity");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Game (USA).zip"), "usa");
+        File.WriteAllText(Path.Combine(root, "Game (Europe).zip"), "eu");
+        File.WriteAllText(Path.Combine(root, "Proto (Beta).zip"), "junk");
+
+        var vm = CreateViewModel();
+        vm.Roots.Add(root);
+        vm.DryRun = true;
+        vm.PreferEU = true;
+        vm.PreferUS = true;
+        vm.PreferJP = true;
+        vm.PreferWORLD = true;
+
+        var runService = new RunService();
+        var (orchestrator, options, auditPath, reportPath) = runService.BuildOrchestrator(vm);
+        var wpfExecution = runService.ExecuteRun(orchestrator, options, auditPath, reportPath, CancellationToken.None);
+        var projection = RomCleanup.Infrastructure.Orchestration.RunProjectionFactory.Create(wpfExecution.Result);
+
+        var cliOptions = new CliProgram.CliOptions
+        {
+            Roots = [root],
+            Mode = "DryRun",
+            PreferRegions = ["US", "EU", "JP", "WORLD"]
+        };
+        var (cliExitCode, cliStdout, _) = RunCliWithCapturedConsole(cliOptions);
+        using var cliJson = ParseCliSummaryJson(cliStdout);
+
+        var manager = new RunManager(new FileSystemAdapter(), new AuditCsvStore());
+        var apiRun = manager.TryCreate(new RunRequest
+        {
+            Roots = [root],
+            Mode = "DryRun",
+            PreferRegions = ["US", "EU", "JP", "WORLD"]
+        }, "DryRun");
+
+        Assert.NotNull(apiRun);
+        await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var apiCompleted = manager.Get(apiRun.RunId);
+
+        Assert.Equal(0, cliExitCode);
+        Assert.NotNull(apiCompleted?.Result);
+
+        // CLI parity vs central projection
+        Assert.Equal(projection.TotalFiles, cliJson.RootElement.GetProperty("TotalFiles").GetInt32());
+        Assert.Equal(projection.Candidates, cliJson.RootElement.GetProperty("Candidates").GetInt32());
+        Assert.Equal(projection.Groups, cliJson.RootElement.GetProperty("Groups").GetInt32());
+        Assert.Equal(projection.Keep, cliJson.RootElement.GetProperty("Keep").GetInt32());
+        Assert.Equal(projection.Dupes, cliJson.RootElement.GetProperty("Dupes").GetInt32());
+        Assert.Equal(projection.Games, cliJson.RootElement.GetProperty("Games").GetInt32());
+        Assert.Equal(projection.Junk, cliJson.RootElement.GetProperty("Junk").GetInt32());
+        Assert.Equal(projection.Bios, cliJson.RootElement.GetProperty("Bios").GetInt32());
+        Assert.Equal(projection.DatMatches, cliJson.RootElement.GetProperty("DatMatches").GetInt32());
+        Assert.Equal(projection.HealthScore, cliJson.RootElement.GetProperty("HealthScore").GetInt32());
+
+        // API parity vs central projection
+        var api = apiCompleted!.Result!;
+        Assert.Equal(projection.TotalFiles, api.TotalFiles);
+        Assert.Equal(projection.Candidates, api.Candidates);
+        Assert.Equal(projection.Groups, api.Groups);
+        Assert.Equal(projection.Keep, api.Keep);
+        Assert.Equal(projection.Dupes, api.Dupes);
+        Assert.Equal(projection.Games, api.Games);
+        Assert.Equal(projection.Junk, api.Junk);
+        Assert.Equal(projection.Bios, api.Bios);
+        Assert.Equal(projection.DatMatches, api.DatMatches);
+        Assert.Equal(projection.HealthScore, api.HealthScore);
+
+        // WPF dashboard parity vs central projection
+        vm.ApplyRunResult(wpfExecution.Result);
+        Assert.Equal(projection.Keep.ToString(), vm.DashWinners);
+        Assert.Equal(projection.Dupes.ToString(), vm.DashDupes);
+        Assert.Equal(projection.Junk.ToString(), vm.DashJunk);
+        Assert.Equal(projection.Games.ToString(), vm.DashGames);
+        Assert.Equal(projection.DatMatches.ToString(), vm.DashDatHits);
+        Assert.Equal($"{projection.HealthScore}%", vm.HealthScore);
     }
 
     [Fact]
@@ -150,6 +231,16 @@ public sealed class ReportParityTests : IDisposable
             Console.SetOut(originalOut);
             Console.SetError(originalError);
         }
+    }
+
+    private static JsonDocument ParseCliSummaryJson(string stdout)
+    {
+        var start = stdout.IndexOf('{');
+        var end = stdout.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            return JsonDocument.Parse(stdout[start..(end + 1)]);
+
+        return JsonDocument.Parse(stdout);
     }
 
     private static MainViewModel CreateViewModel()

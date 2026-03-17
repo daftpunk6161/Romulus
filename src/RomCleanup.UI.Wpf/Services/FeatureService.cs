@@ -19,6 +19,24 @@ namespace RomCleanup.UI.Wpf.Services;
 /// </summary>
 public static partial class FeatureService
 {
+    internal static string ToCategoryLabel(FileCategory category) => category switch
+    {
+        FileCategory.Game => "GAME",
+        FileCategory.Bios => "BIOS",
+        FileCategory.Junk => "JUNK",
+        _ => "UNKNOWN"
+    };
+
+    internal static FileCategory ParseCategory(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return FileCategory.Game;
+
+        return Enum.TryParse<FileCategory>(value, ignoreCase: true, out var category)
+            ? category
+            : FileCategory.Unknown;
+    }
+
     /// <summary>
     /// Safely load an XDocument with XXE/DTD processing disabled.
     /// </summary>

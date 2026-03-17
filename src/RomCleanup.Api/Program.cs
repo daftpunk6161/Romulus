@@ -117,7 +117,7 @@ app.Use(async (ctx, next) =>
     var method = ctx.Request.Method;
     var path = ctx.Request.Path;
     var status = ctx.Response.StatusCode;
-    Console.WriteLine($"[{start:o}] {correlationId} {method} {path} → {status} ({elapsed:F0}ms)");
+    SafeConsoleWriteLine($"[{start:o}] {correlationId} {method} {path} → {status} ({elapsed:F0}ms)");
 });
 
 // --- Endpoints ---
@@ -381,7 +381,13 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
                 lastHeartbeat = DateTime.UtcNow;
                 if (current.Status != "running")
                 {
-                    await WriteSseEvent(writer, encoding, "completed", new { run = current, result = current.Result });
+                    var terminalEvent = current.Status switch
+                    {
+                        "cancelled" => "cancelled",
+                        "failed" => "failed",
+                        _ => "completed"
+                    };
+                    await WriteSseEvent(writer, encoding, terminalEvent, new { run = current, result = current.Result });
                     break;
                 }
                 await WriteSseEvent(writer, encoding, "status", current);
@@ -457,6 +463,18 @@ static bool FixedTimeEquals(string expected, string? actual)
     var a = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(expected));
     var b = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(actual));
     return CryptographicOperations.FixedTimeEquals(a, b);
+}
+
+static void SafeConsoleWriteLine(string message)
+{
+    try
+    {
+        Console.WriteLine(message);
+    }
+    catch (ObjectDisposedException)
+    {
+        // Some tests temporarily replace/dispose Console.Out. Logging must never break request handling.
+    }
 }
 
 static async Task WriteSseEvent(Stream stream, Encoding encoding, string eventName, object data)

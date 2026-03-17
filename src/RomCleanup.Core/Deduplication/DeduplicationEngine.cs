@@ -21,7 +21,10 @@ public static class DeduplicationEngine
         if (items is null || items.Count == 0) return null;
         if (items.Count == 1) return items[0];
 
-        return items
+        var highestCategoryRank = items.Max(GetCategoryRank);
+        var prioritized = items.Where(x => GetCategoryRank(x) == highestCategoryRank);
+
+        return prioritized
             .OrderByDescending(x => x.CompletenessScore)
             .ThenByDescending(x => x.DatMatch ? 1 : 0)
             .ThenByDescending(x => x.RegionScore)
@@ -31,6 +34,18 @@ public static class DeduplicationEngine
             .ThenByDescending(x => x.SizeTieBreakScore)
             .ThenBy(x => x.MainPath, StringComparer.OrdinalIgnoreCase)
             .First();
+    }
+
+    private static int GetCategoryRank(RomCandidate candidate)
+    {
+        return candidate.Category switch
+        {
+            FileCategory.Game => 4,
+            FileCategory.Bios => 3,
+            FileCategory.Junk => 2,
+            FileCategory.Unknown => 1,
+            _ => 1
+        };
     }
 
     /// <summary>
@@ -63,7 +78,27 @@ public static class DeduplicationEngine
         {
             var items = groupDict[key];
             var winner = SelectWinner(items)!;
-            var losers = items.Where(x => !string.Equals(x.MainPath, winner.MainPath, StringComparison.OrdinalIgnoreCase)).ToList();
+            var losers = new List<RomCandidate>(Math.Max(0, items.Count - 1));
+            var winnerSkipped = false;
+            foreach (var item in items)
+            {
+                if (!winnerSkipped && ReferenceEquals(item, winner))
+                {
+                    winnerSkipped = true;
+                    continue;
+                }
+
+                losers.Add(item);
+            }
+
+            if (!winnerSkipped)
+            {
+                // Defensive fallback for non-reference-equivalent winner instances.
+                losers = items
+                    .Where(x => !string.Equals(x.MainPath, winner.MainPath, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
             results.Add(new DedupeResult
             {
                 Winner = winner,

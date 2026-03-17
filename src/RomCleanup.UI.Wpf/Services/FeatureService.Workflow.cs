@@ -253,7 +253,7 @@ public static partial class FeatureService
         sb.AppendLine($"  {"Scan",-20} {"OK",-15} {result.TotalFilesScanned} Dateien");
         sb.AppendLine($"  {"Dedupe",-20} {"OK",-15} {result.GroupCount} Gruppen, {result.WinnerCount} Winner");
 
-        var junkCount = candidates.Count(c => c.Category == "JUNK");
+        var junkCount = candidates.Count(c => c.Category == FileCategory.Junk);
         sb.AppendLine($"  {"Junk-Erkennung",-20} {"OK",-15} {junkCount} Junk-Dateien");
 
         if (result.ConsoleSortResult is { } cs)

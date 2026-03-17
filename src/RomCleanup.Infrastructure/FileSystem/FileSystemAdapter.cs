@@ -252,14 +252,29 @@ public sealed class FileSystemAdapter : IFileSystem
         if (string.IsNullOrWhiteSpace(destinationPath))
             throw new ArgumentException("Destination path must not be empty.", nameof(destinationPath));
 
-        var fullSource = Path.GetFullPath(sourcePath);
-        var fullDest = Path.GetFullPath(destinationPath);
+        // SEC-MOVE-02: Use NFC normalization consistent with MoveItemSafely
+        var fullSource = NormalizePathNfc(sourcePath);
+        var fullDest = NormalizePathNfc(destinationPath);
 
         if (string.Equals(fullSource, fullDest, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Source and destination are the same path.");
 
         if (!Directory.Exists(fullSource))
             throw new DirectoryNotFoundException($"Source directory not found: {fullSource}");
+
+        // SEC-MOVE-02: Block reparse points on source directory
+        var sourceInfo = new DirectoryInfo(fullSource);
+        if ((sourceInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Blocked: Source directory is a reparse point.");
+
+        // SEC-MOVE-02: Block reparse points on destination parent
+        var destParent = Path.GetDirectoryName(fullDest);
+        if (!string.IsNullOrEmpty(destParent) && Directory.Exists(destParent))
+        {
+            var destParentInfo = new DirectoryInfo(destParent);
+            if ((destParentInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
+        }
 
         var finalDest = fullDest;
         if (Directory.Exists(finalDest))

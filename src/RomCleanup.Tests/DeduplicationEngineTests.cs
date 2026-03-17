@@ -203,4 +203,55 @@ public class DeduplicationEngineTests
         Assert.Single(results);
         Assert.Equal("b.zip", results[0].Winner.MainPath);
     }
+
+    [Fact]
+    public void Deduplicate_SameMainPathDifferentCandidates_RetainsLoser()
+    {
+        var stronger = MakeCandidate(
+            mainPath: "same_path.zip",
+            gameKey: "game",
+            regionScore: 1000,
+            versionScore: 100,
+            formatScore: 850);
+        var weaker = MakeCandidate(
+            mainPath: "same_path.zip",
+            gameKey: "game",
+            regionScore: 200,
+            versionScore: 0,
+            formatScore: 300);
+
+        var results = DeduplicationEngine.Deduplicate(new[] { stronger, weaker });
+
+        Assert.Single(results);
+        Assert.Equal("same_path.zip", results[0].Winner.MainPath);
+        Assert.Single(results[0].Losers);
+    }
+
+    [Fact]
+    public void SelectWinner_GameCategory_BeatsUnknownDespiteHigherScores()
+    {
+        var unknown = new RomCandidate
+        {
+            MainPath = "u.zip",
+            GameKey = "game",
+            Category = FileCategory.Unknown,
+            RegionScore = 1000,
+            VersionScore = 1000,
+            FormatScore = 1000
+        };
+        var game = new RomCandidate
+        {
+            MainPath = "g.zip",
+            GameKey = "game",
+            Category = FileCategory.Game,
+            RegionScore = 1,
+            VersionScore = 1,
+            FormatScore = 1
+        };
+
+        var winner = DeduplicationEngine.SelectWinner(new[] { unknown, game });
+
+        Assert.NotNull(winner);
+        Assert.Equal(FileCategory.Game, winner!.Category);
+    }
 }

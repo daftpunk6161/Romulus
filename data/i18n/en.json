@@ -243,7 +243,7 @@
   "Sort.DryRunOptionTip": "No files will be moved; analysis + report only.",
   "Sort.ConvertOption": "Convert winners after move (CHD/RVZ/ZIP)",
   "Sort.ConvertOptionTip": "Enables format conversion in move run.",
-  "Sort.DryRunBanner": "DryRun active: No files will be moved.",
+  "Sort.DryRunBanner": "Preview active: No files have been moved yet.",
   "Sort.StartMoveNow": "▶ Run as Move now",
   "Sort.StartMoveTip": "Restart the run in move mode.",
   "Sort.MoveComplete": "Move completed.",
@@ -305,6 +305,7 @@
   "Result.ChartConsole": "Console Distribution (Chart)",
   "Result.BeforeAfter": "Before / After",
   "Result.DedupeDecisions": "Deduplication Decisions",
+  "Result.ApplyWarningTitle": "⚠ Apply changes",
   "Result.TrustSignal": "\u2714 Fully reversible \u2014 undo available at any time",
 
   "Tools.NavQuickAccess": "Quick Access",
@@ -763,7 +764,7 @@
   "Nav.Analyse": "Analysis",
   "Nav.Setup": "Setup",
   "Nav.Tools": "Tools",
-  "Nav.Log": "Log",
+  "Nav.Log": "Settings",
 
   "Start.DropZoneLabel": "Drop ROM directories here",
   "Start.DropHero": "Drop ROM directories",
