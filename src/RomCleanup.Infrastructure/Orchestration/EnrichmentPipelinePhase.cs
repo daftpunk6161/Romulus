@@ -63,17 +63,25 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             }
 
             bool datMatch = false;
-            if (input.DatIndex is not null && input.HashService is not null && consoleKey != "UNKNOWN")
+            if (input.DatIndex is not null && input.HashService is not null)
             {
-                if (sizeBytes > 50_000_000)
+                if (consoleKey is "UNKNOWN" or "")
                 {
-                    var sizeMb = sizeBytes / (1024.0 * 1024.0);
-                    context.OnProgress?.Invoke($"[Scan] Hash: {Path.GetFileName(filePath)} ({sizeMb:F0} MB)…");
+                    // P2-04: Log warning instead of silently skipping DAT verification
+                    context.OnProgress?.Invoke($"WARNING: DAT-Verifizierung übersprungen (Konsole unbekannt): {Path.GetFileName(filePath)}");
                 }
+                else
+                {
+                    if (sizeBytes > 50_000_000)
+                    {
+                        var sizeMb = sizeBytes / (1024.0 * 1024.0);
+                        context.OnProgress?.Invoke($"[Scan] Hash: {Path.GetFileName(filePath)} ({sizeMb:F0} MB)…");
+                    }
 
-                var hash = input.HashService.GetHash(filePath, context.Options.HashType);
-                if (hash is not null)
-                    datMatch = input.DatIndex.Lookup(consoleKey, hash) is not null;
+                    var hash = input.HashService.GetHash(filePath, context.Options.HashType);
+                    if (hash is not null)
+                        datMatch = input.DatIndex.Lookup(consoleKey, hash) is not null;
+                }
             }
 
             var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);

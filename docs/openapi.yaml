@@ -2,312 +2,132 @@ openapi: 3.0.3
 info:
   title: ROM Cleanup API
   version: 1.0.0
-  description: |
-    Lokale REST-API fuer ROM Cleanup (ASP.NET Core Minimal API, localhost-only).
-    Authentifizierung via X-Api-Key Header (Wert aus ROM_CLEANUP_API_KEY Env-Variable).
-    Rate-Limiting: 120 Requests/Minute (Sliding Window).
+  description: "REST API for ROM collection management: region deduplication, junk removal, format conversion."
 servers:
   - url: http://127.0.0.1:7878
-security:
-  - ApiKeyAuth: []
-
 paths:
   /health:
     get:
-      summary: Health-Status
+      summary: Health check
       responses:
-        '200':
-          description: Health payload
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  serverRunning:
-                    type: boolean
-                  hasActiveRun:
-                    type: boolean
-                  utc:
-                    type: string
-                    format: date-time
-        '401':
-          description: Unauthorized
-        '429':
-          description: Too many requests
-
-  /openapi:
-    get:
-      summary: OpenAPI-Spezifikation (JSON)
-      responses:
-        '200':
-          description: OpenAPI JSON
-          content:
-            application/json:
-              schema:
-                type: object
-        '401':
-          description: Unauthorized
-
+        "200":
+          description: Server status
   /runs:
     post:
-      summary: Startet einen Lauf
+      summary: Create and execute a deduplication run
       parameters:
-        - in: query
-          name: wait
+        - name: wait
+          in: query
           schema:
             type: boolean
-          description: Wenn true, blockiert bis Lauf fertig.
+          description: Wait for completion without cancelling the server-side run on client disconnect
+        - name: waitTimeoutMs
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1800000
+          description: Maximum wait time before returning 202 with the current run state
+        - name: X-Idempotency-Key
+          in: header
+          schema:
+            type: string
+          description: Reuse the same run for retries of the same request
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRunRequest'
+              type: object
+              required:
+                - roots
+              properties:
+                roots:
+                  type: array
+                  items:
+                    type: string
+                mode:
+                  type: string
+                  enum:
+                    - DryRun
+                    - Move
+                  default: DryRun
+                preferRegions:
+                  type: array
+                  items:
+                    type: string
       responses:
-        '200':
-          description: Lauf fertig (wait=true)
-        '202':
-          description: Lauf gestartet
-        '400':
-          description: Ungueltige Payload
-        '401':
-          description: Unauthorized
-        '409':
-          description: Lauf bereits aktiv
-        '429':
-          description: Too many requests
-
+        "202":
+          description: Run created (async)
+        "200":
+          description: Run completed or an existing completed idempotent run was reused
+        "400":
+          description: Validation error
+        "409":
+          description: Run already active
   /runs/{runId}:
     get:
-      summary: Laufstatus
+      summary: Get run status
       parameters:
-        - in: path
-          name: runId
+        - name: runId
+          in: path
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: Laufstatus
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  run:
-                    $ref: '#/components/schemas/RunRecord'
-        '401':
-          description: Unauthorized
-        '404':
+        "200":
+          description: Run status
+        "404":
           description: Run not found
-        '429':
-          description: Too many requests
-
   /runs/{runId}/result:
     get:
-      summary: Laufergebnis
+      summary: Get completed run result
       parameters:
-        - in: path
-          name: runId
+        - name: runId
+          in: path
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: Run-Resultat
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  run:
-                    $ref: '#/components/schemas/RunRecord'
-                  result:
-                    $ref: '#/components/schemas/RunResult'
-        '401':
-          description: Unauthorized
-        '404':
+        "200":
+          description: Full result
+        "404":
           description: Run not found
-        '409':
-          description: Run still running
-        '429':
-          description: Too many requests
-
+        "409":
+          description: Run still in progress
   /runs/{runId}/cancel:
     post:
-      summary: Lauf abbrechen
+      summary: Cancel a run idempotently
       parameters:
-        - in: path
-          name: runId
+        - name: runId
+          in: path
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: Abgebrochen
-        '401':
-          description: Unauthorized
-        '404':
+        "200":
+          description: Cancel accepted or no-op for an already terminal run
+        "404":
           description: Run not found
-        '409':
-          description: Run not running
-        '429':
-          description: Too many requests
-
   /runs/{runId}/stream:
     get:
-      summary: SSE-Fortschrittsstream
-      description: |
-        Server-Sent Events Stream. Sendet Events: ready, status, completed, cancelled, failed, error, timeout.
-        Timeout nach 300 Sekunden.
+      summary: SSE progress stream
       parameters:
-        - in: path
-          name: runId
+        - name: runId
+          in: path
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: SSE Stream
-          content:
-            text/event-stream:
-              schema:
-                type: string
-        '401':
-          description: Unauthorized
-        '404':
+        "200":
+          description: Server-Sent Events stream
+        "404":
           description: Run not found
-        '429':
-          description: Too many requests
-
 components:
   securitySchemes:
-    ApiKeyAuth:
+    ApiKey:
       type: apiKey
       in: header
       name: X-Api-Key
-  schemas:
-    CreateRunRequest:
-      type: object
-      required:
-        - roots
-      properties:
-        roots:
-          type: array
-          items:
-            type: string
-          description: ROM-Verzeichnispfade (mindestens 1, keine Systemverzeichnisse, keine Laufwerks-Roots)
-        mode:
-          type: string
-          enum: [DryRun, Move]
-          default: DryRun
-        preferRegions:
-          type: array
-          items:
-            type: string
-          description: Bevorzugte Regionen (z.B. ["EU", "US", "JP"])
-          default: [EU, US, WORLD, JP]
-
-    RunRecord:
-      type: object
-      properties:
-        runId:
-          type: string
-        status:
-          type: string
-          enum: [running, completed, completed_with_errors, failed, cancelled]
-        mode:
-          type: string
-          enum: [DryRun, Move]
-        roots:
-          type: array
-          items:
-            type: string
-        preferRegions:
-          type: array
-          items:
-            type: string
-        startedUtc:
-          type: string
-          format: date-time
-        completedUtc:
-          type: string
-          format: date-time
-          nullable: true
-        progressMessage:
-          type: string
-          nullable: true
-        result:
-          $ref: '#/components/schemas/RunResult'
-          nullable: true
-
-    RunResult:
-      type: object
-      properties:
-        orchestratorStatus:
-          type: string
-          description: Orchestrator-Status (ok, completed_with_errors, blocked, cancelled, failed)
-        exitCode:
-          type: integer
-          description: 0=Erfolg, 1=Fehler, 2=Abgebrochen, 3=Preflight fehlgeschlagen
-        totalFiles:
-          type: integer
-        candidates:
-          type: integer
-        groups:
-          type: integer
-        keep:
-          type: integer
-        dupes:
-          type: integer
-          description: Anzahl deduplizierter Verlierer
-        games:
-          type: integer
-        junk:
-          type: integer
-        bios:
-          type: integer
-        datMatches:
-          type: integer
-        healthScore:
-          type: integer
-          minimum: 0
-          maximum: 100
-        convertedCount:
-          type: integer
-        convertErrorCount:
-          type: integer
-        convertSkippedCount:
-          type: integer
-        junkRemovedCount:
-          type: integer
-        junkFailCount:
-          type: integer
-        moveCount:
-          type: integer
-        skipCount:
-          type: integer
-        consoleSortMoved:
-          type: integer
-        consoleSortFailed:
-          type: integer
-        failCount:
-          type: integer
-        savedBytes:
-          type: integer
-          format: int64
-        durationMs:
-          type: integer
-          format: int64
-        auditPath:
-          type: string
-          nullable: true
-        reportPath:
-          type: string
-          nullable: true
-        error:
-          type: string
-          nullable: true
+security:
+  - ApiKey: []

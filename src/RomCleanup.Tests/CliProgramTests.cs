@@ -441,22 +441,18 @@ public sealed class CliProgramTests : IDisposable
 
     private static (CliProgram.CliOptions? Options, int ExitCode, string Stdout, string Stderr) ParseArgsWithCapturedConsole(string[] args)
     {
-        var originalOut = Console.Out;
-        var originalError = Console.Error;
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
 
         try
         {
-            Console.SetOut(stdout);
-            Console.SetError(stderr);
+            CliProgram.SetConsoleOverrides(stdout, stderr);
             var (options, exitCode) = CliProgram.ParseArgs(args);
             return (options, exitCode, stdout.ToString(), stderr.ToString());
         }
         finally
         {
-            Console.SetOut(originalOut);
-            Console.SetError(originalError);
+            CliProgram.SetConsoleOverrides(null, null);
         }
     }
 }

@@ -572,6 +572,16 @@ Exit codes:
         }
     }
 
+    /// <summary>
+    /// Activates AsyncLocal-based Console overrides for thread-safe test isolation.
+    /// </summary>
+    internal static void SetConsoleOverrides(TextWriter? stdout, TextWriter? stderr)
+    {
+        StdoutOverride.Value = stdout;
+        StderrOverride.Value = stderr;
+        ConsoleOverrideEnabled.Value = stdout is not null || stderr is not null;
+    }
+
     internal sealed class CliOptions
     {
         public string[] Roots { get; set; } = Array.Empty<string>();

@@ -688,6 +688,56 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
                 cancelled));
     }
 
+    // P2-04: DAT matching skip for UNKNOWN console must emit warning
+
+    [Fact]
+    public void Enrichment_DatSkippedForUnknownConsole_EmitsWarning()
+    {
+        var root = Path.Combine(_tempDir, "dat_warn");
+        Directory.CreateDirectory(root);
+        CreateFileAt(root, "UnknownRom.zip", 20);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun"
+        };
+
+        var scanned = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
+
+        // Provide a DatIndex and HashService so DAT matching is attempted
+        var datRoot = Path.Combine(_tempDir, "dat_test");
+        Directory.CreateDirectory(datRoot);
+        File.WriteAllText(Path.Combine(datRoot, "test.dat"),
+            "<?xml version=\"1.0\"?><datafile><game name=\"X\"><rom sha1=\"abc\" /></game></datafile>");
+        var repo = new RomCleanup.Infrastructure.Dat.DatRepositoryAdapter();
+        var datIndex = repo.GetDatIndex(datRoot, new Dictionary<string, string> { ["TEST"] = "test.dat" });
+        var hashService = new FileHashService();
+
+        // No ConsoleDetector → all files get consoleKey="" → DAT skip
+        var warnings = new List<string>();
+        var context = CreateContext(options);
+        context = new PipelineContext
+        {
+            Options = options,
+            FileSystem = new FileSystemAdapter(),
+            AuditStore = new AuditCsvStore(),
+            Metrics = context.Metrics,
+            OnProgress = msg => warnings.Add(msg)
+        };
+
+        var enriched = new EnrichmentPipelinePhase().Execute(
+            new EnrichmentPhaseInput(scanned, null, hashService, datIndex),
+            context,
+            CancellationToken.None);
+
+        // INVARIANT: Warning must be emitted when DAT matching is skipped due to unknown console
+        Assert.Contains(warnings, w => w.Contains("DAT-Verifizierung übersprungen", StringComparison.OrdinalIgnoreCase));
+        // File should NOT have DAT match
+        Assert.All(enriched, c => Assert.False(c.DatMatch));
+    }
+
     // 10) GUI / CLI / API parity
 
     [Fact]
