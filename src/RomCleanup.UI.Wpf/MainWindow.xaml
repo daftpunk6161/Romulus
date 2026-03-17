@@ -166,7 +166,7 @@
     <!-- ═══ MAIN CONTENT: SIDEBAR + VIEWS ════════════════════════════════ -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="56"/>
+        <ColumnDefinition Width="84"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
@@ -179,31 +179,46 @@
             <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Start}"
                          Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Start]}" TabIndex="50"
                          AutomationProperties.Name="{Binding Loc[Nav.Start]}">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE80F;" FontSize="20" HorizontalAlignment="Center"/>
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE80F;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc[Nav.Start]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
             </RadioButton>
             <!-- Analyse -->
             <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Analyse}"
                          Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Analyse]}" TabIndex="51"
                          AutomationProperties.Name="{Binding Loc[Nav.Analyse]}">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" FontSize="20" HorizontalAlignment="Center"/>
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc[Nav.Analyse]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
             </RadioButton>
             <!-- Setup -->
             <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Setup}"
                          Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Setup]}" TabIndex="52"
                          AutomationProperties.Name="{Binding Loc[Nav.Setup]}">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="20" HorizontalAlignment="Center"/>
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc[Nav.Setup]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
             </RadioButton>
             <!-- Tools -->
             <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Tools}"
                          Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Tools]}" TabIndex="53"
                          AutomationProperties.Name="{Binding Loc[Nav.Tools]}">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE90F;" FontSize="20" HorizontalAlignment="Center"/>
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE90F;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc[Nav.Tools]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
             </RadioButton>
             <!-- Log -->
             <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Log}"
                          Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Log]}" TabIndex="54"
                          AutomationProperties.Name="{Binding Loc[Nav.Log]}">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE81C;" FontSize="20" HorizontalAlignment="Center"/>
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE81C;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Loc[Nav.Log]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
             </RadioButton>
           </StackPanel>
         </DockPanel>

@@ -22,6 +22,7 @@
   <SolidColorBrush x:Key="BrushDangerBg"  Color="#FFF0F0"/>
   <SolidColorBrush x:Key="BrushSuccessBg" Color="#F0FFF4"/>
   <SolidColorBrush x:Key="BrushInfoBg"    Color="#F0F4FF"/>
+  <SolidColorBrush x:Key="BrushWarningBg" Color="#FFF8E8"/>
 
   <!-- ═══ SEMANTIC INTERACTION BRUSHES ═══════════════════════════════════ -->
   <SolidColorBrush x:Key="BrushButtonPressed"   Color="#D0D4ED"/>

@@ -8,7 +8,7 @@
 ## GUI/UX (WPF/XAML)
 - [x] IsValidTransition-Duplikat durch gemeinsame RunStateMachine ersetzt
 - [x] Dashboard-KPIs in `ApplyRunResult` auf RunProjection umgestellt
-- [ ] Wizard/Flow: Roots -> Optionen -> Preview -> Confirm -> Run -> Report/Undo
+- [x] Wizard/Flow: Roots -> Optionen -> Preview -> Confirm -> Run -> Report/Undo
 
 ## Core/Engine
 - [x] `HealthScorer` in Core eingeführt
@@ -27,7 +27,7 @@
 - [x] `RunProjectionFactoryTests` hinzugefügt
 - [x] `RunReportWriterTests` hinzugefügt
 - [x] API-Integrationstest für neue Ergebnisfelder hinzugefügt
-- [ ] Kompletter `dotnet test src/RomCleanup.sln` Lauf lokal ausführen
+- [x] Kompletter `dotnet test src/RomCleanup.sln` Lauf lokal ausführen
 
 ## Backlog
 - [ ] Report/CLI/API/OpenAPI-Dokumentationsparität vollständig automatisiert prüfen

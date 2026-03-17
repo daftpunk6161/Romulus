@@ -55,6 +55,12 @@ public partial class MainWindow : Window, IWindowHost
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _vm.LoadInitialSettings();
+        if (_vm.Roots.Count == 0)
+        {
+            _vm.ApplyLocaleRegionDefaults();
+            _vm.ShowFirstRunWizard = true;
+            _vm.WizardStep = 0;
+        }
     }
 
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)

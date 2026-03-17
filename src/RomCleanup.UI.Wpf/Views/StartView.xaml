@@ -147,6 +147,83 @@
         </StackPanel>
       </Button>
 
+      <!-- Guided workflow: Roots -> Optionen -> Preview -> Confirm -> Run -> Report/Undo -->
+      <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}">
+        <StackPanel>
+          <TextBlock Text="{Binding Loc[Start.FlowTitle]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
+          <TextBlock Text="{Binding Loc[Start.FlowDesc]}" Style="{StaticResource CaptionText}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+          <Grid Margin="0,2,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="1." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep1]}"/>
+            <TextBlock Grid.Column="2" Text="{Binding Roots.Count, StringFormat='{}{0}'}" Foreground="{DynamicResource BrushTextMuted}"/>
+          </Grid>
+
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="2." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep2]}"/>
+            <Button Grid.Column="2" Command="{Binding GoToSetupCommand}" Content="{Binding Loc[Start.FlowOpenSetup]}" Padding="10,4"/>
+          </Grid>
+
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="3." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep3]}"/>
+            <Button Grid.Column="2" Command="{Binding QuickPreviewCommand}" Content="{Binding Loc[Start.FlowRunPreview]}" Padding="10,4"/>
+          </Grid>
+
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="4." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep4]}" TextWrapping="Wrap"/>
+            <TextBlock Grid.Column="2" Text="{Binding MoveApplyGateText}" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" MaxWidth="320" TextWrapping="Wrap"/>
+          </Grid>
+
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="5." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep5]}"/>
+            <Button Grid.Column="2" Command="{Binding StartMoveCommand}" Content="{Binding Loc[Start.FlowRunMove]}" Padding="10,4"/>
+          </Grid>
+
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="6." FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Loc[Start.FlowStep6]}"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+              <Button Command="{Binding GoToAnalyseCommand}" Content="{Binding Loc[Start.FlowOpenAnalyse]}" Padding="10,4" Margin="0,0,6,0"/>
+              <Button Command="{Binding RollbackCommand}" Content="{Binding Loc[Start.RollbackButton]}" Padding="10,4"/>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <!-- GUI-103: Watch-Mode Toggle Button (visible alternative to Ctrl+W) -->
       <ToggleButton IsChecked="{Binding IsWatchModeActive, Mode=OneWay}"
                     Command="{Binding WatchApplyCommand}"

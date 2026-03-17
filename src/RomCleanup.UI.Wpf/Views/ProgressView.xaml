@@ -161,6 +161,8 @@
         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="24,0">
           <TextBlock Text="{Binding ProgressText}" FontSize="28" FontWeight="Bold"
                      Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"/>
+          <TextBlock Text="{Binding Loc[Progress.CancelHint]}" FontSize="11"
+                     Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
         </StackPanel>
         <Button Grid.Column="2" Command="{Binding CancelCommand}" Style="{StaticResource DangerButton}"
                 Width="80" Height="44" VerticalAlignment="Center"

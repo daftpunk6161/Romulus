@@ -128,6 +128,8 @@ public sealed partial class MainViewModel : ObservableObject
         // GUI-063: Navigation history commands
         NavBackCommand = new RelayCommand(NavGoBack, () => CanNavBack);
         NavForwardCommand = new RelayCommand(NavGoForward, () => CanNavForward);
+        GoToSetupCommand = new RelayCommand(() => NavigateTo("Setup"));
+        GoToAnalyseCommand = new RelayCommand(() => NavigateTo("Analyse"));
 
         // GUI-081: First-Run Wizard commands
         WizardNextCommand = new RelayCommand(WizardNext);
@@ -402,6 +404,8 @@ public sealed partial class MainViewModel : ObservableObject
     // GUI-063: Navigation history commands
     public IRelayCommand NavBackCommand { get; }
     public IRelayCommand NavForwardCommand { get; }
+    public IRelayCommand GoToSetupCommand { get; }
+    public IRelayCommand GoToAnalyseCommand { get; }
 
     // ═══ FEATURE COMMANDS (TASK-111: replaces Click event handlers) ═══════
     public Dictionary<string, ICommand> FeatureCommands { get; } = new();
@@ -482,8 +486,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         RefreshStatus();
         OnPropertyChanged(nameof(HasNoRoots));
+        OnPropertyChanged(nameof(HasRootsConfigured));
         DeferCommandRequery();
     }
+
+    public bool HasRootsConfigured => Roots.Count > 0;
 
     private bool _requeryScheduled;
     /// <summary>P1-008: Batches command CanExecute re-evaluation to one call per dispatcher cycle.</summary>

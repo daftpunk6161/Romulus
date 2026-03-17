@@ -7,11 +7,11 @@
 - [x] LoserCount bleibt geplante Dedupe-Menge (kein Move-Overwrite)
 
 ## GUI/UX (WPF/XAML)
-- [ ] IA/Navigation klar
-- [ ] Spacing/Overlaps/Resize sauber
-- [ ] Wizard/Flow: Roots -> Optionen -> Preview -> Confirm -> Run -> Report/Undo
-- [ ] Phase/Progress/Cancel sauber
-- [ ] Retro-modern Theme lesbar (ResourceDictionary)
+- [x] IA/Navigation klar
+- [x] Spacing/Overlaps/Resize sauber
+- [x] Wizard/Flow: Roots -> Optionen -> Preview -> Confirm -> Run -> Report/Undo
+- [x] Phase/Progress/Cancel sauber
+- [x] Retro-modern Theme lesbar (ResourceDictionary)
 
 ## Core/Engine
 - [x] CandidateFactory aus Scan-Logik extrahiert

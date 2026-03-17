@@ -53,7 +53,7 @@ public sealed class ReportParityTests : IDisposable
         };
 
         var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
-        using var cliJson = ParseCliSummaryJson(cliStdout);
+        using var cliJson = ParseCliSummaryJson(cliStdout, cliStderr);
 
         var vm = CreateViewModel();
         vm.Roots.Add(root);
@@ -135,8 +135,8 @@ public sealed class ReportParityTests : IDisposable
             Mode = "DryRun",
             PreferRegions = ["US", "EU", "JP", "WORLD"]
         };
-        var (cliExitCode, cliStdout, _) = RunCliWithCapturedConsole(cliOptions);
-        using var cliJson = ParseCliSummaryJson(cliStdout);
+        var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
+        using var cliJson = ParseCliSummaryJson(cliStdout, cliStderr);
 
         var manager = new RunManager(new FileSystemAdapter(), new AuditCsvStore());
         var apiRun = manager.TryCreate(new RunRequest
@@ -233,14 +233,16 @@ public sealed class ReportParityTests : IDisposable
         }
     }
 
-    private static JsonDocument ParseCliSummaryJson(string stdout)
+    private static JsonDocument ParseCliSummaryJson(string stdout, string? stderr = null)
     {
-        var start = stdout.IndexOf('{');
-        var end = stdout.LastIndexOf('}');
-        if (start >= 0 && end > start)
-            return JsonDocument.Parse(stdout[start..(end + 1)]);
+        var text = string.IsNullOrWhiteSpace(stdout) ? (stderr ?? string.Empty) : stdout;
 
-        return JsonDocument.Parse(stdout);
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            return JsonDocument.Parse(text[start..(end + 1)]);
+
+        return JsonDocument.Parse(text);
     }
 
     private static MainViewModel CreateViewModel()
