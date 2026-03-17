@@ -24,8 +24,14 @@ public static partial class FeatureService
         if (totalFiles <= 0) return 0;
         var dupePct = 100.0 * dupes / totalFiles;
         var junkPct = 100.0 * junk / totalFiles;
-        var verifiedBonus = verified > 0 ? 10.0 * verified / totalFiles : 0;
-        return (int)Math.Clamp(100 - Math.Min(60, dupePct) - Math.Min(30, junkPct) + verifiedBonus, 0, 100);
+        var verifiedPct = 100.0 * verified / totalFiles;
+
+        // Keep-score baseline keeps parity with Winner/Total while still considering junk and verified quality.
+        var baseScore = 100.0 - dupePct;
+        var junkPenalty = Math.Min(30.0, junkPct * 0.3);
+        var verifiedBonus = Math.Min(10.0, verifiedPct * 0.15);
+
+        return (int)Math.Clamp(baseScore - junkPenalty + verifiedBonus, 0, 100);
     }
 
 

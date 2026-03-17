@@ -124,7 +124,7 @@ public sealed class RunOrchestrator
         if (preflight.ShouldReturn)
         {
             _onProgress?.Invoke($"[Preflight] Blockiert: {preflight.Reason}");
-            result.Status = "blocked";
+            result.Status = RunOutcome.Blocked.ToStatusString();
             result.ExitCode = 3;
             return result;
         }
@@ -154,7 +154,7 @@ public sealed class RunOrchestrator
 
         if (candidates.Count == 0)
         {
-            result.Status = "ok";
+            result.Status = RunOutcome.Ok.ToStatusString();
             result.ExitCode = 0;
             return result;
         }
@@ -182,36 +182,59 @@ public sealed class RunOrchestrator
                 var convResult = _converter.Convert(path, target, cancellationToken);
                 if (convResult.Outcome == ConversionOutcome.Success)
                 {
-                    converted++;
-                    if (convResult.TargetPath is not null && !_converter.Verify(convResult.TargetPath, target))
+                    var verificationOk = convResult.TargetPath is not null && _converter.Verify(convResult.TargetPath, target);
+                    if (verificationOk)
                     {
-                        _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                        convertErrors++;
-                    }
-                    if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
-                    {
-                        var root = FindRootForPath(path, options.Roots);
-                        if (root is not null)
-                            _audit.AppendAuditRow(options.AuditPath, root, path, convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
-                    }
-                    // Move source to trash
-                    if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
-                    {
-                        var root = FindRootForPath(path, options.Roots);
-                        if (root is not null)
+                        converted++;
+                        if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
                         {
-                            var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-                            var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
-                            _fs.EnsureDirectory(trashDir);
-                            var fileName = Path.GetFileName(path);
-                            var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
-                            if (trashDest is not null)
-                                try { _fs.MoveItemSafely(path, trashDest); } catch (Exception ex) { _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}"); }
+                            var root = FindRootForPath(path, options.Roots);
+                            if (root is not null)
+                                _audit.AppendAuditRow(options.AuditPath, root, path, convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
+                        }
+                        // Move source to trash only after successful conversion + verification
+                        if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
+                        {
+                            var root = FindRootForPath(path, options.Roots);
+                            if (root is not null)
+                            {
+                                var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
+                                var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
+                                _fs.EnsureDirectory(trashDir);
+                                var fileName = Path.GetFileName(path);
+                                var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
+                                if (trashDest is not null)
+                                    try { _fs.MoveItemSafely(path, trashDest); } catch (Exception ex) { _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}"); }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        convertErrors++;
+                        if (convResult.TargetPath is not null)
+                        {
+                            _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
+                            if (!string.IsNullOrEmpty(options.AuditPath))
+                            {
+                                var root = FindRootForPath(path, options.Roots);
+                                if (root is not null)
+                                    _audit.AppendAuditRow(options.AuditPath, root, path, convResult.TargetPath, "CONVERT_FAILED", "GAME", "", $"verify-failed:{target.ToolName}");
+                            }
                         }
                     }
                 }
                 else if (convResult.Outcome == ConversionOutcome.Skipped) convertSkipped++;
-                else { convertErrors++; _onProgress?.Invoke($"WARNING: Conversion failed for {path}: {convResult.Reason}"); }
+                else
+                {
+                    convertErrors++;
+                    _onProgress?.Invoke($"WARNING: Conversion failed for {path}: {convResult.Reason}");
+                    if (!string.IsNullOrEmpty(options.AuditPath))
+                    {
+                        var root = FindRootForPath(path, options.Roots);
+                        if (root is not null)
+                            _audit.AppendAuditRow(options.AuditPath, root, path, "", "CONVERT_ERROR", "GAME", "", $"convert-error:{convResult.Reason}");
+                    }
+                }
             }
             result.ConvertedCount = converted;
             result.ConvertErrorCount = convertErrors;
@@ -222,11 +245,13 @@ public sealed class RunOrchestrator
             metrics.CompletePhase(converted);
 
             sw.Stop();
-            result.Status = "ok";
-            result.ExitCode = 0;
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
             result.ReportPath = GenerateReport(result, options);
+            var convertOnlyHasErrors = result.ConvertErrorCount > 0;
+            var convertOnlyOutcome = convertOnlyHasErrors ? RunOutcome.CompletedWithErrors : RunOutcome.Ok;
+            result.Status = convertOnlyOutcome.ToStatusString();
+            result.ExitCode = convertOnlyHasErrors ? 1 : 0;
             return result;
         }
 
@@ -235,15 +260,16 @@ public sealed class RunOrchestrator
         _onProgress?.Invoke($"[Dedupe] Gruppiere {candidates.Count} Dateien nach GameKey…");
         var dedupeSw = System.Diagnostics.Stopwatch.StartNew();
         var groups = DeduplicationEngine.Deduplicate(candidates);
+        var gameGroups = GetGameGroups(groups);
         dedupeSw.Stop();
-        result.GroupCount = groups.Count;
-        result.WinnerCount = groups.Count;
-        result.LoserCount = groups.Sum(g => g.Losers.Count);
+        result.GroupCount = gameGroups.Count;
+        result.WinnerCount = gameGroups.Count;
+        result.LoserCount = gameGroups.Sum(g => g.Losers.Count);
         result.AllCandidates = candidates;
-        result.DedupeGroups = groups;
+        result.DedupeGroups = gameGroups;
         var junkGroupCount = groups.Count(g => g.Winner.Category == "JUNK");
-        _onProgress?.Invoke($"[Dedupe] Abgeschlossen in {dedupeSw.ElapsedMilliseconds}ms: {groups.Count} Gruppen, Keep={groups.Count - result.LoserCount}, Move={result.LoserCount}, Junk={junkGroupCount}");
-        metrics.CompletePhase(groups.Count);
+        _onProgress?.Invoke($"[Dedupe] Abgeschlossen in {dedupeSw.ElapsedMilliseconds}ms: {gameGroups.Count} Gruppen, Keep={gameGroups.Count - result.LoserCount}, Move={result.LoserCount}, Junk={junkGroupCount}");
+        metrics.CompletePhase(gameGroups.Count);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -255,7 +281,7 @@ public sealed class RunOrchestrator
             _onProgress?.Invoke("[Junk] Entferne Junk-Dateien…");
             var junkResult = ExecuteJunkRemovalPhase(candidates, groups, options, junkRemovedPaths, cancellationToken);
             result.JunkRemovedCount = junkResult.MoveCount;
-            result.MoveResult = junkResult;
+            result.JunkMoveResult = junkResult;
             _onProgress?.Invoke($"[Junk] {junkResult.MoveCount} Junk-Dateien entfernt");
             metrics.CompletePhase(junkResult.MoveCount);
         }
@@ -266,19 +292,13 @@ public sealed class RunOrchestrator
         if (options.Mode == "Move")
         {
             metrics.StartPhase("Move");
-            var totalLosers = groups.Sum(g => g.Losers.Count);
+            var totalLosers = gameGroups.Sum(g => g.Losers.Count);
             _onProgress?.Invoke($"[Move] Verschiebe {totalLosers} Duplikate in Trash…");
-            var moveResult = ExecuteMovePhase(groups, options, cancellationToken);
+            var moveResult = ExecuteMovePhase(gameGroups, options, cancellationToken);
             _onProgress?.Invoke($"[Move] Abgeschlossen: {moveResult.MoveCount} verschoben, {moveResult.FailCount} Fehler");
-
-            if (result.MoveResult is not null)
-            {
-                moveResult = new MovePhaseResult(
-                    result.MoveResult.MoveCount + moveResult.MoveCount,
-                    result.MoveResult.FailCount + moveResult.FailCount,
-                    result.MoveResult.SavedBytes + moveResult.SavedBytes);
-            }
             result.MoveResult = moveResult;
+            // Reconcile LoserCount to reflect actual moves (not planned)
+            result.LoserCount = moveResult.MoveCount;
             metrics.CompletePhase(moveResult.MoveCount);
         }
 
@@ -289,7 +309,7 @@ public sealed class RunOrchestrator
         {
             metrics.StartPhase("ConsoleSort");
             _onProgress?.Invoke("[Sort] Sortiere Dateien nach Konsole…");
-            var sorter = new ConsoleSorter(_fs, _consoleDetector);
+            var sorter = new ConsoleSorter(_fs, _consoleDetector, _audit, options.AuditPath);
             result.ConsoleSortResult = sorter.Sort(
                 options.Roots, options.Extensions, dryRun: false, cancellationToken);
             _onProgress?.Invoke($"[Sort] Konsolen-Sortierung abgeschlossen");
@@ -303,11 +323,11 @@ public sealed class RunOrchestrator
         if (options.ConvertFormat is not null && options.Mode == "Move" && _converter is not null)
         {
             metrics.StartPhase("FormatConvert");
-            _onProgress?.Invoke($"[Convert] Starte Formatkonvertierung für {groups.Count} Gruppen…");
+            _onProgress?.Invoke($"[Convert] Starte Formatkonvertierung für {gameGroups.Count} Gruppen…");
             int converted = 0;
             int convertErrors = 0;
             int convertSkipped = 0;
-            foreach (var group in groups)
+            foreach (var group in gameGroups)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -328,46 +348,60 @@ public sealed class RunOrchestrator
                     var convResult = _converter.Convert(winnerPath, target, cancellationToken);
                     if (convResult.Outcome == ConversionOutcome.Success)
                     {
-                        converted++;
-
-                        // Issue #17: Verify converted file
-                        if (convResult.TargetPath is not null && !_converter.Verify(convResult.TargetPath, target))
+                        var verificationOk = convResult.TargetPath is not null && _converter.Verify(convResult.TargetPath, target);
+                        if (verificationOk)
                         {
-                            _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                            convertErrors++;
-                        }
+                            converted++;
 
-                        // Issue #17: Audit entry for conversion
-                        if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
-                        {
-                            var root = FindRootForPath(winnerPath, options.Roots);
-                            if (root is not null)
+                            // Issue #17: Audit entry for successful conversion
+                            if (!string.IsNullOrEmpty(options.AuditPath) && convResult.TargetPath is not null)
                             {
-                                _audit.AppendAuditRow(options.AuditPath, root, winnerPath,
-                                    convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
+                                var root = FindRootForPath(winnerPath, options.Roots);
+                                if (root is not null)
+                                {
+                                    _audit.AppendAuditRow(options.AuditPath, root, winnerPath,
+                                        convResult.TargetPath, "CONVERT", "GAME", "", $"format-convert:{target.ToolName}");
+                                }
+                            }
+
+                            // Move source to trash only after successful conversion + verification
+                            if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
+                            {
+                                var root = FindRootForPath(winnerPath, options.Roots);
+                                if (root is not null)
+                                {
+                                    var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
+                                    var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
+                                    _fs.EnsureDirectory(trashDir);
+                                    var fileName = Path.GetFileName(winnerPath);
+                                    var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
+                                    if (trashDest is not null)
+                                    {
+                                        try
+                                        {
+                                            _fs.MoveItemSafely(winnerPath, trashDest);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}");
+                                        }
+                                    }
+                                }
                             }
                         }
-
-                        // Issue #17: Move source to trash after successful conversion
-                        if (convResult.TargetPath is not null && File.Exists(convResult.TargetPath))
+                        else
                         {
-                            var root = FindRootForPath(winnerPath, options.Roots);
-                            if (root is not null)
+                            convertErrors++;
+                            if (convResult.TargetPath is not null)
                             {
-                                var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-                                var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
-                                _fs.EnsureDirectory(trashDir);
-                                var fileName = Path.GetFileName(winnerPath);
-                                var trashDest = _fs.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
-                                if (trashDest is not null)
+                                _onProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
+                                if (!string.IsNullOrEmpty(options.AuditPath))
                                 {
-                                    try
+                                    var root = FindRootForPath(winnerPath, options.Roots);
+                                    if (root is not null)
                                     {
-                                        _fs.MoveItemSafely(winnerPath, trashDest);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _onProgress?.Invoke($"WARNING: Could not move source after conversion: {ex.Message}");
+                                        _audit.AppendAuditRow(options.AuditPath, root, winnerPath,
+                                            convResult.TargetPath, "CONVERT_FAILED", "GAME", "", $"verify-failed:{target.ToolName}");
                                     }
                                 }
                             }
@@ -392,8 +426,13 @@ public sealed class RunOrchestrator
         }
 
         sw.Stop();
-        result.Status = "ok";
-        result.ExitCode = 0;
+        // Derive status based on actual errors
+        var hasErrors = result.ConvertErrorCount > 0
+                     || (result.MoveResult is { FailCount: > 0 })
+                     || (result.JunkMoveResult is { FailCount: > 0 });
+        var runOutcome = hasErrors ? RunOutcome.CompletedWithErrors : RunOutcome.Ok;
+        result.Status = runOutcome.ToStatusString();
+        result.ExitCode = hasErrors ? 1 : 0;
         result.DurationMs = sw.ElapsedMilliseconds;
         result.PhaseMetrics = metrics.GetMetrics();
 
@@ -407,7 +446,18 @@ public sealed class RunOrchestrator
             {
                 ["RowCount"] = rowCount,
                 ["Mode"] = options.Mode,
-                ["Status"] = "completed"
+                ["Status"] = "completed",
+                ["TotalFilesScanned"] = result.TotalFilesScanned,
+                ["GroupCount"] = result.GroupCount,
+                ["WinnerCount"] = result.WinnerCount,
+                ["LoserCount"] = result.LoserCount,
+                ["MoveCount"] = result.MoveResult?.MoveCount ?? 0,
+                ["FailCount"] = result.MoveResult?.FailCount ?? 0,
+                ["SkipCount"] = result.MoveResult?.SkipCount ?? 0,
+                ["JunkRemovedCount"] = result.JunkRemovedCount,
+                ["ConvertedCount"] = result.ConvertedCount,
+                ["ConvertErrorCount"] = result.ConvertErrorCount,
+                ["DurationMs"] = sw.ElapsedMilliseconds
             });
         }
 
@@ -426,7 +476,7 @@ public sealed class RunOrchestrator
         catch (OperationCanceledException)
         {
             sw.Stop();
-            result.Status = "cancelled";
+            result.Status = RunOutcome.Cancelled.ToStatusString();
             result.ExitCode = 2;
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
@@ -440,7 +490,16 @@ public sealed class RunOrchestrator
                 {
                     ["RowCount"] = rowCount,
                     ["Mode"] = options.Mode,
-                    ["Status"] = "partial"
+                    ["Status"] = "partial",
+                    ["CancelledAtUtc"] = DateTime.UtcNow.ToString("o"),
+                    ["LastPhase"] = metrics.GetCurrentPhaseName() ?? "unknown",
+                    ["TotalFilesScanned"] = result.TotalFilesScanned,
+                    ["GroupCount"] = result.GroupCount,
+                    ["MoveCount"] = result.MoveResult?.MoveCount ?? 0,
+                    ["FailCount"] = result.MoveResult?.FailCount ?? 0,
+                    ["ConvertedCount"] = result.ConvertedCount,
+                    ["ConvertErrorCount"] = result.ConvertErrorCount,
+                    ["DurationMs"] = sw.ElapsedMilliseconds
                 });
             }
 
@@ -458,6 +517,7 @@ public sealed class RunOrchestrator
     {
         var versionScorer = new VersionScorer();
         var candidates = new List<RomCandidate>();
+        var seenCandidatePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // FEAT-04: Track set members so they are not independently deduplicated
         var setMemberPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -477,6 +537,10 @@ public sealed class RunOrchestrator
             foreach (var filePath in files)
             {
                 ct.ThrowIfCancellationRequested();
+
+                var normalizedPath = Path.GetFullPath(filePath);
+                if (!seenCandidatePaths.Add(normalizedPath))
+                    continue;
 
                 // Skip files in blocklisted directories
                 if (ExecutionHelpers.IsBlocklisted(filePath))
@@ -550,7 +614,7 @@ public sealed class RunOrchestrator
 
                 candidates.Add(new RomCandidate
                 {
-                    MainPath = filePath,
+                    MainPath = normalizedPath,
                     GameKey = gameKey,
                     Region = regionTag,
                     Category = categoryStr,
@@ -649,7 +713,7 @@ public sealed class RunOrchestrator
         RunOptions options,
         CancellationToken ct)
     {
-        int moveCount = 0, failCount = 0;
+        int moveCount = 0, failCount = 0, skipCount = 0;
         long savedBytes = 0;
 
         foreach (var group in groups)
@@ -677,6 +741,12 @@ public sealed class RunOrchestrator
                     && File.Exists(destPath))
                 {
                     _onProgress?.Invoke($"Skip (conflict): {Path.GetFileName(loser.MainPath)}");
+                    if (!string.IsNullOrEmpty(options.AuditPath))
+                    {
+                        _audit.AppendAuditRow(options.AuditPath, root, loser.MainPath, destPath,
+                            "SKIP", loser.Category, "", "conflict-policy:skip");
+                    }
+                    skipCount++;
                     continue;
                 }
 
@@ -713,7 +783,7 @@ public sealed class RunOrchestrator
             }
         }
 
-        return new MovePhaseResult(moveCount, failCount, savedBytes);
+        return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount);
     }
 
     private string? FindRootForPath(string filePath, IReadOnlyList<string> roots)
@@ -781,6 +851,13 @@ public sealed class RunOrchestrator
         return score;
     }
 
+    private static List<DedupeResult> GetGameGroups(IReadOnlyList<DedupeResult> groups)
+    {
+        return groups
+            .Where(g => g.Winner.Category == "GAME" || g.Losers.Any(l => l.Category == "GAME"))
+            .ToList();
+    }
+
     /// <summary>FEAT-02: Generate HTML and CSV reports from pipeline results.</summary>
     private string? GenerateReport(RunResult result, RunOptions options)
     {
@@ -842,6 +919,7 @@ public sealed class RunResult
     public int WinnerCount { get; set; }
     public int LoserCount { get; set; }
     public MovePhaseResult? MoveResult { get; set; }
+    public MovePhaseResult? JunkMoveResult { get; set; }
     public ConsoleSortResult? ConsoleSortResult { get; set; }
     public int JunkRemovedCount { get; set; }
     public int ConvertedCount { get; set; }
@@ -861,4 +939,4 @@ public sealed class RunResult
 }
 
 /// <summary>Result of the move phase.</summary>
-public sealed record MovePhaseResult(int MoveCount, int FailCount, long SavedBytes);
+public sealed record MovePhaseResult(int MoveCount, int FailCount, long SavedBytes, int SkipCount = 0);

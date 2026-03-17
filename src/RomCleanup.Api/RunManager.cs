@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Orchestration;
@@ -269,11 +270,14 @@ public sealed class RunManager
         };
 
         var result = orchestrator.Execute(options, ct);
-        var status = result.ExitCode switch
+        var status = RunOutcomeExtensions.ParseRunOutcome(result.Status) switch
         {
-            0 => "completed",
-            2 => "cancelled",
-            _ => "failed"
+            RunOutcome.Ok => "completed",
+            RunOutcome.CompletedWithErrors => "completed_with_errors",
+            RunOutcome.Cancelled => "cancelled",
+            RunOutcome.Blocked => "failed",
+            RunOutcome.Failed => "failed",
+            _ => result.ExitCode == 0 ? "completed" : "failed"
         };
 
         return new RunExecutionOutcome(
@@ -286,6 +290,11 @@ public sealed class RunManager
                 Groups = result.GroupCount,
                 Keep = result.WinnerCount,
                 Move = result.LoserCount,
+                ConvertedCount = result.ConvertedCount,
+                ConvertErrorCount = result.ConvertErrorCount,
+                JunkRemovedCount = result.JunkRemovedCount,
+                FailCount = (result.MoveResult?.FailCount ?? 0) + result.ConvertErrorCount,
+                SavedBytes = result.MoveResult?.SavedBytes ?? 0,
                 DurationMs = result.DurationMs,
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = result.ReportPath
@@ -431,6 +440,11 @@ public sealed class ApiRunResult
     public int Groups { get; init; }
     public int Keep { get; init; }
     public int Move { get; init; }
+    public int ConvertedCount { get; init; }
+    public int ConvertErrorCount { get; init; }
+    public int JunkRemovedCount { get; init; }
+    public int FailCount { get; init; }
+    public long SavedBytes { get; init; }
     public long DurationMs { get; init; }
     public string? Error { get; init; }
     public string? AuditPath { get; init; }

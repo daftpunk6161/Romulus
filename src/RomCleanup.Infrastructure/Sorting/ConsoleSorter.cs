@@ -22,11 +22,16 @@ public sealed class ConsoleSorter
 
     private readonly IFileSystem _fs;
     private readonly ConsoleDetector _consoleDetector;
+    private readonly IAuditStore? _audit;
+    private readonly string? _auditPath;
 
-    public ConsoleSorter(IFileSystem fs, ConsoleDetector consoleDetector)
+    public ConsoleSorter(IFileSystem fs, ConsoleDetector consoleDetector,
+        IAuditStore? audit = null, string? auditPath = null)
     {
         _fs = fs;
         _consoleDetector = consoleDetector;
+        _audit = audit;
+        _auditPath = auditPath;
     }
 
     /// <summary>
@@ -122,7 +127,10 @@ public sealed class ConsoleSorter
                 {
                     // Standalone file — no set members
                     if (MoveFile(root, filePath, expectedDir, fileName, dryRun))
+                    {
                         moved++;
+                        WriteAuditRow(root, filePath, Path.Combine(expectedDir, fileName), consoleKey);
+                    }
                 }
             }
         }
@@ -169,6 +177,12 @@ public sealed class ConsoleSorter
                         $"Move failed for set member: {member}");
                 completedMoves.Add((member, memberDest));
             }
+
+            // Audit all moves in the atomic set after all succeeded
+            var consoleKey = Path.GetFileName(destDir);
+            WriteAuditRow(root, primaryPath, primaryDest, consoleKey);
+            foreach (var (src, dst) in completedMoves.Skip(1)) // skip primary, already written
+                WriteAuditRow(root, src, dst, consoleKey + ":set-member");
 
             return (true, members.Count);
         }
@@ -280,6 +294,15 @@ public sealed class ConsoleSorter
         var firstSegment = relative.Split(new[] { '/', '\\' }, 2, StringSplitOptions.RemoveEmptyEntries);
         return firstSegment.Length > 0 &&
                ExcludedFolders.Any(e => e.Equals(firstSegment[0], StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void WriteAuditRow(string root, string oldPath, string newPath, string consoleKey)
+    {
+        if (_audit is null || string.IsNullOrEmpty(_auditPath))
+            return;
+
+        _audit.AppendAuditRow(_auditPath, root, oldPath, newPath,
+            "CONSOLE_SORT", "GAME", "", $"console-sort:{consoleKey}");
     }
 
     private static void IncrementReason(Dictionary<string, int> reasons, string reason)

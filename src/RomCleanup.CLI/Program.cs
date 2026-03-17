@@ -202,7 +202,7 @@ internal static class Program
         {
             var junkCount = result.AllCandidates.Count(c => c.Category == "JUNK");
             var biosCount = result.AllCandidates.Count(c => c.Category == "BIOS");
-            var gameCount = result.AllCandidates.Count(c => c.Category == "GAME");
+            var gameCount = result.DedupeGroups.Count;
             var datMatchCount = result.AllCandidates.Count(c => c.DatMatch);
 
             var summary = new
@@ -249,7 +249,7 @@ internal static class Program
                     ["timestamp"] = DateTime.UtcNow.ToString("o"),
                     ["totalFiles"] = result.TotalFilesScanned,
                     ["keep"] = result.WinnerCount,
-                    ["move"] = result.LoserCount
+                    ["move"] = result.MoveResult?.MoveCount ?? 0
                 });
                 Console.Error.WriteLine($"[Audit] {auditPath}");
             }

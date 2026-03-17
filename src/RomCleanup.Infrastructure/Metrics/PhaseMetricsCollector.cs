@@ -66,6 +66,17 @@ public sealed class PhaseMetricsCollector
         }
     }
 
+    /// <summary>
+    /// Gets the name of the currently active phase, or null if no phase is active.
+    /// </summary>
+    public string? GetCurrentPhaseName()
+    {
+        lock (_lock)
+        {
+            return _activePhase?.Phase;
+        }
+    }
+
     private void CompletePhaseInternal(int itemCount = 0)
     {
         if (_activePhase == null || _activeStopwatch == null)

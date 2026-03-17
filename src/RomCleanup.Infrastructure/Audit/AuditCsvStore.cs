@@ -205,11 +205,28 @@ public sealed class AuditCsvStore : IAuditStore
             return;
 
         var trailPath = Path.ChangeExtension(auditCsvPath, ".rollback-trail.csv");
+
+        // Build a lookup from the original audit CSV for forensic detail
+        var auditLookup = new Dictionary<string, (string NewPath, string Action)>(StringComparer.OrdinalIgnoreCase);
+        if (File.Exists(auditCsvPath))
+        {
+            foreach (var line in File.ReadAllLines(auditCsvPath, Encoding.UTF8).Skip(1))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var parts = AuditCsvParser.ParseCsvLine(line);
+                if (parts.Length >= 4)
+                    auditLookup[parts[1]] = (parts[2], parts[3]); // OldPath → (NewPath, Action)
+            }
+        }
+
         var sb = new StringBuilder();
-        sb.AppendLine("RestoredPath,Timestamp");
+        sb.AppendLine("RestoredPath,RestoredFrom,OriginalAction,Timestamp");
         var timestamp = DateTime.UtcNow.ToString("o");
         foreach (var p in restoredPaths)
-            sb.AppendLine($"{SanitizeCsvField(p)},{timestamp}");
+        {
+            auditLookup.TryGetValue(p, out var detail);
+            sb.AppendLine($"{SanitizeCsvField(p)},{SanitizeCsvField(detail.NewPath ?? "")},{SanitizeCsvField(detail.Action ?? "")},{timestamp}");
+        }
         File.WriteAllText(trailPath, sb.ToString(), Encoding.UTF8);
     }
 
