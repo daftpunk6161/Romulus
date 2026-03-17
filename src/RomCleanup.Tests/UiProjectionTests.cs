@@ -79,7 +79,7 @@ public sealed class UiProjectionTests
         var runProjection = RunProjectionFactory.Create(result);
         var dashboard = DashboardProjection.From(runProjection, result, isConvertOnlyRun: true);
 
-        Assert.Equal("Nur Konvertierung aktiv", dashboard.MoveConsequenceText);
+        Assert.Equal("Nur Konvertierung aktiv. Keine Dateien werden verschoben.", dashboard.MoveConsequenceText);
         Assert.Equal("–", dashboard.Winners);
         Assert.Single(dashboard.ConsoleDistribution);
         Assert.Single(dashboard.DedupeGroups);

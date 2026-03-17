@@ -155,7 +155,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         var candidate = Assert.Single(enriched);
         Assert.Equal(weird, candidate.MainPath);
-        Assert.Equal("UNKNOWN", candidate.Category);
+        Assert.Equal(FileCategory.Unknown, candidate.Category);
     }
 
     [Fact]

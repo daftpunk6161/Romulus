@@ -73,7 +73,7 @@ public sealed partial class FeatureCommandService
         sb.AppendLine($"Quarantäne-Kandidaten: {quarantined.Count}\n");
         sb.AppendLine("Kriterien: Junk-Kategorie ODER (kein DAT-Match + Unbekannte Region)\n");
         foreach (var q in quarantined.Take(30))
-            sb.AppendLine($"  {Path.GetFileName(q.MainPath),-50} [{q.Category}] {q.Region}");
+            sb.AppendLine($"  {Path.GetFileName(q.MainPath),-50} [{FeatureService.ToCategoryLabel(q.Category)}] {q.Region}");
         if (quarantined.Count > 30)
             sb.AppendLine($"\n  … und {quarantined.Count - 30} weitere");
         _dialog.ShowText("Quarantäne", sb.ToString());

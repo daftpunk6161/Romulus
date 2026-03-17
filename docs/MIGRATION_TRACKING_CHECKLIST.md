@@ -17,8 +17,8 @@
 - [x] CandidateFactory aus Scan-Logik extrahiert
 - [x] BIOS-GameKey-Isolation via Prefix eingeführt
 - [x] Dedupe-Determinismus beibehalten
-- [ ] RomCandidate auf FileCategory-Enum migrieren (breaking)
-- [ ] RunResult immutable + Builder einführen
+- [x] RomCandidate auf FileCategory-Enum migrieren (breaking)
+- [x] RunResult immutable + Builder einführen
 
 ## IO/Safety
 - [x] Rollback-Actions für CONSOLE_SORT/CONVERT erweitert

@@ -205,7 +205,6 @@ public sealed class HardRegressionInvariantTests : IDisposable
         CreateFileAt(root, "Game (USA).zip", 50);
         CreateFileAt(root, "Game (Europe).zip", 60);
 
-            Assert.Equal(FileCategory.Unknown, candidate.Category);
         var fs = new FileSystemAdapter();
         var audit = new TrackingAuditStore();
         var orch = new RunOrchestrator(fs, audit);
@@ -1713,7 +1712,7 @@ public sealed class HardGuiInvariantTests
             {
                 MainPath = $"file{i}.zip",
                 GameKey = $"game{i}",
-                Category = i % 10 == 0 ? "JUNK" : "GAME",
+                Category = i % 10 == 0 ? FileCategory.Junk : FileCategory.Game,
                 RegionScore = 500,
                 FormatScore = 500,
                 DatMatch = i % 3 == 0
