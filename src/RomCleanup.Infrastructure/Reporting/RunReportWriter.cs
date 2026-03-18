@@ -105,8 +105,8 @@ public static class RunReportWriter
         var biosCount = projection.Bios;
 
         // Invariant: report breakdown must account for all scanned files.
-        // Only validate when dedupe actually ran — ConvertOnly and empty-scan paths
-        // skip deduplication, so Keep/Dupes are both 0 by design.
+        // Only validate when dedupe actually ran; ConvertOnly/empty-scan paths
+        // intentionally skip dedupe and keep conversion-only reporting.
         if (result.DedupeGroups.Count > 0)
         {
             var groupedJunkBios = result.DedupeGroups
@@ -115,18 +115,8 @@ public static class RunReportWriter
             var ungroupedJunkBios = Math.Max(0, junkCount + biosCount - groupedJunkBios);
             var accountedTotal = projection.Keep + projection.Dupes + ungroupedJunkBios
                                + projection.Unknown + projection.FilteredNonGameCount;
-            if (projection.TotalFiles > 0 && accountedTotal > projection.TotalFiles)
-                throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} > scanned={projection.TotalFiles}");
-            // Soft warning instead of hard failure for under-count — edge cases with
-            // overlapping categories can cause small discrepancies that are not bugs.
-            // Only throw on significant gaps (>1% of total).
-            if (projection.TotalFiles > 0 && accountedTotal < projection.TotalFiles)
-            {
-                var gap = projection.TotalFiles - accountedTotal;
-                var threshold = Math.Max(1, projection.TotalFiles / 100);
-                if (gap > threshold)
-                    throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal} < scanned={projection.TotalFiles} — {gap} candidates unaccounted");
-            }
+            if (accountedTotal != projection.TotalFiles)
+                throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal}, scanned={projection.TotalFiles}");
         }
 
         var totalErrorCount = projection.FailCount + projection.JunkFailCount + projection.ConsoleSortFailed;

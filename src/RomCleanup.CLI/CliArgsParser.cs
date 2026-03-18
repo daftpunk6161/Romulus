@@ -9,6 +9,16 @@ namespace RomCleanup.CLI;
 /// </summary>
 internal static class CliArgsParser
 {
+    private static readonly HashSet<string> AllowedHashTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SHA1", "SHA256", "MD5"
+    };
+
+    private static readonly HashSet<string> AllowedLogLevels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Debug", "Info", "Warning", "Error"
+    };
+
     internal static CliParseResult Parse(string[] args)
     {
         if (args.Length == 0)
@@ -120,6 +130,11 @@ internal static class CliArgsParser
                 case "-loglevel" or "--loglevel":
                     if (!TryConsumeValue(args, ref i, "--loglevel", errors, out var logLevelVal))
                         break;
+                    if (!AllowedLogLevels.Contains(logLevelVal))
+                    {
+                        errors.Add($"[Error] Invalid log level '{logLevelVal}'. Must be Debug, Info, Warning, or Error.");
+                        break;
+                    }
                     opts.LogLevel = logLevelVal;
                     break;
 
@@ -136,6 +151,11 @@ internal static class CliArgsParser
                 case "-hashtype" or "--hashtype":
                     if (!TryConsumeValue(args, ref i, "--hashtype", errors, out var hashTypeVal))
                         break;
+                    if (!AllowedHashTypes.Contains(hashTypeVal))
+                    {
+                        errors.Add($"[Error] Invalid hash type '{hashTypeVal}'. Must be SHA1, SHA256, or MD5.");
+                        break;
+                    }
                     opts.HashType = hashTypeVal;
                     break;
 
@@ -180,18 +200,24 @@ internal static class CliArgsParser
             if (string.IsNullOrWhiteSpace(root))
                 return CliParseResult.ValidationError(["[Error] Empty root path provided."]);
 
+            if (IsUncPath(root))
+                return CliParseResult.ValidationError([$"[Error] UNC root paths are not allowed: {root}"]);
+
             var fullRoot = Path.GetFullPath(root);
-            var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            var sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
-            var progDir = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            if ((!string.IsNullOrEmpty(winDir) && fullRoot.StartsWith(winDir, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrEmpty(sysDir) && fullRoot.StartsWith(sysDir, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrEmpty(progDir) && fullRoot.StartsWith(progDir, StringComparison.OrdinalIgnoreCase)))
+            if (IsProtectedSystemPath(fullRoot))
                 return CliParseResult.ValidationError([$"[Error] Root directory is in a protected system path: {fullRoot}"]);
 
             if (!Directory.Exists(fullRoot))
                 return CliParseResult.ValidationError([$"[Error] Root directory not found: {fullRoot}"]);
         }
+
+        var protectedPathError = ValidateOptionalPath(opts.TrashRoot, "trash root", allowUnc: false)
+            ?? ValidateOptionalPath(opts.DatRoot, "DAT root", allowUnc: false)
+            ?? ValidateOptionalPath(opts.LogPath, "log path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.ReportPath, "report path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.AuditPath, "audit path", allowUnc: false);
+        if (protectedPathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {protectedPathError}"]);
 
         // Validate extensions have dot prefix
         var invalidExts = opts.Extensions.Where(e => !e.StartsWith('.')).ToList();
@@ -258,6 +284,49 @@ internal static class CliArgsParser
 
         roots = parsedRoots;
         return true;
+    }
+
+    private static string? ValidateOptionalPath(string? path, string label, bool allowUnc)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        if (!allowUnc && IsUncPath(path))
+            return $"{label} must not be a UNC path: {path}";
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (IsProtectedSystemPath(fullPath))
+                return $"{label} points to a protected system path: {fullPath}";
+        }
+        catch (Exception ex)
+        {
+            return $"{label} is invalid: {ex.Message}";
+        }
+
+        return null;
+    }
+
+    private static bool IsUncPath(string path)
+        => path.StartsWith("\\\\", StringComparison.Ordinal);
+
+    private static bool IsProtectedSystemPath(string fullPath)
+    {
+        var protectedRoots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+        }
+        .Where(p => !string.IsNullOrWhiteSpace(p))
+        .Select(p => Path.GetFullPath(p!).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        .ToArray();
+
+        var normalized = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return protectedRoots.Any(root =>
+            normalized.StartsWith(root, StringComparison.OrdinalIgnoreCase));
     }
 }
 

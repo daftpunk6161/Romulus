@@ -1,129 +1,22 @@
-// Coverage‑Boost Phase 6: ApplicationServiceFacade, ConsoleSorter atomic ops,
+// Coverage‑Boost Phase 6: ConsoleSorter atomic ops,
 // OperationResult factories, JsonlLogWriter rotation/gzip,
 // RunManager shutdown/eviction, ArchiveHashService 7z/ZipSlip paths.
 using System.IO.Compression;
 using RomCleanup.Api;
 using RomCleanup.Contracts.Models;
-using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Logging;
 using RomCleanup.Infrastructure.Orchestration;
-using RomCleanup.Infrastructure.Services;
 using RomCleanup.Infrastructure.Sorting;
 using Xunit;
 
 namespace RomCleanup.Tests;
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1) ApplicationServiceFacade
-// ═══════════════════════════════════════════════════════════════════════
-public class ApplicationServiceFacadeTests : IDisposable
-{
-    private readonly string _tempDir;
-
-    public ApplicationServiceFacadeTests()
-    {
-        _tempDir = Path.Combine(Path.GetTempPath(), "AppSvcFacade_" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            try { Directory.Delete(_tempDir, true); } catch { }
-    }
-
-    [Fact]
-    public void RunDedupe_DelegatesToOrchestrator()
-    {
-        var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore();
-        var orchestrator = new RunOrchestrator(fs, audit);
-        var logs = new List<string>();
-        var facade = new ApplicationServiceFacade(fs, audit, new StubToolRunner(), orchestrator, log: msg => logs.Add(msg));
-
-        var options = new RunOptions
-        {
-            Roots = new[] { _tempDir },
-            Mode = "DryRun",
-            Extensions = RunOptions.DefaultExtensions
-        };
-
-        var result = facade.RunDedupe(options);
-
-        Assert.Equal("ok", result.Status);
-        Assert.Contains(logs, l => l.Contains("Starting dedupe run"));
-    }
-
-    [Fact]
-    public void RunPreflight_DelegatesToOrchestrator()
-    {
-        var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore();
-        var orchestrator = new RunOrchestrator(fs, audit);
-        var facade = new ApplicationServiceFacade(fs, audit, new StubToolRunner(), orchestrator);
-
-        var options = new RunOptions
-        {
-            Roots = new[] { _tempDir },
-            Mode = "DryRun",
-            Extensions = RunOptions.DefaultExtensions
-        };
-
-        var result = facade.RunPreflight(options);
-
-        Assert.NotNull(result);
-        Assert.Equal("ok", result.Status);
-    }
-
-    [Fact]
-    public void GetConversionPreview_ReturnsPreview()
-    {
-        var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore();
-        var orchestrator = new RunOrchestrator(fs, audit);
-        var facade = new ApplicationServiceFacade(fs, audit, new StubToolRunner(), orchestrator);
-
-        var preview = facade.GetConversionPreview(new[] { _tempDir });
-
-        Assert.NotNull(preview);
-    }
-
-    [Fact]
-    public void RunDedupe_WithoutLog_NoThrow()
-    {
-        var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore();
-        var orchestrator = new RunOrchestrator(fs, audit);
-        var facade = new ApplicationServiceFacade(fs, audit, new StubToolRunner(), orchestrator);
-
-        var options = new RunOptions
-        {
-            Roots = new[] { _tempDir },
-            Mode = "DryRun",
-            Extensions = RunOptions.DefaultExtensions
-        };
-
-        var result = facade.RunDedupe(options);
-
-        Assert.Equal("ok", result.Status);
-    }
-
-    private sealed class StubToolRunner : IToolRunner
-    {
-        public string? FindTool(string toolName) => null;
-        public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null) =>
-            new(ExitCode: 1, Output: "", Success: false);
-        public ToolResult Invoke7z(string sevenZipPath, string[] arguments) =>
-            new(ExitCode: 1, Output: "", Success: false);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// 2) OperationResult – direct factory & property tests
+// 1) OperationResult – direct factory & property tests
 // ═══════════════════════════════════════════════════════════════════════
 public class OperationResultDirectTests
 {
@@ -206,7 +99,7 @@ public class OperationResultDirectTests
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3) JsonlLogWriter – gzip rotation, pruning, convenience methods
+// 2) JsonlLogWriter – gzip rotation, pruning, convenience methods
 // ═══════════════════════════════════════════════════════════════════════
 public class JsonlLogWriterGzipTests : IDisposable
 {

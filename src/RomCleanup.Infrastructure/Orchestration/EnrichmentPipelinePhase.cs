@@ -86,6 +86,11 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                             context.OnProgress?.Invoke(
                                 $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
                         }
+                        else
+                        {
+                            context.OnProgress?.Invoke(
+                                $"[DAT] Kein Match fuer UNKNOWN-Konsole: {Path.GetFileName(filePath)}");
+                        }
                     }
                     else
                     {

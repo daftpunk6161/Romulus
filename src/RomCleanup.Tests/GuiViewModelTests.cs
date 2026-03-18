@@ -1133,6 +1133,60 @@ public class GuiViewModelTests
         Assert.Equal(RunState.Cancelled, vm.CurrentRunState);
     }
 
+    [Fact]
+    public void ApplyRunResult_WhenStateIsCancelled_StillShowsPartialResults()
+    {
+        var vm = new MainViewModel();
+        SetRunStateViaValidPath(vm, RunState.Cancelled);
+
+        var winner = new RomCandidate
+        {
+            MainPath = @"C:\Roms\Game (USA).zip",
+            GameKey = "game",
+            Region = "US",
+            Category = FileCategory.Game,
+            SizeBytes = 1024,
+            Extension = ".zip"
+        };
+
+        var loser = new RomCandidate
+        {
+            MainPath = @"C:\Roms\Game (EU).zip",
+            GameKey = "game",
+            Region = "EU",
+            Category = FileCategory.Game,
+            SizeBytes = 1000,
+            Extension = ".zip"
+        };
+
+        var result = new RunResult
+        {
+            Status = "cancelled",
+            TotalFilesScanned = 2,
+            GroupCount = 1,
+            WinnerCount = 1,
+            LoserCount = 1,
+            AllCandidates = new[] { winner, loser },
+            DedupeGroups = new[]
+            {
+                new DedupeResult
+                {
+                    GameKey = "game",
+                    Winner = winner,
+                    Losers = new[] { loser }
+                }
+            }
+        };
+
+        vm.ApplyRunResult(result);
+
+        Assert.Equal("1", vm.DashWinners);
+        Assert.Equal("1", vm.DashDupes);
+        Assert.Equal("1", vm.DashGames);
+        Assert.Equal(2, vm.LastCandidates.Count);
+        Assert.Single(vm.LastDedupeGroups);
+    }
+
     // ═══ TEST-007: DryRun E2E Smoke-Test ════════════════════════════════
 
     [Fact]

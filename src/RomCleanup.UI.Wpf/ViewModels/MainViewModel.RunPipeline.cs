@@ -723,8 +723,10 @@ public sealed partial class MainViewModel
 
             if (runWasCancelled)
             {
+                ApplyRunResult(svcResult.Result);
+                PopulateErrorSummary();
                 AddLog("Lauf abgebrochen.", "WARN");
-                CompleteRun(false, cancelled: true);
+                CompleteRun(false, svcResult.ReportPath, cancelled: true);
                 return;
             }
 
@@ -859,7 +861,7 @@ public sealed partial class MainViewModel
     /// <summary>Apply run results from orchestrator to all dashboard/state properties.</summary>
     public void ApplyRunResult(RunResult result)
     {
-        if (CurrentRunState is RunState.Cancelled or RunState.Failed)
+        if (CurrentRunState is RunState.Failed)
         {
             AddLog("Ergebnis ignoriert: Lauf wurde bereits beendet/abgebrochen.", "WARN");
             return;

@@ -141,10 +141,10 @@ public sealed class HardRegressionInvariantTests : IDisposable
         Assert.True(result.ConvertedCount >= 0, "ConvertedCount must be non-negative");
         Assert.True(result.ConvertErrorCount >= 0, "ConvertErrorCount must be non-negative");
         Assert.True(result.ConvertSkippedCount >= 0, "ConvertSkippedCount must be non-negative");
-        // Konvertierungsversuche dürfen nicht mehr als Winner sein
+        // In diesem Szenario ist nur die .zip-Datei tatsächlich konvertierbar.
+        const int expectedConversionAttempts = 1;
         var totalConversionOutcomes = result.ConvertedCount + result.ConvertErrorCount + result.ConvertSkippedCount;
-        Assert.True(totalConversionOutcomes <= result.WinnerCount,
-            $"Conversion outcomes ({totalConversionOutcomes}) cannot exceed winners ({result.WinnerCount})");
+        Assert.Equal(expectedConversionAttempts, totalConversionOutcomes);
     }
 
     // ═══════════════════════════════════════════════════════════════════

@@ -344,6 +344,35 @@ public sealed class CliProgramTests : IDisposable
         Assert.Equal(log, opts!.LogPath);
     }
 
+    [Fact]
+    public void ParseArgs_UncRootPath_ReturnsExitCode3()
+    {
+        var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(
+            new[] { "--roots", "\\\\server\\share\\roms" });
+
+        Assert.Null(opts);
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, stdout);
+        Assert.Contains("UNC", stderr, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ParseArgs_LogPath_InProtectedSystemPath_ReturnsExitCode3()
+    {
+        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(winDir) || !Directory.Exists(winDir))
+            return;
+
+        var protectedLog = Path.Combine(winDir, "Temp", "romcleanup-test.jsonl");
+        var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(
+            new[] { "--roots", _tempDir, "--log", protectedLog });
+
+        Assert.Null(opts);
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, stdout);
+        Assert.Contains("protected system path", stderr, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ ParseArgs: LogLevel ═══════════════════════════════════════════
 
     [Theory]
@@ -366,6 +395,18 @@ public sealed class CliProgramTests : IDisposable
         Assert.Equal("Info", opts!.LogLevel);
     }
 
+    [Fact]
+    public void ParseArgs_InvalidLogLevel_ReturnsExitCode3()
+    {
+        var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(
+            new[] { "--roots", _tempDir, "--loglevel", "Verbose" });
+
+        Assert.Null(opts);
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, stdout);
+        Assert.Contains("Invalid log level", stderr, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ ParseArgs: HashType ═══════════════════════════════════════════
 
     [Theory]
@@ -377,6 +418,18 @@ public sealed class CliProgramTests : IDisposable
         var (opts, _) = CliProgram.ParseArgs(new[] { "--roots", _tempDir, "--hashtype", hashType });
         Assert.NotNull(opts);
         Assert.Equal(hashType, opts!.HashType);
+    }
+
+    [Fact]
+    public void ParseArgs_InvalidHashType_ReturnsExitCode3()
+    {
+        var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(
+            new[] { "--roots", _tempDir, "--hashtype", "SHA2" });
+
+        Assert.Null(opts);
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, stdout);
+        Assert.Contains("Invalid hash type", stderr, StringComparison.OrdinalIgnoreCase);
     }
 
     // ═══ ParseArgs: Unknown flag ═══════════════════════════════════════

@@ -76,6 +76,34 @@ public class RunReportWriterTests
     }
 
     [Fact]
+    public void BuildSummary_WhenAccountedBelowScanned_Throws()
+    {
+        var winner = new RomCandidate { MainPath = @"C:\roms\Game (EU).chd", Category = FileCategory.Game };
+        var loser = new RomCandidate { MainPath = @"C:\roms\Game (US).chd", Category = FileCategory.Game };
+        var unknown = new RomCandidate { MainPath = @"C:\roms\Mystery.rom", Category = FileCategory.Unknown };
+
+        var result = new RunResult
+        {
+            TotalFilesScanned = 4,
+            WinnerCount = 1,
+            LoserCount = 1,
+            DedupeGroups = new[]
+            {
+                new DedupeResult
+                {
+                    GameKey = "game",
+                    Winner = winner,
+                    Losers = new[] { loser }
+                }
+            },
+            // 3 candidates only -> projection undercounts against scanned total 4
+            AllCandidates = new[] { winner, loser, unknown }
+        };
+
+        Assert.Throws<InvalidOperationException>(() => RunReportWriter.BuildSummary(result, "DryRun"));
+    }
+
+    [Fact]
     public void BuildSummary_NoDedupeGroups_DoesNotThrowInvariant()
     {
         // ConvertOnly or empty-scan: no dedupe ran, Keep/Dupes are 0

@@ -15,6 +15,7 @@ internal static class Program
     private static readonly AsyncLocal<TextWriter?> StdoutOverride = new();
     private static readonly AsyncLocal<TextWriter?> StderrOverride = new();
     private static readonly AsyncLocal<bool> ConsoleOverrideEnabled = new();
+    private static readonly AsyncLocal<bool?> NonInteractiveOverride = new();
 
     private static int Main(string[] args)
     {
@@ -63,6 +64,14 @@ internal static class Program
 
     private static int Run(CliRunOptions cliOpts)
     {
+        if (string.Equals(cliOpts.Mode, "Move", StringComparison.OrdinalIgnoreCase)
+            && IsNonInteractiveExecution()
+            && !cliOpts.Yes)
+        {
+            SafeErrorWriteLine("[Error] Non-interactive Move requires --yes confirmation.");
+            return 3;
+        }
+
         using var cts = new CancellationTokenSource();
         int cancelCount = 0;
         Console.CancelKeyPress += (_, e) =>
@@ -70,8 +79,9 @@ internal static class Program
             cancelCount++;
             if (cancelCount >= 2)
             {
-                SafeErrorWriteLine("Force exit.");
-                Environment.Exit(2);
+                e.Cancel = true;
+                cts.Cancel();
+                SafeErrorWriteLine("Force-cancel requested.");
                 return;
             }
             e.Cancel = true;
@@ -247,6 +257,16 @@ internal static class Program
         ConsoleOverrideEnabled.Value = stdout is not null || stderr is not null;
     }
 
+    internal static void SetNonInteractiveOverride(bool? isNonInteractive)
+    {
+        NonInteractiveOverride.Value = isNonInteractive;
+    }
+
+    private static bool IsNonInteractiveExecution()
+        => NonInteractiveOverride.Value
+           ?? Console.IsInputRedirected
+           || !Environment.UserInteractive;
+
     /// <summary>
     /// Backward-compatible CliOptions class. Wraps CliRunOptions for test compatibility.
     /// </summary>
@@ -267,6 +287,7 @@ internal static class Program
         public string? DatRoot { get; set; }
         public string? HashType { get; set; }
         public bool ConvertFormat { get; set; }
+        public bool Yes { get; set; }
         public string? ReportPath { get; set; }
         public string? AuditPath { get; set; }
         public string? LogPath { get; set; }
@@ -289,6 +310,7 @@ internal static class Program
             DatRoot = DatRoot,
             HashType = HashType,
             ConvertFormat = ConvertFormat,
+            Yes = Yes,
             ReportPath = ReportPath,
             AuditPath = AuditPath,
             LogPath = LogPath,
@@ -312,6 +334,7 @@ internal static class Program
             DatRoot = src.DatRoot,
             HashType = src.HashType,
             ConvertFormat = src.ConvertFormat,
+            Yes = src.Yes,
             ReportPath = src.ReportPath,
             AuditPath = src.AuditPath,
             LogPath = src.LogPath,

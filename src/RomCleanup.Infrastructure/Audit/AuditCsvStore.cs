@@ -129,7 +129,8 @@ public sealed class AuditCsvStore : IAuditStore
 
             if (dryRun)
             {
-                restoredPaths.Add(oldPath);
+                if (File.Exists(newPath))
+                    restoredPaths.Add(oldPath);
                 continue;
             }
 
