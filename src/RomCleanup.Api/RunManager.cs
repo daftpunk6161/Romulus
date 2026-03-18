@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Paths;
@@ -91,6 +92,9 @@ public sealed class RunManager
             var normalizedHashType = string.IsNullOrWhiteSpace(request.HashType)
                 ? "SHA1"
                 : request.HashType.Trim().ToUpperInvariant();
+            var normalizedConflictPolicy = string.IsNullOrWhiteSpace(request.ConflictPolicy)
+                ? "Rename"
+                : request.ConflictPolicy.Trim();
 
             var record = new RunRecord
             {
@@ -110,6 +114,8 @@ public sealed class RunManager
                 KeepUnknownWhenOnlyGames = request.KeepUnknownWhenOnlyGames,
                 HashType = normalizedHashType,
                 ConvertFormat = string.IsNullOrWhiteSpace(request.ConvertFormat) ? null : request.ConvertFormat.Trim(),
+                ConvertOnly = request.ConvertOnly,
+                ConflictPolicy = normalizedConflictPolicy,
                 TrashRoot = string.IsNullOrWhiteSpace(request.TrashRoot) ? null : request.TrashRoot.Trim(),
                 Extensions = normalizedExtensions,
                 StartedUtc = DateTime.UtcNow,
@@ -146,6 +152,7 @@ public sealed class RunManager
         if (run.Status == "running")
         {
             run.CancellationRequested = true;
+            run.CancelledAtUtc = DateTime.UtcNow;
             try { run.CancellationSource.Cancel(); }
             catch (ObjectDisposedException) { /* CTS already disposed — run already finished */ }
             return new RunCancelResult(RunCancelDisposition.Accepted, run);
@@ -219,23 +226,25 @@ public sealed class RunManager
         }
         catch (OperationCanceledException)
         {
+            var elapsedMs = (long)Math.Max(0, (DateTime.UtcNow - run.StartedUtc).TotalMilliseconds);
             run.Status = "cancelled";
             run.Result = new ApiRunResult
             {
                 OrchestratorStatus = "cancelled",
                 ExitCode = 2,
+                DurationMs = elapsedMs,
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = File.Exists(reportPath) ? reportPath : null
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             run.Status = "failed";
             run.Result = new ApiRunResult
             {
                 OrchestratorStatus = "failed",
                 ExitCode = 1,
-                Error = "Internal error during run execution.",
+                Error = new OperationError("RUN-INTERNAL-ERROR", ex.Message, ErrorKind.Critical, "API"),
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = File.Exists(reportPath) ? reportPath : null
             };
@@ -305,6 +314,8 @@ public sealed class RunManager
             KeepUnknownWhenOnlyGames = run.KeepUnknownWhenOnlyGames,
             HashType = run.HashType,
             ConvertFormat = run.ConvertFormat,
+            ConvertOnly = run.ConvertOnly,
+            ConflictPolicy = run.ConflictPolicy,
             TrashRoot = run.TrashRoot,
             AuditPath = auditPath,
             ReportPath = reportPath
@@ -317,11 +328,19 @@ public sealed class RunManager
         settings.Dat.HashType = run.HashType;
 
         var env = RunEnvironmentBuilder.Build(options, settings, dataDir,
-            onWarning: msg => run.ProgressMessage = msg);
+            onWarning: msg =>
+            {
+                run.ProgressMessage = msg;
+                run.ProgressPercent = CalculateProgressPercent(msg);
+            });
 
         var orchestrator = new RunOrchestrator(fs, audit,
             env.ConsoleDetector, env.HashService, env.Converter, env.DatIndex,
-            onProgress: msg => run.ProgressMessage = msg);
+            onProgress: msg =>
+            {
+                run.ProgressMessage = msg;
+                run.ProgressPercent = CalculateProgressPercent(msg);
+            });
 
         var result = orchestrator.Execute(options, ct);
         var projection = RunProjectionFactory.Create(result);
@@ -368,9 +387,71 @@ public sealed class RunManager
                 FailCount = projection.FailCount,
                 SavedBytes = projection.SavedBytes,
                 DurationMs = projection.DurationMs,
+                PreflightWarnings = result.Preflight?.Warnings?.ToArray() ?? Array.Empty<string>(),
+                PhaseMetrics = BuildPhaseMetricsPayload(result.PhaseMetrics),
+                DedupeGroups = BuildDedupeGroupsPayload(result.DedupeGroups),
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = result.ReportPath
             });
+    }
+
+    private static int CalculateProgressPercent(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return 0;
+
+        var phaseIndex = message.IndexOf("Phase ", StringComparison.OrdinalIgnoreCase);
+        if (phaseIndex < 0)
+            return 0;
+
+        var part = message[phaseIndex..];
+        var slashIndex = part.IndexOf('/');
+        if (slashIndex <= 6)
+            return 0;
+
+        var left = part[6..slashIndex].Trim();
+        var rightChars = new string(part[(slashIndex + 1)..].TakeWhile(char.IsDigit).ToArray());
+        if (!int.TryParse(left, out var current) || !int.TryParse(rightChars, out var total) || total <= 0)
+            return 0;
+
+        var pct = (int)Math.Round(current * 100d / total);
+        return Math.Clamp(pct, 0, 100);
+    }
+
+    private static object BuildPhaseMetricsPayload(PhaseMetricsResult? metrics)
+    {
+        if (metrics is null)
+            return new { phases = Array.Empty<object>() };
+
+        return new
+        {
+            runId = metrics.RunId,
+            startedAt = metrics.StartedAt,
+            totalDurationMs = (long)metrics.TotalDuration.TotalMilliseconds,
+            phases = metrics.Phases.Select(phase => new
+            {
+                phase = phase.Phase,
+                startedAt = phase.StartedAt,
+                durationMs = (long)phase.Duration.TotalMilliseconds,
+                itemCount = phase.ItemCount,
+                itemsPerSec = phase.ItemsPerSec,
+                percentOfTotal = phase.PercentOfTotal,
+                status = phase.Status
+            }).ToArray()
+        };
+    }
+
+    private static object[] BuildDedupeGroupsPayload(IReadOnlyList<DedupeResult> dedupeGroups)
+    {
+        if (dedupeGroups.Count == 0)
+            return Array.Empty<object>();
+
+        return dedupeGroups.Select(group => new
+        {
+            gameKey = group.GameKey,
+            winner = group.Winner,
+            losers = group.Losers
+        }).Cast<object>().ToArray();
     }
 
     private static void UpdateRecoveryState(RunRecord run)
@@ -412,6 +493,8 @@ public sealed class RunManager
             string.IsNullOrWhiteSpace(request.DatRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.DatRoot),
             string.IsNullOrWhiteSpace(request.HashType) ? "SHA1" : request.HashType.Trim().ToUpperInvariant(),
             string.IsNullOrWhiteSpace(request.ConvertFormat) ? "" : request.ConvertFormat.Trim().ToUpperInvariant(),
+            string.IsNullOrWhiteSpace(request.ConflictPolicy) ? "RENAME" : request.ConflictPolicy.Trim().ToUpperInvariant(),
+            request.ConvertOnly ? "1" : "0",
             string.IsNullOrWhiteSpace(request.TrashRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.TrashRoot),
             string.Join(",", (request.Extensions ?? Array.Empty<string>())
                 .Where(ext => !string.IsNullOrWhiteSpace(ext))
@@ -472,6 +555,8 @@ public sealed class RunRequest
     public bool KeepUnknownWhenOnlyGames { get; set; } = true;
     public string? HashType { get; set; }
     public string? ConvertFormat { get; set; }
+    public bool ConvertOnly { get; set; }
+    public string? ConflictPolicy { get; set; }
     public string? TrashRoot { get; set; }
     public string[]? Extensions { get; set; }
 }
@@ -506,6 +591,8 @@ public sealed class RunRecord
     public bool KeepUnknownWhenOnlyGames { get; init; } = true;
     public string HashType { get; init; } = "SHA1";
     public string? ConvertFormat { get; init; }
+    public bool ConvertOnly { get; init; }
+    public string ConflictPolicy { get; init; } = "Rename";
     public string? TrashRoot { get; init; }
     public string[] Extensions { get; init; } = RunOptions.DefaultExtensions;
     public DateTime StartedUtc { get; init; }
@@ -524,6 +611,20 @@ public sealed class RunRecord
         get { lock (_lock) return _progressMessage; }
         set { lock (_lock) _progressMessage = value; }
     }
+    public long ElapsedMs
+    {
+        get
+        {
+            var started = StartedUtc;
+            var completed = CompletedUtc;
+            if (completed.HasValue)
+                return (long)Math.Max(0, (completed.Value - started).TotalMilliseconds);
+
+            return (long)Math.Max(0, (DateTime.UtcNow - started).TotalMilliseconds);
+        }
+    }
+    public int ProgressPercent { get; set; }
+    public DateTime? CancelledAtUtc { get; set; }
     public string RecoveryModel { get; init; } = "audit-rollback-only";
     public string RestartRecovery { get; init; } = "not-persisted";
     public bool ResumeSupported => false;
@@ -578,7 +679,10 @@ public sealed class ApiRunResult
     public int FailCount { get; init; }
     public long SavedBytes { get; init; }
     public long DurationMs { get; init; }
-    public string? Error { get; init; }
+    public string[] PreflightWarnings { get; init; } = Array.Empty<string>();
+    public object PhaseMetrics { get; init; } = new { phases = Array.Empty<object>() };
+    public object[] DedupeGroups { get; init; } = Array.Empty<object>();
+    public object? Error { get; init; }
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }
 }

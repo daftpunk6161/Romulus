@@ -95,10 +95,27 @@ app.Use(async (ctx, next) =>
         return;
     }
 
+    await next();
+});
+
+app.Use(async (ctx, next) =>
+{
+    var correlationId = ctx.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+        ?? Guid.NewGuid().ToString("N")[..16];
+
+    ctx.Items["CorrelationId"] = correlationId;
+    ctx.Response.Headers["X-Correlation-ID"] = correlationId;
+
+    await next();
+});
+
+app.Use(async (ctx, next) =>
+{
     // Rate limiting
     var clientIp = ApiClientIdentity.ResolveRateLimitClientId(ctx, trustForwardedFor);
     if (!rateLimiter.TryAcquire(clientIp))
     {
+        ctx.Response.Headers["Retry-After"] = Math.Max(1, (int)Math.Ceiling(rateLimitWindow.TotalSeconds)).ToString();
         await WriteApiError(ctx, 429, "RUN-RATE-LIMIT", "Too many requests.", ErrorKind.Transient);
         return;
     }
@@ -118,8 +135,9 @@ app.Use(async (ctx, next) =>
 app.Use(async (ctx, next) =>
 {
     // V2-M08: Correlation-ID linking HTTP requests to run lifecycle
-    var correlationId = ctx.Request.Headers["X-Correlation-ID"].FirstOrDefault()
-        ?? Guid.NewGuid().ToString("N")[..16];
+    var correlationId = ctx.Items.TryGetValue("CorrelationId", out var storedCorrelationId)
+        ? storedCorrelationId?.ToString() ?? Guid.NewGuid().ToString("N")[..16]
+        : ctx.Request.Headers["X-Correlation-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString("N")[..16];
     ctx.Response.Headers["X-Correlation-ID"] = correlationId;
 
     var start = DateTime.UtcNow;
@@ -141,7 +159,8 @@ app.MapGet("/health", (RunManager mgr) =>
         status = "ok",
         serverRunning = true,
         hasActiveRun = activeRun is not null,
-        utc = DateTime.UtcNow.ToString("o")
+        utc = DateTime.UtcNow.ToString("o"),
+        version = ApiVersion
     });
 });
 
@@ -279,6 +298,20 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
         }
     }
 
+    // Validate conflict policy
+    if (!string.IsNullOrWhiteSpace(request.ConflictPolicy))
+    {
+        var normalizedPolicy = request.ConflictPolicy.Trim();
+        if (normalizedPolicy.Equals("rename", StringComparison.OrdinalIgnoreCase))
+            request.ConflictPolicy = "Rename";
+        else if (normalizedPolicy.Equals("skip", StringComparison.OrdinalIgnoreCase))
+            request.ConflictPolicy = "Skip";
+        else if (normalizedPolicy.Equals("overwrite", StringComparison.OrdinalIgnoreCase))
+            request.ConflictPolicy = "Overwrite";
+        else
+            return ApiError(400, "RUN-INVALID-CONFLICT-POLICY", "conflictPolicy must be one of: Rename, Skip, Overwrite.");
+    }
+
     // OnlyGames policy guard
     if (!request.OnlyGames && !request.KeepUnknownWhenOnlyGames)
         return ApiError(400, "RUN-INVALID-UNKNOWN-POLICY", "keepUnknownWhenOnlyGames can only be set when onlyGames is true.");
@@ -322,6 +355,8 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
                 waitTimedOut = true
             });
         }
+
+        ctx.Response.Headers.Location = $"/runs/{run.RunId}";
 
         return Results.Ok(new
         {
@@ -371,7 +406,8 @@ app.MapPost("/runs/{runId}/cancel", (string runId, RunManager mgr) =>
     {
         run = updated,
         cancelAccepted = cancel.Disposition == RunCancelDisposition.Accepted,
-        idempotent = cancel.Disposition != RunCancelDisposition.Accepted
+        idempotent = cancel.Disposition != RunCancelDisposition.Accepted,
+        cancelledAtUtc = updated?.CancelledAtUtc?.ToString("o")
     });
 });
 
@@ -428,6 +464,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
                     {
                         "cancelled" => "cancelled",
                         "failed" => "failed",
+                        "completed_with_errors" => "completed_with_errors",
                         _ => "completed"
                     };
                     await WriteSseEvent(writer, encoding, terminalEvent, new { run = current, result = current.Result });
