@@ -14,6 +14,7 @@ namespace RomCleanup.Tests;
 /// </summary>
 public sealed class CliRedPhaseTests : IDisposable
 {
+    private static readonly object ConsoleLock = new();
     private readonly string _tempDir;
 
     public CliRedPhaseTests()
@@ -362,8 +363,8 @@ public sealed class CliRedPhaseTests : IDisposable
         Assert.Equal(0, exit1);
         Assert.Equal(0, exit2);
 
-        using var doc1 = JsonDocument.Parse(stdout1.Trim());
-        using var doc2 = JsonDocument.Parse(stdout2.Trim());
+        using var doc1 = ParseCliJsonDocument(stdout1);
+        using var doc2 = ParseCliJsonDocument(stdout2);
 
         foreach (var prop in doc1.RootElement.EnumerateObject())
         {
@@ -383,38 +384,55 @@ public sealed class CliRedPhaseTests : IDisposable
     private static (CliProgram.CliOptions? Options, int ExitCode, string Stdout, string Stderr)
         ParseArgsCapture(string[] args)
     {
-        using var stdout = new StringWriter();
-        using var stderr = new StringWriter();
-        try
+        lock (ConsoleLock)
         {
-            CliProgram.SetConsoleOverrides(stdout, stderr);
-            var (options, exitCode) = CliProgram.ParseArgs(args);
-            return (options, exitCode, stdout.ToString(), stderr.ToString());
-        }
-        finally
-        {
-            CliProgram.SetConsoleOverrides(null, null);
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            try
+            {
+                CliProgram.SetConsoleOverrides(stdout, stderr);
+                var (options, exitCode) = CliProgram.ParseArgs(args);
+                return (options, exitCode, stdout.ToString(), stderr.ToString());
+            }
+            finally
+            {
+                CliProgram.SetConsoleOverrides(null, null);
+            }
         }
     }
 
     private static (int ExitCode, string Stdout, string Stderr)
         RunCliCapture(CliProgram.CliOptions options)
     {
-        var origOut = Console.Out;
-        var origErr = Console.Error;
-        using var stdout = new StringWriter();
-        using var stderr = new StringWriter();
-        try
+        lock (ConsoleLock)
         {
-            Console.SetOut(stdout);
-            Console.SetError(stderr);
-            var exitCode = CliProgram.RunForTests(options);
-            return (exitCode, stdout.ToString(), stderr.ToString());
+            var origOut = Console.Out;
+            var origErr = Console.Error;
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            try
+            {
+                Console.SetOut(stdout);
+                Console.SetError(stderr);
+                var exitCode = CliProgram.RunForTests(options);
+                return (exitCode, stdout.ToString(), stderr.ToString());
+            }
+            finally
+            {
+                Console.SetOut(origOut);
+                Console.SetError(origErr);
+            }
         }
-        finally
-        {
-            Console.SetOut(origOut);
-            Console.SetError(origErr);
-        }
+    }
+
+    private static JsonDocument ParseCliJsonDocument(string stdout)
+    {
+        var trimmed = stdout.Trim();
+        var start = trimmed.IndexOf('{');
+        var end = trimmed.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            return JsonDocument.Parse(trimmed[start..(end + 1)]);
+
+        return JsonDocument.Parse(trimmed);
     }
 }

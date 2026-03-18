@@ -185,3 +185,30 @@ Bestanden: 3135, Uebersprungen: 6, Fehler: 0
 ```
 
 Alle 15 `HardAuditInvariantTests` bestehen (8 P0 + 7 P1).
+
+---
+
+## Status-Nachtrag (2026-03-18)
+
+Die folgenden Punkte aus dem konsolidierten Audit wurden nachtraeglich umgesetzt
+und per zielgerichteter Regression verifiziert:
+
+| ID | Status | Umsetzung |
+|----|--------|-----------|
+| P1-12 | Behoben | Dry-Run-Rollback meldet nur wirklich restorable Eintraege (existierende aktuelle Quelle); False-Positives entfernt |
+| P2-04 | Behoben | Explizites Progress-Logging fuer UNKNOWN-Console DAT-No-Match in der Enrichment-Phase |
+| P1-16 | Behoben | Report-Accounting-Invariante auf strikte Gleichheit gehaertet (Dedup-Runs) |
+| P3-04 | Behoben | Tote Fassade entfernt: `ApplicationServiceFacade` geloescht, zugehoerige Legacy-Tests bereinigt |
+| P1-14 | Behoben | KPI-Namensparitaet ueber CLI/API/OpenAPI via nicht-brechende Alias-Felder (`Winners`, `Losers`, `Duplicates`) |
+| P2-13 | Behoben | Feingranulare Fortschrittsupdates in Move- und Conversion-Phasen (periodische Zwischenstaende) |
+| P3-01 | Behoben | Rollback-Pfad konsolidiert: `AuditCsvStore` delegiert an `AuditSigningService`; WPF-Rollback nutzt den Store-Pfad |
+
+### Verifikation (2026-03-18)
+
+- Zielgerichtete Regression fuer Rollback- und CLI-Pfade: **112 bestanden, 0 fehlgeschlagen**
+- Diagnostik in den geaenderten Rollback-Dateien: keine offenen Fehler
+
+### Hinweise
+
+- Die oben genannten Aenderungen sind bewusst rueckwaertskompatibel umgesetzt (Alias-Felder statt Breaking Renames).
+- Ein optionaler Voll-Lauf aller Tests wird weiterhin empfohlen, falls ein Release-Snapshot erzeugt wird.

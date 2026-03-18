@@ -1134,9 +1134,11 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void ApplyRunResult_WhenStateIsCancelled_StillShowsPartialResults()
+    public void ApplyRunResult_WhenStateIsCancelled_DoesNotMutateDashboardOrCollections()
     {
         var vm = new MainViewModel();
+        vm.DashWinners = "sentinel";
+        vm.DashDupes = "sentinel";
         SetRunStateViaValidPath(vm, RunState.Cancelled);
 
         var winner = new RomCandidate
@@ -1180,11 +1182,12 @@ public class GuiViewModelTests
 
         vm.ApplyRunResult(result);
 
-        Assert.Equal("1", vm.DashWinners);
-        Assert.Equal("1", vm.DashDupes);
-        Assert.Equal("1", vm.DashGames);
-        Assert.Equal(2, vm.LastCandidates.Count);
-        Assert.Single(vm.LastDedupeGroups);
+        Assert.Equal("sentinel", vm.DashWinners);
+        Assert.Equal("sentinel", vm.DashDupes);
+        Assert.Null(vm.LastRunResult);
+        Assert.Empty(vm.LastCandidates);
+        Assert.Empty(vm.LastDedupeGroups);
+        Assert.Equal(RunState.Cancelled, vm.CurrentRunState);
     }
 
     [Fact]

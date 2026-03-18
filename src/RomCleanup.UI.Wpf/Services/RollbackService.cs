@@ -1,13 +1,14 @@
+using System.IO;
 using RomCleanup.Contracts.Models;
-using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
+using RomCleanup.Infrastructure.Audit;
 
 namespace RomCleanup.UI.Wpf.Services;
 
 /// <summary>
 /// Extracted from MainWindow.xaml.cs — handles audit-based rollback.
 /// RF-004 from gui-ux-deep-audit.md.
-/// Uses AuditSigningService for HMAC-verified rollback (Issue #13).
+/// Uses AuditCsvStore as the single rollback entry point.
 /// </summary>
 public static class RollbackService
 {
@@ -19,8 +20,27 @@ public static class RollbackService
     public static AuditRollbackResult Execute(string auditPath, IReadOnlyList<string> roots, string? keyFilePath = null)
     {
         var fs = new FileSystemAdapter();
-        var signing = new AuditSigningService(fs, keyFilePath: keyFilePath ?? AuditSecurityPaths.GetDefaultSigningKeyPath());
+        var store = new AuditCsvStore(fs, keyFilePath: keyFilePath ?? AuditSecurityPaths.GetDefaultSigningKeyPath());
         var rootArray = roots is string[] arr ? arr : roots.ToArray();
-        return signing.Rollback(auditPath, rootArray, rootArray, dryRun: false);
+
+        // Preserve explicit integrity failure semantics used by UI/tests.
+        if (File.Exists(auditPath + ".meta.json") && !store.TestMetadataSidecar(auditPath))
+        {
+            return new AuditRollbackResult
+            {
+                AuditCsvPath = auditPath,
+                Failed = 1,
+                DryRun = false
+            };
+        }
+
+        var restored = store.Rollback(auditPath, rootArray, rootArray, dryRun: false);
+        return new AuditRollbackResult
+        {
+            AuditCsvPath = auditPath,
+            RolledBack = restored.Count,
+            DryRun = false,
+            RestoredPaths = restored
+        };
     }
 }

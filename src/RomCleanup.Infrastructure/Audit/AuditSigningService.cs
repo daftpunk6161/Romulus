@@ -265,6 +265,8 @@ public sealed class AuditSigningService
         int rolledBack = 0, dryRunPlanned = 0;
         int skippedMissingDest = 0, skippedCollision = 0, failed = 0;
         string? rollbackAuditPath = null;
+        var restoredPaths = new List<string>();
+        var plannedPaths = new List<string>();
 
         if (!dryRun)
         {
@@ -339,6 +341,7 @@ public sealed class AuditSigningService
             if (dryRun)
             {
                 dryRunPlanned++;
+                plannedPaths.Add(oldPath);
                 _log?.Invoke($"DRYRUN rollback: {newPath} -> {oldPath}");
             }
             else
@@ -353,6 +356,7 @@ public sealed class AuditSigningService
                     if (_fs.MoveItemSafely(newPath, oldPath) is not null)
                     {
                         rolledBack++;
+                        restoredPaths.Add(oldPath);
                         _log?.Invoke($"Rolled back: {newPath} -> {oldPath}");
                         AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "OK");
                     }
@@ -383,7 +387,9 @@ public sealed class AuditSigningService
             SkippedCollision = skippedCollision,
             Failed = failed,
             DryRun = dryRun,
-            RollbackAuditPath = rollbackAuditPath
+            RollbackAuditPath = rollbackAuditPath,
+            RestoredPaths = restoredPaths,
+            PlannedPaths = plannedPaths
         };
     }
 

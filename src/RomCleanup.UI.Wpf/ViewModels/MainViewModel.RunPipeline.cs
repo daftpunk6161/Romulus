@@ -861,7 +861,7 @@ public sealed partial class MainViewModel
     /// <summary>Apply run results from orchestrator to all dashboard/state properties.</summary>
     public void ApplyRunResult(RunResult result)
     {
-        if (CurrentRunState is RunState.Failed)
+        if (CurrentRunState is RunState.Failed or RunState.Cancelled)
         {
             AddLog("Ergebnis ignoriert: Lauf wurde bereits beendet/abgebrochen.", "WARN");
             return;

@@ -360,12 +360,12 @@ public class CoreHeartbeatInvariantTests : IDisposable
     }
 
     /// <summary>
-    /// Complementary to P1-12: DryRun rollback correctly reports ALL matching entries
-    /// (what would be attempted), regardless of source file existence.
-    /// → Should be GREEN (regression guard for DryRun behavior).
+    /// DryRun rollback should report entries that are actually restorable,
+    /// i.e. only when the current source file exists at newPath.
+    /// Regression guard for the tightened P1-12 semantics.
     /// </summary>
     [Fact]
-    public void Rollback_DryRun_ReportsAllMatchingEntries()
+    public void Rollback_DryRun_ReportsExistingMatchingEntries()
     {
         var auditPath = Path.Combine(_tempDir, "audit.csv");
         var rootDir = Path.Combine(_tempDir, "root");
@@ -375,6 +375,9 @@ public class CoreHeartbeatInvariantTests : IDisposable
 
         var oldPath = Path.Combine(rootDir, "game.zip");
         var newPath = Path.Combine(trashDir, "game.zip");
+
+        // Current source exists -> dry-run should report it as restorable.
+        File.WriteAllText(newPath, "data", Encoding.UTF8);
 
         File.WriteAllText(auditPath,
             "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n" +
@@ -388,7 +391,7 @@ public class CoreHeartbeatInvariantTests : IDisposable
             allowedCurrentRoots: new[] { rootDir },
             dryRun: true);
 
-        // DryRun: reports what WOULD be restored (correct behavior)
+        // DryRun reports what WOULD be restored, but only for existing sources.
         Assert.Single(restored);
     }
 

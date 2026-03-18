@@ -19,6 +19,11 @@ internal static class CliArgsParser
         "Debug", "Info", "Warning", "Error"
     };
 
+    private static readonly HashSet<string> AllowedConflictPolicies = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Rename", "Skip", "Overwrite"
+    };
+
     internal static CliParseResult Parse(string[] args)
     {
         if (args.Length == 0)
@@ -87,6 +92,22 @@ internal static class CliArgsParser
 
                 case "-no-removejunk" or "--no-removejunk":
                     opts.RemoveJunk = false;
+                    break;
+
+                case "-convertonly" or "--convertonly":
+                    opts.ConvertOnly = true;
+                    opts.ConvertFormat = true;
+                    break;
+
+                case "-conflictpolicy" or "--conflictpolicy":
+                    if (!TryConsumeValue(args, ref i, "--conflictpolicy", errors, out var conflictPolicyVal))
+                        break;
+                    if (!AllowedConflictPolicies.Contains(conflictPolicyVal))
+                    {
+                        errors.Add($"[Error] Invalid conflict policy '{conflictPolicyVal}'. Must be Rename, Skip, or Overwrite.");
+                        break;
+                    }
+                    opts.ConflictPolicy = conflictPolicyVal;
                     break;
 
                 case "-gamesonly" or "--gamesonly":
@@ -376,6 +397,8 @@ internal sealed class CliRunOptions
     public string? DatRoot { get; set; }
     public string? HashType { get; set; }
     public bool ConvertFormat { get; set; }
+    public bool ConvertOnly { get; set; }
+    public string ConflictPolicy { get; set; } = "Rename";
     public bool Yes { get; set; }
     public string? ReportPath { get; set; }
     public string? AuditPath { get; set; }
