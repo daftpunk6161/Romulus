@@ -1,4 +1,5 @@
 using RomCleanup.Api;
+using RomCleanup.Contracts.Errors;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
 using Xunit;
@@ -324,7 +325,7 @@ public class RunManagerTests
             {
                 OrchestratorStatus = "failed",
                 ExitCode = 1,
-                Error = "Simulated crash"
+                Error = new OperationError("RUN-SIMULATED-CRASH", "Simulated crash", ErrorKind.Critical, "TEST")
             }));
 
         var firstRun = firstManager.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "Move", "idem-006").Run!;

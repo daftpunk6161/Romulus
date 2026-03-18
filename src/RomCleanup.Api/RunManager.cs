@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
@@ -35,13 +36,17 @@ public sealed class RunManager
         _executor = executor ?? ExecuteWithOrchestrator;
     }
 
-    public RunRecord? TryCreate(RunRequest request, string mode)
+    public RunRecord? TryCreate(RunRequest request, string mode, string? ownerClientId = null)
     {
-        var create = TryCreateOrReuse(request, mode);
+        var create = TryCreateOrReuse(request, mode, ownerClientId: ownerClientId);
         return create.Disposition == RunCreateDisposition.Created ? create.Run : null;
     }
 
-    public RunCreateResult TryCreateOrReuse(RunRequest request, string mode, string? idempotencyKey = null)
+    public RunCreateResult TryCreateOrReuse(
+        RunRequest request,
+        string mode,
+        string? idempotencyKey = null,
+        string? ownerClientId = null)
     {
         lock (_activeLock)
         {
@@ -123,6 +128,9 @@ public sealed class RunManager
                 RequestFingerprint = requestFingerprint,
                 RecoveryState = "in-progress"
             };
+
+            if (!string.IsNullOrWhiteSpace(ownerClientId))
+                record.OwnerClientId = ownerClientId.Trim();
 
             _runs[runId] = record;
             if (!string.IsNullOrWhiteSpace(idempotencyKey))
@@ -223,6 +231,9 @@ public sealed class RunManager
             var outcome = _executor(run, _fs, _audit, ct);
             run.Status = outcome.Status;
             run.Result = outcome.Result;
+            // SEC: If run completed despite cancellation request, clear misleading CancelledAtUtc
+            if (run.Status is "completed" or "completed_with_errors" && run.CancelledAtUtc is not null)
+                run.CancelledAtUtc = null;
         }
         catch (OperationCanceledException)
         {
@@ -240,11 +251,13 @@ public sealed class RunManager
         catch (Exception ex)
         {
             run.Status = "failed";
+            // SEC: Do not leak exception details to clients — log internally, return generic message
+            SafeLog($"[ERROR] Run {run.RunId} failed: {ex}");
             run.Result = new ApiRunResult
             {
                 OrchestratorStatus = "failed",
                 ExitCode = 1,
-                Error = new OperationError("RUN-INTERNAL-ERROR", ex.Message, ErrorKind.Critical, "API"),
+                Error = new OperationError("RUN-INTERNAL-ERROR", "An internal error occurred during execution.", ErrorKind.Critical, "API"),
                 AuditPath = File.Exists(auditPath) ? auditPath : null,
                 ReportPath = File.Exists(reportPath) ? reportPath : null
             };
@@ -280,6 +293,12 @@ public sealed class RunManager
                 _idempotencyIndex.TryRemove(old.IdempotencyKey, out _);
             _runs.TryRemove(old.RunId, out _);
         }
+    }
+
+    private static void SafeLog(string message)
+    {
+        try { Console.Error.WriteLine(message); }
+        catch (ObjectDisposedException) { }
     }
 
     private static (string AuditPath, string ReportPath) GetArtifactPaths(string runId)
@@ -572,20 +591,26 @@ public sealed class RunRecord
     private bool _cancellationRequested;
 
     public string RunId { get; init; } = "";
+    [JsonIgnore]
     public string? IdempotencyKey { get; init; }
+    [JsonIgnore]
     public string RequestFingerprint { get; init; } = "";
+    [JsonIgnore]
+    public string OwnerClientId { get; set; } = "";
     public string Status
     {
         get { lock (_lock) return _status; }
         set { lock (_lock) _status = value; }
     }
     public string Mode { get; init; } = "DryRun";
+    [JsonIgnore]
     public string[] Roots { get; init; } = Array.Empty<string>();
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
     public bool RemoveJunk { get; init; } = true;
     public bool AggressiveJunk { get; init; }
     public bool SortConsole { get; init; }
     public bool EnableDat { get; init; }
+    [JsonIgnore]
     public string? DatRoot { get; init; }
     public bool OnlyGames { get; init; }
     public bool KeepUnknownWhenOnlyGames { get; init; } = true;
@@ -593,6 +618,7 @@ public sealed class RunRecord
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
+    [JsonIgnore]
     public string? TrashRoot { get; init; }
     public string[] Extensions { get; init; } = RunOptions.DefaultExtensions;
     public DateTime StartedUtc { get; init; }
@@ -682,7 +708,7 @@ public sealed class ApiRunResult
     public string[] PreflightWarnings { get; init; } = Array.Empty<string>();
     public object PhaseMetrics { get; init; } = new { phases = Array.Empty<object>() };
     public object[] DedupeGroups { get; init; } = Array.Empty<object>();
-    public object? Error { get; init; }
+    public OperationError? Error { get; init; }
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }
 }

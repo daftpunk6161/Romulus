@@ -81,7 +81,7 @@ app.Use(async (ctx, next) =>
             _ => "http://127.0.0.1"
         };
         ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
-        ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Api-Key";
+        ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Api-Key, X-Client-Id";
         ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
         ctx.Response.Headers["Access-Control-Max-Age"] = "600";
         if (origin != "*")
@@ -100,7 +100,8 @@ app.Use(async (ctx, next) =>
 
 app.Use(async (ctx, next) =>
 {
-    var correlationId = ctx.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+    var rawCorrelationId = ctx.Request.Headers["X-Correlation-ID"].FirstOrDefault();
+    var correlationId = SanitizeCorrelationId(rawCorrelationId)
         ?? Guid.NewGuid().ToString("N")[..16];
 
     ctx.Items["CorrelationId"] = correlationId;
@@ -113,6 +114,10 @@ app.Use(async (ctx, next) =>
 {
     // Rate limiting
     var clientIp = ApiClientIdentity.ResolveRateLimitClientId(ctx, trustForwardedFor);
+    var rawClientId = ctx.Request.Headers["X-Client-Id"].FirstOrDefault();
+    var clientBindingId = SanitizeClientBindingId(rawClientId) ?? clientIp;
+    ctx.Items["ClientBindingId"] = clientBindingId;
+
     if (!rateLimiter.TryAcquire(clientIp))
     {
         ctx.Response.Headers["Retry-After"] = Math.Max(1, (int)Math.Ceiling(rateLimitWindow.TotalSeconds)).ToString();
@@ -312,6 +317,28 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
             return ApiError(400, "RUN-INVALID-CONFLICT-POLICY", "conflictPolicy must be one of: Rename, Skip, Overwrite.");
     }
 
+    // SEC: Validate TrashRoot — same safety rules as Roots
+    if (!string.IsNullOrWhiteSpace(request.TrashRoot))
+    {
+        var pathError = ValidatePathSecurity(request.TrashRoot.Trim(), "trashRoot");
+        if (pathError is not null) return pathError;
+    }
+
+    // SEC: Validate DatRoot
+    if (!string.IsNullOrWhiteSpace(request.DatRoot))
+    {
+        var pathError = ValidatePathSecurity(request.DatRoot.Trim(), "datRoot");
+        if (pathError is not null) return pathError;
+    }
+
+    // Validate convertFormat (allowlist)
+    if (!string.IsNullOrWhiteSpace(request.ConvertFormat))
+    {
+        var fmt = request.ConvertFormat.Trim().ToLowerInvariant();
+        if (fmt is not "auto" and not "chd" and not "rvz" and not "zip" and not "7z")
+            return ApiError(400, "RUN-INVALID-CONVERT-FORMAT", "convertFormat must be one of: auto, chd, rvz, zip, 7z.");
+    }
+
     // OnlyGames policy guard
     if (!request.OnlyGames && !request.KeepUnknownWhenOnlyGames)
         return ApiError(400, "RUN-INVALID-UNKNOWN-POLICY", "keepUnknownWhenOnlyGames can only be set when onlyGames is true.");
@@ -327,13 +354,25 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
             return ApiError(400, "RUN-INVALID-WAIT-TIMEOUT", "waitTimeoutMs must be an integer between 1 and 1800000.");
     }
 
-    var create = mgr.TryCreateOrReuse(request, mode, idempotencyKey);
+    var ownerClientId = GetClientBindingId(ctx, trustForwardedFor);
+    var create = mgr.TryCreateOrReuse(request, mode, idempotencyKey, ownerClientId);
     if (create.Disposition == RunCreateDisposition.ActiveConflict)
+    {
+        if (create.Run is not null && !CanAccessRun(create.Run, ownerClientId))
+            return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: create.Run.RunId);
         return ApiError(409, "RUN-ACTIVE-CONFLICT", create.Error ?? "Another run is already active.", runId: create.Run?.RunId, meta: CreateMeta(("activeRun", create.Run)));
+    }
+
     if (create.Disposition == RunCreateDisposition.IdempotencyConflict)
+    {
+        if (create.Run is not null && !CanAccessRun(create.Run, ownerClientId))
+            return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: create.Run.RunId);
         return ApiError(409, "RUN-IDEMPOTENCY-CONFLICT", create.Error ?? "Idempotency key reuse with different payload is not allowed.", runId: create.Run?.RunId, meta: CreateMeta(("run", create.Run)));
+    }
 
     var run = create.Run!;
+    if (!CanAccessRun(run, ownerClientId))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: run.RunId);
 
     if (waitSync)
     {
@@ -372,32 +411,44 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
     return Results.Accepted($"/runs/{run.RunId}", new { run, reused = create.Disposition == RunCreateDisposition.Reused });
 });
 
-app.MapGet("/runs/{runId}", (string runId, RunManager mgr) =>
-{
-    if (!Guid.TryParse(runId, out _))
-        return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
-    var run = mgr.Get(runId);
-    return run is null
-        ? ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId)
-        : Results.Ok(new { run });
-});
-
-app.MapGet("/runs/{runId}/result", (string runId, RunManager mgr) =>
+app.MapGet("/runs/{runId}", (string runId, HttpContext ctx, RunManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
     var run = mgr.Get(runId);
     if (run is null)
         return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
+
+    return Results.Ok(new { run });
+});
+
+app.MapGet("/runs/{runId}/result", (string runId, HttpContext ctx, RunManager mgr) =>
+{
+    if (!Guid.TryParse(runId, out _))
+        return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
+    var run = mgr.Get(runId);
+    if (run is null)
+        return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
     if (run.Status == "running")
         return ApiError(409, "RUN-IN-PROGRESS", "Run still in progress.", runId: runId);
     return Results.Ok(new { run, result = run.Result });
 });
 
-app.MapPost("/runs/{runId}/cancel", (string runId, RunManager mgr) =>
+app.MapPost("/runs/{runId}/cancel", (string runId, HttpContext ctx, RunManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
+    var current = mgr.Get(runId);
+    if (current is null)
+        return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+    if (!CanAccessRun(current, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
+
     var cancel = mgr.Cancel(runId);
     if (cancel.Disposition == RunCancelDisposition.NotFound)
         return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
@@ -422,6 +473,11 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
     if (run is null)
     {
         await WriteApiError(ctx, 404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+        return;
+    }
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+    {
+        await WriteApiError(ctx, 403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
         return;
     }
 
@@ -559,10 +615,110 @@ static void SafeConsoleWriteLine(string message)
 
 static async Task WriteSseEvent(Stream stream, Encoding encoding, string eventName, object data)
 {
+    // SEC: Prevent SSE event injection via newlines in event name
+    var safeEventName = SanitizeSseEventName(eventName);
     var json = JsonSerializer.Serialize(data);
-    var payload = $"event: {eventName}\ndata: {json}\n\n";
+    var payload = $"event: {safeEventName}\ndata: {json}\n\n";
     await stream.WriteAsync(encoding.GetBytes(payload));
     await stream.FlushAsync();
+}
+
+static string? SanitizeCorrelationId(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return null;
+    if (raw.Length > 64) return null;
+    // Only allow printable ASCII, no control chars / newlines / whitespace besides space
+    foreach (var ch in raw)
+    {
+        if (ch < 0x21 || ch > 0x7E) return null; // reject control chars, newlines, non-ASCII
+    }
+    return raw;
+}
+
+static string? SanitizeClientBindingId(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return null;
+    if (raw.Length > 64) return null;
+    foreach (var ch in raw)
+    {
+        if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.'))
+            return null;
+    }
+
+    return raw;
+}
+
+static string GetClientBindingId(HttpContext context, bool trustForwardedFor)
+{
+    if (context.Items.TryGetValue("ClientBindingId", out var existing) && existing is string cached && !string.IsNullOrWhiteSpace(cached))
+        return cached;
+
+    var rawClientId = context.Request.Headers["X-Client-Id"].FirstOrDefault();
+    var resolved = SanitizeClientBindingId(rawClientId)
+        ?? ApiClientIdentity.ResolveRateLimitClientId(context, trustForwardedFor);
+    context.Items["ClientBindingId"] = resolved;
+    return resolved;
+}
+
+static bool CanAccessRun(RunRecord run, string requesterClientId)
+{
+    if (string.IsNullOrWhiteSpace(run.OwnerClientId))
+        return true;
+
+    return string.Equals(run.OwnerClientId, requesterClientId, StringComparison.Ordinal);
+}
+
+static string SanitizeSseEventName(string eventName)
+{
+    // SSE event names must be single-line printable ASCII
+    foreach (var ch in eventName)
+    {
+        if (ch is '\n' or '\r' or ':') return "error";
+    }
+    return eventName;
+}
+
+static IResult? ValidatePathSecurity(string path, string fieldName)
+{
+    if (string.IsNullOrWhiteSpace(path)) return null;
+
+    string full;
+    try { full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar); }
+    catch { return ApiError(400, "SEC-INVALID-PATH", $"Invalid path for {fieldName}.", ErrorKind.Critical); }
+
+    // Block reparse points
+    try
+    {
+        if (Directory.Exists(full))
+        {
+            var dirInfo = new DirectoryInfo(full);
+            if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                return ApiError(400, "SEC-REPARSE-POINT", $"Symlink/junction not allowed for {fieldName}.", ErrorKind.Critical);
+        }
+    }
+    catch { /* attribute check failure handled downstream */ }
+
+    // Block system directories
+    var systemDirs = new[]
+    {
+        Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+    };
+    foreach (var sys in systemDirs)
+    {
+        if (string.IsNullOrEmpty(sys)) continue;
+        var normalizedSys = sys.TrimEnd(Path.DirectorySeparatorChar);
+        if (full.Equals(normalizedSys, StringComparison.OrdinalIgnoreCase) ||
+            full.StartsWith(normalizedSys + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return ApiError(400, "SEC-SYSTEM-DIRECTORY", $"System directory not allowed for {fieldName}.", ErrorKind.Critical);
+    }
+
+    // Block drive root
+    if (full.Length <= 3)
+        return ApiError(400, "SEC-DRIVE-ROOT", $"Drive root not allowed for {fieldName}.", ErrorKind.Critical);
+
+    return null;
 }
 
 static IResult ApiError(

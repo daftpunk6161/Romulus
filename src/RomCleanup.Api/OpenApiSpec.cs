@@ -5,164 +5,117 @@ namespace RomCleanup.Api;
 /// </summary>
 public static class OpenApiSpec
 {
-    public const string Json = @"{
-  ""openapi"": ""3.0.3"",
-  ""info"": {
-    ""title"": ""ROM Cleanup API"",
-    ""version"": ""1.0.0"",
-    ""description"": ""REST API for ROM collection management: region deduplication, junk removal, format conversion.""
+    public const string Json = """
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ROM Cleanup API",
+    "version": "1.0.0",
+    "description": "REST API for ROM collection management: region deduplication, junk removal, format conversion."
   },
-  ""servers"": [{ ""url"": ""http://127.0.0.1:7878"" }],
-  ""paths"": {
-    ""/health"": {
-      ""get"": {
-        ""summary"": ""Health check"",
-        ""responses"": {
-          ""200"": { ""description"": ""Server status"" }
+  "servers": [{ "url": "http://127.0.0.1:7878" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": { "description": "Server status" }
         }
       }
     },
-    ""/runs"": {
-      ""post"": {
-        ""summary"": ""Create and execute a deduplication run"",
-        ""parameters"": [
-          { ""name"": ""wait"", ""in"": ""query"", ""schema"": { ""type"": ""boolean"" }, ""description"": ""Wait for completion without cancelling the server-side run on client disconnect"" },
-          { ""name"": ""waitTimeoutMs"", ""in"": ""query"", ""schema"": { ""type"": ""integer"", ""minimum"": 1, ""maximum"": 1800000 }, ""description"": ""Maximum wait time before returning 202 with the current run state"" },
-          { ""name"": ""X-Idempotency-Key"", ""in"": ""header"", ""schema"": { ""type"": ""string"" }, ""description"": ""Reuse the same run for retries of the same request"" }
+    "/runs": {
+      "post": {
+        "summary": "Create and execute a deduplication run",
+        "parameters": [
+          { "name": "wait", "in": "query", "schema": { "type": "boolean" }, "description": "Wait for completion without cancelling the server-side run on client disconnect" },
+          { "name": "waitTimeoutMs", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1800000 }, "description": "Maximum wait time before returning 202 with the current run state" },
+          { "name": "X-Idempotency-Key", "in": "header", "schema": { "type": "string" }, "description": "Reuse the same run for retries of the same request" },
+          { "name": "X-Client-Id", "in": "header", "schema": { "type": "string", "maxLength": 64 }, "description": "Optional logical client binding used for run ownership checks" }
         ],
-        ""requestBody"": {
-          ""required"": true,
-          ""content"": {
-            ""application/json"": {
-              ""schema"": {
-                ""type"": ""object"",
-                ""required"": [""roots""],
-                ""properties"": {
-                  ""roots"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } },
-                  ""mode"": { ""type"": ""string"", ""enum"": [""DryRun"", ""Move""], ""default"": ""DryRun"" },
-                  ""preferRegions"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } },
-                  ""removeJunk"": { ""type"": ""boolean"", ""default"": true },
-                  ""aggressiveJunk"": { ""type"": ""boolean"", ""default"": false },
-                  ""sortConsole"": { ""type"": ""boolean"", ""default"": false },
-                  ""enableDat"": { ""type"": ""boolean"", ""default"": false },
-                  ""onlyGames"": { ""type"": ""boolean"", ""default"": false },
-                  ""keepUnknownWhenOnlyGames"": { ""type"": ""boolean"", ""default"": true },
-                  ""hashType"": { ""type"": ""string"", ""enum"": [""SHA1"", ""SHA256"", ""MD5""], ""default"": ""SHA1"" },
-                  ""convertFormat"": { ""type"": ""string"", ""nullable"": true, ""description"": ""Target conversion mode, e.g. 'auto'"" },
-                  ""trashRoot"": { ""type"": ""string"", ""nullable"": true },
-                  ""extensions"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }
-                }
-              }
-            }
-          }
-        },
-        ""responses"": {
-          ""202"": { ""description"": ""Run created (async)"" },
-          ""200"": { ""description"": ""Run completed or an existing completed idempotent run was reused"" },
-          ""400"": { ""description"": ""Validation error"" },
-          ""409"": { ""description"": ""Run already active"" }
+        "responses": {
+          "202": { "description": "Run created (async)" },
+          "200": { "description": "Run completed or reused" },
+          "400": { "description": "Validation error" },
+          "403": { "description": "Run belongs to another client" },
+          "409": { "description": "Run conflict" }
         }
       }
     },
-    ""/runs/{runId}"": {
-      ""get"": {
-        ""summary"": ""Get run status"",
-        ""parameters"": [{ ""name"": ""runId"", ""in"": ""path"", ""required"": true, ""schema"": { ""type"": ""string"" } }],
-        ""responses"": {
-          ""200"": { ""description"": ""Run status"" },
-          ""404"": { ""description"": ""Run not found"" }
+    "/runs/{runId}": {
+      "get": {
+        "summary": "Get run status",
+        "responses": {
+          "200": { "description": "Run status" },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" }
         }
       }
     },
-    ""/runs/{runId}/result"": {
-      ""get"": {
-        ""summary"": ""Get completed run result"",
-        ""parameters"": [{ ""name"": ""runId"", ""in"": ""path"", ""required"": true, ""schema"": { ""type"": ""string"" } }],
-        ""responses"": {
-          ""200"": {
-            ""description"": ""Full result"",
-            ""content"": {
-              ""application/json"": {
-                ""schema"": {
-                  ""$ref"": ""#/components/schemas/ApiRunResult""
-                }
-              }
-            }
-          },
-          ""404"": { ""description"": ""Run not found"" },
-          ""409"": { ""description"": ""Run still in progress"" }
+    "/runs/{runId}/result": {
+      "get": {
+        "summary": "Get completed run result",
+        "responses": {
+          "200": { "description": "Full result" },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" },
+          "409": { "description": "Run still in progress" }
         }
       }
     },
-    ""/runs/{runId}/cancel"": {
-      ""post"": {
-        ""summary"": ""Cancel a run idempotently"",
-        ""parameters"": [{ ""name"": ""runId"", ""in"": ""path"", ""required"": true, ""schema"": { ""type"": ""string"" } }],
-        ""responses"": {
-          ""200"": { ""description"": ""Cancel accepted or no-op for an already terminal run"" },
-          ""404"": { ""description"": ""Run not found"" }
+    "/runs/{runId}/cancel": {
+      "post": {
+        "summary": "Cancel a run idempotently",
+        "responses": {
+          "200": { "description": "Cancel accepted or no-op for an already terminal run" },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" }
         }
       }
     },
-    ""/runs/{runId}/stream"": {
-      ""get"": {
-        ""summary"": ""SSE progress stream"",
-        ""parameters"": [{ ""name"": ""runId"", ""in"": ""path"", ""required"": true, ""schema"": { ""type"": ""string"" } }],
-        ""responses"": {
-          ""200"": { ""description"": ""Server-Sent Events stream"" },
-          ""404"": { ""description"": ""Run not found"" }
+    "/runs/{runId}/stream": {
+      "get": {
+        "summary": "SSE progress stream",
+        "responses": {
+          "200": { "description": "Server-Sent Events stream" },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" }
         }
       }
     }
   },
-  ""components"": {
-    ""schemas"": {
-      ""ApiRunResult"": {
-        ""type"": ""object"",
-        ""properties"": {
-          ""orchestratorStatus"": { ""type"": ""string"" },
-          ""exitCode"": { ""type"": ""integer"" },
-          ""totalFiles"": { ""type"": ""integer"" },
-          ""candidates"": { ""type"": ""integer"" },
-          ""groups"": { ""type"": ""integer"" },
-          ""keep"": { ""type"": ""integer"" },
-            ""dupes"": { ""type"": ""integer"" },
-            ""winners"": { ""type"": ""integer"" },
-          ""games"": { ""type"": ""integer"" },
-            ""losers"": { ""type"": ""integer"" },
-            ""duplicates"": { ""type"": ""integer"" },
-          ""unknown"": { ""type"": ""integer"" },
-          ""junk"": { ""type"": ""integer"" },
-          ""bios"": { ""type"": ""integer"" },
-          ""datMatches"": { ""type"": ""integer"" },
-          ""healthScore"": { ""type"": ""integer"" },
-          ""convertedCount"": { ""type"": ""integer"" },
-          ""convertErrorCount"": { ""type"": ""integer"" },
-          ""convertSkippedCount"": { ""type"": ""integer"" },
-          ""junkRemovedCount"": { ""type"": ""integer"" },
-          ""filteredNonGameCount"": { ""type"": ""integer"" },
-          ""junkFailCount"": { ""type"": ""integer"" },
-          ""moveCount"": { ""type"": ""integer"" },
-          ""skipCount"": { ""type"": ""integer"" },
-          ""consoleSortMoved"": { ""type"": ""integer"" },
-          ""consoleSortFailed"": { ""type"": ""integer"" },
-          ""failCount"": { ""type"": ""integer"" },
-          ""savedBytes"": { ""type"": ""integer"", ""format"": ""int64"" },
-          ""durationMs"": { ""type"": ""integer"", ""format"": ""int64"" },
-          ""error"": { ""type"": ""string"", ""nullable"": true },
-          ""auditPath"": { ""type"": ""string"", ""nullable"": true },
-          ""reportPath"": { ""type"": ""string"", ""nullable"": true }
+  "components": {
+    "schemas": {
+      "OperationError": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "kind": { "type": "string", "enum": ["Transient", "Recoverable", "Critical"] },
+          "module": { "type": "string", "nullable": true }
+        }
+      },
+      "ApiRunResult": {
+        "type": "object",
+        "properties": {
+          "preflightWarnings": { "type": "array", "items": { "type": "string" } },
+          "phaseMetrics": { "type": "object" },
+          "dedupeGroups": { "type": "array", "items": { "type": "object" } },
+          "error": { "$ref": "#/components/schemas/OperationError" },
+          "conflictPolicy": { "type": "string", "enum": ["Rename", "Skip", "Overwrite"] },
+          "convertOnly": { "type": "boolean" },
+          "convertFormat": { "type": "string", "enum": ["auto", "chd", "rvz", "zip", "7z"] }
         }
       }
     },
-    ""securitySchemes"": {
-      ""ApiKey"": {
-        ""type"": ""apiKey"",
-        ""in"": ""header"",
-        ""name"": ""X-Api-Key""
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key"
       }
     }
   },
-  ""security"": [{ ""ApiKey"": [] }]
-}";
+  "security": [{ "ApiKey": [] }]
+}
+""";
 }
