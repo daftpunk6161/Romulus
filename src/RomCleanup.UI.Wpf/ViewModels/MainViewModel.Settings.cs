@@ -395,7 +395,7 @@ public sealed partial class MainViewModel
 
     private void OnSaveSettings()
     {
-        if (_settings.SaveFrom(this, LastAuditPath))
+        if (TrySaveSettings())
             AddLog("Einstellungen gespeichert.", "INFO");
         else
             AddLog("Einstellungen konnten nicht gespeichert werden.", "ERROR");
@@ -441,9 +441,14 @@ public sealed partial class MainViewModel
     /// <summary>Save settings (called from code-behind on close / timer). Thread-safe.</summary>
     public void SaveSettings()
     {
+        _ = TrySaveSettings();
+    }
+
+    private bool TrySaveSettings()
+    {
         lock (_settingsSaveLock)
         {
-            _settings.SaveFrom(this, LastAuditPath);
+            return _settings.SaveFrom(this, LastAuditPath);
         }
     }
 

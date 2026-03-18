@@ -282,4 +282,16 @@ public class ConsoleDetectorTests
         var detector = new ConsoleDetector(consoles);
         Assert.Equal(expectedKey, detector.DetectByFolder($@"D:\Roms\{folderName}\game.bin", @"D:\Roms"));
     }
+
+    [Fact]
+    public void DetectByFolder_CacheKey_NormalizesRootAndDirPaths()
+    {
+        var detector = CreateDetector();
+
+        var first = detector.DetectByFolder(@"D:\Roms\PS1\game.bin", @"D:\Roms\");
+        var second = detector.DetectByFolder(@"d:\roms\ps1\game.bin", @"d:\roms");
+
+        Assert.Equal("PS1", first);
+        Assert.Equal("PS1", second);
+    }
 }

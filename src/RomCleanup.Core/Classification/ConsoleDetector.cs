@@ -98,7 +98,9 @@ public sealed class ConsoleDetector
     {
         // Cache key: directory of the file relative to root (normalized for case-insensitive match)
         var dir = Path.GetDirectoryName(filePath) ?? "";
-        var cacheKey = $"{rootPath.ToUpperInvariant()}|{dir.ToUpperInvariant()}";
+        var normalizedRoot = NormalizePathForCache(rootPath);
+        var normalizedDir = NormalizePathForCache(dir);
+        var cacheKey = $"{normalizedRoot}|{normalizedDir}";
         if (_folderDetectCache.TryGet(cacheKey, out var cached))
             return cached.Length > 0 ? cached : null;
 
@@ -231,6 +233,23 @@ public sealed class ConsoleDetector
                 result.Add(val);
         }
         return result.ToArray();
+    }
+
+    private static string NormalizePathForCache(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        try
+        {
+            return Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToUpperInvariant();
+        }
+        catch
+        {
+            return path.Trim().ToUpperInvariant();
+        }
     }
 }
 

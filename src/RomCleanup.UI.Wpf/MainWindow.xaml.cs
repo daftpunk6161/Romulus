@@ -156,7 +156,8 @@ public partial class MainWindow : Window, IWindowHost
 
     private async void OnRunRequested(object? sender, EventArgs e)
     {
-        _activeRunTask = ExecuteAndRefreshAsync();
+        // Keep code-behind focused on view-only concerns (tray + preview refresh).
+        _activeRunTask = ExecuteRunFromViewModelAsync();
         try { await _activeRunTask; }
         catch (Exception ex)
         {
@@ -166,7 +167,7 @@ public partial class MainWindow : Window, IWindowHost
         finally { _activeRunTask = null; }
     }
 
-    private async Task ExecuteAndRefreshAsync()
+    private async Task ExecuteRunFromViewModelAsync()
     {
         // GUI-111: Update tray tooltip during run
         _trayService?.UpdateTooltip(string.Format(_vm.Loc["Tray.RunProgress"], _vm.DryRun ? "DryRun" : "Move"));
@@ -182,11 +183,7 @@ public partial class MainWindow : Window, IWindowHost
         _trayService?.UpdateTooltip("RomCleanup");
 
         if (_vm.CurrentRunState is RunState.Completed or RunState.CompletedDryRun)
-        {
-            // GUI-064: Auto-switch to Analyse screen after run completion
-            _vm.NavigateTo("Analyse");
             resultView.RefreshReportPreview();
-        }
     }
 
     // ═══ WORKFLOW & AUTOMATISIERUNG ═════════════════════════════════════

@@ -503,6 +503,7 @@ public sealed class RunOptions
     public bool AggressiveJunk { get; init; }
     public bool SortConsole { get; init; }
     public bool EnableDat { get; init; }
+    public string? DatRoot { get; init; }
     public string HashType { get; init; } = "SHA1";
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }

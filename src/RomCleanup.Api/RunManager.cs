@@ -3,13 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
-using RomCleanup.Core.Classification;
-using RomCleanup.Infrastructure.Conversion;
-using RomCleanup.Infrastructure.Dat;
-using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Orchestration;
-using RomCleanup.Infrastructure.Tools;
 
 namespace RomCleanup.Api;
 
@@ -110,6 +105,7 @@ public sealed class RunManager
                 AggressiveJunk = request.AggressiveJunk,
                 SortConsole = request.SortConsole,
                 EnableDat = request.EnableDat,
+                DatRoot = string.IsNullOrWhiteSpace(request.DatRoot) ? null : request.DatRoot.Trim(),
                 OnlyGames = request.OnlyGames,
                 KeepUnknownWhenOnlyGames = request.KeepUnknownWhenOnlyGames,
                 HashType = normalizedHashType,
@@ -292,9 +288,6 @@ public sealed class RunManager
         IAuditStore audit,
         CancellationToken ct)
     {
-        var orchestrator = new RunOrchestrator(fs, audit,
-            onProgress: msg => run.ProgressMessage = msg);
-
         var (auditPath, reportPath) = GetArtifactPaths(run.RunId);
 
         var options = new RunOptions
@@ -307,6 +300,7 @@ public sealed class RunManager
             AggressiveJunk = run.AggressiveJunk,
             SortConsole = run.SortConsole,
             EnableDat = run.EnableDat,
+            DatRoot = run.DatRoot,
             OnlyGames = run.OnlyGames,
             KeepUnknownWhenOnlyGames = run.KeepUnknownWhenOnlyGames,
             HashType = run.HashType,
@@ -315,6 +309,19 @@ public sealed class RunManager
             AuditPath = auditPath,
             ReportPath = reportPath
         };
+
+        // Shared setup path with CLI/WPF for DAT/Converter/ConsoleDetector.
+        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        settings.Dat.UseDat = run.EnableDat;
+        settings.Dat.HashType = run.HashType;
+
+        var env = RunEnvironmentBuilder.Build(options, settings, dataDir,
+            onWarning: msg => run.ProgressMessage = msg);
+
+        var orchestrator = new RunOrchestrator(fs, audit,
+            env.ConsoleDetector, env.HashService, env.Converter, env.DatIndex,
+            onProgress: msg => run.ProgressMessage = msg);
 
         var result = orchestrator.Execute(options, ct);
         var projection = RunProjectionFactory.Create(result);
@@ -399,6 +406,7 @@ public sealed class RunManager
             request.EnableDat ? "1" : "0",
             request.OnlyGames ? "1" : "0",
             request.KeepUnknownWhenOnlyGames ? "1" : "0",
+            string.IsNullOrWhiteSpace(request.DatRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.DatRoot),
             string.IsNullOrWhiteSpace(request.HashType) ? "SHA1" : request.HashType.Trim().ToUpperInvariant(),
             string.IsNullOrWhiteSpace(request.ConvertFormat) ? "" : request.ConvertFormat.Trim().ToUpperInvariant(),
             string.IsNullOrWhiteSpace(request.TrashRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.TrashRoot),
@@ -456,6 +464,7 @@ public sealed class RunRequest
     public bool AggressiveJunk { get; set; }
     public bool SortConsole { get; set; }
     public bool EnableDat { get; set; }
+    public string? DatRoot { get; set; }
     public bool OnlyGames { get; set; }
     public bool KeepUnknownWhenOnlyGames { get; set; } = true;
     public string? HashType { get; set; }
@@ -489,6 +498,7 @@ public sealed class RunRecord
     public bool AggressiveJunk { get; init; }
     public bool SortConsole { get; init; }
     public bool EnableDat { get; init; }
+    public string? DatRoot { get; init; }
     public bool OnlyGames { get; init; }
     public bool KeepUnknownWhenOnlyGames { get; init; } = true;
     public string HashType { get; init; } = "SHA1";

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +85,80 @@ public sealed class ApiIntegrationTests
         Assert.Equal((HttpStatusCode)429, third.StatusCode);
         using var doc = JsonDocument.Parse(await third.Content.ReadAsStringAsync());
         AssertError(doc.RootElement, "RUN-RATE-LIMIT", ErrorKind.Transient, "Too many requests");
+    }
+
+    [Fact]
+    public async Task RateLimit_TrustForwardedForFalse_IgnoresHeaderValue()
+    {
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["RateLimitRequests"] = "1",
+            ["RateLimitWindowSeconds"] = "60",
+            ["TrustForwardedFor"] = "false"
+        });
+        using var client = CreateClientWithApiKey(factory);
+
+        using var req1 = new HttpRequestMessage(HttpMethod.Get, "/health");
+        req1.Headers.Add("X-Forwarded-For", "203.0.113.10");
+        using var req2 = new HttpRequestMessage(HttpMethod.Get, "/health");
+        req2.Headers.Add("X-Forwarded-For", "203.0.113.11");
+
+        var first = await client.SendAsync(req1);
+        var second = await client.SendAsync(req2);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal((HttpStatusCode)429, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task RateLimit_TrustForwardedForTrue_UntrustedProxySource_FallsBackToRemoteIp()
+    {
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["RateLimitRequests"] = "1",
+            ["RateLimitWindowSeconds"] = "60",
+            ["TrustForwardedFor"] = "true"
+        });
+        using var client = CreateClientWithApiKey(factory);
+
+        using var req1 = new HttpRequestMessage(HttpMethod.Get, "/health");
+        req1.Headers.Add("X-Forwarded-For", "198.51.100.20");
+        using var req2 = new HttpRequestMessage(HttpMethod.Get, "/health");
+        req2.Headers.Add("X-Forwarded-For", "198.51.100.21");
+        using var req3 = new HttpRequestMessage(HttpMethod.Get, "/health");
+        req3.Headers.Add("X-Forwarded-For", "198.51.100.20");
+
+        var first = await client.SendAsync(req1);
+        var second = await client.SendAsync(req2);
+        var third = await client.SendAsync(req3);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal((HttpStatusCode)429, second.StatusCode);
+        Assert.Equal((HttpStatusCode)429, third.StatusCode);
+    }
+
+    [Fact]
+    public void ResolveRateLimitClientId_TrustEnabled_LoopbackProxy_UsesForwardedHeader()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Loopback;
+        context.Request.Headers["X-Forwarded-For"] = "198.51.100.20, 10.0.0.1";
+
+        var clientId = ApiClientIdentity.ResolveRateLimitClientId(context, trustForwardedFor: true);
+
+        Assert.Equal("198.51.100.20", clientId);
+    }
+
+    [Fact]
+    public void ResolveRateLimitClientId_TrustDisabled_IgnoresForwardedHeader()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("127.0.0.1");
+        context.Request.Headers["X-Forwarded-For"] = "198.51.100.20";
+
+        var clientId = ApiClientIdentity.ResolveRateLimitClientId(context, trustForwardedFor: false);
+
+        Assert.Equal("127.0.0.1", clientId);
     }
 
     [Fact]

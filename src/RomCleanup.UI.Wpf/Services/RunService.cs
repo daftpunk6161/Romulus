@@ -1,16 +1,7 @@
 using System.IO;
-using System.Text.Json;
 using RomCleanup.Contracts.Models;
-using RomCleanup.Core.Classification;
-using RomCleanup.Infrastructure.Audit;
-using RomCleanup.Infrastructure.Conversion;
-using RomCleanup.Infrastructure.Dat;
-using RomCleanup.Infrastructure.FileSystem;
-using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
-using RomCleanup.Infrastructure.Reporting;
-using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
 
 namespace RomCleanup.UI.Wpf.Services;
@@ -39,55 +30,6 @@ public sealed class RunService : IRunService
         BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null)
     {
         onProgress?.Invoke("[Init] Initialisiere Infrastruktur…");
-        var fs = new FileSystemAdapter();
-        var audit = new AuditCsvStore(fs, onProgress, AuditSecurityPaths.GetDefaultSigningKeyPath());
-
-        var dataDir = FeatureService.ResolveDataDirectory()
-                      ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        onProgress?.Invoke($"[Init] Datenverzeichnis: {dataDir}");
-
-        var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
-        var toolRunner = new ToolRunnerAdapter(File.Exists(toolHashesPath) ? toolHashesPath : null);
-
-        ConsoleDetector? consoleDetector = null;
-        var discHeaderDetector = new DiscHeaderDetector();
-        var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
-        if (File.Exists(consolesJsonPath))
-        {
-            var consolesJson = File.ReadAllText(consolesJsonPath);
-            consoleDetector = ConsoleDetector.LoadFromJson(consolesJson, discHeaderDetector);
-            onProgress?.Invoke($"[Init] Konsolen-Datenbank geladen: {consoleDetector.AllConsoleKeys.Count} Konsolen");
-        }
-        else
-        {
-            onProgress?.Invoke("[Init] Warnung: consoles.json nicht gefunden — Konsolen-Erkennung deaktiviert");
-        }
-
-        DatIndex? datIndex = null;
-        FileHashService? hashService = null;
-        if (vm.UseDat && !string.IsNullOrWhiteSpace(vm.DatRoot) && Directory.Exists(vm.DatRoot))
-        {
-            var datRepo = new DatRepositoryAdapter();
-            hashService = new FileHashService();
-            var consoleMap = BuildConsoleMap(dataDir, vm.DatRoot);
-            onProgress?.Invoke($"DAT: {consoleMap.Count} Konsolen-Zuordnungen in {vm.DatRoot}");
-            if (consoleMap.Count > 0)
-            {
-                datIndex = datRepo.GetDatIndex(vm.DatRoot, consoleMap, vm.DatHashType);
-                onProgress?.Invoke($"DAT: {datIndex.TotalEntries} Hashes für {datIndex.ConsoleCount} Konsolen geladen");
-            }
-            else
-            {
-                onProgress?.Invoke("DAT: Keine DAT-Dateien gefunden – DAT-Verifizierung übersprungen");
-            }
-        }
-
-        FormatConverterAdapter? converter = null;
-        if (vm.ConvertEnabled || vm.ConvertOnly)
-        {
-            converter = new FormatConverterAdapter(toolRunner);
-            onProgress?.Invoke("[Init] Formatkonvertierung aktiviert");
-        }
 
         string? auditPath = null;
         if ((!vm.DryRun || vm.ConvertOnly) && vm.Roots.Count > 0)
@@ -121,6 +63,7 @@ public sealed class RunService : IRunService
             AggressiveJunk = vm.AggressiveJunk,
             SortConsole = vm.SortConsole,
             EnableDat = vm.UseDat,
+            DatRoot = string.IsNullOrWhiteSpace(vm.DatRoot) ? null : vm.DatRoot,
             HashType = vm.DatHashType,
             ConvertFormat = (vm.ConvertEnabled || vm.ConvertOnly) ? "auto" : null,
             ConvertOnly = vm.ConvertOnly,
@@ -132,8 +75,19 @@ public sealed class RunService : IRunService
 
         onProgress?.Invoke($"[Init] Konfiguration: Modus={runOptions.Mode}, {runOptions.Extensions.Count} Extension(s), {runOptions.Roots.Count} Root(s)");
 
+        var dataDir = FeatureService.ResolveDataDirectory()
+                      ?? RunEnvironmentBuilder.ResolveDataDir();
+        onProgress?.Invoke($"[Init] Datenverzeichnis: {dataDir}");
+
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        settings.Dat.UseDat = vm.UseDat;
+        settings.Dat.DatRoot = vm.DatRoot ?? settings.Dat.DatRoot;
+        settings.Dat.HashType = vm.DatHashType;
+
+        var env = RunEnvironmentBuilder.Build(runOptions, settings, dataDir, onWarning: onProgress);
+
         var orchestrator = new RunOrchestrator(
-            fs, audit, consoleDetector, hashService, converter, datIndex, onProgress);
+            env.FileSystem, env.Audit, env.ConsoleDetector, env.HashService, env.Converter, env.DatIndex, onProgress);
 
         return (orchestrator, runOptions, auditPath, reportPath);
     }
@@ -169,77 +123,4 @@ public sealed class RunService : IRunService
         return ArtifactPathResolver.GetSiblingDirectory(fullRoot, siblingName);
     }
 
-    /// <summary>
-    /// Build console-key → DAT-file mapping using dat-catalog.json and filesystem scan.
-    /// Matches CLI BuildConsoleMap logic: catalog-based mapping first, then fallback scan.
-    /// </summary>
-    private Dictionary<string, string> BuildConsoleMap(string dataDir, string datRoot)
-    {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
-        if (File.Exists(catalogPath))
-        {
-            try
-            {
-                var json = File.ReadAllText(catalogPath);
-                var entries = JsonSerializer.Deserialize<List<DatCatalogEntry>>(json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (entries != null)
-                {
-                    foreach (var entry in entries)
-                    {
-                        if (string.IsNullOrWhiteSpace(entry.ConsoleKey))
-                            continue;
-
-                        var candidates = new[]
-                        {
-                            Path.Combine(datRoot, entry.Id + ".dat"),
-                            Path.Combine(datRoot, entry.Id + ".xml"),
-                            Path.Combine(datRoot, entry.System + ".dat"),
-                            Path.Combine(datRoot, entry.System + ".xml"),
-                            Path.Combine(datRoot, entry.ConsoleKey + ".dat"),
-                            Path.Combine(datRoot, entry.ConsoleKey + ".xml")
-                        };
-
-                        foreach (var candidate in candidates)
-                        {
-                            if (File.Exists(candidate))
-                            {
-                                map[entry.ConsoleKey] = candidate;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (JsonException)
-            {
-                // Malformed catalog — fall through to directory scan
-            }
-        }
-
-        // Fallback: scan datRoot for any .dat/.xml files not yet mapped
-        if (Directory.Exists(datRoot))
-        {
-            foreach (var datFile in Directory.GetFiles(datRoot, "*.dat", SearchOption.AllDirectories)
-                         .Concat(Directory.GetFiles(datRoot, "*.xml", SearchOption.AllDirectories)))
-            {
-                var stem = Path.GetFileNameWithoutExtension(datFile).ToUpperInvariant();
-                if (!map.ContainsKey(stem))
-                    map[stem] = datFile;
-            }
-        }
-
-        return map;
-    }
-
-    private sealed class DatCatalogEntry
-    {
-        public string Group { get; set; } = "";
-        public string System { get; set; } = "";
-        public string Id { get; set; } = "";
-        public string ConsoleKey { get; set; } = "";
-    }
 }

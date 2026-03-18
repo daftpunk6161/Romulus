@@ -21,6 +21,7 @@ public sealed class SettingsService : ISettingsService
             "RomCleanupRegionDedupe");
 
     private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
+    private static readonly object SettingsWriteLock = new();
 
     /// <summary>Last audit path loaded from settings (for rollback after restart).</summary>
     public string? LastAuditPath { get; private set; }
@@ -291,63 +292,66 @@ public sealed class SettingsService : ISettingsService
     {
         try
         {
-            Directory.CreateDirectory(SettingsDir);
-
-            var settings = new
+            lock (SettingsWriteLock)
             {
-                version = CurrentVersion,
-                general = new
-                {
-                    logLevel = vm.LogLevel,
-                    preferredRegions = vm.GetPreferredRegions(),
-                    aggressiveJunk = vm.AggressiveJunk,
-                    aliasEditionKeying = vm.AliasKeying
-                },
-                toolPaths = new Dictionary<string, string>
-                {
-                    ["chdman"] = vm.ToolChdman,
-                    ["dolphintool"] = vm.ToolDolphin,
-                    ["7z"] = vm.Tool7z,
-                    ["psxtract"] = vm.ToolPsxtract,
-                    ["ciso"] = vm.ToolCiso
-                },
-                dat = new
-                {
-                    useDat = vm.UseDat,
-                    datRoot = vm.DatRoot,
-                    hashType = vm.DatHashType,
-                    datFallback = vm.DatFallback
-                },
-                datMappings = vm.DatMappings
-                    .Where(m => !string.IsNullOrWhiteSpace(m.Console) && !string.IsNullOrWhiteSpace(m.DatFile))
-                    .Select(m => new { console = m.Console, datFile = m.DatFile })
-                    .ToArray(),
-                paths = new
-                {
-                    trashRoot = vm.TrashRoot,
-                    auditRoot = vm.AuditRoot,
-                    ps3DupesRoot = vm.Ps3DupesRoot,
-                    lastAuditPath = lastAuditPath ?? ""
-                },
-                roots = vm.Roots.ToArray(),
-                ui = new
-                {
-                    sortConsole = vm.SortConsole,
-                    removeJunk = vm.RemoveJunk,
-                    onlyGames = vm.OnlyGames,
-                    keepUnknownWhenOnlyGames = vm.KeepUnknownWhenOnlyGames,
-                    dryRun = vm.DryRun,
-                    convertEnabled = vm.ConvertEnabled,
-                    confirmMove = vm.ConfirmMove,
-                    conflictPolicy = vm.ConflictPolicy.ToString(),
-                    theme = vm.CurrentThemeName
-                }
-            };
+                Directory.CreateDirectory(SettingsDir);
 
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            var tmpPath = SettingsPath + ".tmp";
-            File.WriteAllText(tmpPath, json);
-            File.Move(tmpPath, SettingsPath, overwrite: true);
+                var settings = new
+                {
+                    version = CurrentVersion,
+                    general = new
+                    {
+                        logLevel = vm.LogLevel,
+                        preferredRegions = vm.GetPreferredRegions(),
+                        aggressiveJunk = vm.AggressiveJunk,
+                        aliasEditionKeying = vm.AliasKeying
+                    },
+                    toolPaths = new Dictionary<string, string>
+                    {
+                        ["chdman"] = vm.ToolChdman,
+                        ["dolphintool"] = vm.ToolDolphin,
+                        ["7z"] = vm.Tool7z,
+                        ["psxtract"] = vm.ToolPsxtract,
+                        ["ciso"] = vm.ToolCiso
+                    },
+                    dat = new
+                    {
+                        useDat = vm.UseDat,
+                        datRoot = vm.DatRoot,
+                        hashType = vm.DatHashType,
+                        datFallback = vm.DatFallback
+                    },
+                    datMappings = vm.DatMappings
+                        .Where(m => !string.IsNullOrWhiteSpace(m.Console) && !string.IsNullOrWhiteSpace(m.DatFile))
+                        .Select(m => new { console = m.Console, datFile = m.DatFile })
+                        .ToArray(),
+                    paths = new
+                    {
+                        trashRoot = vm.TrashRoot,
+                        auditRoot = vm.AuditRoot,
+                        ps3DupesRoot = vm.Ps3DupesRoot,
+                        lastAuditPath = lastAuditPath ?? ""
+                    },
+                    roots = vm.Roots.ToArray(),
+                    ui = new
+                    {
+                        sortConsole = vm.SortConsole,
+                        removeJunk = vm.RemoveJunk,
+                        onlyGames = vm.OnlyGames,
+                        keepUnknownWhenOnlyGames = vm.KeepUnknownWhenOnlyGames,
+                        dryRun = vm.DryRun,
+                        convertEnabled = vm.ConvertEnabled,
+                        confirmMove = vm.ConfirmMove,
+                        conflictPolicy = vm.ConflictPolicy.ToString(),
+                        theme = vm.CurrentThemeName
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                var tmpPath = SettingsPath + ".tmp";
+                File.WriteAllText(tmpPath, json);
+                File.Move(tmpPath, SettingsPath, overwrite: true);
+            }
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)

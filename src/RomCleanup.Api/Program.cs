@@ -57,6 +57,9 @@ var corsMode = builder.Configuration.GetValue("CorsMode", "strict-local");
 var corsOrigin = builder.Configuration.GetValue("CorsAllowOrigin", "http://127.0.0.1");
 var rateLimitMax = builder.Configuration.GetValue("RateLimitRequests", 120);
 var rateLimitWindow = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimitWindowSeconds", 60));
+var trustForwardedFor = builder.Configuration.GetValue("TrustForwardedFor", false);
+var sseTimeoutSeconds = Math.Clamp(builder.Configuration.GetValue("SseTimeoutSeconds", 300), 30, 3600);
+var sseHeartbeatSeconds = Math.Clamp(builder.Configuration.GetValue("SseHeartbeatSeconds", 15), 5, 120);
 var rateLimiter = new RateLimiter(rateLimitMax, rateLimitWindow);
 
 // Remove server headers
@@ -93,10 +96,7 @@ app.Use(async (ctx, next) =>
     }
 
     // Rate limiting
-    var forwardedFor = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-    var clientIp = !string.IsNullOrWhiteSpace(forwardedFor)
-        ? forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "unknown"
-        : ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var clientIp = ApiClientIdentity.ResolveRateLimitClientId(ctx, trustForwardedFor);
     if (!rateLimiter.TryAcquire(clientIp))
     {
         await WriteApiError(ctx, 429, "RUN-RATE-LIMIT", "Too many requests.", ErrorKind.Transient);
@@ -397,7 +397,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
 
     await WriteSseEvent(writer, encoding, "ready", new { runId, utc = DateTime.UtcNow.ToString("o") });
 
-    var timeout = TimeSpan.FromSeconds(300);
+    var timeout = TimeSpan.FromSeconds(sseTimeoutSeconds);
     var start = DateTime.UtcNow;
     string? lastJson = null;
     var lastHeartbeat = DateTime.UtcNow;
@@ -435,7 +435,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
                 }
                 await WriteSseEvent(writer, encoding, "status", current);
             }
-            else if ((DateTime.UtcNow - lastHeartbeat).TotalSeconds >= 15)
+            else if ((DateTime.UtcNow - lastHeartbeat).TotalSeconds >= sseHeartbeatSeconds)
             {
                 // V2-H05: SSE heartbeat to prevent proxy/browser timeouts
                 await writer.WriteAsync(encoding.GetBytes(":\n\n"));
@@ -448,7 +448,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
 
         if (DateTime.UtcNow - start >= timeout)
         {
-            await WriteSseEvent(writer, encoding, "timeout", new { runId, seconds = 300 });
+            await WriteSseEvent(writer, encoding, "timeout", new { runId, seconds = sseTimeoutSeconds });
         }
     }
     catch (IOException)
