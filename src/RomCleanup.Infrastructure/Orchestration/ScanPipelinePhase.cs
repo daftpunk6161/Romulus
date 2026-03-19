@@ -68,8 +68,3 @@ public sealed class ScanPipelinePhase : IPipelinePhase<RunOptions, List<ScannedF
         };
     }
 }
-
-public sealed record ScannedFileEntry(
-    string Root,
-    string Path,
-    string Extension);

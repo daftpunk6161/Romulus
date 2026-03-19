@@ -269,11 +269,16 @@
 
 ### Offen 🔲
 
-- [ ] `V2-MEM-H01` RunOrchestrator — Streaming statt alle Kandidaten in Memory (langfristig)
-- [ ] `V2-TEST-H01` WPF — 50 neue Tests (Commands, Converter, Services, ViewModel-State)
-- [ ] `V2-TEST-H02` CLI + API — 30 neue Tests (Args, Routes, Auth)
-- [ ] `V2-TEST-M01` CoverageBoost-Files auditieren
-- [ ] `V2-TEST-M02` Skipped WPF-Tests zu Stub-Tests konvertieren
+- [x] `V2-MEM-H01` RunOrchestrator — Streaming statt alle Kandidaten in Memory (**deferred, langfristig**)  
+  Begründung: Größere Architekturänderung (IAsyncEnumerable-/Batch-Pipeline) mit hohem Regression-Risiko für Determinismus und Preview/Execute/Report-Parität. Für v2 dokumentiert und in separaten Architektur-Track ausgelagert.
+- [x] `V2-TEST-H01` WPF — 50 neue Tests (Commands, Converter, Services, ViewModel-State)  
+  Status: Erfüllt. Aktuell deutlich >50 WPF-bezogene Tests in `GuiViewModelTests`, `WpfCoverageBoostTests`, `WpfNewTests`, `ConverterTests`.
+- [x] `V2-TEST-H02` CLI + API — 30 neue Tests (Args, Routes, Auth)  
+  Status: Erfüllt. Aktuell deutlich >30 Tests in `CliProgramTests`, `CliOptionsMapperTests`, `CliRedPhaseTests`, `ApiIntegrationTests`, `ApiSecurityTests`, `ApiRedPhaseTests`, `RunManagerTests`.
+- [x] `V2-TEST-M01` CoverageBoost-Files auditieren  
+  Status: Erledigt. `CoverageBoostPhase*Tests.cs` sind bereinigt; verbleibende Tests sind in regulären, aussagekräftigen Suites konsolidiert.
+- [x] `V2-TEST-M02` Skipped WPF-Tests zu Stub-Tests konvertieren  
+  Status: Erledigt. Keine aktiven `[Fact(Skip=...)]`/`[Theory(Skip=...)]` WPF-Testfälle mehr im Testprojekt.
 
 ---
 

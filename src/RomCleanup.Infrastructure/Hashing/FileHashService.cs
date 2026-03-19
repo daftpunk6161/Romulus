@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using RomCleanup.Core.Caching;
 
@@ -68,6 +69,11 @@ public sealed class FileHashService
 
         var type = hashType.ToUpperInvariant();
 
+        // CHD v5 stores the SHA1 of the uncompressed raw content in the header.
+        // Using that value keeps DAT matching deterministic for CHD vs ISO variants.
+        if (type == "SHA1" && TryReadChdRawSha1(path, out var chdRawSha1))
+            return chdRawSha1;
+
         if (type is "CRC" or "CRC32")
             return Crc32.HashFile(path);
 
@@ -81,6 +87,58 @@ public sealed class FileHashService
 
         var bytes = algo.ComputeHash(stream);
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static bool TryReadChdRawSha1(string path, out string? sha1)
+    {
+        sha1 = null;
+
+        if (!path.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        try
+        {
+            using var stream = File.OpenRead(path);
+            if (stream.Length < 0x54)
+                return false;
+
+            Span<byte> header = stackalloc byte[0x54];
+            var read = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
+            if (read < header.Length)
+                return false;
+
+            if (!header[..8].SequenceEqual("MComprHD"u8))
+                return false;
+
+            var version = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(12, 4));
+            if (version != 5)
+                return false;
+
+            var rawSha1 = header.Slice(0x40, 20);
+            var allZero = true;
+            for (var i = 0; i < rawSha1.Length; i++)
+            {
+                if (rawSha1[i] != 0)
+                {
+                    allZero = false;
+                    break;
+                }
+            }
+
+            if (allZero)
+                return false;
+
+            sha1 = Convert.ToHexString(rawSha1).ToLowerInvariant();
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Normalize hash type aliases to canonical form for consistent cache keys.</summary>

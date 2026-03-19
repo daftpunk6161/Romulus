@@ -153,7 +153,13 @@ public sealed class RunServiceAndSettingsTests : IDisposable
         Assert.Equal(expected.Dat.UseDat, dto.UseDat);
         Assert.Equal(expected.Dat.HashType, dto.DatHashType);
         Assert.Equal(string.Equals(expected.General.Mode, "DryRun", StringComparison.OrdinalIgnoreCase), dto.DryRun);
-        Assert.Equal("Dark", dto.Theme);
+        var expectedTheme = expected.General.Theme?.Trim().ToLowerInvariant() switch
+        {
+            "light" => "Light",
+            "highcontrast" => "HighContrast",
+            _ => "Dark"
+        };
+        Assert.Equal(expectedTheme, dto.Theme);
     }
 
     [Fact]

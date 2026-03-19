@@ -144,14 +144,10 @@ public sealed class RunOrchestrator
             Metrics = metrics,
             OnProgress = _onProgress
         };
-        var scanPhase = new ScanPipelinePhase();
-        var scannedFiles = scanPhase.Execute(options, scanContext, cancellationToken);
+        IAsyncEnumerable<ScannedFileEntry> scannedFiles = new StreamingScanPipelinePhase(scanContext)
+            .EnumerateFilesAsync(options.Roots, options.Extensions, cancellationToken);
 
-        var enrichmentPhase = new EnrichmentPipelinePhase();
-        var candidates = enrichmentPhase.Execute(
-            new EnrichmentPhaseInput(scannedFiles, _consoleDetector, _hashService, _datIndex),
-            scanContext,
-            cancellationToken);
+        var candidates = MaterializeEnrichedCandidates(scannedFiles, scanContext, cancellationToken);
 
         var unknownReasonCounts = candidates
             .Where(c => c.Category == FileCategory.Unknown)
@@ -356,6 +352,36 @@ public sealed class RunOrchestrator
 
             return result.Build();
         }
+    }
+
+    private List<RomCandidate> MaterializeEnrichedCandidates(
+        IAsyncEnumerable<ScannedFileEntry> scannedFiles,
+        PipelineContext context,
+        CancellationToken cancellationToken)
+    {
+        var enrichmentPhase = new EnrichmentPipelinePhase();
+        var enrichedStream = enrichmentPhase.ExecuteStreamingAsync(
+            new EnrichmentPhaseStreamingInput(scannedFiles, _consoleDetector, _hashService, _datIndex),
+            context,
+            cancellationToken);
+
+        var candidates = new List<RomCandidate>();
+        var enumerator = enrichedStream.GetAsyncEnumerator(cancellationToken);
+
+        try
+        {
+            while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                candidates.Add(enumerator.Current);
+            }
+        }
+        finally
+        {
+            enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        return candidates;
     }
 
     private (IReadOnlyList<DedupeResult> Groups, List<DedupeResult> GameGroups) ExecuteDedupePhase(
