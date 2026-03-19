@@ -137,6 +137,28 @@ public class GuiViewModelTests
         Assert.Equal(0xFF, result.Color.B);
     }
 
+    [Fact]
+    public void AutoDetectDatMappingsCommand_CanExecute_TracksDatRootValidity()
+    {
+        var vm = new MainViewModel();
+
+        vm.DatRoot = "";
+        Assert.False(vm.AutoDetectDatMappingsCommand.CanExecute(null));
+
+        var tempDatRoot = Path.Combine(Path.GetTempPath(), "RomCleanup_DatCmd_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDatRoot);
+        try
+        {
+            vm.DatRoot = tempDatRoot;
+            Assert.True(vm.AutoDetectDatMappingsCommand.CanExecute(null));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDatRoot))
+                Directory.Delete(tempDatRoot, true);
+        }
+    }
+
     [Theory]
     [InlineData(RunState.Preflight, "3")]  // Phase 3 pending when at phase 1
     [InlineData(RunState.Scanning, "5")]   // Phase 5 pending when at phase 2

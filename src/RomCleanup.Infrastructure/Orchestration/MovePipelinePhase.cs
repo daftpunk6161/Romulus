@@ -15,6 +15,20 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         int failCount = 0;
         int skipCount = 0;
         long savedBytes = 0;
+        var sidecarPrimed = false;
+        var hasAuditPath = !string.IsNullOrEmpty(input.Options.AuditPath);
+
+        if (hasAuditPath)
+        {
+            context.AuditStore.Flush(input.Options.AuditPath!);
+            context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
+            {
+                ["PreMoveCheckpoint"] = true,
+                ["MoveCount"] = 0
+            });
+            sidecarPrimed = true;
+        }
+
         var totalLosers = input.Groups.Sum(g => g.Losers.Count);
         var processedLosers = 0;
 
@@ -54,9 +68,9 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     && File.Exists(destPath))
                 {
                     context.OnProgress?.Invoke($"Skip (conflict): {Path.GetFileName(loser.MainPath)}");
-                    if (!string.IsNullOrEmpty(input.Options.AuditPath))
+                    if (hasAuditPath)
                     {
-                        context.AuditStore.AppendAuditRow(input.Options.AuditPath, root, loser.MainPath, destPath,
+                        context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, loser.MainPath, destPath,
                             "SKIP", loser.Category.ToString().ToUpperInvariant(), "", "conflict-policy:skip");
                     }
 
@@ -72,16 +86,16 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     moveCount++;
                     savedBytes += loser.SizeBytes;
 
-                    if (!string.IsNullOrEmpty(input.Options.AuditPath))
+                    if (hasAuditPath)
                     {
-                        context.AuditStore.AppendAuditRow(input.Options.AuditPath, root, loser.MainPath, actualDest,
+                        context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, loser.MainPath, actualDest,
                             "Move", loser.Category.ToString().ToUpperInvariant(), "", "region-dedupe");
                     }
 
-                    if (moveCount % 10 == 0 && !string.IsNullOrEmpty(input.Options.AuditPath))
+                    if (moveCount % 10 == 0 && hasAuditPath)
                     {
-                        context.AuditStore.Flush(input.Options.AuditPath);
-                        context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath, new Dictionary<string, object>
+                        context.AuditStore.Flush(input.Options.AuditPath!);
+                        context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
                         {
                             ["IncrementalFlush"] = true,
                             ["MoveCount"] = moveCount
@@ -96,6 +110,18 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                 if (processedLosers % 100 == 0 || processedLosers == totalLosers)
                     context.OnProgress?.Invoke($"[Move] Fortschritt: {processedLosers}/{totalLosers} (moved={moveCount}, skipped={skipCount}, failed={failCount})");
             }
+        }
+
+        if (hasAuditPath && sidecarPrimed)
+        {
+            context.AuditStore.Flush(input.Options.AuditPath!);
+            context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
+            {
+                ["FinalCheckpoint"] = true,
+                ["MoveCount"] = moveCount,
+                ["SkipCount"] = skipCount,
+                ["FailCount"] = failCount
+            });
         }
 
         return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount);

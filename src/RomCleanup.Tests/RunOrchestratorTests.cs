@@ -357,6 +357,38 @@ public class RunOrchestratorTests : IDisposable
         Assert.Equal("ok", result.Status);
     }
 
+    [Fact]
+    public void Execute_WithUnwritableReportPath_UsesAppDataFallback()
+    {
+        CreateFile("Game (USA).zip", 100);
+
+        var blocker = Path.Combine(_tempDir, "reports-blocker");
+        File.WriteAllText(blocker, "not a directory");
+        var primaryReportPath = Path.Combine(blocker, "result.html");
+
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var orch = new RunOrchestrator(fs, audit);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            ReportPath = primaryReportPath
+        };
+
+        var result = orch.Execute(options);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.ReportPath));
+        var appDataReports = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "RomCleanupRegionDedupe",
+            "reports");
+        Assert.StartsWith(Path.GetFullPath(appDataReports), Path.GetFullPath(result.ReportPath!), StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(result.ReportPath!));
+    }
+
     // ── Move Phase Tests ──────────────────────────────────────────
 
     [Fact]

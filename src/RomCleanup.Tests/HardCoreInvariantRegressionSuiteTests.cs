@@ -95,6 +95,33 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
     }
 
     [Fact]
+    public void Scan_M3uReferencedChd_RemainsInCandidates()
+    {
+        var root = Path.Combine(_tempDir, "m3u_chd_scan");
+        Directory.CreateDirectory(root);
+
+        var m3u = Path.Combine(root, "Game Collection.m3u");
+        var chd = Path.Combine(root, "Disc 1.chd");
+
+        File.WriteAllText(m3u, "Disc 1.chd\n");
+        CreateFileAt(root, "Disc 1.chd", 1024);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Extensions = new[] { ".m3u", ".chd" },
+            Mode = "DryRun"
+        };
+
+        var scan = new ScanPipelinePhase();
+        var scanned = scan.Execute(options, CreateContext(options), CancellationToken.None);
+        var paths = scanned.Select(s => s.Path).ToArray();
+
+        Assert.Contains(Path.GetFullPath(chd), paths);
+        Assert.Contains(Path.GetFullPath(m3u), paths);
+    }
+
+    [Fact]
     public void Scan_GetFilesSafe_NoInfiniteLoop_WhenSymlinkLoopPresent_IfSupported()
     {
         var root = Path.Combine(_tempDir, "loop_root");

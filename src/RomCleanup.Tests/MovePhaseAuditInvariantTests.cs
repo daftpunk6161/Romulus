@@ -106,8 +106,49 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(10, result.MoveCount);
-        Assert.Equal(1, audit.FlushCalls);
-        Assert.Equal(1, audit.SidecarCalls);
+        Assert.Equal(3, audit.FlushCalls);
+        Assert.Equal(3, audit.SidecarCalls);
+        Assert.Equal("Sidecar", audit.CallOrder[0]);
+        Assert.Equal("Append", audit.CallOrder[1]);
+        Assert.Equal("Sidecar", audit.CallOrder[^1]);
+    }
+
+    [Fact]
+    public void MovePhase_PrimesSidecarBeforeFirstMove_WhenAuditEnabled()
+    {
+        var root = Path.Combine(_tempDir, "prime-root");
+        Directory.CreateDirectory(root);
+
+        var source = CreateFile(root, "prime.zip");
+        var fs = new InvariantFs();
+        fs.MoveResults[source] = Path.Combine(root, "_TRASH_REGION_DEDUPE", "prime.zip");
+
+        var audit = new InvariantAuditStore();
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Mode = "Move",
+            Extensions = new[] { ".zip" },
+            ConflictPolicy = "Rename",
+            AuditPath = Path.Combine(_tempDir, "audit-prime.csv")
+        };
+
+        var group = new DedupeResult
+        {
+            GameKey = "prime",
+            Winner = Candidate(Path.Combine(root, "winner.zip")),
+            Losers = new[] { Candidate(source) }
+        };
+
+        var result = new MovePipelinePhase().Execute(
+            new MovePhaseInput(new[] { group }, options),
+            Context(options, fs, audit),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.MoveCount);
+        Assert.Equal("Sidecar", audit.CallOrder[0]);
+        Assert.Equal("Append", audit.CallOrder[1]);
+        Assert.Equal(2, audit.SidecarCalls);
     }
 
     [Fact]
@@ -224,11 +265,15 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
     private sealed class InvariantAuditStore : IAuditStore
     {
         public List<string> Rows { get; } = new();
+        public List<string> CallOrder { get; } = new();
         public int FlushCalls { get; private set; }
         public int SidecarCalls { get; private set; }
 
         public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata)
-            => SidecarCalls++;
+        {
+            SidecarCalls++;
+            CallOrder.Add("Sidecar");
+        }
 
         public bool TestMetadataSidecar(string auditCsvPath)
             => true;
@@ -240,6 +285,9 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             => Array.Empty<string>();
 
         public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath, string newPath, string action, string category = "", string hash = "", string reason = "")
-            => Rows.Add(action);
+        {
+            Rows.Add(action);
+            CallOrder.Add("Append");
+        }
     }
 }

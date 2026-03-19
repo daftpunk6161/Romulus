@@ -63,7 +63,8 @@ public sealed class ScanPipelinePhase : IPipelinePhase<RunOptions, List<ScannedF
             ".cue" => CueSetParser.GetRelatedFiles(filePath),
             ".gdi" => GdiSetParser.GetRelatedFiles(filePath),
             ".ccd" => CcdSetParser.GetRelatedFiles(filePath),
-            ".m3u" => M3uPlaylistParser.GetRelatedFiles(filePath),
+            // Keep playlist targets as first-class scan candidates for DAT/hash matching.
+            ".m3u" => Array.Empty<string>(),
             _ => Array.Empty<string>()
         };
     }

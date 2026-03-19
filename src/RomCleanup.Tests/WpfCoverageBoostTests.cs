@@ -155,7 +155,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void BuildCloneTree_EmptyGroups_ReturnsEmptyMessage()
     {
         var result = FeatureService.BuildCloneTree([]);
-        Assert.NotNull(result);
+        Assert.Contains("Parent/Clone-Baum", result);
+        Assert.DoesNotContain("►", result);
     }
 
     // ═══ ANALYSIS: BuildVirtualFolderPreview ════════════════════════════
@@ -178,7 +179,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void BuildVirtualFolderPreview_Empty_ReturnsMessage()
     {
         var result = FeatureService.BuildVirtualFolderPreview([]);
-        Assert.NotNull(result);
+        Assert.Contains("Virtuelle Ordner-Vorschau", result);
+        Assert.DoesNotContain("📁", result);
     }
 
     // ═══ ANALYSIS: BuildSplitPanelPreview ═══════════════════════════════
@@ -223,7 +225,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void GetHardlinkEstimate_EmptyGroups_ReturnsMessage()
     {
         var result = FeatureService.GetHardlinkEstimate([]);
-        Assert.NotNull(result);
+        Assert.Contains("0 Links möglich", result);
+        Assert.Contains("0 B", result);
     }
 
     // ═══ ANALYSIS: GetDuplicateHeatmap ══════════════════════════════════
@@ -366,16 +369,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
         Assert.Contains("Windows Registry Editor", script);
     }
 
-    // ═══ INFRA: IsPortableMode ══════════════════════════════════════════
-
-    [Fact]
-    public void IsPortableMode_ReturnsBoolWithoutException()
-    {
-        var result = FeatureService.IsPortableMode();
-        // Just verify it doesn't throw
-        Assert.True(result || !result);
-    }
-
     // ═══ DAT: GenerateLogiqxEntry ═══════════════════════════════════════
 
     [Fact]
@@ -487,9 +480,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
 
     [Theory]
     [InlineData("Game (Beta)", true)]
-    [InlineData("Game (Beta)", false)]
     [InlineData("Game (Demo)", true)]
-    [InlineData("Game (Demo)", false)]
     [InlineData("Game (Sample)", true)]
     [InlineData("Game (Unl)", true)]
     [InlineData("Regular Game Name", false)]
@@ -498,8 +489,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var result = FeatureService.GetJunkReason(name, aggressive: true);
         if (expectJunk)
             Assert.NotNull(result);
-        else if (result != null)
-            Assert.NotNull(result); // May or may not be junk depending on exact rules
+        else
+            Assert.Null(result);
     }
 
     [Fact]
@@ -527,7 +518,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void BuildJunkReport_NoCandidates_ReturnsMessage()
     {
         var report = FeatureService.BuildJunkReport([], aggressive: false);
-        Assert.NotNull(report);
+        Assert.Contains("Junk-Klassifizierungsbericht", report);
+        Assert.Contains("Gesamt: 0 Junk-Dateien", report);
     }
 
     // ═══ EXPORT: ExportCollectionCsv ════════════════════════════════════
@@ -655,7 +647,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void BuildPipelineReport_NullResult_ReturnsReport()
     {
         var report = FeatureService.BuildPipelineReport(null, []);
-        Assert.NotNull(report);
+        Assert.Contains("Pipeline-Engine", report);
+        Assert.Contains("DryRun-aware", report);
     }
 
     [Fact]
@@ -681,8 +674,13 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void LoadLocale_UnknownLocale_ReturnsEmptyOrDefault()
     {
         var result = FeatureService.LoadLocale("xx-XX");
-        // May return empty dict or default
+        var fallback = FeatureService.LoadLocale("de");
+
         Assert.NotNull(result);
+        if (fallback.Count > 0)
+            Assert.Equal(fallback.Count, result.Count);
+        else
+            Assert.Empty(result);
     }
 
     // ═══ FeatureService: FormatSize ═════════════════════════════════════

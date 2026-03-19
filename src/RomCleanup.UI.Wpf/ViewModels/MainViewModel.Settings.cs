@@ -62,7 +62,19 @@ public sealed partial class MainViewModel
     public string TrashRoot { get => _trashRoot; set { if (SetProperty(ref _trashRoot, value)) ValidateDirectoryPath(value, nameof(TrashRoot)); } }
 
     private string _datRoot = "";
-    public string DatRoot { get => _datRoot; set { if (SetProperty(ref _datRoot, value)) { ValidateDirectoryPath(value, nameof(DatRoot)); RefreshStatus(); } } }
+    public string DatRoot
+    {
+        get => _datRoot;
+        set
+        {
+            if (SetProperty(ref _datRoot, value))
+            {
+                ValidateDirectoryPath(value, nameof(DatRoot));
+                RefreshStatus();
+                _autoDetectDatMappingsCommand?.NotifyCanExecuteChanged();
+            }
+        }
+    }
 
     private string _auditRoot = "";
     public string AuditRoot { get => _auditRoot; set { if (SetProperty(ref _auditRoot, value)) ValidateDirectoryPath(value, nameof(AuditRoot)); } }
@@ -560,7 +572,12 @@ public sealed partial class MainViewModel
 
     // ═══ DAT-MAPPING AUTO-DETECT ════════════════════════════════════════
 
-    public IRelayCommand AutoDetectDatMappingsCommand => new RelayCommand(OnAutoDetectDatMappings, () => !string.IsNullOrWhiteSpace(DatRoot));
+    private RelayCommand? _autoDetectDatMappingsCommand;
+    public IRelayCommand AutoDetectDatMappingsCommand
+        => _autoDetectDatMappingsCommand ??= new RelayCommand(OnAutoDetectDatMappings, CanAutoDetectDatMappings);
+
+    private bool CanAutoDetectDatMappings()
+        => !string.IsNullOrWhiteSpace(DatRoot) && Directory.Exists(DatRoot);
 
     private void OnAutoDetectDatMappings()
     {
@@ -598,7 +615,7 @@ public sealed partial class MainViewModel
             }
 
             // Scan DatRoot for .dat and .xml files
-            var datFiles = Directory.GetFiles(DatRoot, "*.*", SearchOption.TopDirectoryOnly)
+            var datFiles = Directory.GetFiles(DatRoot, "*.*", SearchOption.AllDirectories)
                 .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
                          || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
                 .ToList();

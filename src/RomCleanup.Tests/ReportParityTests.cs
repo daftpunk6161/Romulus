@@ -8,6 +8,7 @@ using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.ViewModels;
 using Xunit;
+using Xunit.Sdk;
 using CliProgram = RomCleanup.CLI.Program;
 
 namespace RomCleanup.Tests;
@@ -134,7 +135,7 @@ public sealed class ReportParityTests : IDisposable
         {
             Roots = [root],
             Mode = "DryRun",
-            PreferRegions = ["US", "EU", "JP", "WORLD"]
+            PreferRegions = ["EU", "US", "WORLD", "JP"]
         };
         var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
         using var cliJson = ParseCliSummaryJson(cliStdout, cliStderr);
@@ -144,7 +145,7 @@ public sealed class ReportParityTests : IDisposable
         {
             Roots = [root],
             Mode = "DryRun",
-            PreferRegions = ["US", "EU", "JP", "WORLD"]
+            PreferRegions = ["EU", "US", "WORLD", "JP"]
         }, "DryRun");
 
         Assert.NotNull(apiRun);
@@ -202,7 +203,7 @@ public sealed class ReportParityTests : IDisposable
         {
             Roots = [root],
             Mode = "DryRun",
-            PreferRegions = ["US", "EU", "JP", "WORLD"]
+            PreferRegions = ["EU"]
         };
         var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
         using var cliJson = ParseCliSummaryJson(cliStdout, cliStderr);
@@ -211,9 +212,9 @@ public sealed class ReportParityTests : IDisposable
         vm.Roots.Add(root);
         vm.DryRun = true;
         vm.PreferEU = true;
-        vm.PreferUS = true;
-        vm.PreferJP = true;
-        vm.PreferWORLD = true;
+        vm.PreferUS = false;
+        vm.PreferJP = false;
+        vm.PreferWORLD = false;
 
         var runService = new RunService();
         var (orchestrator, options, auditPath, reportPath) = runService.BuildOrchestrator(vm);
@@ -224,7 +225,7 @@ public sealed class ReportParityTests : IDisposable
         {
             Roots = [root],
             Mode = "DryRun",
-            PreferRegions = ["US", "EU", "JP", "WORLD"]
+            PreferRegions = ["EU"]
         }, "DryRun");
 
         Assert.NotNull(apiRun);
@@ -248,6 +249,13 @@ public sealed class ReportParityTests : IDisposable
         Assert.Equal(cliGroups, apiCompleted.Result.Groups);
         Assert.Equal(cliKeep, apiCompleted.Result.Winners);
         Assert.Equal(cliDupes, apiCompleted.Result.Losers);
+
+        var cliIdentity = BuildCliIdentity(cliJson.RootElement);
+        var wpfIdentity = BuildWpfIdentity(wpfExecution.Result.DedupeGroups);
+        var apiIdentity = BuildApiIdentity(apiCompleted.Result.DedupeGroups);
+
+        AssertIdentityEqual("WPF vs CLI", wpfIdentity, cliIdentity);
+        AssertIdentityEqual("WPF vs API", wpfIdentity, apiIdentity);
     }
 
     [Fact]
@@ -304,6 +312,77 @@ public sealed class ReportParityTests : IDisposable
             return JsonDocument.Parse(text[start..(end + 1)]);
 
         return JsonDocument.Parse(text);
+    }
+
+    private static string[] BuildCliIdentity(JsonElement root)
+    {
+        var results = root.GetProperty("Results");
+        var rows = new List<string>();
+
+        foreach (var group in results.EnumerateArray())
+        {
+            var gameKey = (group.GetProperty("GameKey").GetString() ?? string.Empty).Trim().ToLowerInvariant();
+            var winner = CanonicalPath(group.GetProperty("Winner").GetString() ?? string.Empty);
+            var losers = group.GetProperty("Losers")
+                .EnumerateArray()
+                .Select(l => CanonicalPath(l.GetString() ?? string.Empty))
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+
+            rows.Add($"{gameKey}::{winner}::{string.Join("|", losers)}");
+        }
+
+        return rows.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static string[] BuildWpfIdentity(IReadOnlyList<RomCleanup.Contracts.Models.DedupeResult> groups)
+    {
+        return groups
+            .Select(group =>
+            {
+                var winner = CanonicalPath(group.Winner.MainPath);
+                var losers = group.Losers
+                    .Select(l => CanonicalPath(l.MainPath))
+                    .OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+
+                return $"{group.GameKey.Trim().ToLowerInvariant()}::{winner}::{string.Join("|", losers)}";
+            })
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string[] BuildApiIdentity(IReadOnlyList<ApiDedupeGroup> groups)
+    {
+        return groups
+            .Select(group =>
+            {
+                var winner = CanonicalPath(group.Winner.MainPath);
+                var losers = group.Losers
+                    .Select(l => CanonicalPath(l.MainPath))
+                    .OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+
+                return $"{group.GameKey.Trim().ToLowerInvariant()}::{winner}::{string.Join("|", losers)}";
+            })
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string CanonicalPath(string path)
+        => Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .ToLowerInvariant();
+
+    private static void AssertIdentityEqual(string label, string[] expected, string[] actual)
+    {
+        if (expected.Length != actual.Length)
+            throw new XunitException($"{label}: length mismatch. Expected={expected.Length}, Actual={actual.Length}\nExpected:\n{string.Join("\n", expected)}\nActual:\n{string.Join("\n", actual)}");
+
+        for (var i = 0; i < expected.Length; i++)
+        {
+            if (!string.Equals(expected[i], actual[i], StringComparison.Ordinal))
+            {
+                throw new XunitException($"{label}: mismatch at index {i}.\nExpected: {expected[i]}\nActual:   {actual[i]}\nExpectedLength={expected[i].Length}, ActualLength={actual[i].Length}");
+            }
+        }
     }
 
     private static MainViewModel CreateViewModel()

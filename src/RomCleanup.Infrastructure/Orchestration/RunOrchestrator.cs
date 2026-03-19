@@ -498,10 +498,31 @@ public sealed class RunOrchestrator
         }
         catch (Exception ex)
         {
-            // Log full error details — the throttled _onProgress may swallow short-lived messages
-            _onProgress?.Invoke($"ERROR: Report generation failed: {ex.GetType().Name}: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"Report generation failed: {ex}");
-            return null;
+            _onProgress?.Invoke($"ERROR: Report generation failed at target path: {ex.GetType().Name}: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Report generation failed (primary): {ex}");
+
+            // Fallback to user profile directory if primary report target is not writable.
+            try
+            {
+                var fallbackDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "RomCleanupRegionDedupe",
+                    "reports");
+                Directory.CreateDirectory(fallbackDir);
+
+                var fallbackFileName = Path.GetFileName(options.ReportPath!) ?? $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html";
+                var fallbackPath = Path.Combine(fallbackDir, fallbackFileName);
+
+                var actualPath = RunReportWriter.WriteReport(fallbackPath, result.Build(), options.Mode);
+                _onProgress?.Invoke($"Report written (fallback): {actualPath}");
+                return actualPath;
+            }
+            catch (Exception fallbackEx)
+            {
+                _onProgress?.Invoke($"ERROR: Report fallback failed: {fallbackEx.GetType().Name}: {fallbackEx.Message}");
+                System.Diagnostics.Debug.WriteLine($"Report generation failed (fallback): {fallbackEx}");
+                return null;
+            }
         }
     }
 }

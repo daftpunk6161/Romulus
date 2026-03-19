@@ -55,6 +55,29 @@ public sealed class PreviewExecuteParityTests : IDisposable
         Assert.Equal(dry.GroupCount, execute.GroupCount);
         Assert.Equal(dry.WinnerCount, execute.WinnerCount);
         Assert.Equal(dry.LoserCount, execute.LoserCount);
+
+        var dryWinners = dry.DedupeGroups
+            .Select(g => Path.GetFileName(g.Winner.MainPath))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var executeWinners = execute.DedupeGroups
+            .Select(g => Path.GetFileName(g.Winner.MainPath))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert.Equal(dryWinners, executeWinners);
+
+        var dryLosers = dry.DedupeGroups
+            .SelectMany(g => g.Losers)
+            .Select(c => Path.GetFileName(c.MainPath))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var executeLosers = execute.DedupeGroups
+            .SelectMany(g => g.Losers)
+            .Select(c => Path.GetFileName(c.MainPath))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert.Equal(dryLosers, executeLosers);
+
         Assert.NotNull(execute.MoveResult);
         Assert.Equal(dry.LoserCount, execute.MoveResult!.MoveCount + execute.MoveResult.SkipCount + execute.MoveResult.FailCount);
     }
@@ -89,6 +112,12 @@ public sealed class PreviewExecuteParityTests : IDisposable
 
         Assert.Equal(dry.UnknownCount, execute.UnknownCount);
         Assert.Equal(dry.UnknownReasonCounts.Count, execute.UnknownReasonCounts.Count);
+
+        foreach (var reason in dry.UnknownReasonCounts.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            Assert.True(execute.UnknownReasonCounts.ContainsKey(reason.Key));
+            Assert.Equal(reason.Value, execute.UnknownReasonCounts[reason.Key]);
+        }
     }
 
     private static void SeedDataset(string root)
