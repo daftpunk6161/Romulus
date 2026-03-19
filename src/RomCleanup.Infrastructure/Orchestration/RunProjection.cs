@@ -40,11 +40,20 @@ public static class RunProjectionFactory
     {
         var candidates = result.AllCandidates ?? Array.Empty<Contracts.Models.RomCandidate>();
         var total = result.TotalFilesScanned;
+        var dedupeGroups = result.DedupeGroups ?? Array.Empty<DedupeResult>();
+        var winnerCount = result.WinnerCount > 0 ? result.WinnerCount : dedupeGroups.Count;
+        var loserCount = result.LoserCount > 0
+            ? result.LoserCount
+            : dedupeGroups.Sum(static g => g.Losers?.Count ?? 0);
+        var groupCount = result.GroupCount > 0 ? result.GroupCount : dedupeGroups.Count;
         var junk = candidates.Count(c => c.Category == FileCategory.Junk);
         var bios = candidates.Count(c => c.Category == FileCategory.Bios);
-        var games = result.DedupeGroups.Count;
+        var games = dedupeGroups.Count;
         var unknown = candidates.Count(c => c.Category == FileCategory.Unknown);
         var datMatches = candidates.Count(c => c.DatMatch);
+        var filteredNonGameCount = result.FilteredNonGameCount > 0
+            ? result.FilteredNonGameCount
+            : candidates.Count(c => c.Category == FileCategory.Bios);
         var failCount = (result.MoveResult?.FailCount ?? 0) + result.ConvertErrorCount;
         var savedBytes = result.MoveResult?.SavedBytes ?? 0;
         var moveCount = result.MoveResult?.MoveCount ?? 0;
@@ -53,16 +62,16 @@ public static class RunProjectionFactory
         var consoleSortMoved = result.ConsoleSortResult?.Moved ?? 0;
         var consoleSortFailed = result.ConsoleSortResult?.Failed ?? 0;
 
-        var health = HealthScorer.GetHealthScore(total, result.LoserCount, junk, datMatches);
+        var health = HealthScorer.GetHealthScore(total, loserCount, junk, datMatches);
 
         return new RunProjection(
             Status: result.Status,
             ExitCode: result.ExitCode,
             TotalFiles: total,
             Candidates: candidates.Count,
-            Groups: result.GroupCount,
-            Keep: result.WinnerCount,
-            Dupes: result.LoserCount,
+            Groups: groupCount,
+            Keep: winnerCount,
+            Dupes: loserCount,
             Games: games,
             Unknown: unknown,
             Junk: junk,
@@ -72,7 +81,7 @@ public static class RunProjectionFactory
             ConvertErrorCount: result.ConvertErrorCount,
             ConvertSkippedCount: result.ConvertSkippedCount,
             JunkRemovedCount: result.JunkRemovedCount,
-            FilteredNonGameCount: result.FilteredNonGameCount,
+            FilteredNonGameCount: filteredNonGameCount,
             MoveCount: moveCount,
             SkipCount: skipCount,
             JunkFailCount: junkFailCount,

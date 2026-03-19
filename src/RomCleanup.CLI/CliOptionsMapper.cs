@@ -38,6 +38,7 @@ internal static class CliOptionsMapper
         // DAT merge
         var enableDat = cli.EnableDat || settings.Dat.UseDat;
         var hashType = !string.IsNullOrWhiteSpace(cli.HashType) ? cli.HashType : settings.Dat.HashType;
+        hashType = string.IsNullOrWhiteSpace(hashType) ? "SHA1" : hashType.Trim().ToUpperInvariant();
         var datRoot = !string.IsNullOrWhiteSpace(cli.DatRoot) ? cli.DatRoot : settings.Dat.DatRoot;
 
         // Audit path default for Move mode

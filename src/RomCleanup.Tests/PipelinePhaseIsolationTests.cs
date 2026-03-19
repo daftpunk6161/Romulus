@@ -328,6 +328,23 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
         Assert.False(File.Exists(targetPath));
     }
 
+    [Fact]
+    public void DeduplicatePhase_RemainsStable_When_DatIndexUnavailable()
+    {
+        var options = new RunOptions { Roots = new[] { "C:/roms" }, Extensions = new[] { ".zip" } };
+        var phase = new DeduplicatePipelinePhase();
+        var candidates = new[]
+        {
+            Candidate("C:/roms/game (US).zip", "game", "US", 1000, FileCategory.Game)
+        };
+
+        // DatIndex is intentionally absent in this isolation scenario.
+        var result = phase.Execute(candidates, CreateContext(options, new TestFileSystem()), CancellationToken.None);
+
+        Assert.Single(result.Groups);
+        Assert.Single(result.GameGroups);
+    }
+
     private static PipelineContext CreateContext(RunOptions options, IFileSystem fileSystem, IAuditStore? auditStore = null)
     {
         var metrics = new PhaseMetricsCollector();

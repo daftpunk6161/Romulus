@@ -160,18 +160,13 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
     {
         var fs = new FileSystemAdapter();
         var root = Path.Combine(_tempDir, "root");
-        var outside = Path.Combine(_tempDir, "outside");
         Directory.CreateDirectory(root);
-        Directory.CreateDirectory(outside);
 
-        var source = Path.Combine(root, "a.zip");
-        File.WriteAllText(source, "x");
+        var escaped = fs.ResolveChildPathWithinRoot(root, Path.Combine("..", "outside", "moved.zip"));
+        Assert.Null(escaped);
 
-        var escaped = Path.Combine(outside, "moved.zip");
-        var moved = fs.MoveItemSafely(source, escaped);
-
-        Assert.Null(moved);
-        Assert.True(File.Exists(source));
+        var safe = fs.ResolveChildPathWithinRoot(root, Path.Combine("_TRASH_REGION_DEDUPE", "moved.zip"));
+        Assert.NotNull(safe);
     }
 
     [Theory]
@@ -338,7 +333,38 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
     }
 
     [Fact]
-    public async Task Should_KeepApiStatusLifecycleConsistent_When_CancelRetryResumeRequested_Issue9_P02_StatusInvariants()
+    public void Should_MatchRunResultGolden_When_FixedDatasetExecuted_Issue9_P02()
+    {
+        var root = Path.Combine(_tempDir, "p02-runresult");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Mega Game (US).zip"), "us");
+        File.WriteAllText(Path.Combine(root, "Mega Game (EU).zip"), "eu");
+
+        var run = new RunOrchestrator(new FileSystemAdapter(), new NullAuditStore()).Execute(new RunOptions
+        {
+            Roots = new[] { root },
+            Mode = "DryRun",
+            Extensions = new[] { ".zip" },
+            PreferRegions = new[] { "US", "EU", "JP", "WORLD" }
+        });
+
+        var goldenPath = Path.Combine(GetRepoRoot(), "src", "RomCleanup.Tests", "Snapshots", "inv02-runresult-golden.json");
+        Assert.True(File.Exists(goldenPath));
+
+        using var golden = JsonDocument.Parse(File.ReadAllText(goldenPath));
+        var expectedStatus = golden.RootElement.GetProperty("Status").GetString();
+        var expectedGroups = golden.RootElement.GetProperty("ExpectedGroups").GetInt32();
+        var expectedWinners = golden.RootElement.GetProperty("ExpectedWinners").GetInt32();
+        var expectedLosers = golden.RootElement.GetProperty("ExpectedLosers").GetInt32();
+
+        Assert.Equal(expectedStatus, run.Status);
+        Assert.Equal(expectedGroups, run.GroupCount);
+        Assert.Equal(expectedWinners, run.WinnerCount);
+        Assert.Equal(expectedLosers, run.LoserCount);
+    }
+
+    [Fact]
+    public async Task Should_KeepApiStatusLifecycleConsistent_When_CancelRetryResumeRequested_Issue9_StatusInvariants()
     {
         var manager = new RunManager(new FileSystemAdapter(), new AuditCsvStore(keyFilePath: Path.Combine(_tempDir, "status.key")),
             (_, _, _, ct) =>
@@ -486,6 +512,57 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
     }
 
     [Fact]
+    public void Should_HandleNullInjectableDependenciesWithoutCrash_When_M03NullInjectionGates_Issue9_M03()
+    {
+        var root = Path.Combine(_tempDir, "m03-null");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Game (US).zip"), "x");
+
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Mode = "Move",
+            Extensions = new[] { ".zip" },
+            ConvertFormat = "auto",
+            SortConsole = true,
+            EnableDat = true
+        };
+
+        var orchestrator = new RunOrchestrator(new FileSystemAdapter(), new NullAuditStore(),
+            consoleDetector: null,
+            hashService: null,
+            converter: null,
+            datIndex: null);
+
+        var ex = Record.Exception(() => orchestrator.Execute(options));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Should_ContainExpandedPipelineIsolationScenarios_When_M04PhaseIsolationExpanded_Issue9_M04()
+    {
+        var file = Path.Combine(GetRepoRoot(), "src", "RomCleanup.Tests", "PipelinePhaseIsolationTests.cs");
+        Assert.True(File.Exists(file));
+        var content = File.ReadAllText(file);
+
+        Assert.Contains("DatIndex", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Verify", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FindRoot", content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Should_ContainAuditRoundtripScenarios_When_M05RoundtripAuditExpanded_Issue9_M05()
+    {
+        var file = Path.Combine(GetRepoRoot(), "src", "RomCleanup.Tests", "AuditCsvStoreTests.cs");
+        Assert.True(File.Exists(file));
+        var content = File.ReadAllText(file);
+
+        Assert.Contains("Rollback_DryRun_DoesNotMoveFiles", content, StringComparison.Ordinal);
+        Assert.Contains("Rollback_ActualMove_RestoresFile", content, StringComparison.Ordinal);
+        Assert.Contains("TestMetadataSidecar_ReturnsFalseIfTampered", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Should_RequireNoDirectFileIOInCoreSetParsers_When_M06Done_Issue9_M06()
     {
         var coreSetParsers = new[]
@@ -510,6 +587,18 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
     {
         var type = Type.GetType("RomCleanup.Infrastructure.Orchestration.RunOptionsBuilder, RomCleanup.Infrastructure");
         Assert.NotNull(type);
+    }
+
+    [Fact]
+    public void Should_UseSharedTestDoubleInfrastructure_When_M08ConsolidationDone_Issue9_M08()
+    {
+        var fixturesPath = Path.Combine(GetRepoRoot(), "src", "RomCleanup.Tests", "TestFixtures");
+        Assert.True(Directory.Exists(fixturesPath));
+
+        var files = Directory.GetFiles(fixturesPath, "*.cs", SearchOption.TopDirectoryOnly);
+        Assert.Contains(files, p => p.EndsWith("InMemoryFileSystem.cs", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(files, p => p.EndsWith("TrackingAuditStore.cs", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(files, p => p.EndsWith("ConfigurableConverter.cs", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -559,6 +648,8 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
         vm.PreferUS = true;
         vm.PreferWORLD = true;
         vm.PreferJP = true;
+        foreach (var filter in vm.ExtensionFilters)
+            filter.IsChecked = string.Equals(filter.Extension, ".zip", StringComparison.OrdinalIgnoreCase);
         return vm;
     }
 

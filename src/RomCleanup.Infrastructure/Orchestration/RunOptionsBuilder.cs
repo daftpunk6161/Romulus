@@ -1,0 +1,48 @@
+using RomCleanup.Contracts.Models;
+
+namespace RomCleanup.Infrastructure.Orchestration;
+
+/// <summary>
+/// Shared normalization entry point for run options across CLI, API, and UI.
+/// </summary>
+public static class RunOptionsBuilder
+{
+    public static RunOptions Normalize(RunOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var normalizedRoots = options.Roots
+            .Where(static p => !string.IsNullOrWhiteSpace(p))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var normalizedExtensions = options.Extensions
+            .Where(static e => !string.IsNullOrWhiteSpace(e))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new RunOptions
+        {
+            Roots = normalizedRoots,
+            Mode = string.IsNullOrWhiteSpace(options.Mode) ? "DryRun" : options.Mode,
+            ConflictPolicy = string.IsNullOrWhiteSpace(options.ConflictPolicy) ? "Rename" : options.ConflictPolicy,
+            Extensions = normalizedExtensions,
+            PreferRegions = options.PreferRegions,
+            RemoveJunk = options.RemoveJunk,
+            OnlyGames = options.OnlyGames,
+            KeepUnknownWhenOnlyGames = options.KeepUnknownWhenOnlyGames,
+            AggressiveJunk = options.AggressiveJunk,
+            SortConsole = options.SortConsole,
+            ConvertOnly = options.ConvertOnly,
+            ConvertFormat = options.ConvertFormat,
+            EnableDat = options.EnableDat,
+            DatRoot = options.DatRoot,
+            TrashRoot = options.TrashRoot,
+            ReportPath = options.ReportPath,
+            AuditPath = options.AuditPath,
+            HashType = string.IsNullOrWhiteSpace(options.HashType) ? "SHA1" : options.HashType,
+            DiscBasedConsoles = new HashSet<string>(options.DiscBasedConsoles, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+}
