@@ -80,7 +80,7 @@ public static class ReportGenerator
         sb.AppendLine("<meta charset=\"utf-8\">");
         sb.AppendLine($"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'nonce-{Enc(nonce)}'; script-src 'nonce-{Enc(nonce)}'; img-src data:;\">");
         sb.AppendLine("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
-        sb.AppendLine($"<title>ROM Cleanup Report \u2014 {Enc(summary.Mode)} \u2014 {summary.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")}</title>");
+        sb.AppendLine($"<title>Romulus Report \u2014 {Enc(summary.Mode)} \u2014 {summary.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")}</title>");
         sb.AppendLine($"<style nonce=\"{Enc(nonce)}\">");
         AppendCss(sb);
         sb.AppendLine("</style>");
@@ -89,7 +89,7 @@ public static class ReportGenerator
 
         // Header
         sb.AppendLine("<header>");
-        sb.AppendLine("<h1>🗂 ROM Cleanup Report</h1>");
+        sb.AppendLine("<h1>� Romulus Report</h1>");
         sb.AppendLine($"<p>Modus: <strong>{Enc(summary.Mode)}</strong> \u2022 {summary.Timestamp.ToString("dd.MM.yyyy HH:mm:ss")}</p>");
         sb.AppendLine("</header>");
 

@@ -1,6 +1,17 @@
-# RomCleanup
+# Romulus
 
-> C# .NET 10 Tool zur ROM-Sammlungsverwaltung: regionsbasierte Deduplizierung, Entrümpelung, Formatkonvertierung, DAT-basierte Verifizierung und Konsolen-Sortierung. Drei unabhängige Entry Points: **GUI** (WPF/XAML), **CLI** (headless/CI), **REST API** (ASP.NET Core Minimal API).
+<p align="center">
+  <img src="assets/logo/romulus-banner.svg" alt="Romulus Banner" width="100%"/>
+</p>
+
+<p align="center">
+  <strong>Your Collection, Perfected.</strong><br/>
+  C# .NET 10 Tool zur ROM-Sammlungsverwaltung: regionsbasierte Deduplizierung, Entrümpelung, Formatkonvertierung, DAT-basierte Verifizierung und Konsolen-Sortierung.
+</p>
+
+<p align="center">
+  <strong>GUI</strong> (WPF/XAML) · <strong>CLI</strong> (headless/CI) · <strong>REST API</strong> (ASP.NET Core Minimal API)
+</p>
 
 ---
 

@@ -90,10 +90,10 @@ internal static class CliOutputWriter
     /// <summary>Help: Outputs usage text to stdout.</summary>
     internal static void WriteUsage(TextWriter stdout)
     {
-        stdout.WriteLine(@"ROM Cleanup CLI — Region Deduplication
+        stdout.WriteLine(@"Romulus — Your Collection, Perfected.
 
 Usage:
-  romcleanup -Roots ""D:\Roms"" [-Mode DryRun|Move] [-Prefer EU,US,JP]
+  romulus -Roots ""D:\Roms"" [-Mode DryRun|Move] [-Prefer EU,US,JP]
 
 Options:
   -Roots <paths>     Semicolon-separated root paths (required)
