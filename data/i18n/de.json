@@ -4,8 +4,8 @@
     "locale": "de",
     "version": "1.0"
   },
-  "App.Title": "ROM Cleanup && Region Dedupe",
-  "App.TrayRunning": "ROM Cleanup läuft im Hintergrund",
+  "App.Title": "Romulus",
+  "App.TrayRunning": "Romulus läuft im Hintergrund",
   "Status.Ready": "Bereit",
   "Status.Running": "Wird ausgeführt…",
   "Tab.Start": "Start",
@@ -136,8 +136,8 @@
   "Notification.Warning": "Warnung",
   "Notification.Error": "Fehler",
   "Notification.Success": "Erfolg",
-  "Scheduler.EmailSubject": "ROM Cleanup Report – {0}",
-  "Scheduler.WebhookSummary": "ROM Cleanup: {0} Spiele, {1} Duplikate, {2} Junk",
+  "Scheduler.EmailSubject": "Romulus Report – {0}",
+  "Scheduler.WebhookSummary": "Romulus: {0} Spiele, {1} Duplikate, {2} Junk",
 
   "Tab.ConfigBasic": "Basis",
   "Tab.ConfigAdvanced": "Erweitert",
@@ -443,7 +443,7 @@
   "Settings.ExportConfigTip": "Exportiert Profil oder Gesamtkonfiguration",
   "Settings.ImportConfigTip": "Konfiguration importieren",
 
-  "Dialog.ErrorTitle": "RomCleanup – Fehler",
+  "Dialog.ErrorTitle": "Romulus – Fehler",
   "Dialog.UnexpectedError": "Ein unerwarteter Fehler ist aufgetreten:",
   "Dialog.CrashLogSaved": "Details wurden in crash.log gespeichert.",
 
@@ -724,7 +724,7 @@
   "Tool.PipelineEngine.Desc": "Pipeline-Status anzeigen",
   "Tool.SystemTray": "System-Tray",
   "Tool.SystemTray.Desc": "System-Tray ein-/ausschalten",
-  "Tray.Minimized": "RomCleanup läuft im Hintergrund.",
+  "Tray.Minimized": "Romulus läuft im Hintergrund.",
   "Tray.RunProgress": "Lauf aktiv: {0}",
   "Tray.RunComplete": "Lauf abgeschlossen – {0} behalten, {1} verschoben, {2} Junk.",
   "Tool.SchedulerAdvanced": "Cron-Tester",

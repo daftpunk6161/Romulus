@@ -1,5 +1,5 @@
 ---
-description: Projektweite Instructions für RomCleanup (C# .NET 10 + WPF/XAML). Gilt für alle Dateien im Repo, insbesondere C#-Code, UI, Tests, Build- und Konfigurationsdateien.
+description: Projektweite Instructions für Romulus / RomCleanup (C# .NET 10 + WPF/XAML). Gilt für alle Dateien im Repo, insbesondere C#-Code, UI, Tests, Build- und Konfigurationsdateien.
 paths:
   - "**/*.cs"
   - "**/*.xaml"
@@ -12,7 +12,7 @@ paths:
   - "src/**/*"
 ---
 
-# RomCleanup – Workspace Coding Guidelines
+# Romulus (RomCleanup) – Workspace Coding Guidelines
 
 Diese Regeln gelten **projektweit, dauerhaft und unabhängig vom konkreten Task**.  
 Sie sind die verbindliche Qualitätsbasis für **Code-Generierung, Refactoring, Reviews, Bugfixing, UI-Arbeit und Tests**.

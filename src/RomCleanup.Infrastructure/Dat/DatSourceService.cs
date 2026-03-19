@@ -36,7 +36,7 @@ public sealed class DatSourceService : IDisposable
         {
             var handler = new HttpClientHandler { AllowAutoRedirect = true };
             _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("RomCleanup/2.0 (DAT-Updater)");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("Romulus/2.0 (DAT-Updater)");
             _http.DefaultRequestHeaders.Accept.ParseAdd("application/zip, application/octet-stream, application/xml, text/xml, */*");
         }
     }

@@ -1,4 +1,4 @@
-# ROM Cleanup – Test-Strategie
+# Romulus – Test-Strategie
 
 **Stand:** 2026-03-15  
 **Framework:** xUnit (.NET 10, `src/RomCleanup.Tests/`)  

@@ -1,8 +1,8 @@
-# RomCleanup – Copilot Instructions
+# Romulus – Copilot Instructions
 
 ## Zweck
 
-RomCleanup ist ein produktionsnahes C# .NET 10 Tool zur Verwaltung und Bereinigung von ROM-Sammlungen mit drei Entry Points:
+Romulus (intern: RomCleanup) ist ein produktionsnahes C# .NET 10 Tool zur Verwaltung und Bereinigung von ROM-Sammlungen mit drei Entry Points:
 
 - **GUI**: WPF/XAML
 - **CLI**: headless / automation / CI

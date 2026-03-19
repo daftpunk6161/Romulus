@@ -1,4 +1,4 @@
-# Architektur-Map & Modul-Verantwortlichkeiten
+# Romulus — Architektur-Map & Modul-Verantwortlichkeiten
 
 Stand: 2026-03-15
 Plattform: C# .NET 10 (net10.0, LangVersion 14)

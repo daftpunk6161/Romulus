@@ -1,7 +1,7 @@
 namespace RomCleanup.Api;
 
 /// <summary>
-/// Embedded OpenAPI 3.0.3 specification for the ROM Cleanup API.
+/// Embedded OpenAPI 3.0.3 specification for the Romulus API.
 /// </summary>
 public static class OpenApiSpec
 {
@@ -9,9 +9,9 @@ public static class OpenApiSpec
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "ROM Cleanup API",
+    "title": "Romulus API",
     "version": "1.0.0",
-    "description": "REST API for ROM collection management: region deduplication, junk removal, format conversion."
+    "description": "Romulus REST API — Your Collection, Perfected. Region deduplication, junk removal, format conversion."
   },
   "servers": [{ "url": "http://127.0.0.1:7878" }],
   "paths": {
