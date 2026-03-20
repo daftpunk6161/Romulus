@@ -50,13 +50,16 @@ public sealed class DatIndex
     /// <summary>
     /// Look up a hash across ALL loaded consoles (fallback when console is unknown).
     /// Returns the first match found: (consoleKey, gameName).
+    /// Iterates consoles in deterministic (ordinal-sorted) order so that identical
+    /// inputs always produce the same output regardless of ConcurrentDictionary ordering.
     /// </summary>
     public (string ConsoleKey, string GameName)? LookupAny(string hash)
     {
-        foreach (var kvp in _data)
+        foreach (var key in _data.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
         {
-            if (kvp.Value.TryGetValue(hash, out var name))
-                return (kvp.Key, name);
+            if (_data.TryGetValue(key, out var hashMap) &&
+                hashMap.TryGetValue(hash, out var name))
+                return (key, name);
         }
         return null;
     }

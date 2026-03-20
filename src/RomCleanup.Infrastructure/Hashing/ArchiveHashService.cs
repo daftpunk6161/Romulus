@@ -111,6 +111,43 @@ public sealed class ArchiveHashService
     /// <summary>Current number of cached archive hash entries.</summary>
     public int CacheCount => _cache.Count;
 
+    /// <summary>
+    /// Get the entry names inside a 7z archive (for console detection by inner extension).
+    /// Returns a list of relative entry paths. Returns empty list on failure.
+    /// For ZIP files, uses System.IO.Compression to list entries directly.
+    /// </summary>
+    public IReadOnlyList<string> GetArchiveEntryNames(string archivePath)
+    {
+        if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
+            return Array.Empty<string>();
+
+        var ext = Path.GetExtension(archivePath).ToLowerInvariant();
+
+        if (ext == ".zip")
+        {
+            try
+            {
+                using var archive = ZipFile.OpenRead(archivePath);
+                return archive.Entries
+                    .Where(e => !string.IsNullOrEmpty(e.Name))
+                    .Select(e => e.FullName)
+                    .ToList();
+            }
+            catch { return Array.Empty<string>(); }
+        }
+
+        if (ext == ".7z" && _toolRunner is not null)
+        {
+            var sevenZipPath = _toolRunner.FindTool("7z");
+            if (string.IsNullOrEmpty(sevenZipPath))
+                return Array.Empty<string>();
+
+            return ListArchiveEntries(archivePath, sevenZipPath);
+        }
+
+        return Array.Empty<string>();
+    }
+
     // ── ZIP: in-memory stream hashing ──
 
     private static string[] HashZipEntries(string zipPath, string hashType,

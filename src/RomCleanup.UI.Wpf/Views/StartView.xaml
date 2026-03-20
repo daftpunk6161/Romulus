@@ -23,12 +23,6 @@
           <!-- Empty state -->
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding HasNoRoots, Converter={StaticResource BoolToVis}}">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
-              <Border Width="34" Height="34" CornerRadius="8" BorderBrush="{DynamicResource BrushAccentCyan}" BorderThickness="1.5" Background="#0B2230" Margin="0,0,8,0">
-                <views:RomulusLogoMark Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-              </Border>
-              <TextBlock Text="{Binding Loc[App.Title]}" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold"/>
-            </StackPanel>
             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="48"
                        Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center"
                        Margin="{DynamicResource SpaceBottomSM}" Opacity="0.7"/>

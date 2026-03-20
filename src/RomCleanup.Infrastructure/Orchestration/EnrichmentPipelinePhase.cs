@@ -64,26 +64,14 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var category = classification.Category;
 
         string consoleKey = "";
+        int detectionConfidence = 0;
+        bool detectionConflict = false;
         if (consoleDetector is not null)
         {
-            var lowerExtForCache = ext.ToLowerInvariant();
-            var isArchiveFile = lowerExtForCache is ".zip" or ".7z";
-
-            if (isArchiveFile)
-            {
-                // Archives need per-file detection (each ZIP may contain a different console's ROM)
-                consoleKey = consoleDetector.Detect(filePath, root);
-            }
-            else
-            {
-                var folder = Path.GetDirectoryName(filePath) ?? "";
-                if (!folderConsoleCache.TryGetValue(folder, out var cachedKey))
-                {
-                    cachedKey = consoleDetector.Detect(filePath, root);
-                    folderConsoleCache[folder] = cachedKey;
-                }
-                consoleKey = cachedKey;
-            }
+            var result = consoleDetector.DetectWithConfidence(filePath, root);
+            consoleKey = result.ConsoleKey;
+            detectionConfidence = result.Confidence;
+            detectionConflict = result.HasConflict;
         }
 
         var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
@@ -128,7 +116,14 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                         if (anyMatch is not null)
                         {
                             datMatch = true;
+                            var previousConsole = consoleKey;
                             consoleKey = anyMatch.Value.ConsoleKey;
+                            if (!string.IsNullOrEmpty(previousConsole) &&
+                                previousConsole != "UNKNOWN" &&
+                                !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                            {
+                                detectionConflict = true;
+                            }
                             context.OnProgress?.Invoke(
                                 $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
                             break;
@@ -157,7 +152,14 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                         if (anyMatch is not null)
                         {
                             datMatch = true;
+                            var previousConsole = consoleKey;
                             consoleKey = anyMatch.Value.ConsoleKey;
+                            if (!string.IsNullOrEmpty(previousConsole) &&
+                                previousConsole != "UNKNOWN" &&
+                                !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                            {
+                                detectionConflict = true;
+                            }
                             context.OnProgress?.Invoke(
                                 $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
                         }
@@ -174,6 +176,14 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     }
                 }
             }
+        }
+
+        // DAT match is the ultimate authority — set max confidence
+        if (datMatch && consoleKey is not "UNKNOWN" and not "")
+        {
+            detectionConfidence = detectionConflict
+                ? Math.Max(detectionConfidence, 95)
+                : 100;
         }
 
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
@@ -197,7 +207,9 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             datMatch: datMatch,
             consoleKey: consoleKey,
             classificationReasonCode: classification.ReasonCode,
-            classificationConfidence: classification.Confidence);
+            classificationConfidence: classification.Confidence,
+            detectionConfidence: detectionConfidence,
+            detectionConflict: detectionConflict);
     }
 
     private static IReadOnlyList<string> GetSetMembers(string filePath, string ext)

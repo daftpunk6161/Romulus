@@ -70,16 +70,44 @@ public sealed partial class RunOrchestrator
         PhaseMetricsCollector metrics,
         CancellationToken cancellationToken)
     {
-        _ = state;
         if (!options.SortConsole || options.Mode != "Move" || _consoleDetector is null)
             return PhaseStepResult.Skipped();
 
         metrics.StartPhase("ConsoleSort");
         _onProgress?.Invoke("[Sort] Sortiere Dateien nach Konsole…");
 
+        // Build sort-decision map from enrichment phase.
+        // We only allow sorting when confidence is high and no detection conflict exists.
+        Dictionary<string, string>? enrichedConsoleKeys = null;
+        if (state.AllCandidates is not null)
+        {
+            enrichedConsoleKeys = new Dictionary<string, string>(
+                state.AllCandidates.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var c in state.AllCandidates)
+            {
+                if (c.Category != FileCategory.Game)
+                {
+                    enrichedConsoleKeys[c.MainPath] = "UNKNOWN";
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(c.ConsoleKey) ||
+                    c.ConsoleKey == "UNKNOWN" ||
+                    c.DetectionConflict ||
+                    c.DetectionConfidence < 80)
+                {
+                    enrichedConsoleKeys[c.MainPath] = "UNKNOWN";
+                    continue;
+                }
+
+                enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
+            }
+        }
+
         var sorter = new ConsoleSorter(_fs, _consoleDetector, _audit, options.AuditPath);
         result.ConsoleSortResult = sorter.Sort(
-            options.Roots, options.Extensions, dryRun: false, cancellationToken);
+            options.Roots, options.Extensions, dryRun: false, cancellationToken,
+            enrichedConsoleKeys: enrichedConsoleKeys);
 
         _onProgress?.Invoke("[Sort] Konsolen-Sortierung abgeschlossen");
         metrics.CompletePhase();

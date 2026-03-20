@@ -22,6 +22,12 @@ public sealed class RomCandidate
     public FileCategory Category { get; init; } = FileCategory.Game;
     public string ClassificationReasonCode { get; init; } = "game-default";
     public int ClassificationConfidence { get; init; } = 100;
+
+    /// <summary>Console detection confidence (0-100). Higher = more reliable detection.</summary>
+    public int DetectionConfidence { get; init; }
+
+    /// <summary>Whether multiple detection methods disagreed on the console.</summary>
+    public bool DetectionConflict { get; init; }
 }
 
 /// <summary>

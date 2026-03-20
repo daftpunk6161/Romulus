@@ -4,7 +4,7 @@
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     xmlns:views="clr-namespace:RomCleanup.UI.Wpf.Views"
-    Title="Romulus"
+    Title="omulus"
     Icon="pack://application:,,,/Assets/app.ico"
     Width="960" Height="720"
     MinWidth="800" MinHeight="600"
@@ -38,7 +38,25 @@
     <KeyBinding Key="F1" Command="{Binding ToggleShortcutSheetCommand}"/>
   </Window.InputBindings>
 
-  <DockPanel LastChildFill="True">
+  <Grid>
+    <!-- Logo-Watermark Hintergrund -->
+    <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+             Opacity="0.07" IsHitTestVisible="False" MaxWidth="500" MaxHeight="500">
+      <Canvas Width="256" Height="256">
+        <Path Data="M76,49 L76,199 L96,199 L96,136 L126,136 L160,199 L183,199 L150,132 C173,122 184,100 184,82 C184,60 166,49 136,49 Z M96,67 L132,67 C154,67 162,78 162,84 C162,94 154,110 132,110 L96,110 Z">
+          <Path.Fill>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#6B21A8"/>
+              <GradientStop Offset="0.5" Color="#9333EA"/>
+              <GradientStop Offset="1" Color="#06B6D4"/>
+            </LinearGradientBrush>
+          </Path.Fill>
+        </Path>
+      </Canvas>
+    </Viewbox>
+
+    <!-- App-Inhalt -->
+    <DockPanel LastChildFill="True">
 
     <!-- ═══ TOP STATUS BAR ════════════════════════════════════════════════ -->
     <Border DockPanel.Dock="Top"
@@ -49,7 +67,7 @@
           <ComboBox x:Name="cmbQuickProfile" Width="160" Margin="{DynamicResource SpaceDotInline}"
                     ToolTip="{Binding Loc[Profile.QuickSwitch]}" IsEditable="False"
                     SelectedIndex="{Binding QuickProfileIndex, Mode=TwoWay}"
-                    AutomationProperties.Name="{Binding Loc[Profile.QuickSwitch]}">
+                    AutomationProperties.Name="{Binding Loc[Profile.QuickSwitch]}" TabIndex="1">
             <ComboBoxItem Content="Standard" IsSelected="True"/>
             <ComboBoxItem Content="Disc (CHD)"/>
             <ComboBoxItem Content="Cartridge (ZIP)"/>
@@ -57,7 +75,7 @@
           </ComboBox>
           <Button Command="{Binding OpenReportCommand}" ToolTip="{Binding Loc[Report.OpenReportTip]}" Margin="4,0,8,0"
                   AutomationProperties.Name="{Binding Loc[Report.OpenReport]}"
-                  AutomationProperties.AcceleratorKey="Ctrl+R">
+                  AutomationProperties.AcceleratorKey="Ctrl+R" TabIndex="2">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" FontSize="14" Margin="{DynamicResource SpaceRightSM}"/>
               <TextBlock Text="{Binding Loc[Report.OpenReportLog]}"/>
@@ -155,6 +173,17 @@
               </StackPanel>
             </RadioButton>
           </StackPanel>
+          <!-- Help / Shortcut-Sheet toggle at bottom of sidebar -->
+          <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,8">
+            <Button Command="{Binding ToggleShortcutSheetCommand}"
+                    Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Shortcuts.Title]}" TabIndex="54"
+                    AutomationProperties.Name="{Binding Loc[Shortcuts.Title]}">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE897;" FontSize="18" HorizontalAlignment="Center"/>
+                <TextBlock Text="Hilfe" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
+              </StackPanel>
+            </Button>
+          </StackPanel>
         </DockPanel>
       </Border>
 
@@ -168,7 +197,7 @@
           <views:StartView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Start}"/>
           <views:ResultView x:Name="resultView" Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Analyse}"/>
           <views:SortView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Setup}"/>
-          <TabControl Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}">
+          <TabControl Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}" TabIndex="3">
             <TabItem Header="{Binding Loc[System.ToolsTab], Mode=OneWay}">
               <views:ToolsView DataContext="{Binding Tools}"/>
             </TabItem>
@@ -180,7 +209,7 @@
       </Grid>
 
       <!-- ═══ CONTEXT PANEL (Hybrid Dashboard foundation) ═══════════════ -->
-      <views:ContextPanel Grid.Column="2" Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}"/>
+      <views:ContextPanel Grid.Column="2" Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}" TabIndex="4"/>
 
       <!-- ═══ GUI-055: Toast/Notification overlay ═════════════════════════ -->
       <ItemsControl Grid.Column="1" ItemsSource="{Binding Notifications}"
@@ -273,4 +302,5 @@
       </Border>
     </Grid>
   </DockPanel>
+  </Grid>
 </Window>

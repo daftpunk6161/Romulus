@@ -41,12 +41,18 @@ public sealed class ConsoleSorter
     /// <param name="extensions">File extensions to include (e.g. ".chd", ".iso").</param>
     /// <param name="dryRun">If true, don't actually move files.</param>
     /// <param name="cancellationToken">Cancellation support.</param>
+    /// <param name="enrichedConsoleKeys">
+    /// Optional: pre-enriched ConsoleKey mappings (filePath → consoleKey) from the enrichment phase.
+    /// When provided, skips re-detection for files that already have a known ConsoleKey.
+    /// This preserves DAT-rescued console identifications.
+    /// </param>
     /// <returns>Sort result with counters.</returns>
     public ConsoleSortResult Sort(
         IReadOnlyList<string> roots,
         IEnumerable<string>? extensions = null,
         bool dryRun = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string>? enrichedConsoleKeys = null)
     {
         int total = 0, moved = 0, skipped = 0, unknown = 0, setMembersMoved = 0, failed = 0;
         var unknownReasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -78,8 +84,18 @@ public sealed class ConsoleSorter
                     continue;
                 }
 
-                // Detect console
-                var consoleKey = _consoleDetector.Detect(filePath, root);
+                // Detect console: prefer enrichment result (preserves DAT-rescued keys)
+                string consoleKey;
+                if (enrichedConsoleKeys is not null &&
+                    enrichedConsoleKeys.TryGetValue(filePath, out var enrichedKey) &&
+                    !string.IsNullOrEmpty(enrichedKey))
+                {
+                    consoleKey = enrichedKey;
+                }
+                else
+                {
+                    consoleKey = _consoleDetector.Detect(filePath, root);
+                }
 
                 if (consoleKey == "UNKNOWN" || string.IsNullOrEmpty(consoleKey))
                 {

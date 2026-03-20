@@ -93,14 +93,23 @@ public sealed class RunEnvironmentBuilder
         if (runOptions.ConvertFormat != null)
             converter = new FormatConverterAdapter(toolRunner);
 
+        // ArchiveHashService: enables DAT matching and console detection for ROMs inside ZIP/7z archives
+        // Created early so ConsoleDetector can use it for 7z inner-extension detection.
+        var archiveHashService = new ArchiveHashService(toolRunner);
+
         // ConsoleDetector
         ConsoleDetector? consoleDetector = null;
         var discHeaderDetector = new DiscHeaderDetector();
+        var cartridgeHeaderDetector = new CartridgeHeaderDetector();
         var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
         if (File.Exists(consolesJsonPath))
         {
             var consolesJson = File.ReadAllText(consolesJsonPath);
-            consoleDetector = ConsoleDetector.LoadFromJson(consolesJson, discHeaderDetector);
+            consoleDetector = ConsoleDetector.LoadFromJson(
+                consolesJson,
+                discHeaderDetector,
+                archiveEntryProvider: archiveHashService.GetArchiveEntryNames,
+                cartridgeHeaderDetector: cartridgeHeaderDetector);
         }
         else if (runOptions.SortConsole || runOptions.EnableDat)
         {
@@ -133,13 +142,6 @@ public sealed class RunEnvironmentBuilder
         else if (runOptions.EnableDat)
         {
             onWarning?.Invoke("[Warning] DAT enabled but DatRoot not set or not found");
-        }
-
-        // ArchiveHashService: enables DAT matching for ROMs inside ZIP/7z archives
-        ArchiveHashService? archiveHashService = null;
-        if (hashService is not null)
-        {
-            archiveHashService = new ArchiveHashService(toolRunner);
         }
 
         return new RunEnvironment(fs, audit, consoleDetector, hashService, converter, datIndex, archiveHashService);

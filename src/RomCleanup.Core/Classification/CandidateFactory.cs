@@ -24,7 +24,9 @@ public static class CandidateFactory
         bool datMatch,
         string consoleKey,
         string classificationReasonCode = "game-default",
-        int classificationConfidence = 100)
+        int classificationConfidence = 100,
+        int detectionConfidence = 0,
+        bool detectionConflict = false)
     {
         var effectiveGameKey = category == FileCategory.Bios
             ? $"__BIOS__{gameKey}"
@@ -47,7 +49,9 @@ public static class CandidateFactory
             DatMatch = datMatch,
             ConsoleKey = consoleKey,
             ClassificationReasonCode = classificationReasonCode,
-            ClassificationConfidence = classificationConfidence
+            ClassificationConfidence = classificationConfidence,
+            DetectionConfidence = detectionConfidence,
+            DetectionConflict = detectionConflict
         };
     }
 }
