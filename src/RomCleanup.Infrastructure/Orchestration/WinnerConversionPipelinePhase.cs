@@ -76,6 +76,12 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                 convertErrors++;
                 context.OnProgress?.Invoke($"WARNING: Conversion failed for {winnerPath}: {convResult.Reason}");
                 PipelinePhaseHelpers.AppendConversionErrorAudit(context, input.Options, winnerPath, convResult.Reason);
+                // SEC-CONV-05: Clean up any partial output left by a failed conversion tool
+                if (convResult.TargetPath is not null)
+                {
+                    try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
+                    catch { /* best-effort cleanup */ }
+                }
             }
 
             if (processedGroups % 25 == 0 || processedGroups == totalGroups)

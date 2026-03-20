@@ -23,6 +23,7 @@ public static class RuleEngine
     /// <summary>Cache for compiled regex patterns from user rules. Bounded to 1024 entries to prevent memory exhaustion.</summary>
     private static readonly ConcurrentDictionary<string, Regex?> _regexCache = new(StringComparer.Ordinal);
     private static readonly int MaxRegexCacheSize = 1024;
+    private static readonly object _evictionLock = new();
 
     /// <summary>
     /// Validate rule syntax. Returns errors if the rule is misconfigured.
@@ -160,12 +161,19 @@ public static class RuleEngine
     {
         try
         {
-            // Evict ~25% of cache entries when capacity exceeded to prevent stampede
+            // Evict ~25% of cache entries when capacity exceeded.
+            // Lock prevents stampede where multiple threads evict concurrently.
             if (_regexCache.Count >= MaxRegexCacheSize)
             {
-                var keysToRemove = _regexCache.Keys.Take(MaxRegexCacheSize / 4).ToList();
-                foreach (var key in keysToRemove)
-                    _regexCache.TryRemove(key, out _);
+                lock (_evictionLock)
+                {
+                    if (_regexCache.Count >= MaxRegexCacheSize)
+                    {
+                        var keysToRemove = _regexCache.Keys.Take(MaxRegexCacheSize / 4).ToList();
+                        foreach (var key in keysToRemove)
+                            _regexCache.TryRemove(key, out _);
+                    }
+                }
             }
 
             var rx = _regexCache.GetOrAdd(pattern, p =>

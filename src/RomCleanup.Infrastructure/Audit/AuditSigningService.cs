@@ -345,9 +345,12 @@ public sealed class AuditSigningService
             }
 
             // Check current file/dir exists at newPath
+            // Missing dest = recovery failure (user can't roll back this entry)
             if (!File.Exists(newPath) && !Directory.Exists(newPath))
             {
+                failed++;
                 skippedMissingDest++;
+                _log?.Invoke($"Rollback failed (missing dest): {newPath}");
                 continue;
             }
 

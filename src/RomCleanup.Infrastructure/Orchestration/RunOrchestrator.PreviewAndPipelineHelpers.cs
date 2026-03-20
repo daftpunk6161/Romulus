@@ -93,11 +93,26 @@ public sealed partial class RunOrchestrator
         PhaseMetricsCollector metrics,
         long elapsedMs)
     {
-        if (string.IsNullOrEmpty(options.AuditPath) || !File.Exists(options.AuditPath))
+        if (string.IsNullOrEmpty(options.AuditPath))
             return;
 
-        var auditLines = File.ReadAllLines(options.AuditPath);
-        var rowCount = Math.Max(0, auditLines.Length - 1);
+        // Write sidecar even if CSV doesn't exist yet (e.g. cancel during scan before any moves)
+        var rowCount = 0;
+        if (File.Exists(options.AuditPath))
+        {
+            var auditLines = File.ReadAllLines(options.AuditPath);
+            rowCount = Math.Max(0, auditLines.Length - 1);
+        }
+        else
+        {
+            // Create empty audit CSV with header so WriteMetadataSidecar can hash it
+            var auditDir = Path.GetDirectoryName(options.AuditPath);
+            if (!string.IsNullOrEmpty(auditDir))
+                Directory.CreateDirectory(auditDir);
+            File.WriteAllText(options.AuditPath,
+                "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n",
+                System.Text.Encoding.UTF8);
+        }
         _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
         {
             ["RowCount"] = rowCount,

@@ -25,6 +25,10 @@ public sealed class ScanPipelinePhase : IPipelinePhase<RunOptions, List<ScannedF
             enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
+        // Deterministic ordering: sort by normalized path so root-order permutation
+        // does not affect enumeration order (fixes Scan_RootOrderPermutation test).
+        scannedFiles.Sort((a, b) => string.Compare(a.Path, b.Path, StringComparison.OrdinalIgnoreCase));
+
         return scannedFiles;
     }
 }
