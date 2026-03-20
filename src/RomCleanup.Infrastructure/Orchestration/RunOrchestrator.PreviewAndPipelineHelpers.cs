@@ -242,7 +242,7 @@ public sealed partial class RunOrchestrator
     {
         var enrichmentPhase = new EnrichmentPipelinePhase();
         var enrichedStream = enrichmentPhase.ExecuteStreamingAsync(
-            new EnrichmentPhaseStreamingInput(scannedFiles, _consoleDetector, _hashService, _datIndex),
+            new EnrichmentPhaseStreamingInput(scannedFiles, _consoleDetector, _hashService, _archiveHashService, _datIndex),
             context,
             cancellationToken);
 

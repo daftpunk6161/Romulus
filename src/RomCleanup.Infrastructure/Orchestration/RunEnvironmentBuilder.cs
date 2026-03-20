@@ -135,7 +135,14 @@ public sealed class RunEnvironmentBuilder
             onWarning?.Invoke("[Warning] DAT enabled but DatRoot not set or not found");
         }
 
-        return new RunEnvironment(fs, audit, consoleDetector, hashService, converter, datIndex);
+        // ArchiveHashService: enables DAT matching for ROMs inside ZIP/7z archives
+        ArchiveHashService? archiveHashService = null;
+        if (hashService is not null)
+        {
+            archiveHashService = new ArchiveHashService(toolRunner);
+        }
+
+        return new RunEnvironment(fs, audit, consoleDetector, hashService, converter, datIndex, archiveHashService);
     }
 
     /// <summary>
@@ -219,17 +226,20 @@ public sealed class RunEnvironment
     public AuditCsvStore Audit => (AuditCsvStore)AuditStore;
     public ConsoleDetector? ConsoleDetector { get; }
     public FileHashService? HashService { get; }
+    public ArchiveHashService? ArchiveHashService { get; }
     public IFormatConverter? Converter { get; }
     public DatIndex? DatIndex { get; }
 
     public RunEnvironment(FileSystemAdapter fileSystem, AuditCsvStore audit,
         ConsoleDetector? consoleDetector, FileHashService? hashService,
-        FormatConverterAdapter? converter, DatIndex? datIndex)
+        FormatConverterAdapter? converter, DatIndex? datIndex,
+        ArchiveHashService? archiveHashService = null)
     {
         FileSystem = fileSystem;
         AuditStore = audit;
         ConsoleDetector = consoleDetector;
         HashService = hashService;
+        ArchiveHashService = archiveHashService;
         Converter = converter;
         DatIndex = datIndex;
     }

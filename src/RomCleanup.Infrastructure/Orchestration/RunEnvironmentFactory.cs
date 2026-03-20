@@ -12,6 +12,7 @@ public interface IRunEnvironment
     IAuditStore AuditStore { get; }
     ConsoleDetector? ConsoleDetector { get; }
     FileHashService? HashService { get; }
+    ArchiveHashService? ArchiveHashService { get; }
     IFormatConverter? Converter { get; }
     DatIndex? DatIndex { get; }
 }

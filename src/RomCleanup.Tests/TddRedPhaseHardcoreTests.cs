@@ -851,14 +851,14 @@ public class TddRedPhaseHardcoreTests : IDisposable
         // Preview-Dedupe
         var previewScanned = scanPhase.Execute(previewContext.Options, previewContext, CancellationToken.None);
         var previewEnriched = enrichPhase.Execute(
-            new EnrichmentPhaseInput(previewScanned, null, null, null),
+            new EnrichmentPhaseInput(previewScanned, null, null, null, null),
             previewContext, CancellationToken.None);
         var previewDedupe = dedupePhase.Execute(previewEnriched, previewContext, CancellationToken.None);
 
         // Move-Dedupe (gleiche Eingaben)
         var moveScanned = scanPhase.Execute(moveContext.Options, moveContext, CancellationToken.None);
         var moveEnriched = enrichPhase.Execute(
-            new EnrichmentPhaseInput(moveScanned, null, null, null),
+            new EnrichmentPhaseInput(moveScanned, null, null, null, null),
             moveContext, CancellationToken.None);
         var moveDedupe = dedupePhase.Execute(moveEnriched, moveContext, CancellationToken.None);
 
@@ -905,7 +905,7 @@ public class TddRedPhaseHardcoreTests : IDisposable
         };
 
         Assert.Throws<OperationCanceledException>(() =>
-            phase.Execute(new EnrichmentPhaseInput(files, null, null, null), context, cts.Token));
+            phase.Execute(new EnrichmentPhaseInput(files, null, null, null, null), context, cts.Token));
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -989,7 +989,7 @@ public class TddRedPhaseHardcoreTests : IDisposable
         };
 
         var candidates = phase.Execute(
-            new EnrichmentPhaseInput(files, null, null, null),
+            new EnrichmentPhaseInput(files, null, null, null, null),
             context, CancellationToken.None);
 
         Assert.Single(candidates);

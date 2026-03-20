@@ -117,7 +117,7 @@ internal static class Program
         log?.Info("CLI", "start", $"Run started: Mode={cliOpts.Mode}, Roots={string.Join(";", cliOpts.Roots)}", "scan");
 
         var orchestrator = new RunOrchestrator(env.FileSystem, env.AuditStore, env.ConsoleDetector, env.HashService,
-            env.Converter, env.DatIndex, onProgress: SafeErrorWriteLine);
+            env.Converter, env.DatIndex, onProgress: SafeErrorWriteLine, archiveHashService: env.ArchiveHashService);
 
         var result = orchestrator.Execute(runOptions, cts.Token);
         var projection = RunProjectionFactory.Create(result);

@@ -24,7 +24,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         foreach (var file in input.Files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.DatIndex, context, folderConsoleCache, versionScorer));
+            candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, context, folderConsoleCache, versionScorer));
         }
 
         return candidates;
@@ -41,7 +41,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         await foreach (var file in input.Files.WithCancellation(cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.DatIndex, context, folderConsoleCache, versionScorer);
+            yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, context, folderConsoleCache, versionScorer);
         }
     }
 
@@ -49,6 +49,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         ScannedFileEntry file,
         ConsoleDetector? consoleDetector,
         FileHashService? hashService,
+        ArchiveHashService? archiveHashService,
         DatIndex? datIndex,
         PipelineContext context,
         Dictionary<string, string> folderConsoleCache,
@@ -65,14 +66,24 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         string consoleKey = "";
         if (consoleDetector is not null)
         {
-            var folder = Path.GetDirectoryName(filePath) ?? "";
-            if (!folderConsoleCache.TryGetValue(folder, out var cachedKey))
-            {
-                cachedKey = consoleDetector.Detect(filePath, root);
-                folderConsoleCache[folder] = cachedKey;
-            }
+            var lowerExtForCache = ext.ToLowerInvariant();
+            var isArchiveFile = lowerExtForCache is ".zip" or ".7z";
 
-            consoleKey = cachedKey;
+            if (isArchiveFile)
+            {
+                // Archives need per-file detection (each ZIP may contain a different console's ROM)
+                consoleKey = consoleDetector.Detect(filePath, root);
+            }
+            else
+            {
+                var folder = Path.GetDirectoryName(filePath) ?? "";
+                if (!folderConsoleCache.TryGetValue(folder, out var cachedKey))
+                {
+                    cachedKey = consoleDetector.Detect(filePath, root);
+                    folderConsoleCache[folder] = cachedKey;
+                }
+                consoleKey = cachedKey;
+            }
         }
 
         var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
@@ -102,30 +113,65 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 context.OnProgress?.Invoke($"[Scan] Hash: {Path.GetFileName(filePath)} ({sizeMb:F0} MB)…");
             }
 
-            var hash = hashService.GetHash(filePath, context.Options.HashType);
-            if (hash is not null)
+            var lowerExt = ext.ToLowerInvariant();
+            var isArchive = lowerExt is ".zip" or ".7z";
+
+            // For archives: try inner hashes first (DATs store ROM content hashes, not container hashes)
+            if (isArchive && archiveHashService is not null)
             {
-                if (consoleKey is "UNKNOWN" or "")
+                var innerHashes = archiveHashService.GetArchiveHashes(filePath, context.Options.HashType);
+                foreach (var innerHash in innerHashes)
                 {
-                    // Console unknown: try matching hash against ALL loaded DATs
-                    var anyMatch = datIndex.LookupAny(hash);
-                    if (anyMatch is not null)
+                    if (consoleKey is "UNKNOWN" or "")
                     {
-                        datMatch = true;
-                        consoleKey = anyMatch.Value.ConsoleKey;
-                        context.OnProgress?.Invoke(
-                            $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                        var anyMatch = datIndex.LookupAny(innerHash);
+                        if (anyMatch is not null)
+                        {
+                            datMatch = true;
+                            consoleKey = anyMatch.Value.ConsoleKey;
+                            context.OnProgress?.Invoke(
+                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                            break;
+                        }
                     }
                     else
                     {
-                            var hashHint = hash.Length >= 12 ? hash[..12] : hash;
-                        context.OnProgress?.Invoke(
-                                $"[DAT] Kein Match fuer UNKNOWN-Konsole: {Path.GetFileName(filePath)} (hash={hashHint})");
+                        if (datIndex.Lookup(consoleKey, innerHash) is not null)
+                        {
+                            datMatch = true;
+                            break;
+                        }
                     }
                 }
-                else
+            }
+
+            // Fallback: try container hash (works for uncompressed ROMs, CHD, ISO, etc.)
+            if (!datMatch)
+            {
+                var hash = hashService.GetHash(filePath, context.Options.HashType);
+                if (hash is not null)
                 {
-                    datMatch = datIndex.Lookup(consoleKey, hash) is not null;
+                    if (consoleKey is "UNKNOWN" or "")
+                    {
+                        var anyMatch = datIndex.LookupAny(hash);
+                        if (anyMatch is not null)
+                        {
+                            datMatch = true;
+                            consoleKey = anyMatch.Value.ConsoleKey;
+                            context.OnProgress?.Invoke(
+                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                        }
+                        else
+                        {
+                            var hashHint = hash.Length >= 12 ? hash[..12] : hash;
+                            context.OnProgress?.Invoke(
+                                $"[DAT] Kein Match fuer UNKNOWN-Konsole: {Path.GetFileName(filePath)} (hash={hashHint})");
+                        }
+                    }
+                    else
+                    {
+                        datMatch = datIndex.Lookup(consoleKey, hash) is not null;
+                    }
                 }
             }
         }
@@ -172,10 +218,12 @@ public sealed record EnrichmentPhaseInput(
     IReadOnlyList<ScannedFileEntry> Files,
     ConsoleDetector? ConsoleDetector,
     FileHashService? HashService,
+    ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex);
 
 public sealed record EnrichmentPhaseStreamingInput(
     IAsyncEnumerable<ScannedFileEntry> Files,
     ConsoleDetector? ConsoleDetector,
     FileHashService? HashService,
+    ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex);

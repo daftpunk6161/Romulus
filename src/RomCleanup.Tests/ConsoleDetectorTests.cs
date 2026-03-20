@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using RomCleanup.Core.Classification;
 using Xunit;
 
@@ -293,5 +294,151 @@ public class ConsoleDetectorTests
 
         Assert.Equal("PS1", first);
         Assert.Equal("PS1", second);
+    }
+
+    // ── Archive content detection ───────────────────────────────────────
+
+    [Fact]
+    public void DetectByArchiveContent_ZipWithNesRom_ReturnsNES()
+    {
+        var detector = CreateDetector();
+        var zipPath = CreateTestZip("game.nes", 1024);
+        try
+        {
+            Assert.Equal("NES", detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_ZipWithGbaRom_ReturnsGBA()
+    {
+        var detector = CreateDetector();
+        var zipPath = CreateTestZip("Pokemon.gba", 2048);
+        try
+        {
+            Assert.Equal("GBA", detector.DetectByArchiveContent(zipPath, ".gba"));
+            // .gba is NOT the outer ext  — pass .zip
+            Assert.Equal("GBA", detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_NonZipExtension_ReturnsNull()
+    {
+        var detector = CreateDetector();
+        Assert.Null(detector.DetectByArchiveContent(@"D:\Roms\game.7z", ".7z"));
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_ZipWithUnknownInner_ReturnsNull()
+    {
+        var detector = CreateDetector();
+        var zipPath = CreateTestZip("readme.txt", 100);
+        try
+        {
+            Assert.Null(detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_CorruptZip_ReturnsNull()
+    {
+        var corruptPath = Path.Combine(Path.GetTempPath(), $"corrupt_{Guid.NewGuid():N}.zip");
+        File.WriteAllBytes(corruptPath, new byte[] { 0x00, 0x01, 0x02, 0x03, 0xFF });
+        try
+        {
+            var detector = CreateDetector();
+            Assert.Null(detector.DetectByArchiveContent(corruptPath, ".zip"));
+        }
+        finally { File.Delete(corruptPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_PicksLargestEntry()
+    {
+        // ZIP contains a small .txt and a large .sfc → should detect SNES from the .sfc
+        var zipPath = Path.Combine(Path.GetTempPath(), $"multi_{Guid.NewGuid():N}.zip");
+        using (var fs = new FileStream(zipPath, FileMode.Create))
+        using (var archive = new ZipArchive(fs, ZipArchiveMode.Create))
+        {
+            var readme = archive.CreateEntry("readme.txt");
+            using (var w = new StreamWriter(readme.Open())) w.Write("small");
+
+            var rom = archive.CreateEntry("game.sfc");
+            using (var s = rom.Open()) s.Write(new byte[4096]);
+        }
+
+        try
+        {
+            var detector = CreateDetector();
+            Assert.Equal("SNES", detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void Detect_ZipInUnknownFolder_UsesArchiveContent()
+    {
+        var detector = CreateDetector();
+        var zipPath = CreateTestZip("Zelda.sfc", 2048, "game.zip");
+        try
+        {
+            // No folder match, .zip not a unique ext → should peek inside and find SNES
+            var root = Path.GetDirectoryName(zipPath)!;
+            Assert.Equal("SNES", detector.Detect(zipPath, root));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    // ── Disc extension ambiguous matching ───────────────────────────────
+
+    [Fact]
+    public void DiscBasedConsoles_HaveAmbiguousDiscExtensions()
+    {
+        // Load from real consoles.json to verify data fix
+        var jsonPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data", "consoles.json");
+        if (!File.Exists(jsonPath))
+            return; // Skip if not available in test context
+
+        var detector = ConsoleDetector.LoadFromJson(File.ReadAllText(jsonPath));
+        var discExts = new[] { ".iso", ".bin", ".chd", ".cue", ".img" };
+
+        foreach (var ext in discExts)
+        {
+            var matches = detector.GetAmbiguousMatches(ext);
+            Assert.True(matches.Count >= 2,
+                $"Expected disc extension {ext} to match at least 2 consoles, but got {matches.Count}: [{string.Join(", ", matches)}]");
+        }
+    }
+
+    [Fact]
+    public void AmbiguousDiscExt_SingleDiscConsole_Returns()
+    {
+        // If only one disc console has a given ambig ext, Detect returns it
+        var consoles = new[]
+        {
+            new ConsoleInfo("DC", "Sega Dreamcast", true,
+                new[] { ".gdi", ".cdi" }, new[] { ".chd" },
+                new[] { "dc", "dreamcast" }),
+        };
+        var detector = new ConsoleDetector(consoles);
+        Assert.Equal("DC", detector.Detect(@"D:\Roms\game.chd", @"D:\Roms"));
+    }
+
+    // ── Helper ──────────────────────────────────────────────────────────
+
+    private static string CreateTestZip(string innerFileName, int innerSize, string? outerName = null)
+    {
+        var zipName = outerName ?? $"test_{Guid.NewGuid():N}.zip";
+        var zipPath = Path.Combine(Path.GetTempPath(), zipName);
+        using var fs = new FileStream(zipPath, FileMode.Create);
+        using var archive = new ZipArchive(fs, ZipArchiveMode.Create);
+        var entry = archive.CreateEntry(innerFileName);
+        using var stream = entry.Open();
+        stream.Write(new byte[innerSize]);
+        return zipPath;
     }
 }

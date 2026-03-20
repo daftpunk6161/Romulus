@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using RomCleanup.Core.Caching;
 
@@ -176,6 +177,11 @@ public sealed class ConsoleDetector
         if (ambig.Count == 1)
             return ambig[0];
 
+        // Method 3b: Archive interior extension (ZIP/7z contain ROM files whose extension reveals the console)
+        var byArchive = DetectByArchiveContent(filePath, ext);
+        if (byArchive is not null)
+            return byArchive;
+
         // Method 4: Disc header binary detection (ISO/BIN/GCM/CHD)
         if (_discHeaderDetector is not null)
         {
@@ -190,6 +196,66 @@ public sealed class ConsoleDetector
         }
 
         return "UNKNOWN";
+    }
+
+    /// <summary>
+    /// Detect console by inspecting the file extensions of entries inside a ZIP archive.
+    /// For .zip files: opens the archive, finds the largest non-directory entry,
+    /// and runs unique/ambiguous extension detection on its extension.
+    /// Returns null if not a ZIP or no match found.
+    /// </summary>
+    public string? DetectByArchiveContent(string filePath, string outerExt)
+    {
+        var lowerExt = outerExt.ToLowerInvariant();
+        if (lowerExt != ".zip")
+            return null;
+
+        try
+        {
+            using var archive = ZipFile.OpenRead(filePath);
+            // Find the largest entry (most likely the actual ROM, not readme/nfo)
+            ZipArchiveEntry? bestEntry = null;
+            foreach (var entry in archive.Entries)
+            {
+                if (string.IsNullOrEmpty(entry.Name)) continue; // skip directories
+                if (bestEntry is null || entry.Length > bestEntry.Length)
+                    bestEntry = entry;
+            }
+
+            if (bestEntry is null)
+                return null;
+
+            var innerExt = Path.GetExtension(bestEntry.Name);
+            if (string.IsNullOrEmpty(innerExt))
+                return null;
+
+            // Try unique extension first
+            var byExt = DetectByExtension(innerExt);
+            if (byExt is not null)
+                return byExt;
+
+            // Try ambiguous extension
+            var ambig = GetAmbiguousMatches(innerExt);
+            if (ambig.Count == 1)
+                return ambig[0];
+
+            // For disc-type inner files, try disc header detection
+            if (_discHeaderDetector is not null)
+            {
+                var discExt = innerExt.ToLowerInvariant();
+                if (discExt is ".iso" or ".bin" or ".img" or ".cue" or ".gcm")
+                {
+                    // Extract inner extension info only — actual disc header reading
+                    // on compressed entries is not feasible without full extraction.
+                    // The inner extension combined with ambiguous matching is sufficient.
+                }
+            }
+        }
+        catch (InvalidDataException) { /* corrupt/not-a-zip */ }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return null;
     }
 
     /// <summary>

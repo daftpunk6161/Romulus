@@ -215,7 +215,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         var scan = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
         var enriched = new EnrichmentPipelinePhase().Execute(
-            new EnrichmentPhaseInput(scan, null, null, null),
+            new EnrichmentPhaseInput(scan, null, null, null, null),
             CreateContext(options),
             CancellationToken.None);
 
@@ -242,7 +242,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         var scan = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
         var enriched = new EnrichmentPipelinePhase().Execute(
-            new EnrichmentPhaseInput(scan, null, null, null),
+            new EnrichmentPhaseInput(scan, null, null, null, null),
             CreateContext(options),
             CancellationToken.None);
 
@@ -270,7 +270,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         var scan = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
         var enriched = new EnrichmentPipelinePhase().Execute(
-            new EnrichmentPhaseInput(scan, null, null, null),
+            new EnrichmentPhaseInput(scan, null, null, null, null),
             CreateContext(options),
             CancellationToken.None);
 
@@ -814,7 +814,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         Assert.Throws<OperationCanceledException>(() =>
             new EnrichmentPipelinePhase().Execute(
-                new EnrichmentPhaseInput(new[] { new ScannedFileEntry(_tempDir, CreateFile("a.zip", 4), ".zip") }, null, null, null),
+                new EnrichmentPhaseInput(new[] { new ScannedFileEntry(_tempDir, CreateFile("a.zip", 4), ".zip") }, null, null, null, null),
                 context,
                 cancelled));
 
@@ -918,7 +918,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         };
 
         var enriched = new EnrichmentPipelinePhase().Execute(
-            new EnrichmentPhaseInput(scanned, null, hashService, datIndex),
+            new EnrichmentPhaseInput(scanned, null, hashService, null, datIndex),
             context,
             CancellationToken.None);
 

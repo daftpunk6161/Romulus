@@ -82,7 +82,8 @@ public sealed class RunManager
             {
                 run.ProgressMessage = msg;
                 run.ProgressPercent = ProgressEstimator.EstimateFromMessage(msg);
-            });
+            },
+            archiveHashService: env.ArchiveHashService);
 
         var result = orchestrator.Execute(options, ct);
         var projection = RunProjectionFactory.Create(result);

@@ -25,6 +25,7 @@ public sealed partial class RunOrchestrator
     private readonly IAuditStore _audit;
     private readonly ConsoleDetector? _consoleDetector;
     private readonly FileHashService? _hashService;
+    private readonly ArchiveHashService? _archiveHashService;
     private readonly IFormatConverter? _converter;
     private readonly DatIndex? _datIndex;
     private readonly Action<string>? _onProgress;
@@ -38,12 +39,14 @@ public sealed partial class RunOrchestrator
         IFormatConverter? converter = null,
         DatIndex? datIndex = null,
         Action<string>? onProgress = null,
-        IPhasePlanBuilder? phasePlanBuilder = null)
+        IPhasePlanBuilder? phasePlanBuilder = null,
+        ArchiveHashService? archiveHashService = null)
     {
         _fs = fs;
         _audit = audit;
         _consoleDetector = consoleDetector;
         _hashService = hashService;
+        _archiveHashService = archiveHashService;
         _converter = converter;
         _datIndex = datIndex;
         _onProgress = onProgress;
