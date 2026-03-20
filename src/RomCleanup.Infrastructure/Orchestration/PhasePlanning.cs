@@ -10,6 +10,9 @@ public interface IPhaseStep
 
 public interface IPhasePlanBuilder
 {
+    IReadOnlyList<IPhaseStep> Build(RunOptions options, StandardPhaseStepActions actions);
+
+    [Obsolete("Use Build(RunOptions, StandardPhaseStepActions) instead.")]
     IReadOnlyList<IPhaseStep> BuildStandard(RunOptions options, StandardPhaseStepActions actions);
 }
 
@@ -61,6 +64,22 @@ public sealed class PipelineState
         JunkRemovedPaths = junkRemovedPaths;
     }
 }
+
+public sealed record ScanPhaseResult(
+    IReadOnlyList<RomCandidate> AllCandidates,
+    IReadOnlyList<RomCandidate> ProcessingCandidates,
+    int UnknownCount,
+    IReadOnlyDictionary<string, int> UnknownReasonCounts,
+    int FilteredNonGameCount);
+
+public sealed record DedupePhaseResult(
+    IReadOnlyList<DedupeResult> AllGroups,
+    IReadOnlyList<DedupeResult> GameGroups,
+    int LoserCount);
+
+public sealed record JunkPhaseResult(
+    MovePhaseResult MoveResult,
+    IReadOnlySet<string> RemovedPaths);
 
 public sealed class StandardPhaseStepActions
 {
@@ -148,7 +167,7 @@ public sealed class WinnerConversionPhaseStep : IPhaseStep
 
 public sealed class PhasePlanBuilder : IPhasePlanBuilder
 {
-    public IReadOnlyList<IPhaseStep> BuildStandard(RunOptions options, StandardPhaseStepActions actions)
+    public IReadOnlyList<IPhaseStep> Build(RunOptions options, StandardPhaseStepActions actions)
     {
         var phases = new List<IPhaseStep>
         {
@@ -167,6 +186,9 @@ public sealed class PhasePlanBuilder : IPhasePlanBuilder
 
         return phases;
     }
+
+    public IReadOnlyList<IPhaseStep> BuildStandard(RunOptions options, StandardPhaseStepActions actions)
+        => Build(options, actions);
 }
 
 public sealed class DeferredAnalysisPhaseStep : IPhaseStep

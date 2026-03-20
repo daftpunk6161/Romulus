@@ -6,7 +6,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 
 public sealed partial class RunOrchestrator
 {
-    private (List<RomCandidate> Candidates, List<RomCandidate> ProcessingCandidates) RunScanAndPrepareState(
+    private ScanPhaseResult RunScanAndPrepareState(
         RunOptions options,
         RunResultBuilder result,
         PhaseMetricsCollector metrics,
@@ -42,7 +42,8 @@ public sealed partial class RunOrchestrator
         result.UnknownCount = candidates.Count(c => c.Category == FileCategory.Unknown);
         result.UnknownReasonCounts = unknownReasonCounts;
 
-        var processingCandidates = candidates;
+        List<RomCandidate> processingCandidates = candidates;
+        var filteredNonGameCount = 0;
         if (options.OnlyGames)
         {
             var keepUnknown = options.KeepUnknownWhenOnlyGames;
@@ -50,8 +51,9 @@ public sealed partial class RunOrchestrator
                 .Where(c => c.Category == FileCategory.Game || (keepUnknown && c.Category == FileCategory.Unknown))
                 .ToList();
 
-            result.FilteredNonGameCount = candidates.Count - processingCandidates.Count;
-            _onProgress?.Invoke($"[Filter] OnlyGames aktiv: {result.FilteredNonGameCount} Nicht-Spiel-Dateien ausgeschlossen (KeepUnknown={keepUnknown})");
+            filteredNonGameCount = candidates.Count - processingCandidates.Count;
+            result.FilteredNonGameCount = filteredNonGameCount;
+            _onProgress?.Invoke($"[Filter] OnlyGames aktiv: {filteredNonGameCount} Nicht-Spiel-Dateien ausgeschlossen (KeepUnknown={keepUnknown})");
         }
 
         scanSw.Stop();
@@ -63,7 +65,12 @@ public sealed partial class RunOrchestrator
             _onProgress?.Invoke($"WARNING: {candidates.Count:N0} files scanned — high memory usage. Consider scanning fewer roots.");
 
         pipelineState.SetScanOutput(candidates, processingCandidates);
-        return (candidates, processingCandidates);
+        return new ScanPhaseResult(
+            candidates,
+            processingCandidates,
+            result.UnknownCount,
+            unknownReasonCounts,
+            filteredNonGameCount);
     }
 
     private bool TryExecuteConvertOnlyPath(

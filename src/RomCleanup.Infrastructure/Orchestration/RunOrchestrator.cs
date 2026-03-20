@@ -137,7 +137,9 @@ public sealed partial class RunOrchestrator
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var (candidates, processingCandidates) = RunScanAndPrepareState(options, result, metrics, pipelineState, cancellationToken);
+        var scanResult = RunScanAndPrepareState(options, result, metrics, pipelineState, cancellationToken);
+        var candidates = scanResult.AllCandidates;
+        var processingCandidates = scanResult.ProcessingCandidates;
 
         if (processingCandidates.Count == 0)
         {
@@ -171,7 +173,7 @@ public sealed partial class RunOrchestrator
         if (TryExecuteConvertOnlyPath(options, candidates, processingCandidates, result, metrics, pipelineState, sw, cancellationToken, out var convertOnlyResult))
             return convertOnlyResult;
 
-        var phasePlan = _phasePlanBuilder.BuildStandard(options, new StandardPhaseStepActions
+        var phasePlan = _phasePlanBuilder.Build(options, new StandardPhaseStepActions
         {
             Deduplicate = (state, ct) => RunDeduplicateStep(state, options, result, metrics, ct),
             JunkRemoval = (state, ct) => RunJunkRemovalStep(state, options, result, metrics, ct),
@@ -180,12 +182,7 @@ public sealed partial class RunOrchestrator
             WinnerConversion = (state, ct) => RunWinnerConversionStep(state, options, result, metrics, ct)
         });
 
-        foreach (var phase in phasePlan)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _onProgress?.Invoke($"[Plan] Phase: {phase.Name}");
-            phase.Execute(pipelineState, cancellationToken);
-        }
+        ExecutePhasePlan(phasePlan, pipelineState, cancellationToken);
 
         sw.Stop();
         // Derive status based on actual errors
@@ -230,6 +227,19 @@ public sealed partial class RunOrchestrator
             WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
 
             return result.Build();
+        }
+    }
+
+    private void ExecutePhasePlan(
+        IReadOnlyList<IPhaseStep> phasePlan,
+        PipelineState pipelineState,
+        CancellationToken cancellationToken)
+    {
+        foreach (var phase in phasePlan)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _onProgress?.Invoke($"[Plan] Phase: {phase.Name}");
+            phase.Execute(pipelineState, cancellationToken);
         }
     }
 

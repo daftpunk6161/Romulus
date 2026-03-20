@@ -250,7 +250,7 @@ public sealed partial class RunOrchestrator
         return candidates;
     }
 
-    private (IReadOnlyList<DedupeResult> Groups, List<DedupeResult> GameGroups) ExecuteDedupePhase(
+    private DedupePhaseResult ExecuteDedupePhase(
         IReadOnlyList<RomCandidate> candidates,
         IReadOnlyList<RomCandidate> allCandidates,
         RunOptions options,
@@ -276,10 +276,10 @@ public sealed partial class RunOrchestrator
         result.AllCandidates = allCandidates;
         result.DedupeGroups = output.GameGroups;
 
-        return (output.Groups, output.GameGroups);
+        return new DedupePhaseResult(output.Groups, output.GameGroups, output.LoserCount);
     }
 
-    private HashSet<string> ExecuteJunkPhaseIfEnabled(
+    private JunkPhaseResult ExecuteJunkPhaseIfEnabled(
         IReadOnlyList<DedupeResult> groups,
         RunOptions options,
         RunResultBuilder result,
@@ -288,7 +288,7 @@ public sealed partial class RunOrchestrator
     {
         var junkRemovedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!options.RemoveJunk || options.Mode != "Move")
-            return junkRemovedPaths;
+            return new JunkPhaseResult(new MovePhaseResult(0, 0, 0, 0), junkRemovedPaths);
 
         var phase = new JunkRemovalPipelinePhase();
         var context = new PipelineContext
@@ -303,7 +303,7 @@ public sealed partial class RunOrchestrator
 
         result.JunkRemovedCount = output.MoveResult.MoveCount;
         result.JunkMoveResult = output.MoveResult;
-        return output.RemovedPaths;
+        return new JunkPhaseResult(output.MoveResult, output.RemovedPaths);
     }
 
     private void ExecuteConvertOnlyPhase(

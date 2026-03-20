@@ -14,7 +14,7 @@ public sealed partial class RunOrchestrator
         CancellationToken cancellationToken)
     {
         var output = ExecuteDedupePhase(state.ProcessingCandidates!, state.AllCandidates!, options, result, metrics, cancellationToken);
-        state.SetDedupeOutput(output.Groups, output.GameGroups);
+        state.SetDedupeOutput(output.AllGroups, output.GameGroups);
         return PhaseStepResult.Ok(output.GameGroups.Count, output);
     }
 
@@ -26,8 +26,8 @@ public sealed partial class RunOrchestrator
         CancellationToken cancellationToken)
     {
         var removed = ExecuteJunkPhaseIfEnabled(state.AllGroups ?? Array.Empty<DedupeResult>(), options, result, metrics, cancellationToken);
-        state.SetJunkPaths(removed);
-        return PhaseStepResult.Ok(removed.Count, removed);
+        state.SetJunkPaths(removed.RemovedPaths);
+        return PhaseStepResult.Ok(removed.RemovedPaths.Count, removed);
     }
 
     private PhaseStepResult RunMoveStep(

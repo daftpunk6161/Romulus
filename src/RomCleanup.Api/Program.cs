@@ -32,6 +32,8 @@ if (bindAddress != "127.0.0.1" && bindAddress != "localhost" && bindAddress != "
 
 builder.Services.AddRomCleanupCore();
 builder.Services.AddSingleton<RunManager>();
+builder.Services.AddSingleton<RunLifecycleManager>(sp =>
+    sp.GetRequiredService<RunManager>().Lifecycle);
 
 var app = builder.Build();
 
@@ -153,7 +155,7 @@ app.Use(async (ctx, next) =>
 
 // --- Endpoints ---
 
-app.MapGet("/health", (RunManager mgr) =>
+app.MapGet("/health", (RunLifecycleManager mgr) =>
 {
     var activeRun = mgr.GetActive();
     return Results.Ok(new
@@ -168,7 +170,7 @@ app.MapGet("/health", (RunManager mgr) =>
 
 app.MapGet("/openapi", () => Results.Content(OpenApiSpec.Json, "application/json"));
 
-app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
+app.MapPost("/runs", async (HttpContext ctx, RunLifecycleManager mgr) =>
 {
     // Validate Content-Type
     var contentType = ctx.Request.ContentType;
@@ -408,7 +410,7 @@ app.MapPost("/runs", async (HttpContext ctx, RunManager mgr) =>
     return Results.Accepted($"/runs/{run.RunId}", new { run = run.ToDto(), reused = create.Disposition == RunCreateDisposition.Reused });
 });
 
-app.MapGet("/runs/{runId}", (string runId, HttpContext ctx, RunManager mgr) =>
+app.MapGet("/runs/{runId}", (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -422,7 +424,7 @@ app.MapGet("/runs/{runId}", (string runId, HttpContext ctx, RunManager mgr) =>
     return Results.Ok(new { run = run.ToDto() });
 });
 
-app.MapGet("/runs/{runId}/result", (string runId, HttpContext ctx, RunManager mgr) =>
+app.MapGet("/runs/{runId}/result", (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -436,7 +438,7 @@ app.MapGet("/runs/{runId}/result", (string runId, HttpContext ctx, RunManager mg
     return Results.Ok(new { run = run.ToDto(), result = run.Result });
 });
 
-app.MapPost("/runs/{runId}/cancel", (string runId, HttpContext ctx, RunManager mgr) =>
+app.MapPost("/runs/{runId}/cancel", (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -459,7 +461,7 @@ app.MapPost("/runs/{runId}/cancel", (string runId, HttpContext ctx, RunManager m
     });
 });
 
-app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, RunManager mgr) =>
+app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -492,7 +494,7 @@ app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, RunManager
     });
 });
 
-app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunManager mgr) =>
+app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
     {
@@ -597,7 +599,7 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunMana
 // Graceful shutdown: cancel active runs before process exits
 app.Lifetime.ApplicationStopping.Register(() =>
 {
-    var mgr = app.Services.GetRequiredService<RunManager>();
+    var mgr = app.Services.GetRequiredService<RunLifecycleManager>();
     mgr.ShutdownAsync().GetAwaiter().GetResult();
 });
 
