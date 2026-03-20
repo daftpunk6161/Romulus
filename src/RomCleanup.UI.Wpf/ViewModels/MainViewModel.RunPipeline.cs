@@ -561,9 +561,7 @@ public sealed partial class MainViewModel
     {
         BusyHint = "";
         ConvertOnly = false; // Reset transient flag
-        var resolvedReportPath = reportPath;
-        if (string.IsNullOrWhiteSpace(resolvedReportPath) || !File.Exists(resolvedReportPath))
-            resolvedReportPath = TryFindLatestReportPath();
+        var resolvedReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : reportPath;
         LastReportPath = resolvedReportPath ?? string.Empty;
         CanRollback = !string.IsNullOrEmpty(LastAuditPath) && File.Exists(LastAuditPath);
         if (success && DryRun)

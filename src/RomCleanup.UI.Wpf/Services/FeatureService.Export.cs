@@ -256,8 +256,35 @@ public static partial class FeatureService
         sb.AppendLine(new string('═', 50));
         sb.AppendLine($"\n  Datei: {rulesPath}\n");
 
+        JsonElement rulesElement;
+        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            rulesElement = doc.RootElement;
+        }
+        else if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (doc.RootElement.TryGetProperty("rules", out var lowerRules) && lowerRules.ValueKind == JsonValueKind.Array)
+            {
+                rulesElement = lowerRules;
+            }
+            else if (doc.RootElement.TryGetProperty("Rules", out var upperRules) && upperRules.ValueKind == JsonValueKind.Array)
+            {
+                rulesElement = upperRules;
+            }
+            else
+            {
+                sb.AppendLine("  Keine Regel-Liste im erwarteten Format gefunden.");
+                return sb.ToString();
+            }
+        }
+        else
+        {
+            sb.AppendLine("  Ungültiges rules.json Format.");
+            return sb.ToString();
+        }
+
         int idx = 0;
-        foreach (var rule in doc.RootElement.EnumerateArray())
+        foreach (var rule in rulesElement.EnumerateArray())
         {
             idx++;
             var name = rule.TryGetProperty("name", out var np) ? np.GetString() : $"Regel {idx}";

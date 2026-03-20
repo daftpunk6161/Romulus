@@ -16,6 +16,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 /// Central pipeline orchestrator for ROM cleanup operations.
 /// Port of Invoke-CliRunAdapter / RunHelpers.Execution.ps1.
 /// Encapsulates: Preflight → Scan → Dedupe → JunkRemoval → Move → Sort → Convert → Report.
+/// Streaming seam: scan/enrichment use IAsyncEnumerable in orchestrator partial steps.
 /// Used by both CLI and API entry points.
 /// </summary>
 public sealed partial class RunOrchestrator

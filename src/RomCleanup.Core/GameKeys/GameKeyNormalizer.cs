@@ -158,6 +158,15 @@ public static class GameKeyNormalizer
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled,
             RegexTimeout);
 
+    private static readonly System.Text.RegularExpressions.Regex LeadingArticleRegex =
+        new(@"^\s*the\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled, RegexTimeout);
+
+    private static readonly System.Text.RegularExpressions.Regex TrailingArticleRegex =
+        new(@"\s*,\s*the\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled, RegexTimeout);
+
+    private static readonly System.Text.RegularExpressions.Regex DiscPaddingRegex =
+        new(@"\((disc|disk|cd)\s*0+(\d+)\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled, RegexTimeout);
+
     private static readonly IReadOnlyDictionary<string, string> EmptyAliasMap =
         new Dictionary<string, string>();
 
@@ -241,6 +250,9 @@ public static class GameKeyNormalizer
             s = rx.Replace(s, " ");
         }
 
+        // Normalize common title variants so article/disc naming maps to one key.
+        s = NormalizeTitleVariants(s);
+
         // Normalize and collapse whitespace
         var key = s.Trim().ToLowerInvariant();
         key = System.Text.RegularExpressions.Regex.Replace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
@@ -267,6 +279,17 @@ public static class GameKeyNormalizer
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
         return Convert.ToHexString(bytes.AsSpan(0, 4)).ToLowerInvariant();
+    }
+
+    private static string NormalizeTitleVariants(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return value;
+
+        var normalized = TrailingArticleRegex.Replace(value, string.Empty);
+        normalized = LeadingArticleRegex.Replace(normalized, string.Empty);
+        normalized = DiscPaddingRegex.Replace(normalized, "($1 $2)");
+        return normalized;
     }
 
     /// <summary>

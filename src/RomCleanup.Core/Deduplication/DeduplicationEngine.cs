@@ -33,6 +33,7 @@ public static class DeduplicationEngine
             .ThenByDescending(x => x.FormatScore)
             .ThenByDescending(x => x.SizeTieBreakScore)
             .ThenBy(x => x.MainPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.MainPath, StringComparer.Ordinal)
             .First();
     }
 
@@ -108,6 +109,27 @@ public static class DeduplicationEngine
             });
         }
 
-        return results;
+        var winnerPaths = new HashSet<string>(
+            results.Select(r => r.Winner.MainPath),
+            StringComparer.OrdinalIgnoreCase);
+
+        var sanitized = new List<DedupeResult>(results.Count);
+        foreach (var result in results)
+        {
+            var filteredLosers = result.Losers
+                .Where(l =>
+                    !winnerPaths.Contains(l.MainPath)
+                    || string.Equals(l.MainPath, result.Winner.MainPath, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            sanitized.Add(new DedupeResult
+            {
+                Winner = result.Winner,
+                Losers = filteredLosers,
+                GameKey = result.GameKey
+            });
+        }
+
+        return sanitized;
     }
 }
