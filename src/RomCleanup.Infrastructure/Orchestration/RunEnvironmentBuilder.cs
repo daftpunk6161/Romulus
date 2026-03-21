@@ -2,6 +2,7 @@ using System.Text.Json;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
+using RomCleanup.Core.Conversion;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.Configuration;
 using RomCleanup.Infrastructure.Conversion;
@@ -87,11 +88,38 @@ public sealed class RunEnvironmentBuilder
         // ToolRunner
         var toolHashesPath = Path.Combine(dataDir, "tool-hashes.json");
         var toolRunner = new ToolRunnerAdapter(File.Exists(toolHashesPath) ? toolHashesPath : null);
+        var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
 
         // FormatConverter
         FormatConverterAdapter? converter = null;
         if (runOptions.ConvertFormat != null)
-            converter = new FormatConverterAdapter(toolRunner);
+        {
+            IConversionRegistry? conversionRegistry = null;
+            IConversionPlanner? conversionPlanner = null;
+            IConversionExecutor? conversionExecutor = null;
+
+            try
+            {
+                var conversionRegistryPath = Path.Combine(dataDir, "conversion-registry.json");
+                if (File.Exists(conversionRegistryPath) && File.Exists(consolesJsonPath))
+                {
+                    conversionRegistry = new ConversionRegistryLoader(conversionRegistryPath, consolesJsonPath);
+                    var invokers = new IToolInvoker[] { new ToolInvokerAdapter(toolRunner) };
+                    conversionExecutor = new ConversionExecutor(invokers);
+
+                    conversionPlanner = new ConversionPlanner(
+                        conversionRegistry,
+                        toolRunner.FindTool,
+                        path => new FileInfo(path).Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                onWarning?.Invoke($"[Warning] Conversion registry loading failed, fallback to legacy mapping: {ex.Message}");
+            }
+
+            converter = new FormatConverterAdapter(toolRunner, null, conversionRegistry, conversionPlanner, conversionExecutor);
+        }
 
         // ArchiveHashService: enables DAT matching and console detection for ROMs inside ZIP/7z archives
         // Created early so ConsoleDetector can use it for 7z inner-extension detection.
@@ -101,7 +129,6 @@ public sealed class RunEnvironmentBuilder
         ConsoleDetector? consoleDetector = null;
         var discHeaderDetector = new DiscHeaderDetector();
         var cartridgeHeaderDetector = new CartridgeHeaderDetector();
-        var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
         if (File.Exists(consolesJsonPath))
         {
             var consolesJson = File.ReadAllText(consolesJsonPath);

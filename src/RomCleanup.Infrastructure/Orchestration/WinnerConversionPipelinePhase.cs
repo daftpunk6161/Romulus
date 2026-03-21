@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Conversion;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
@@ -36,23 +37,46 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
 
             var ext = Path.GetExtension(winnerPath).ToLowerInvariant();
             var consoleKey = group.Winner.ConsoleKey ?? "";
-            var target = input.Converter.GetTargetFormat(consoleKey, ext);
-            if (target is null)
+            ConversionTarget? target = null;
+            ConversionResult convResult;
+
+            if (input.Converter is FormatConverterAdapter advancedConverter)
             {
-                if (processedGroups % 25 == 0 || processedGroups == totalGroups)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, err={convertErrors})");
-                continue;
+                convResult = advancedConverter.ConvertForConsole(winnerPath, consoleKey, cancellationToken);
+            }
+            else
+            {
+                target = input.Converter.GetTargetFormat(consoleKey, ext);
+                if (target is null)
+                {
+                    if (processedGroups % 25 == 0 || processedGroups == totalGroups)
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                    continue;
+                }
+
+                convResult = input.Converter.Convert(winnerPath, target, cancellationToken);
             }
 
-            var convResult = input.Converter.Convert(winnerPath, target, cancellationToken);
             if (convResult.Outcome == ConversionOutcome.Success)
             {
-                var verificationOk = convResult.TargetPath is not null && input.Converter.Verify(convResult.TargetPath, target);
+                var verificationOk = IsVerificationSuccessful(convResult, input.Converter, target);
                 if (verificationOk)
                 {
+                    var convertedPath = convResult.TargetPath;
+                    if (convertedPath is null)
+                    {
+                        convertErrors++;
+                        continue;
+                    }
+
                     converted++;
-                    PipelinePhaseHelpers.AppendConversionAudit(context, input.Options, winnerPath, convResult.TargetPath, target.ToolName);
-                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, winnerPath, convResult.TargetPath);
+                    PipelinePhaseHelpers.AppendConversionAudit(
+                        context,
+                        input.Options,
+                        winnerPath,
+                        convertedPath,
+                        ResolveToolName(convResult, target));
+                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, winnerPath, convertedPath);
                 }
                 else
                 {
@@ -60,7 +84,12 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                     if (convResult.TargetPath is not null)
                     {
                         context.OnProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                        PipelinePhaseHelpers.AppendConversionFailedAudit(context, input.Options, winnerPath, convResult.TargetPath, target.ToolName);
+                        PipelinePhaseHelpers.AppendConversionFailedAudit(
+                            context,
+                            input.Options,
+                            winnerPath,
+                            convResult.TargetPath,
+                            ResolveToolName(convResult, target));
                         // SEC-CONV-04: Clean up failed output to prevent orphaned corrupt files
                         try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
                         catch { /* best-effort cleanup */ }
@@ -68,6 +97,10 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                 }
             }
             else if (convResult.Outcome == ConversionOutcome.Skipped)
+            {
+                convertSkipped++;
+            }
+            else if (convResult.Outcome == ConversionOutcome.Blocked)
             {
                 convertSkipped++;
             }
@@ -92,6 +125,29 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
         context.Metrics.CompletePhase(converted);
 
         return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped);
+    }
+
+    private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
+    {
+        if (convResult.TargetPath is null)
+            return false;
+
+        if (convResult.VerificationResult != VerificationStatus.NotAttempted)
+            return convResult.VerificationResult == VerificationStatus.Verified;
+
+        if (target is null)
+            return false;
+
+        return converter.Verify(convResult.TargetPath, target);
+    }
+
+    private static string ResolveToolName(ConversionResult convResult, ConversionTarget? fallbackTarget)
+    {
+        var plannedTool = convResult.Plan?.Steps.FirstOrDefault()?.Capability?.Tool?.ToolName;
+        if (!string.IsNullOrWhiteSpace(plannedTool))
+            return plannedTool;
+
+        return fallbackTarget?.ToolName ?? "unknown";
     }
 
 

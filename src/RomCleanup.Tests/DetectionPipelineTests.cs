@@ -749,7 +749,7 @@ public sealed class DetectionPipelineTests
     [Fact]
     public void Resolver_StrongConflict_FloorAt30()
     {
-        // Winner with low confidence, strong runner → floor at 30
+        // Soft-only winner is capped below auto-sort thresholds.
         var hypotheses = new List<DetectionHypothesis>
         {
             new("MD", 40, DetectionSource.AmbiguousExtension, "ext=.bin"),
@@ -758,11 +758,10 @@ public sealed class DetectionPipelineTests
 
         var result = HypothesisResolver.Resolve(hypotheses);
 
-        // SNES total=85 > MD total=40; SNES wins
-        // Runner (MD) max=40 < 80 and < 50 → no penalty actually
-        // Wait: SNES=85 wins, MD=40 is runner. 40 < 50 → no penalty
+        // SNES total=85 > MD total=40; SNES wins.
+        // Since winner evidence is soft-only (folder), resolver applies cap=65.
         Assert.Equal("SNES", result.ConsoleKey);
-        Assert.Equal(85, result.Confidence);
+        Assert.Equal(65, result.Confidence);
     }
 
     [Fact]

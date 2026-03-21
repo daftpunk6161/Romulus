@@ -14,7 +14,7 @@ namespace RomCleanup.Core.Classification;
 public sealed class ConsoleDetector
 {
     private static readonly Regex JunkNamePattern = new(
-        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program|hack|pirate|bootleg|homebrew|aftermarket|translated|translation)\)",
+        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program|hack|pirate|bootleg|homebrew|aftermarket|translated|translation|unl|unlicensed|not\s*for\s*resale|nfr)\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled,
         TimeSpan.FromMilliseconds(200));
 
@@ -180,6 +180,9 @@ public sealed class ConsoleDetector
     public string Detect(string filePath, string rootPath)
     {
         var fileName = Path.GetFileNameWithoutExtension(filePath);
+        if (IsClearlyInvalidFile(filePath))
+            return "UNKNOWN";
+
         if (IsLikelyJunkName(fileName))
             return "UNKNOWN";
 
@@ -243,6 +246,9 @@ public sealed class ConsoleDetector
         var hypotheses = new List<DetectionHypothesis>();
         var ext = Path.GetExtension(filePath);
         var fileName = Path.GetFileNameWithoutExtension(filePath);
+
+        if (IsClearlyInvalidFile(filePath))
+            return ConsoleDetectionResult.Unknown;
 
         // Junk-like pre-release markers are intentionally blocked from auto classification.
         if (IsLikelyJunkName(fileName))
@@ -321,6 +327,25 @@ public sealed class ConsoleDetector
             return JunkNamePattern.IsMatch(fileName);
         }
         catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsClearlyInvalidFile(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return false;
+
+        try
+        {
+            return new FileInfo(filePath).Length == 0;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }

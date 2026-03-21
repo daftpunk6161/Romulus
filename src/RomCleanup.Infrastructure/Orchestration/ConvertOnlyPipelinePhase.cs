@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Conversion;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
@@ -36,33 +37,56 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
 
             var ext = Path.GetExtension(path).ToLowerInvariant();
             var consoleKey = candidate.ConsoleKey ?? "";
-            var target = input.Converter.GetTargetFormat(consoleKey, ext);
-            if (target is null)
+            ConversionTarget? target = null;
+            ConversionResult convResult;
+
+            if (input.Converter is FormatConverterAdapter advancedConverter)
             {
-                convertSkipped++;
-                if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
-                continue;
+                convResult = advancedConverter.ConvertForConsole(path, consoleKey, cancellationToken);
+            }
+            else
+            {
+                target = input.Converter.GetTargetFormat(consoleKey, ext);
+                if (target is null)
+                {
+                    convertSkipped++;
+                    if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                    continue;
+                }
+
+                if (string.Equals(ext, target.Extension, StringComparison.OrdinalIgnoreCase))
+                {
+                    convertSkipped++;
+                    if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                    continue;
+                }
+
+                context.OnProgress?.Invoke($"[Convert] {Path.GetFileName(path)} → {target.Extension}");
+                convResult = input.Converter.Convert(path, target, cancellationToken);
             }
 
-            if (string.Equals(ext, target.Extension, StringComparison.OrdinalIgnoreCase))
-            {
-                convertSkipped++;
-                if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
-                continue;
-            }
-
-            context.OnProgress?.Invoke($"[Convert] {Path.GetFileName(path)} → {target.Extension}");
-            var convResult = input.Converter.Convert(path, target, cancellationToken);
             if (convResult.Outcome == ConversionOutcome.Success)
             {
-                var verificationOk = convResult.TargetPath is not null && input.Converter.Verify(convResult.TargetPath, target);
+                var verificationOk = IsVerificationSuccessful(convResult, input.Converter, target);
                 if (verificationOk)
                 {
+                    var convertedPath = convResult.TargetPath;
+                    if (convertedPath is null)
+                    {
+                        convertErrors++;
+                        continue;
+                    }
+
                     converted++;
-                    PipelinePhaseHelpers.AppendConversionAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
-                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, path, convResult.TargetPath);
+                    PipelinePhaseHelpers.AppendConversionAudit(
+                        context,
+                        input.Options,
+                        path,
+                        convertedPath,
+                        ResolveToolName(convResult, target));
+                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, path, convertedPath);
                 }
                 else
                 {
@@ -70,7 +94,12 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                     if (convResult.TargetPath is not null)
                     {
                         context.OnProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                        PipelinePhaseHelpers.AppendConversionFailedAudit(context, input.Options, path, convResult.TargetPath, target.ToolName);
+                        PipelinePhaseHelpers.AppendConversionFailedAudit(
+                            context,
+                            input.Options,
+                            path,
+                            convResult.TargetPath,
+                            ResolveToolName(convResult, target));
                         // SEC-CONV-04: Clean up failed output to prevent orphaned corrupt files
                         try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
                         catch { /* best-effort cleanup */ }
@@ -78,6 +107,10 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                 }
             }
             else if (convResult.Outcome == ConversionOutcome.Skipped)
+            {
+                convertSkipped++;
+            }
+            else if (convResult.Outcome == ConversionOutcome.Blocked)
             {
                 convertSkipped++;
             }
@@ -96,6 +129,29 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         context.Metrics.CompletePhase(converted);
 
         return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped);
+    }
+
+    private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
+    {
+        if (convResult.TargetPath is null)
+            return false;
+
+        if (convResult.VerificationResult != VerificationStatus.NotAttempted)
+            return convResult.VerificationResult == VerificationStatus.Verified;
+
+        if (target is null)
+            return false;
+
+        return converter.Verify(convResult.TargetPath, target);
+    }
+
+    private static string ResolveToolName(ConversionResult convResult, ConversionTarget? fallbackTarget)
+    {
+        var plannedTool = convResult.Plan?.Steps.FirstOrDefault()?.Capability?.Tool?.ToolName;
+        if (!string.IsNullOrWhiteSpace(plannedTool))
+            return plannedTool;
+
+        return fallbackTarget?.ToolName ?? "unknown";
     }
 
 

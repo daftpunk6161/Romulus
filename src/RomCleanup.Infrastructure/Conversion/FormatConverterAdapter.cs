@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Core.Conversion;
 
 namespace RomCleanup.Infrastructure.Conversion;
 
@@ -12,6 +13,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
 {
     private readonly IToolRunner _tools;
     private readonly IReadOnlyDictionary<string, ConversionTarget> _bestFormats;
+    private readonly IConversionRegistry? _registry;
+    private readonly IConversionPlanner? _planner;
+    private readonly IConversionExecutor? _executor;
 
     // Systems that must never be auto-converted because format conversion would
     // violate set integrity, require proprietary keys, or has no safe target path.
@@ -74,16 +78,41 @@ public sealed class FormatConverterAdapter : IFormatConverter
     /// Creates a FormatConverterAdapter with default format mappings.
     /// </summary>
     public FormatConverterAdapter(IToolRunner tools)
-        : this(tools, null) { }
+        : this(tools, null, null, null) { }
 
     /// <summary>
     /// Creates a FormatConverterAdapter with optional custom format mappings.
     /// Falls back to <see cref="DefaultBestFormats"/> when <paramref name="bestFormats"/> is null.
     /// </summary>
     public FormatConverterAdapter(IToolRunner tools, IReadOnlyDictionary<string, ConversionTarget>? bestFormats)
+        : this(tools, bestFormats, null, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a FormatConverterAdapter with optional registry/executor-backed conversion flow.
+    /// </summary>
+    public FormatConverterAdapter(
+        IToolRunner tools,
+        IReadOnlyDictionary<string, ConversionTarget>? bestFormats,
+        IConversionRegistry? registry,
+        IConversionPlanner? planner,
+        IConversionExecutor? executor)
     {
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
         _bestFormats = bestFormats ?? DefaultBestFormats;
+        _registry = registry;
+        _planner = planner;
+        _executor = executor;
+    }
+
+    public FormatConverterAdapter(
+        IToolRunner tools,
+        IReadOnlyDictionary<string, ConversionTarget>? bestFormats,
+        IConversionRegistry? registry,
+        IConversionExecutor? executor)
+        : this(tools, bestFormats, registry, null, executor)
+    {
     }
 
     public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
@@ -94,6 +123,10 @@ public sealed class FormatConverterAdapter : IFormatConverter
             return null;
 
         var normalizedConsole = consoleKey.Trim();
+
+        var registryTarget = TryGetRegistryTarget(normalizedConsole, ext);
+        if (registryTarget is not null)
+            return registryTarget;
 
         if (BlockedAutoSystems.Contains(normalizedConsole) || ManualOnlySystems.Contains(normalizedConsole))
             return null;
@@ -131,6 +164,13 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (File.Exists(targetPath))
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "target-exists");
 
+        if (_executor is not null)
+        {
+            var planned = TryExecuteSingleStepPlan(sourcePath, sourceExt, target, cancellationToken);
+            if (planned is not null)
+                return planned;
+        }
+
         return target.ToolName.ToLowerInvariant() switch
         {
             "chdman" => ConvertWithChdman(sourcePath, targetPath, toolPath, target.Command),
@@ -138,6 +178,143 @@ public sealed class FormatConverterAdapter : IFormatConverter
             "7z" => ConvertWithSevenZip(sourcePath, targetPath, toolPath),
             "psxtract" => ConvertWithPsxtract(sourcePath, targetPath, toolPath, target.Command),
             _ => new ConversionResult(sourcePath, null, ConversionOutcome.Error, $"unknown-tool:{target.ToolName}")
+        };
+    }
+
+    /// <summary>
+    /// Planner-backed conversion path that uses source path + console key to compute and execute a full plan.
+    /// Falls back to legacy conversion flow if planner/executor are not available.
+    /// </summary>
+    public ConversionResult ConvertForConsole(string sourcePath, string consoleKey, CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(sourcePath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "source-not-found");
+
+        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+
+        if (_planner is null || _executor is null)
+        {
+            var target = GetTargetFormat(consoleKey, sourceExt);
+            if (target is null)
+                return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "no-target-defined");
+            return Convert(sourcePath, target, cancellationToken);
+        }
+
+        var plan = _planner.Plan(sourcePath, consoleKey, sourceExt);
+        if (!plan.IsExecutable)
+        {
+            var outcome = plan.Safety == ConversionSafety.Blocked
+                ? ConversionOutcome.Blocked
+                : ConversionOutcome.Skipped;
+            return new ConversionResult(sourcePath, null, outcome, plan.SkipReason)
+            {
+                Plan = plan,
+                SourceIntegrity = plan.SourceIntegrity,
+                Safety = plan.Safety,
+                VerificationResult = VerificationStatus.NotAttempted,
+                DurationMs = 0
+            };
+        }
+
+        return _executor.Execute(plan, cancellationToken: cancellationToken);
+    }
+
+    private ConversionTarget? TryGetRegistryTarget(string consoleKey, string sourceExtension)
+    {
+        if (_registry is null)
+            return null;
+
+        var policy = _registry.GetPolicy(consoleKey);
+        if (policy is ConversionPolicy.None or ConversionPolicy.ManualOnly)
+            return null;
+
+        IEnumerable<string> targetCandidates = [];
+        var preferred = _registry.GetPreferredTarget(consoleKey);
+        if (!string.IsNullOrWhiteSpace(preferred))
+            targetCandidates = new[] { preferred! }.Concat(_registry.GetAlternativeTargets(consoleKey));
+
+        foreach (var targetExtension in targetCandidates)
+        {
+            var edge = _registry.GetCapabilities()
+                .Where(c => string.Equals(c.TargetExtension, targetExtension, StringComparison.OrdinalIgnoreCase))
+                .Where(c => c.Condition == ConversionCondition.None)
+                .Where(c => string.Equals(c.SourceExtension, sourceExtension, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(c.SourceExtension, "*", StringComparison.OrdinalIgnoreCase))
+                .Where(c => c.ApplicableConsoles is null || c.ApplicableConsoles.Count == 0 || c.ApplicableConsoles.Contains(consoleKey))
+                .OrderBy(c => c.Cost)
+                .FirstOrDefault();
+
+            if (edge is null)
+                continue;
+
+            return new ConversionTarget(edge.TargetExtension, edge.Tool.ToolName, edge.Command);
+        }
+
+        return null;
+    }
+
+    private ConversionResult? TryExecuteSingleStepPlan(
+        string sourcePath,
+        string sourceExtension,
+        ConversionTarget target,
+        CancellationToken cancellationToken)
+    {
+        if (_executor is null)
+            return null;
+
+        var safety = ConversionSafety.Safe;
+        var integrity = SourceIntegrityClassifier.Classify(sourceExtension, Path.GetFileName(sourcePath));
+        if (integrity == SourceIntegrity.Lossy)
+            safety = ConversionSafety.Acceptable;
+
+        var capability = new ConversionCapability
+        {
+            SourceExtension = sourceExtension,
+            TargetExtension = target.Extension,
+            Tool = new ToolRequirement { ToolName = target.ToolName },
+            Command = target.Command,
+            ApplicableConsoles = null,
+            RequiredSourceIntegrity = null,
+            ResultIntegrity = integrity,
+            Lossless = target.ToolName is "7z" or "chdman" or "dolphintool",
+            Cost = 0,
+            Verification = GetVerificationForExtension(target.Extension),
+            Description = "adapter-single-step",
+            Condition = ConversionCondition.None
+        };
+
+        var plan = new ConversionPlan
+        {
+            SourcePath = sourcePath,
+            ConsoleKey = "N/A",
+            Policy = ConversionPolicy.Auto,
+            SourceIntegrity = integrity,
+            Safety = safety,
+            Steps = new[]
+            {
+                new ConversionStep
+                {
+                    Order = 0,
+                    InputExtension = sourceExtension,
+                    OutputExtension = target.Extension,
+                    Capability = capability,
+                    IsIntermediate = false
+                }
+            },
+            SkipReason = null
+        };
+
+        return _executor.Execute(plan, cancellationToken: cancellationToken);
+    }
+
+    private static VerificationMethod GetVerificationForExtension(string extension)
+    {
+        return extension.ToLowerInvariant() switch
+        {
+            ".chd" => VerificationMethod.ChdmanVerify,
+            ".rvz" => VerificationMethod.RvzMagicByte,
+            ".zip" => VerificationMethod.SevenZipTest,
+            _ => VerificationMethod.FileExistenceCheck
         };
     }
 

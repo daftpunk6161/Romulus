@@ -6,6 +6,31 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public static class HypothesisResolver
 {
+    private static bool IsHardEvidence(DetectionSource source)
+    {
+        return source is DetectionSource.DatHash
+            or DetectionSource.UniqueExtension
+            or DetectionSource.DiscHeader
+            or DetectionSource.CartridgeHeader;
+    }
+
+    private static int GetSingleSourceCap(DetectionSource source)
+    {
+        return source switch
+        {
+            DetectionSource.DatHash => 100,
+            DetectionSource.UniqueExtension => 95,
+            DetectionSource.DiscHeader => 92,
+            DetectionSource.CartridgeHeader => 90,
+            DetectionSource.SerialNumber => 88,
+            DetectionSource.ArchiveContent => 70,
+            DetectionSource.FolderName => 65,
+            DetectionSource.FilenameKeyword => 60,
+            DetectionSource.AmbiguousExtension => 40,
+            _ => 60
+        };
+    }
+
     /// <summary>
     /// Resolve a set of hypotheses into a single console detection result.
     /// Rules:
@@ -77,6 +102,23 @@ public static class HypothesisResolver
             {
                 aggregateConfidence = Math.Max(40, aggregateConfidence - 10);
             }
+        }
+
+        var winnerSources = winner.Value.Items
+            .Select(i => i.Source)
+            .Distinct()
+            .ToList();
+
+        var hasHardEvidence = winnerSources.Any(IsHardEvidence);
+        if (!hasHardEvidence)
+        {
+            // Soft-only detections are kept below automatic-sort confidence thresholds.
+            aggregateConfidence = Math.Min(aggregateConfidence, 65);
+        }
+
+        if (winnerSources.Count == 1)
+        {
+            aggregateConfidence = Math.Min(aggregateConfidence, GetSingleSourceCap(winnerSources[0]));
         }
 
         return new ConsoleDetectionResult(

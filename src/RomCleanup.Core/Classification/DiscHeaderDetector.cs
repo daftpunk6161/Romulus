@@ -31,7 +31,9 @@ public sealed class DiscHeaderDetector
     private static readonly Regex RxPsp = new(@"PSP\s*GAME", RxOpts, RxTimeout);
     private static readonly Regex RxPs2Boot = new(@"BOOT2\s*=|cdrom0:", RxOpts, RxTimeout);
     private static readonly Regex RxPs2Name = new(@"playstation\s*2", RxOpts, RxTimeout);
+    private static readonly Regex RxPs3Marker = new(@"PS3_DISC\.SFB|PS3_GAME|PLAYSTATION\s*3|PS3VOLUME", RxOpts, RxTimeout);
     private static readonly Regex RxXbox = new(@"MICROSOFT\*XBOX\*MEDIA", RxOpts, RxTimeout);
+    private static readonly Regex RxXbox360Marker = new(@"XBOX\s*360|XEX2|XGD2|XGD3", RxOpts, RxTimeout);
 
     // ScanDiscImage patterns
     private static readonly Regex RxIpDreamcast = new(@"SEGA.SEGAKATANA|SEGA.DREAMCAST", RxOpts, RxTimeout);
@@ -178,6 +180,7 @@ public sealed class DiscHeaderDetector
                 if (RxPsp.IsMatch(text)) return "PSP";
                 if (RxPs2Boot.IsMatch(text)) return "PS2";
                 if (RxPs2Name.IsMatch(text)) return "PS2";
+                if (RxPs3Marker.IsMatch(text)) return "PS3";
                 return "PS1";
             }
             // Microsoft Xbox
@@ -240,7 +243,12 @@ public sealed class DiscHeaderDetector
         {
             var xboxSig = Encoding.ASCII.GetString(buffer, 0x10000, 20);
             if (xboxSig == "MICROSOFT*XBOX*MEDIA")
+            {
+                var probeText = ExtractPrintableAscii(buffer, 0, Math.Min(scanSize, 131072));
+                if (RxXbox360Marker.IsMatch(probeText))
+                    return "X360";
                 return "XBOX";
+            }
         }
 
         // Sega IP.BIN detection (DC / SAT / SCD)
@@ -292,13 +300,15 @@ public sealed class DiscHeaderDetector
 
                     if (RxPvdPlayStation.IsMatch(sysId))
                     {
-                        // Scan remaining buffer for PS2/PSP distinguishing markers
+                        // Scan remaining buffer for PS2/PSP/PS3 distinguishing markers
                         int markerScanLen = Math.Min(scanSize - pvdOff, 65536);
                         var pvdText = Encoding.ASCII.GetString(buffer, pvdOff, markerScanLen);
                         if (RxPsp.IsMatch(pvdText))
                             return "PSP";
                         if (RxPs2Boot.IsMatch(pvdText))
                             return "PS2";
+                        if (RxPs3Marker.IsMatch(pvdText))
+                            return "PS3";
                         return "PS1";
                     }
 
