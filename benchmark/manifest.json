@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "Benchmark dataset manifest",
+    "version": "2.1.0",
+    "groundTruthVersion": "1.0.0",
+    "lastModified": "2026-03-21"
+  },
+  "totalEntries": 1152,
+  "bySet": {
+    "golden-core": 370,
+    "golden-realworld": 232,
+    "edge-cases": 142,
+    "negative-controls": 62,
+    "chaos-mixed": 101,
+    "repair-safety": 65,
+    "dat-coverage": 180,
+    "performance-scale": 0
+  }
+}
