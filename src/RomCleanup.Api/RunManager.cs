@@ -314,6 +314,7 @@ public sealed class ApiRunResult
     public int ConvertedCount { get; init; }
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
+    public int ConvertBlockedCount { get; init; }
     public int JunkRemovedCount { get; init; }
     public int FilteredNonGameCount { get; init; }
     public int JunkFailCount { get; init; }

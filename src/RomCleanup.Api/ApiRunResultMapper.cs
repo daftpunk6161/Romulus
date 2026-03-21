@@ -26,6 +26,7 @@ internal static class ApiRunResultMapper
             ConvertedCount = projection.ConvertedCount,
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
+            ConvertBlockedCount = projection.ConvertBlockedCount,
             JunkRemovedCount = projection.JunkRemovedCount,
             FilteredNonGameCount = projection.FilteredNonGameCount,
             JunkFailCount = projection.JunkFailCount,

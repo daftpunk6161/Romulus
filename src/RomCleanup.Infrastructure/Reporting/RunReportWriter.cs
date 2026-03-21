@@ -139,6 +139,7 @@ public static class RunReportWriter
             ConvertedCount = projection.ConvertedCount,
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
+            ConvertBlockedCount = projection.ConvertBlockedCount,
             JunkRemovedCount = projection.JunkRemovedCount,
             JunkFailCount = projection.JunkFailCount,
             SkipCount = projection.SkipCount,
@@ -146,7 +147,7 @@ public static class RunReportWriter
             ConsoleSortFailed = projection.ConsoleSortFailed,
             FailCount = projection.FailCount,
             ErrorCount = totalErrorCount,
-            SkippedCount = projection.ConvertSkippedCount + projection.SkipCount,
+            SkippedCount = projection.ConvertSkippedCount + projection.ConvertBlockedCount + projection.SkipCount,
             SavedBytes = projection.SavedBytes,
             GroupCount = projection.Groups,
             Duration = TimeSpan.FromMilliseconds(projection.DurationMs)

@@ -29,6 +29,16 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!File.Exists(sourcePath))
+        {
+            return new ToolInvocationResult(false, null, -1, null, "source-not-found", 0, VerificationStatus.NotAttempted);
+        }
+
+        if (string.IsNullOrWhiteSpace(capability.Command))
+        {
+            return new ToolInvocationResult(false, null, -1, null, "invalid-command", 0, VerificationStatus.NotAttempted);
+        }
+
         var toolName = capability.Tool.ToolName;
         var toolPath = _tools.FindTool(toolName);
         if (string.IsNullOrWhiteSpace(toolPath))
@@ -37,6 +47,11 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
         }
 
         var args = BuildArguments(sourcePath, targetPath, capability);
+        if (args.Length == 1 && string.Equals(args[0], "__invalid_command__", StringComparison.Ordinal))
+        {
+            return new ToolInvocationResult(false, null, -1, null, "invalid-command", 0, VerificationStatus.NotAttempted);
+        }
+
         var watch = Stopwatch.StartNew();
         var result = _tools.InvokeProcess(toolPath, args, toolName);
         watch.Stop();
@@ -89,23 +104,27 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
     private string[] BuildArguments(string sourcePath, string targetPath, ConversionCapability capability)
     {
         var toolName = capability.Tool.ToolName.ToLowerInvariant();
+        var command = ReadSafeCommandToken(capability.Command);
+
+        if (command is null)
+            return ["__invalid_command__"];
 
         if (toolName == "chdman")
         {
-            var command = capability.Command;
+            var chdCommand = command;
             if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase)
                 && IsLikelyCdImage(sourcePath))
             {
-                command = "createcd";
+                chdCommand = "createcd";
             }
 
-            return [command, "-i", sourcePath, "-o", targetPath];
+            return [chdCommand, "-i", sourcePath, "-o", targetPath];
         }
 
         if (toolName == "dolphintool")
         {
             return [
-                capability.Command,
+                command,
                 "-i", sourcePath,
                 "-o", targetPath,
                 "-f", "rvz",
@@ -122,10 +141,19 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
 
         if (toolName == "psxtract")
         {
-            return [capability.Command, "-i", sourcePath, "-o", targetPath];
+            return [command, "-i", sourcePath, "-o", targetPath];
         }
 
-        return [capability.Command, "-i", sourcePath, "-o", targetPath];
+        return [command, "-i", sourcePath, "-o", targetPath];
+    }
+
+    private static string? ReadSafeCommandToken(string rawCommand)
+    {
+        var token = rawCommand.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        if (token.IndexOfAny(['/', '\\']) >= 0)
+            return null;
+
+        return token;
     }
 
     private static bool IsLikelyCdImage(string sourcePath)

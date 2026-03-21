@@ -65,6 +65,7 @@ public sealed class RunResult
     public int ConvertedCount { get; init; }
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
+    public int ConvertBlockedCount { get; init; }
     public long DurationMs { get; init; }
     public string? ReportPath { get; init; }
 

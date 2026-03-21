@@ -342,6 +342,7 @@ public sealed partial class RunOrchestrator
         result.ConvertedCount = output.Converted;
         result.ConvertErrorCount = output.ConvertErrors;
         result.ConvertSkippedCount = output.ConvertSkipped;
+        result.ConvertBlockedCount = output.ConvertBlocked;
     }
 
     private void ExecuteWinnerConversionPhase(
@@ -366,6 +367,7 @@ public sealed partial class RunOrchestrator
         result.ConvertedCount = output.Converted;
         result.ConvertErrorCount = output.ConvertErrors;
         result.ConvertSkippedCount = output.ConvertSkipped;
+        result.ConvertBlockedCount = output.ConvertBlocked;
     }
 
     /// <summary>FEAT-02: Generate HTML and CSV reports from pipeline results.</summary>

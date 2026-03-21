@@ -19,6 +19,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         int converted = 0;
         int convertErrors = 0;
         int convertSkipped = 0;
+        int convertBlocked = 0;
         var totalCandidates = input.Candidates.Count;
         var processedCandidates = 0;
 
@@ -31,7 +32,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
             if (!File.Exists(path))
             {
                 if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
                 continue;
             }
 
@@ -51,7 +52,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                 {
                     convertSkipped++;
                     if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
                     continue;
                 }
 
@@ -59,7 +60,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                 {
                     convertSkipped++;
                     if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
                     continue;
                 }
 
@@ -112,7 +113,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
             }
             else if (convResult.Outcome == ConversionOutcome.Blocked)
             {
-                convertSkipped++;
+                convertBlocked++;
             }
             else
             {
@@ -122,13 +123,13 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
             }
 
             if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
         }
 
-        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertErrors} Fehler");
+        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertBlocked} blockiert, {convertErrors} Fehler");
         context.Metrics.CompletePhase(converted);
 
-        return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped);
+        return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked);
     }
 
     private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
@@ -165,4 +166,5 @@ public sealed record ConvertOnlyPhaseInput(
 public sealed record ConvertOnlyPhaseOutput(
     int Converted,
     int ConvertErrors,
-    int ConvertSkipped);
+    int ConvertSkipped,
+    int ConvertBlocked);

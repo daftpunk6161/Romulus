@@ -46,6 +46,7 @@ internal static class CliOutputWriter
             ConvertedCount = projection.ConvertedCount,
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
+            ConvertBlockedCount = projection.ConvertBlockedCount,
             JunkRemovedCount = projection.JunkRemovedCount,
             FilteredNonGameCount = projection.FilteredNonGameCount,
             MoveCount = projection.MoveCount,
@@ -161,6 +162,7 @@ internal sealed class CliDryRunOutput
     public int ConvertedCount { get; init; }
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
+    public int ConvertBlockedCount { get; init; }
     public int JunkRemovedCount { get; init; }
     public int FilteredNonGameCount { get; init; }
     public int MoveCount { get; init; }

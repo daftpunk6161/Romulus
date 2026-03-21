@@ -68,6 +68,13 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
         using var stream = File.OpenRead(path);
         using var doc = JsonDocument.Parse(stream);
 
+        ValidateAllowedProperties(
+            doc.RootElement,
+            ["schemaVersion", "capabilities"],
+            "conversion-registry root");
+
+        _ = ReadRequiredString(doc.RootElement, "schemaVersion");
+
         if (!doc.RootElement.TryGetProperty("capabilities", out var capabilitiesElement)
             || capabilitiesElement.ValueKind != JsonValueKind.Array)
         {
@@ -85,9 +92,31 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
 
     private static ConversionCapability ParseCapability(JsonElement item)
     {
+        ValidateAllowedProperties(
+            item,
+            [
+                "sourceExtension",
+                "targetExtension",
+                "tool",
+                "command",
+                "applicableConsoles",
+                "requiredSourceIntegrity",
+                "resultIntegrity",
+                "lossless",
+                "cost",
+                "verification",
+                "description",
+                "condition"
+            ],
+            "conversion capability");
+
         var sourceExtension = ReadRequiredString(item, "sourceExtension");
         var targetExtension = ReadRequiredString(item, "targetExtension");
-        var toolElement = item.GetProperty("tool");
+        if (!item.TryGetProperty("tool", out var toolElement) || toolElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("Missing required property 'tool'.");
+
+        ValidateAllowedProperties(toolElement, ["toolName", "expectedHash", "minVersion"], "conversion tool");
+
         var tool = new ToolRequirement
         {
             ToolName = ReadRequiredString(toolElement, "toolName"),
@@ -128,6 +157,8 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
         using var stream = File.OpenRead(path);
         using var doc = JsonDocument.Parse(stream);
 
+        ValidateAllowedProperties(doc.RootElement, ["_meta", "consoles"], "consoles root");
+
         if (!doc.RootElement.TryGetProperty("consoles", out var consolesElement)
             || consolesElement.ValueKind != JsonValueKind.Array)
         {
@@ -141,6 +172,23 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
 
         foreach (var console in consolesElement.EnumerateArray())
         {
+            ValidateAllowedProperties(
+                console,
+                [
+                    "key",
+                    "displayName",
+                    "discBased",
+                    "uniqueExts",
+                    "ambigExts",
+                    "folderAliases",
+                    "aliases",
+                    "hints",
+                    "conversionPolicy",
+                    "preferredConversionTarget",
+                    "alternativeTargets"
+                ],
+                "console entry");
+
             var key = ReadRequiredString(console, "key");
             knownKeys.Add(key);
 
@@ -239,5 +287,19 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
             throw new InvalidOperationException($"Invalid value '{value}' for enum {typeof(TEnum).Name}.");
 
         return parsed;
+    }
+
+    private static void ValidateAllowedProperties(JsonElement element, string[] allowedProperties, string context)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException($"Expected object for {context}.");
+
+        var allowSet = new HashSet<string>(allowedProperties, StringComparer.Ordinal);
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!allowSet.Contains(property.Name))
+                throw new InvalidOperationException($"Unexpected property '{property.Name}' in {context}.");
+        }
     }
 }

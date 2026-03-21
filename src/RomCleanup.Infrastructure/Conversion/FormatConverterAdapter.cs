@@ -203,6 +203,15 @@ public sealed class FormatConverterAdapter : IFormatConverter
         var plan = _planner.Plan(sourcePath, consoleKey, sourceExt);
         if (!plan.IsExecutable)
         {
+            // Preserve legacy archive extraction behavior for disc systems when graph data has no archive edge.
+            if (string.Equals(plan.SkipReason, "no-conversion-path", StringComparison.OrdinalIgnoreCase)
+                && IsArchiveContainerSource(sourceExt))
+            {
+                var fallbackTarget = GetTargetFormat(consoleKey, sourceExt);
+                if (fallbackTarget is not null)
+                    return Convert(sourcePath, fallbackTarget, cancellationToken);
+            }
+
             var outcome = plan.Safety == ConversionSafety.Blocked
                 ? ConversionOutcome.Blocked
                 : ConversionOutcome.Skipped;
@@ -217,6 +226,12 @@ public sealed class FormatConverterAdapter : IFormatConverter
         }
 
         return _executor.Execute(plan, cancellationToken: cancellationToken);
+    }
+
+    private static bool IsArchiveContainerSource(string extension)
+    {
+        return string.Equals(extension, ".zip", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(extension, ".7z", StringComparison.OrdinalIgnoreCase);
     }
 
     private ConversionTarget? TryGetRegistryTarget(string consoleKey, string sourceExtension)

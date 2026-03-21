@@ -19,6 +19,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
         int converted = 0;
         int convertErrors = 0;
         int convertSkipped = 0;
+        int convertBlocked = 0;
         var totalGroups = input.GameGroups.Count;
         var processedGroups = 0;
 
@@ -31,7 +32,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
             if (input.JunkRemovedPaths.Contains(winnerPath) || !File.Exists(winnerPath))
             {
                 if (processedGroups % 25 == 0 || processedGroups == totalGroups)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
                 continue;
             }
 
@@ -50,7 +51,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                 if (target is null)
                 {
                     if (processedGroups % 25 == 0 || processedGroups == totalGroups)
-                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
                     continue;
                 }
 
@@ -102,7 +103,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
             }
             else if (convResult.Outcome == ConversionOutcome.Blocked)
             {
-                convertSkipped++;
+                convertBlocked++;
             }
             else
             {
@@ -118,13 +119,13 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
             }
 
             if (processedGroups % 25 == 0 || processedGroups == totalGroups)
-                context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, err={convertErrors})");
+                context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedGroups}/{totalGroups} Gruppen (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
         }
 
-        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertErrors} Fehler");
+        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertBlocked} blockiert, {convertErrors} Fehler");
         context.Metrics.CompletePhase(converted);
 
-        return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped);
+        return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked);
     }
 
     private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
@@ -162,4 +163,5 @@ public sealed record WinnerConversionPhaseInput(
 public sealed record WinnerConversionPhaseOutput(
     int Converted,
     int ConvertErrors,
-    int ConvertSkipped);
+    int ConvertSkipped,
+    int ConvertBlocked);

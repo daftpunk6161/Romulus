@@ -56,6 +56,64 @@ public sealed class ConversionRegistryLoaderTests
         Assert.Throws<InvalidOperationException>(() => new ConversionRegistryLoader(fixture.RegistryPath, fixture.ConsolesPath));
     }
 
+        [Fact]
+        public void Constructor_UnexpectedCapabilityProperty_Throws()
+        {
+                using var fixture = new LoaderFixture();
+                fixture.WriteRegistryWithRawJson(
+                        """
+                        {
+                            "schemaVersion": "conversion-registry-v1",
+                            "capabilities": [
+                                {
+                                    "sourceExtension": ".iso",
+                                    "targetExtension": ".chd",
+                                    "tool": { "toolName": "chdman" },
+                                    "command": "createcd",
+                                    "resultIntegrity": "Lossless",
+                                    "lossless": true,
+                                    "cost": 0,
+                                    "verification": "ChdmanVerify",
+                                    "condition": "None",
+                                    "unexpected": "boom"
+                                }
+                            ]
+                        }
+                        """);
+                fixture.WriteConsoles([("PS1", "Auto", ".chd", Array.Empty<string>())]);
+
+                var ex = Assert.Throws<InvalidOperationException>(() =>
+                        new ConversionRegistryLoader(fixture.RegistryPath, fixture.ConsolesPath));
+
+                Assert.Contains("Unexpected property", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Constructor_UnexpectedConsoleProperty_Throws()
+        {
+                using var fixture = new LoaderFixture();
+                fixture.WriteValidRegistry();
+                fixture.WriteConsolesWithRawJson(
+                        """
+                        {
+                            "consoles": [
+                                {
+                                    "key": "PS1",
+                                    "conversionPolicy": "Auto",
+                                    "preferredConversionTarget": ".chd",
+                                    "alternativeTargets": [],
+                                    "unknownField": true
+                                }
+                            ]
+                        }
+                        """);
+
+                var ex = Assert.Throws<InvalidOperationException>(() =>
+                        new ConversionRegistryLoader(fixture.RegistryPath, fixture.ConsolesPath));
+
+                Assert.Contains("Unexpected property", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
     [Fact]
     public void GetAlternativeTargets_ReturnsConfiguredValues()
     {
@@ -116,6 +174,11 @@ public sealed class ConversionRegistryLoaderTests
             File.WriteAllText(RegistryPath, JsonSerializer.Serialize(payload));
         }
 
+        public void WriteRegistryWithRawJson(string json)
+        {
+            File.WriteAllText(RegistryPath, json);
+        }
+
         public void WriteConsoles((string Key, string Policy, string? Preferred, string[] Alternatives)[] consoles)
         {
             var payload = new
@@ -129,6 +192,11 @@ public sealed class ConversionRegistryLoaderTests
                 }).ToArray()
             };
             File.WriteAllText(ConsolesPath, JsonSerializer.Serialize(payload));
+        }
+
+        public void WriteConsolesWithRawJson(string json)
+        {
+            File.WriteAllText(ConsolesPath, json);
         }
 
         public void Dispose()
