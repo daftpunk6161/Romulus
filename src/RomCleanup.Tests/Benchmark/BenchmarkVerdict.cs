@@ -20,6 +20,9 @@ public enum BenchmarkVerdict
     /// <summary>Negative control correctly identified as unknown.</summary>
     TrueNegative,
 
+    /// <summary>Junk content identified as its platform family without treating it as a sortable game.</summary>
+    JunkClassified,
+
     /// <summary>Negative control incorrectly assigned a console.</summary>
     FalsePositive
 }

@@ -46,7 +46,7 @@ internal static class MetricsAggregator
         int total = results.Count;
         int wrong = results.Count(r => r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive);
         int unknown = results.Count(r => string.IsNullOrWhiteSpace(r.ActualConsoleKey) || string.Equals(r.ActualConsoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase));
-        int unsafeSort = results.Count(r => r.ActualConfidence >= 80 && r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive);
+        int unsafeSort = results.Count(r => r.ActualConfidence >= 80 && (r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive));
 
         return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {

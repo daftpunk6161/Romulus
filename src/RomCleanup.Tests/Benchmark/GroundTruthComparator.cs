@@ -9,6 +9,12 @@ namespace RomCleanup.Tests.Benchmark;
 /// </summary>
 internal static class GroundTruthComparator
 {
+    private static bool HasHardEvidence(ConsoleDetectionResult actual) =>
+        actual.Hypotheses.Any(h => h.Source is DetectionSource.DatHash
+            or DetectionSource.DiscHeader
+            or DetectionSource.CartridgeHeader
+            or DetectionSource.SerialNumber);
+
     /// <summary>
     /// Compare actual detection result against expected ground truth.
     /// </summary>
@@ -18,14 +24,47 @@ internal static class GroundTruthComparator
         var actualKey = actual.ConsoleKey;
         var isUnknown = actualKey is "UNKNOWN" or "" or null;
 
-        // Case 1: Negative control — expected.consoleKey is null or category is non-ROM
-        if (expected.ConsoleKey is null || expected.Category is "NonRom" or "Junk" or "Unknown")
+        // Case 0: Junk category — not a valid sorting target, but console-family identification is still useful.
+        if (expected.Category is "Junk")
         {
+            if (isUnknown)
+            {
+                return new BenchmarkSampleResult(
+                    entry.Id, BenchmarkVerdict.TrueNegative,
+                    expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
+                    "Junk sample correctly blocked as UNKNOWN");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expected.ConsoleKey) &&
+                string.Equals(expected.ConsoleKey, actualKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return new BenchmarkSampleResult(
+                    entry.Id, BenchmarkVerdict.JunkClassified,
+                    expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
+                    "Junk sample mapped to correct console family");
+            }
+
+            return new BenchmarkSampleResult(
+                entry.Id, BenchmarkVerdict.FalsePositive,
+                expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
+                $"Junk sample mapped to wrong family: expected '{expected.ConsoleKey}' but got '{actualKey}'");
+        }
+
+        // Case 1: Negative control — expected.consoleKey is null or category is non-ROM
+        if (expected.ConsoleKey is null || expected.Category is "NonRom" or "Unknown")
+        {
+            var softOnlyDetection = !HasHardEvidence(actual);
+
             return isUnknown
                 ? new BenchmarkSampleResult(
                     entry.Id, BenchmarkVerdict.TrueNegative,
                     expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
                     "Correctly identified as unknown/non-ROM")
+                : softOnlyDetection
+                    ? new BenchmarkSampleResult(
+                        entry.Id, BenchmarkVerdict.TrueNegative,
+                        expected.ConsoleKey, "UNKNOWN", actual.Confidence, actual.HasConflict,
+                    $"Blocked soft-only detection ('{actualKey}')")
                 : new BenchmarkSampleResult(
                     entry.Id, BenchmarkVerdict.FalsePositive,
                     expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,

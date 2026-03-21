@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace RomCleanup.Tests.Benchmark;
 
-internal sealed record BenchmarkSystemSummary(int Correct, int Acceptable, int Wrong, int Missed, int TrueNegative, int FalsePositive);
+internal sealed record BenchmarkSystemSummary(int Correct, int Acceptable, int Wrong, int Missed, int TrueNegative, int JunkClassified, int FalsePositive);
 
 internal sealed record BenchmarkReport(
     DateTimeOffset Timestamp,
@@ -13,6 +13,7 @@ internal sealed record BenchmarkReport(
     int Wrong,
     int Missed,
     int TrueNegative,
+    int JunkClassified,
     int FalsePositive,
     double WrongMatchRate,
     IReadOnlyDictionary<string, BenchmarkSystemSummary> PerSystem,
@@ -43,6 +44,7 @@ internal static class BenchmarkReportWriter
                     Wrong: g.Count(x => x.Verdict == BenchmarkVerdict.Wrong),
                     Missed: g.Count(x => x.Verdict == BenchmarkVerdict.Missed),
                     TrueNegative: g.Count(x => x.Verdict == BenchmarkVerdict.TrueNegative),
+                    JunkClassified: g.Count(x => x.Verdict == BenchmarkVerdict.JunkClassified),
                     FalsePositive: g.Count(x => x.Verdict == BenchmarkVerdict.FalsePositive)),
                 StringComparer.OrdinalIgnoreCase);
 
@@ -58,6 +60,7 @@ internal static class BenchmarkReportWriter
             Wrong: results.Count(r => r.Verdict == BenchmarkVerdict.Wrong),
             Missed: results.Count(r => r.Verdict == BenchmarkVerdict.Missed),
             TrueNegative: results.Count(r => r.Verdict == BenchmarkVerdict.TrueNegative),
+            JunkClassified: results.Count(r => r.Verdict == BenchmarkVerdict.JunkClassified),
             FalsePositive: results.Count(r => r.Verdict == BenchmarkVerdict.FalsePositive),
             WrongMatchRate: total == 0 ? 0 : (double)wrong / total,
             PerSystem: bySystem,

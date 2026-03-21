@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using RomCleanup.Core.Caching;
 
@@ -12,6 +13,11 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public sealed class ConsoleDetector
 {
+    private static readonly Regex JunkNamePattern = new(
+        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program|hack|pirate|bootleg|homebrew|aftermarket|translated|translation)\)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(200));
+
     private readonly Dictionary<string, string> _folderMap;     // alias → key
     private readonly Dictionary<string, string> _uniqueExtMap;  // .ext → key
     private readonly Dictionary<string, List<string>> _ambigExtMap; // .ext → [keys]
@@ -173,6 +179,10 @@ public sealed class ConsoleDetector
     /// </summary>
     public string Detect(string filePath, string rootPath)
     {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        if (IsLikelyJunkName(fileName))
+            return "UNKNOWN";
+
         // Method 1: Folder name
         var byFolder = DetectByFolder(filePath, rootPath);
         if (byFolder is not null)
@@ -216,7 +226,7 @@ public sealed class ConsoleDetector
         }
 
         // Method 6: Filename serial numbers and system keywords (e.g. SLUS-00123 → PS1, [GBA] tag)
-        var byFilename = FilenameConsoleAnalyzer.Detect(Path.GetFileNameWithoutExtension(filePath));
+        var byFilename = FilenameConsoleAnalyzer.Detect(fileName);
         if (byFilename is not null)
             return byFilename.Value.ConsoleKey;
 
@@ -233,6 +243,11 @@ public sealed class ConsoleDetector
         var hypotheses = new List<DetectionHypothesis>();
         var ext = Path.GetExtension(filePath);
         var fileName = Path.GetFileNameWithoutExtension(filePath);
+
+        // Junk-like pre-release markers are intentionally blocked from auto classification.
+        if (IsLikelyJunkName(fileName))
+            return ConsoleDetectionResult.Unknown;
+
 
         // Method 1: Folder name
         var byFolder = DetectByFolder(filePath, rootPath);
@@ -295,6 +310,22 @@ public sealed class ConsoleDetector
 
         return HypothesisResolver.Resolve(hypotheses);
     }
+
+    private static bool IsLikelyJunkName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        try
+        {
+            return JunkNamePattern.IsMatch(fileName);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
 
     /// <summary>
     /// Detect console by inspecting the file extensions of entries inside a ZIP or 7z archive.

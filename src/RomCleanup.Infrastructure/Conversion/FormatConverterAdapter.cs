@@ -13,6 +13,23 @@ public sealed class FormatConverterAdapter : IFormatConverter
     private readonly IToolRunner _tools;
     private readonly IReadOnlyDictionary<string, ConversionTarget> _bestFormats;
 
+    // Systems that must never be auto-converted because format conversion would
+    // violate set integrity, require proprietary keys, or has no safe target path.
+    private static readonly IReadOnlySet<string> BlockedAutoSystems =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ARCADE", "NEOGEO", "SWITCH", "PS3", "3DS", "VITA", "DOS"
+        };
+
+    // Systems that may have technical conversion paths but require explicit user review.
+    // The current IFormatConverter contract has no confirmation channel, therefore these
+    // are blocked from auto-selection here.
+    private static readonly IReadOnlySet<string> ManualOnlySystems =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "XBOX", "X360", "WIIU", "PC98", "X68K"
+        };
+
     /// <summary>
     /// Default best target format per console type.
     /// Port of $script:BEST_FORMAT from Convert.ps1.
@@ -49,8 +66,6 @@ public sealed class FormatConverterAdapter : IFormatConverter
         ["SMS"]    = new(".zip", "7z", "zip"),
         ["GG"]     = new(".zip", "7z", "zip"),
         ["PCE"]    = new(".zip", "7z", "zip"),
-        ["NEOGEO"] = new(".zip", "7z", "zip"),
-        ["ARCADE"] = new(".zip", "7z", "zip"),
     };
 
     private static readonly ConversionTarget PbpTarget = new(".chd", "psxtract", "pbp2chd");
@@ -74,13 +89,22 @@ public sealed class FormatConverterAdapter : IFormatConverter
     public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
     {
         var ext = sourceExtension?.ToLowerInvariant() ?? "";
-        if (ext == ".pbp")
-            return PbpTarget;
 
         if (string.IsNullOrWhiteSpace(consoleKey))
             return null;
 
-        return _bestFormats.TryGetValue(consoleKey.Trim(), out var target) ? target : null;
+        var normalizedConsole = consoleKey.Trim();
+
+        if (BlockedAutoSystems.Contains(normalizedConsole) || ManualOnlySystems.Contains(normalizedConsole))
+            return null;
+
+        if (ext == ".pbp")
+            return PbpTarget;
+
+        if (!_bestFormats.TryGetValue(normalizedConsole, out var target))
+            return null;
+
+        return IsSupportedSourceForTarget(ext, target) ? target : null;
     }
 
     public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
@@ -178,7 +202,25 @@ public sealed class FormatConverterAdapter : IFormatConverter
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped,
                 $"chdman-unsupported-source:{sourceExt}");
 
-        var args = new[] { command, "-i", sourcePath, "-o", targetPath };
+        // PS2 CD/DVD safety heuristic: images under 700MB should be treated as CD images.
+        // This avoids createDVD on CD-based PS2 titles which can produce invalid outputs.
+        var effectiveCommand = command;
+        if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase) && sourceExt is ".iso" or ".bin" or ".img")
+        {
+            try
+            {
+                const long ps2CdThreshold = 700L * 1024 * 1024;
+                var size = new FileInfo(sourcePath).Length;
+                if (size > 0 && size < ps2CdThreshold)
+                    effectiveCommand = "createcd";
+            }
+            catch
+            {
+                // Best effort only; keep caller-selected command if size cannot be read.
+            }
+        }
+
+        var args = new[] { effectiveCommand, "-i", sourcePath, "-o", targetPath };
         var result = _tools.InvokeProcess(toolPath, args, "chdman");
 
         if (!result.Success)
@@ -460,5 +502,21 @@ public sealed class FormatConverterAdapter : IFormatConverter
         {
             // Best effort cleanup
         }
+    }
+
+    private static bool IsSupportedSourceForTarget(string sourceExt, ConversionTarget target)
+    {
+        if (string.IsNullOrWhiteSpace(sourceExt))
+            return false;
+
+        var tool = target.ToolName.ToLowerInvariant();
+        return tool switch
+        {
+            "chdman" => sourceExt is ".cue" or ".gdi" or ".iso" or ".bin" or ".img" or ".zip" or ".7z",
+            "dolphintool" => sourceExt is ".iso" or ".gcm" or ".wbfs" or ".rvz" or ".gcz" or ".wia",
+            "psxtract" => sourceExt == ".pbp",
+            "7z" => true,
+            _ => false
+        };
     }
 }

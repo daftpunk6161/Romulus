@@ -428,6 +428,48 @@ public class ConsoleDetectorTests
         Assert.Equal("DC", detector.Detect(@"D:\Roms\game.chd", @"D:\Roms"));
     }
 
+    [Fact]
+    public void DetectWithConfidence_JunkMarkerName_ReturnsUnknown()
+    {
+        var detector = CreateDetector();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"detector-junk-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var filePath = Path.Combine(tempDir, "Game (Demo) (USA).nes");
+        File.WriteAllBytes(filePath, new byte[512]);
+
+        try
+        {
+            var result = detector.DetectWithConfidence(filePath, tempDir);
+            Assert.Equal("UNKNOWN", result.ConsoleKey);
+            Assert.Equal(0, result.Confidence);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void DetectWithConfidence_NonTinyUniqueExtension_ReturnsConsole()
+    {
+        var detector = CreateDetector();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"detector-unique-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var filePath = Path.Combine(tempDir, "normal.nes");
+        File.WriteAllBytes(filePath, new byte[256]);
+
+        try
+        {
+            var result = detector.DetectWithConfidence(filePath, tempDir);
+            Assert.Equal("NES", result.ConsoleKey);
+            Assert.InRange(result.Confidence, 90, 100);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
     // ── Helper ──────────────────────────────────────────────────────────
 
     private static string CreateTestZip(string innerFileName, int innerSize, string? outerName = null)
