@@ -143,6 +143,7 @@ public static class OpenApiSpec
           "convertedCount": { "type": "integer" },
           "convertErrorCount": { "type": "integer" },
           "convertSkippedCount": { "type": "integer" },
+          "convertBlockedCount": { "type": "integer" },
           "junkRemovedCount": { "type": "integer" },
           "filteredNonGameCount": { "type": "integer" },
           "junkFailCount": { "type": "integer" },

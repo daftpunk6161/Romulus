@@ -1,6 +1,7 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Conversion;
+using System.IO.Compression;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -132,6 +133,67 @@ public class FormatConverterAdapterTests
         }
     }
 
+    [Fact]
+    public void ConvertForConsole_NoConversionPath_ZipSource_FallsBackToLegacyConversion()
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"conv_zip_fallback_{Guid.NewGuid():N}.zip");
+        var expectedTarget = Path.ChangeExtension(zipPath, ".chd");
+
+        try
+        {
+            using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                var cueEntry = archive.CreateEntry("game.cue");
+                using var cueWriter = new StreamWriter(cueEntry.Open());
+                cueWriter.Write("FILE \"game.bin\" BINARY");
+            }
+
+            var converter = new FormatConverterAdapter(
+                _tools,
+                null,
+                registry: null,
+                planner: new NonExecutablePlanner("no-conversion-path", ConversionSafety.Safe),
+                executor: new ThrowingExecutor());
+
+            var result = converter.ConvertForConsole(zipPath, "PS1");
+
+            Assert.Equal(ConversionOutcome.Success, result.Outcome);
+            Assert.Equal(expectedTarget, result.TargetPath);
+            Assert.True(File.Exists(expectedTarget));
+        }
+        finally
+        {
+            if (File.Exists(zipPath)) File.Delete(zipPath);
+            if (File.Exists(expectedTarget)) File.Delete(expectedTarget);
+        }
+    }
+
+    [Fact]
+    public void ConvertForConsole_NoConversionPath_NonArchive_DoesNotFallback()
+    {
+        var isoPath = Path.Combine(Path.GetTempPath(), $"conv_no_fallback_{Guid.NewGuid():N}.iso");
+        try
+        {
+            File.WriteAllBytes(isoPath, [1, 2, 3]);
+
+            var converter = new FormatConverterAdapter(
+                _tools,
+                null,
+                registry: null,
+                planner: new NonExecutablePlanner("no-conversion-path", ConversionSafety.Safe),
+                executor: new ThrowingExecutor());
+
+            var result = converter.ConvertForConsole(isoPath, "PS1");
+
+            Assert.Equal(ConversionOutcome.Skipped, result.Outcome);
+            Assert.Equal("no-conversion-path", result.Reason);
+        }
+        finally
+        {
+            if (File.Exists(isoPath)) File.Delete(isoPath);
+        }
+    }
+
     // --- Format table completeness ---
 
     [Fact]
@@ -228,6 +290,37 @@ public class FormatConverterAdapterTests
         public ToolResult Invoke7z(string sevenZipPath, string[] arguments)
         {
             return new ToolResult(0, "OK", true);
+        }
+    }
+
+    private sealed class NonExecutablePlanner(string skipReason, ConversionSafety safety) : IConversionPlanner
+    {
+        public ConversionPlan Plan(string sourcePath, string consoleKey, string sourceExtension)
+        {
+            return new ConversionPlan
+            {
+                SourcePath = sourcePath,
+                ConsoleKey = consoleKey,
+                Policy = ConversionPolicy.Auto,
+                SourceIntegrity = SourceIntegrity.Lossless,
+                Safety = safety,
+                Steps = Array.Empty<ConversionStep>(),
+                SkipReason = skipReason
+            };
+        }
+
+        public IReadOnlyList<ConversionPlan> PlanBatch(IReadOnlyList<(string Path, string ConsoleKey, string Extension)> candidates)
+            => candidates.Select(c => Plan(c.Path, c.ConsoleKey, c.Extension)).ToArray();
+    }
+
+    private sealed class ThrowingExecutor : IConversionExecutor
+    {
+        public ConversionResult Execute(
+            ConversionPlan plan,
+            Action<ConversionStep, ConversionStepResult>? onStepComplete = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Executor should not be called in fallback tests.");
         }
     }
 }

@@ -60,7 +60,7 @@ public sealed class ConversionExecutorHardeningTests
     }
 
     [Fact]
-    public void Execute_ExceptionInLaterStep_CleansIntermediateArtifacts()
+    public void Execute_ExceptionInLaterStep_ReturnsError_AndCleansIntermediateArtifacts()
     {
         var source = CreateTempFile(".cso");
         var sourceDir = Path.GetDirectoryName(source)!;
@@ -98,8 +98,10 @@ public sealed class ConversionExecutorHardeningTests
             };
 
             var executor = new ConversionExecutor([new ThrowOnCommandInvoker("throw")]);
+            var result = executor.Execute(plan);
 
-            Assert.Throws<InvalidOperationException>(() => executor.Execute(plan));
+            Assert.Equal(ConversionOutcome.Error, result.Outcome);
+            Assert.Equal("forced", result.Reason);
             Assert.False(File.Exists(intermediatePath));
         }
         finally
@@ -112,6 +114,45 @@ public sealed class ConversionExecutorHardeningTests
                 File.Delete(finalPath);
             if (File.Exists(intermediatePath))
                 File.Delete(intermediatePath);
+        }
+    }
+
+    [Fact]
+    public void Execute_InvalidOutputExtension_ReturnsError()
+    {
+        var source = CreateTempFile(".iso");
+        try
+        {
+            var plan = new ConversionPlan
+            {
+                SourcePath = source,
+                ConsoleKey = "PS1",
+                Policy = ConversionPolicy.Auto,
+                SourceIntegrity = SourceIntegrity.Lossless,
+                Safety = ConversionSafety.Safe,
+                Steps =
+                [
+                    new ConversionStep
+                    {
+                        Order = 0,
+                        InputExtension = ".iso",
+                        OutputExtension = ".chd/evil",
+                        Capability = Capability(".iso", ".chd/evil", "chdman", "createcd"),
+                        IsIntermediate = false
+                    }
+                ]
+            };
+
+            var executor = new ConversionExecutor([new PassThroughInvoker()]);
+            var result = executor.Execute(plan);
+
+            Assert.Equal(ConversionOutcome.Error, result.Outcome);
+            Assert.Equal("invalid-output-extension", result.Reason);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
         }
     }
 

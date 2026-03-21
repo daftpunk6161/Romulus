@@ -126,6 +126,7 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         Assert.Equal(projection.ConvertedCount, cliJson.RootElement.GetProperty("ConvertedCount").GetInt32());
         Assert.Equal(projection.ConvertErrorCount, cliJson.RootElement.GetProperty("ConvertErrorCount").GetInt32());
         Assert.Equal(projection.ConvertSkippedCount, cliJson.RootElement.GetProperty("ConvertSkippedCount").GetInt32());
+        Assert.Equal(projection.ConvertBlockedCount, cliJson.RootElement.GetProperty("ConvertBlockedCount").GetInt32());
         Assert.Equal(projection.JunkRemovedCount, cliJson.RootElement.GetProperty("JunkRemovedCount").GetInt32());
         Assert.Equal(projection.MoveCount, cliJson.RootElement.GetProperty("MoveCount").GetInt32());
         Assert.Equal(projection.SkipCount, cliJson.RootElement.GetProperty("SkipCount").GetInt32());
@@ -151,6 +152,7 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         Assert.Equal(projection.ConvertedCount, api.ConvertedCount);
         Assert.Equal(projection.ConvertErrorCount, api.ConvertErrorCount);
         Assert.Equal(projection.ConvertSkippedCount, api.ConvertSkippedCount);
+        Assert.Equal(projection.ConvertBlockedCount, api.ConvertBlockedCount);
         Assert.Equal(projection.JunkRemovedCount, api.JunkRemovedCount);
         Assert.Equal(projection.MoveCount, api.MoveCount);
         Assert.Equal(projection.SkipCount, api.SkipCount);
@@ -175,6 +177,7 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         Assert.Equal(projection.ConvertedCount, reportSummary.ConvertedCount);
         Assert.Equal(projection.ConvertErrorCount, reportSummary.ConvertErrorCount);
         Assert.Equal(projection.ConvertSkippedCount, reportSummary.ConvertSkippedCount);
+        Assert.Equal(projection.ConvertBlockedCount, reportSummary.ConvertBlockedCount);
         Assert.Equal(projection.JunkRemovedCount, reportSummary.JunkRemovedCount);
         Assert.Equal(projection.SkipCount, reportSummary.SkipCount);
         Assert.Equal(projection.JunkFailCount, reportSummary.JunkFailCount);

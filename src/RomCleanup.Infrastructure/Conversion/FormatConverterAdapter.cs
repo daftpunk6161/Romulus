@@ -209,7 +209,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
             {
                 var fallbackTarget = GetTargetFormat(consoleKey, sourceExt);
                 if (fallbackTarget is not null)
-                    return Convert(sourcePath, fallbackTarget, cancellationToken);
+                    return ConvertLegacy(sourcePath, fallbackTarget, cancellationToken);
             }
 
             var outcome = plan.Safety == ConversionSafety.Blocked
@@ -232,6 +232,38 @@ public sealed class FormatConverterAdapter : IFormatConverter
     {
         return string.Equals(extension, ".zip", StringComparison.OrdinalIgnoreCase)
             || string.Equals(extension, ".7z", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private ConversionResult ConvertLegacy(string sourcePath, ConversionTarget target, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(sourcePath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "source-not-found");
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var toolPath = _tools.FindTool(target.ToolName);
+        if (toolPath is null)
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, $"tool-not-found:{target.ToolName}");
+
+        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var dir = Path.GetDirectoryName(sourcePath)!;
+        var baseName = Path.GetFileNameWithoutExtension(sourcePath);
+        var targetPath = Path.Combine(dir, baseName + target.Extension);
+
+        if (string.Equals(sourceExt, target.Extension, StringComparison.OrdinalIgnoreCase))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "already-target-format");
+
+        if (File.Exists(targetPath))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "target-exists");
+
+        return target.ToolName.ToLowerInvariant() switch
+        {
+            "chdman" => ConvertWithChdman(sourcePath, targetPath, toolPath, target.Command),
+            "dolphintool" => ConvertWithDolphinTool(sourcePath, targetPath, toolPath, sourceExt),
+            "7z" => ConvertWithSevenZip(sourcePath, targetPath, toolPath),
+            "psxtract" => ConvertWithPsxtract(sourcePath, targetPath, toolPath, target.Command),
+            _ => new ConversionResult(sourcePath, null, ConversionOutcome.Error, $"unknown-tool:{target.ToolName}")
+        };
     }
 
     private ConversionTarget? TryGetRegistryTarget(string consoleKey, string sourceExtension)

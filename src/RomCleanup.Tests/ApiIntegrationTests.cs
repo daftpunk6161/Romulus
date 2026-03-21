@@ -436,6 +436,7 @@ public sealed class ApiIntegrationTests
             Assert.True(result.TryGetProperty("datMatches", out _));
             Assert.True(result.TryGetProperty("healthScore", out _));
             Assert.True(result.TryGetProperty("convertSkippedCount", out _));
+            Assert.True(result.TryGetProperty("convertBlockedCount", out _));
         }
         finally
         {

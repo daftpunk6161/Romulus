@@ -55,6 +55,7 @@ public class RunProjectionFactoryTests
             ConvertedCount = 2,
             ConvertErrorCount = 1,
             ConvertSkippedCount = 3,
+            ConvertBlockedCount = 4,
             JunkRemovedCount = 1,
             MoveResult = new MovePhaseResult(MoveCount: 1, FailCount: 1, SavedBytes: 42, SkipCount: 1),
             JunkMoveResult = new MovePhaseResult(MoveCount: 1, FailCount: 2, SavedBytes: 0, SkipCount: 0),
@@ -85,6 +86,7 @@ public class RunProjectionFactoryTests
         Assert.Equal(2, projection.ConvertedCount);
         Assert.Equal(1, projection.ConvertErrorCount);
         Assert.Equal(3, projection.ConvertSkippedCount);
+        Assert.Equal(4, projection.ConvertBlockedCount);
         Assert.Equal(1, projection.JunkRemovedCount);
         Assert.Equal(1, projection.MoveCount);
         Assert.Equal(1, projection.SkipCount);
