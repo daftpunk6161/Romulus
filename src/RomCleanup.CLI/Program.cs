@@ -129,7 +129,7 @@ internal static class Program
         // Output
         if (cliOpts.Mode == "DryRun")
         {
-            SafeStandardWriteLine(CliOutputWriter.FormatDryRunJson(projection, result.DedupeGroups));
+            SafeStandardWriteLine(CliOutputWriter.FormatDryRunJson(projection, result.DedupeGroups, result.ConversionReport));
         }
         else if (cliOpts.Mode == "Move")
         {
@@ -156,7 +156,14 @@ internal static class Program
                 JsonlLogRotation.Rotate(cliOpts.LogPath);
         }
 
-        return result.ExitCode;
+        // SEC-CLI-01: Normalize exit code to documented range [0-3]
+        return result.ExitCode switch
+        {
+            0 => 0,
+            2 => 2,
+            3 => 3,
+            _ => 1
+        };
     }
 
     // --- Backward-compatible delegates for tests ---

@@ -93,10 +93,10 @@ public sealed partial class MainViewModel
     public string Tool7z { get => _tool7z; set { if (SetProperty(ref _tool7z, value)) { ValidateToolPath(value, nameof(Tool7z)); RefreshStatus(); } } }
 
     private string _toolPsxtract = "";
-    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) ValidateToolPath(value, nameof(ToolPsxtract)); } }
+    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) { ValidateToolPath(value, nameof(ToolPsxtract)); RefreshStatus(); } } }
 
     private string _toolCiso = "";
-    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) ValidateToolPath(value, nameof(ToolCiso)); } }
+    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) { ValidateToolPath(value, nameof(ToolCiso)); RefreshStatus(); } } }
 
     // ═══ BOOLEAN FLAGS (persisted) ══════════════════════════════════════
     [ObservableProperty]

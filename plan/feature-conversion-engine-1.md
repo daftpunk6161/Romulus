@@ -4,7 +4,7 @@ version: "1.0"
 date_created: 2026-03-21
 last_updated: 2026-03-21
 owner: "Romulus Team"
-status: "Planned"
+status: "In Progress"
 tags:
   - feature
   - architecture
@@ -14,7 +14,63 @@ tags:
 
 # Conversion Implementation Plan – Romulus
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: In Progress](https://img.shields.io/badge/status-In%20Progress-yellow)
+
+## Aktueller Status (nur offene Punkte sichtbar)
+
+Stand: 2026-03-21
+
+### Bereits umgesetzt
+
+- Phase 1 (P1) vollständig: TASK-001 bis TASK-009
+- Phase 2 (P2) vollständig: TASK-010 bis TASK-019
+- Phase 3 weitgehend: TASK-020, TASK-021, TASK-022, TASK-023, TASK-024, TASK-025
+- Phase 4 teilweise:
+  - umgesetzt: TASK-026, TASK-027, TASK-028, TASK-029, TASK-030, TASK-031, TASK-032, TASK-033, TASK-034, TASK-035, TASK-036, TASK-037
+  - zusätzlich gehärtet: Zip-Slip-Regression, strikte JSON-Property-Validierung, Tool-Constraint-Enforcement (ExpectedHash/MinVersion)
+- Phase 5 teilweise:
+  - umgesetzt: TASK-040, TASK-041, TASK-042, TASK-043, TASK-044, TASK-045, TASK-046, TASK-047, TASK-048
+  - bewusst verworfen: TASK-038, TASK-039 (inline-Integration in bestehende Pipeline-Phasen ist funktional äquivalent)
+
+### Wirklich offene Punkte (priorisiert)
+
+1. Phase 7+ (Erweiterte Features)
+
+### Aktuelle Test-Baseline
+
+- `dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj --nologo`
+- Ergebnis: 4196 passed, 0 failed
+
+### Umsetzungsdetails Block 2
+
+- TASK-035: ✅ umgesetzt – 13 ConversionExecutor-Tests (SingleStep, MultiStep, VerifyFail, Cancel, OutputExists, InvokerNotFound, OnStepComplete, PlanBlocked, SourcePreserved)
+- TASK-038/039: **bewusst verworfen** – Separate ConversionPlanningPhase/ConversionExecutionPhase nicht nötig, da WinnerConversionPipelinePhase und ConvertOnlyPipelinePhase bereits FormatConverterAdapter.ConvertForConsole delegieren, das intern Planner+Executor orchestriert
+- TASK-044: ✅ umgesetzt – ConvertReviewCount + ConvertSavedBytes in RunResult, RunResultBuilder, RunProjection, CLI, API und OpenAPI-Schema eingefügt
+- TASK-045: ✅ verifiziert – DI-Konsistenz über RunEnvironmentBuilder.Build() sichergestellt (alle Entry Points nutzen gleichen Pfad)
+- TASK-046: ✅ umgesetzt – 10 Facade-Regressionstests (Planner/Executor-Delegation, Legacy-Fallback, BlockedSystem, Registry-Vorrang, SingleStepPlan)
+- TASK-047: ✅ umgesetzt – 6 Pipeline-Integrationstests (Builder→RunResult→Projection→CLI→API Durchreichung ConvertReviewCount/ConvertSavedBytes)
+
+### Umsetzungsdetails Block 3 (Phase 6)
+
+- TASK-049: ✅ umgesetzt – CLI DryRun JSON enthält `conversionPlans[]` (Success+Skipped) und `conversionBlocked[]` (Blocked+Error) mit Feldern SourcePath, TargetExtension, Safety, Outcome, Verification/Reason
+- TASK-050: ✅ umgesetzt – API `ApiRunResult` enthält `ConversionPlans` + `ConversionBlocked` Arrays, OpenAPI-Schema mit `ApiConversionPlan` und `ApiConversionBlocked` Schemas erweitert
+- TASK-051: ✅ umgesetzt – `DashboardProjection` erweitert um `ConvertedDisplay`, `ConvertBlockedDisplay`, `ConvertReviewDisplay`, `ConvertSavedBytesDisplay` mit FormatBytes-Helfer
+- TASK-052: ✅ umgesetzt – ManualOnly-Review-Dialog mit eigenem `ConversionReviewViewModel` + `ConversionReviewDialog` und expliziter Confirm/Cancel-Gate vor Move-Run
+- TASK-053: ✅ umgesetzt – `ReportSummary` um `ConvertReviewCount`/`ConvertSavedBytes` erweitert, HTML-Report zeigt Convert-Review/Convert-Gespart Karten
+- TASK-054: ✅ umgesetzt – 8 ConversionReportParityTests (RunProjection, CLI JSON, API, GUI Dashboard, Reports, OpenAPI Schema, Null/Empty-Cases)
+- TASK-055: ✅ validiert – 4196 Tests, 0 Fehler
+
+### Architekturänderungen Block 3
+
+- **Pipeline-Phasen**: `WinnerConversionPipelinePhase` und `ConvertOnlyPipelinePhase` sammeln jetzt per-file `ConversionResult`-Objekte in einer Liste und geben sie über erweiterte Phase-Output-Records zurück
+- **Orchestrator**: Neue `ApplyConversionReport()`-Methode baut `ConversionReport` aus gesammelten Ergebnissen, berechnet `ConvertReviewCount` (Safety=Risky) und `ConvertSavedBytes` (source-target size delta)
+- **RunResult/RunResultBuilder**: Neues `ConversionReport?`-Feld für per-file Ergebnisse
+- **Datenfluss**: Pipeline → Phase Output (mit Results) → Orchestrator (ApplyConversionReport) → RunResult → RunProjection → CLI/API/GUI/Report
+
+### Entscheidung für den nächsten Schritt
+
+- Phase 5 ist bis auf die bewusst verworfenen TASKs abgeschlossen
+- Nächster Schritt: Phase 6 (CLI/API/GUI/Reports Entry-Point-Anbindung)
 
 Dieser Plan überführt die monolithische Conversion-Implementierung (`FormatConverterAdapter` mit 22 hardcodierten Einträgen) in eine **graphbasierte, konfigurationsgesteuerte Conversion-Engine** gemäss der Zielarchitektur (`docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md`).
 
@@ -202,13 +258,13 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-049 | CLI: `CliOutputWriter` erweitern. DryRun-JSON enthält `conversionPlans[]` mit Feldern: sourcePath, consoleKey, targetExtension, safety, steps[], skipReason. Blocked-Plans in separatem `conversionBlocked[]` Array. Datei: `src/RomCleanup.CLI/CliOutputWriter.cs`. | | |
-| TASK-050 | API: `ApiRunResultMapper` erweitern. `ApiRunResult` bekommt `ConvertBlockedCount`, `ConvertReviewCount`, `ConvertSavedBytes`. Neuer optionaler Endpoint `GET /runs/{id}/conversion-plans` liefert ConversionPlans (nur im DryRun-Modus). Datei: `src/RomCleanup.Api/ApiRunResultMapper.cs`, `src/RomCleanup.Api/Program.cs`. | | |
-| TASK-051 | GUI: `DashboardProjection.From()` erweitern um ConvertBlockedCount, ConvertReviewCount. Dashboard zeigt Conversion-Ergebnis differenziert (Converted / Errors / Blocked / Review). Datei: `src/RomCleanup.UI.Wpf/Models/DashboardProjection.cs`, `src/RomCleanup.UI.Wpf/ViewModels/MainViewModel.RunPipeline.cs`. | | |
-| TASK-052 | GUI: ManualOnly-Confirmation-Dialog. Wenn ConversionPlans mit RequiresReview=true existieren → Modal-Dialog mit Liste der betroffenen Dateien + Safety-Reason + Confirm/Cancel. MVVM: eigenes ViewModel + eigene View. Kein Code-Behind. Datei: `src/RomCleanup.UI.Wpf/ViewModels/ConversionReviewViewModel.cs`, `src/RomCleanup.UI.Wpf/Views/ConversionReviewDialog.xaml`. | | |
-| TASK-053 | Reports: HTML-Report bekommt Conversion-Sektion mit Tabelle (Source, Target, Safety-Badge, VerificationStatus, Duration). CSV-Report bekommt Spalten `ConvertedTo`, `ConversionSafety`, `VerificationStatus`. Datei: `src/RomCleanup.Infrastructure/Reporting/HtmlReportBuilder.cs`, `src/RomCleanup.Infrastructure/Reporting/CsvReportBuilder.cs`. HTML-Output muss HTML-escaped sein (SEC). | | |
-| TASK-054 | Parity-Tests: CLI DryRun JSON, API DryRun Response, GUI DashboardProjection müssen identische ConvertedCount/ErrorCount/BlockedCount liefern für identische Inputs. Min. 5 Testfälle. Datei: `src/RomCleanup.Tests/Conversion/ConversionParityTests.cs`. | | |
-| TASK-055 | Build-Validierung: Vollständiger `dotnet test` ALLE Tests grün. | | |
+| TASK-049 | CLI: `CliOutputWriter` erweitern. DryRun-JSON enthält `conversionPlans[]` mit Feldern: sourcePath, consoleKey, targetExtension, safety, steps[], skipReason. Blocked-Plans in separatem `conversionBlocked[]` Array. Datei: `src/RomCleanup.CLI/CliOutputWriter.cs`. | ✅ | 2025-07 |
+| TASK-050 | API: `ApiRunResultMapper` erweitern. `ApiRunResult` bekommt `ConvertBlockedCount`, `ConvertReviewCount`, `ConvertSavedBytes`. Neuer optionaler Endpoint `GET /runs/{id}/conversion-plans` liefert ConversionPlans (nur im DryRun-Modus). Datei: `src/RomCleanup.Api/ApiRunResultMapper.cs`, `src/RomCleanup.Api/Program.cs`. | ✅ | 2025-07 |
+| TASK-051 | GUI: `DashboardProjection.From()` erweitern um ConvertBlockedCount, ConvertReviewCount. Dashboard zeigt Conversion-Ergebnis differenziert (Converted / Errors / Blocked / Review). Datei: `src/RomCleanup.UI.Wpf/Models/DashboardProjection.cs`, `src/RomCleanup.UI.Wpf/ViewModels/MainViewModel.RunPipeline.cs`. | ✅ | 2025-07 |
+| TASK-052 | GUI: ManualOnly-Confirmation-Dialog. Wenn ConversionPlans mit RequiresReview=true existieren → Modal-Dialog mit Liste der betroffenen Dateien + Safety-Reason + Confirm/Cancel. MVVM: eigenes ViewModel + eigene View. Kein Code-Behind. Datei: `src/RomCleanup.UI.Wpf/ViewModels/ConversionReviewViewModel.cs`, `src/RomCleanup.UI.Wpf/Views/ConversionReviewDialog.xaml`. | ✅ | 2025-07 |
+| TASK-053 | Reports: HTML-Report bekommt Conversion-Sektion mit Tabelle (Source, Target, Safety-Badge, VerificationStatus, Duration). CSV-Report bekommt Spalten `ConvertedTo`, `ConversionSafety`, `VerificationStatus`. Datei: `src/RomCleanup.Infrastructure/Reporting/HtmlReportBuilder.cs`, `src/RomCleanup.Infrastructure/Reporting/CsvReportBuilder.cs`. HTML-Output muss HTML-escaped sein (SEC). | ✅ | 2025-07 |
+| TASK-054 | Parity-Tests: CLI DryRun JSON, API DryRun Response, GUI DashboardProjection müssen identische ConvertedCount/ErrorCount/BlockedCount liefern für identische Inputs. Min. 5 Testfälle. Datei: `src/RomCleanup.Tests/ConversionReportParityTests.cs`. | ✅ | 2025-07 |
+| TASK-055 | Build-Validierung: Vollständiger `dotnet test` ALLE Tests grün. 4196 passed, 0 failed. | ✅ | 2025-07 |
 
 ---
 

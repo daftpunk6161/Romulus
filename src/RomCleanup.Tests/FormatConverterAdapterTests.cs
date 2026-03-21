@@ -194,6 +194,61 @@ public class FormatConverterAdapterTests
         }
     }
 
+    [Fact]
+    public void PlanForConsole_WithPlanner_ReturnsPlan()
+    {
+        var isoPath = Path.Combine(Path.GetTempPath(), $"conv_plan_{Guid.NewGuid():N}.iso");
+        try
+        {
+            File.WriteAllBytes(isoPath, [1, 2, 3]);
+
+            var expectedPlan = new ConversionPlan
+            {
+                SourcePath = isoPath,
+                ConsoleKey = "XBOX",
+                Policy = ConversionPolicy.ManualOnly,
+                SourceIntegrity = SourceIntegrity.Lossless,
+                Safety = ConversionSafety.Risky,
+                Steps = Array.Empty<ConversionStep>(),
+                SkipReason = "manual-only"
+            };
+
+            var converter = new FormatConverterAdapter(
+                _tools,
+                null,
+                registry: null,
+                planner: new FixedPlanner(expectedPlan),
+                executor: new ThrowingExecutor());
+
+            var plan = converter.PlanForConsole(isoPath, "XBOX");
+
+            Assert.NotNull(plan);
+            Assert.Equal("XBOX", plan!.ConsoleKey);
+            Assert.Equal(ConversionPolicy.ManualOnly, plan.Policy);
+            Assert.Equal(ConversionSafety.Risky, plan.Safety);
+        }
+        finally
+        {
+            if (File.Exists(isoPath)) File.Delete(isoPath);
+        }
+    }
+
+    [Fact]
+    public void PlanForConsole_WithoutPlanner_ReturnsNull()
+    {
+        var isoPath = Path.Combine(Path.GetTempPath(), $"conv_plan_none_{Guid.NewGuid():N}.iso");
+        try
+        {
+            File.WriteAllBytes(isoPath, [1, 2, 3]);
+            var plan = _converter.PlanForConsole(isoPath, "PS2");
+            Assert.Null(plan);
+        }
+        finally
+        {
+            if (File.Exists(isoPath)) File.Delete(isoPath);
+        }
+    }
+
     // --- Format table completeness ---
 
     [Fact]
@@ -322,5 +377,14 @@ public class FormatConverterAdapterTests
         {
             throw new InvalidOperationException("Executor should not be called in fallback tests.");
         }
+    }
+
+    private sealed class FixedPlanner(ConversionPlan plan) : IConversionPlanner
+    {
+        public ConversionPlan Plan(string sourcePath, string consoleKey, string sourceExtension)
+            => plan;
+
+        public IReadOnlyList<ConversionPlan> PlanBatch(IReadOnlyList<(string Path, string ConsoleKey, string Extension)> candidates)
+            => candidates.Select(_ => plan).ToArray();
     }
 }

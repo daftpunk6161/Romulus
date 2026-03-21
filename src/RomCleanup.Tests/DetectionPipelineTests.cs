@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Core.Classification;
 using Xunit;
 
@@ -709,8 +711,8 @@ public sealed class DetectionPipelineTests
 
         var result = HypothesisResolver.Resolve(hypotheses);
 
-        // Tied on TotalConfidence and MaxSingleConfidence → alphabetical: NES < SNES
-        Assert.Equal("NES", result.ConsoleKey);
+        // Tied soft-only competing signals → AMBIGUOUS (both FolderName, ratio=1.0)
+        Assert.Equal("AMBIGUOUS", result.ConsoleKey);
         Assert.True(result.HasConflict);
     }
 
@@ -875,6 +877,478 @@ public sealed class DetectionPipelineTests
         Assert.Equal(80, (int)DetectionSource.ArchiveContent);
         Assert.Equal(75, (int)DetectionSource.FilenameKeyword);
         Assert.Equal(40, (int)DetectionSource.AmbiguousExtension);
+    }
+
+    #endregion
+
+    // ──────────────────────────────────────────────────────────────────
+    //  SortDecision & Evidence Classification (Block 1)
+    // ──────────────────────────────────────────────────────────────────
+
+    #region SortDecision & Evidence Classification
+
+    [Theory]
+    [InlineData(DetectionSource.DatHash, true)]
+    [InlineData(DetectionSource.UniqueExtension, true)]
+    [InlineData(DetectionSource.DiscHeader, true)]
+    [InlineData(DetectionSource.CartridgeHeader, true)]
+    [InlineData(DetectionSource.SerialNumber, false)]
+    [InlineData(DetectionSource.FolderName, false)]
+    [InlineData(DetectionSource.ArchiveContent, false)]
+    [InlineData(DetectionSource.FilenameKeyword, false)]
+    [InlineData(DetectionSource.AmbiguousExtension, false)]
+    public void DetectionSource_IsHardEvidence_Classification(DetectionSource source, bool expectedHard)
+    {
+        Assert.Equal(expectedHard, source.IsHardEvidence());
+    }
+
+    [Theory]
+    [InlineData(DetectionSource.DatHash, 100)]
+    [InlineData(DetectionSource.UniqueExtension, 95)]
+    [InlineData(DetectionSource.DiscHeader, 92)]
+    [InlineData(DetectionSource.CartridgeHeader, 90)]
+    [InlineData(DetectionSource.SerialNumber, 75)]
+    [InlineData(DetectionSource.FolderName, 65)]
+    [InlineData(DetectionSource.ArchiveContent, 70)]
+    [InlineData(DetectionSource.FilenameKeyword, 60)]
+    [InlineData(DetectionSource.AmbiguousExtension, 40)]
+    public void DetectionSource_SingleSourceCap_Values(DetectionSource source, int expectedCap)
+    {
+        Assert.Equal(expectedCap, source.SingleSourceCap());
+    }
+
+    [Fact]
+    public void Resolver_FolderOnly_SoftOnlyCap65_Blocked()
+    {
+        // Folder-only detection should be capped at 65 and blocked from sorting
+        var result = HypothesisResolver.Resolve([
+            new("PS1", 85, DetectionSource.FolderName, "folder=PlayStation")
+        ]);
+
+        Assert.Equal("PS1", result.ConsoleKey);
+        Assert.Equal(65, result.Confidence); // Capped from 85 to 65 (soft-only + single-source)
+        Assert.True(result.IsSoftOnly);
+        Assert.False(result.HasHardEvidence);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_FolderPlusAmbigExt_SoftOnlyCap65_Blocked()
+    {
+        // Folder + AmbiguousExtension = still soft-only → cap 65, blocked
+        var result = HypothesisResolver.Resolve([
+            new("MD", 85, DetectionSource.FolderName, "folder=Genesis"),
+            new("MD", 40, DetectionSource.AmbiguousExtension, "ext=.bin")
+        ]);
+
+        Assert.Equal("MD", result.ConsoleKey);
+        Assert.Equal(65, result.Confidence); // Soft-only cap applied
+        Assert.True(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_FolderPlusKeyword_SoftOnlyCap65_Blocked()
+    {
+        // Folder + Keyword = corroborate each other, but still soft-only → cap 65
+        var result = HypothesisResolver.Resolve([
+            new("GBA", 85, DetectionSource.FolderName, "folder=GBA"),
+            new("GBA", 75, DetectionSource.FilenameKeyword, "[GBA]")
+        ]);
+
+        Assert.Equal("GBA", result.ConsoleKey);
+        Assert.Equal(65, result.Confidence); // Soft-only cap: min(90, 65) = 65
+        Assert.True(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_UniqueExtOnly_HardEvidence_Sort()
+    {
+        // UniqueExtension alone = hard evidence → Sort
+        var result = HypothesisResolver.Resolve([
+            new("GBA", 95, DetectionSource.UniqueExtension, "ext=.gba")
+        ]);
+
+        Assert.Equal("GBA", result.ConsoleKey);
+        Assert.Equal(95, result.Confidence);
+        Assert.True(result.HasHardEvidence);
+        Assert.False(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Sort, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_DiscHeaderOnly_HardEvidence_Sort()
+    {
+        // DiscHeader alone = hard evidence → Sort
+        var result = HypothesisResolver.Resolve([
+            new("DC", 92, DetectionSource.DiscHeader, "disc header: Sega Dreamcast")
+        ]);
+
+        Assert.Equal("DC", result.ConsoleKey);
+        Assert.Equal(92, result.Confidence);
+        Assert.True(result.HasHardEvidence);
+        Assert.Equal(SortDecision.Sort, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_CartridgeHeaderOnly_HardEvidence_Sort()
+    {
+        // CartridgeHeader alone = hard evidence → Sort
+        var result = HypothesisResolver.Resolve([
+            new("NES", 90, DetectionSource.CartridgeHeader, "iNES magic")
+        ]);
+
+        Assert.Equal("NES", result.ConsoleKey);
+        Assert.Equal(90, result.Confidence);
+        Assert.True(result.HasHardEvidence);
+        Assert.Equal(SortDecision.Sort, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_SerialOnly_SoftOnlyCap65_Blocked()
+    {
+        // Serial alone → soft-only cap (65) takes precedence over single-source cap (75)
+        var result = HypothesisResolver.Resolve([
+            new("PS1", 95, DetectionSource.SerialNumber, "serial SLUS-00123")
+        ]);
+
+        Assert.Equal("PS1", result.ConsoleKey);
+        Assert.Equal(65, result.Confidence); // Soft-only cap wins: min(75, 65) = 65
+        Assert.False(result.HasHardEvidence); // SerialNumber is NOT hard evidence
+        Assert.True(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_SerialPlusFolder_SoftOnlyCap()
+    {
+        // Serial + Folder = both soft → capped at 65
+        var result = HypothesisResolver.Resolve([
+            new("PS1", 95, DetectionSource.SerialNumber, "serial SLUS-00123"),
+            new("PS1", 85, DetectionSource.FolderName, "folder=PlayStation")
+        ]);
+
+        Assert.Equal("PS1", result.ConsoleKey);
+        Assert.Equal(65, result.Confidence); // Soft-only cap
+        Assert.True(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_DiscHeaderPlusFolder_HardEvidence_Sort()
+    {
+        // DiscHeader + Folder = has hard evidence → corroborated, high confidence
+        var result = HypothesisResolver.Resolve([
+            new("PS2", 92, DetectionSource.DiscHeader, "PS2 disc header"),
+            new("PS2", 85, DetectionSource.FolderName, "folder=PlayStation 2")
+        ]);
+
+        Assert.Equal("PS2", result.ConsoleKey);
+        Assert.Equal(97, result.Confidence); // 92 + 5 bonus = 97
+        Assert.True(result.HasHardEvidence);
+        Assert.False(result.IsSoftOnly);
+        Assert.Equal(SortDecision.Sort, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_DatHash_AlwaysDatVerified()
+    {
+        var result = HypothesisResolver.Resolve([
+            new("NES", 100, DetectionSource.DatHash, "SHA1 match")
+        ]);
+
+        Assert.Equal("NES", result.ConsoleKey);
+        Assert.Equal(100, result.Confidence);
+        Assert.True(result.HasHardEvidence);
+        Assert.Equal(SortDecision.DatVerified, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_ConflictWithHardEvidence_Review()
+    {
+        // Hard evidence winner with conflict → Review
+        var result = HypothesisResolver.Resolve([
+            new("NES", 90, DetectionSource.CartridgeHeader, "iNES header"),
+            new("SNES", 50, DetectionSource.AmbiguousExtension, "ext=.smc"),
+        ]);
+
+        Assert.Equal("NES", result.ConsoleKey);
+        Assert.True(result.HasConflict);
+        Assert.True(result.HasHardEvidence);
+        // Moderate conflict penalty: 90 - 10 = 80
+        Assert.Equal(80, result.Confidence);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_AMBIGUOUS_TwoSoftCompetition()
+    {
+        // Two soft-only competing signals with similar strength → AMBIGUOUS
+        var result = HypothesisResolver.Resolve([
+            new("SNES", 85, DetectionSource.FolderName, "folder=SNES"),
+            new("NES", 85, DetectionSource.FolderName, "folder=NES"),
+        ]);
+
+        Assert.Equal("AMBIGUOUS", result.ConsoleKey);
+        Assert.Equal(0, result.Confidence);
+        Assert.True(result.HasConflict);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_NotAMBIGUOUS_HardEvidenceBeats_SoftCompetitor()
+    {
+        // Hard evidence winner + soft runner → NOT AMBIGUOUS (hard wins clearly)
+        var result = HypothesisResolver.Resolve([
+            new("NES", 90, DetectionSource.CartridgeHeader, "iNES header"),
+            new("SNES", 85, DetectionSource.FolderName, "folder=SNES"),
+        ]);
+
+        Assert.NotEqual("AMBIGUOUS", result.ConsoleKey);
+        Assert.Equal("NES", result.ConsoleKey);
+        Assert.True(result.HasConflict);
+        Assert.True(result.HasHardEvidence);
+    }
+
+    [Fact]
+    public void Resolver_AMBIGUOUS_TwoHardCompetition()
+    {
+        // Two hard-evidence competing consoles → AMBIGUOUS
+        var result = HypothesisResolver.Resolve([
+            new("PS1", 92, DetectionSource.DiscHeader, "PS1 disc header"),
+            new("PS2", 90, DetectionSource.CartridgeHeader, "PS2 header"),
+        ]);
+
+        Assert.Equal("AMBIGUOUS", result.ConsoleKey);
+        Assert.True(result.HasConflict);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Fact]
+    public void Resolver_SortDecision_Unknown_AlwaysBlocked()
+    {
+        var result = HypothesisResolver.Resolve([]);
+        Assert.Equal("UNKNOWN", result.ConsoleKey);
+        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+    }
+
+    [Theory]
+    [InlineData(100, false, true, SortDecision.DatVerified)]
+    [InlineData(95, false, true, SortDecision.Sort)]
+    [InlineData(90, false, true, SortDecision.Sort)]
+    [InlineData(85, false, true, SortDecision.Sort)]
+    [InlineData(84, false, true, SortDecision.Review)]
+    [InlineData(65, false, true, SortDecision.Review)]
+    [InlineData(64, false, true, SortDecision.Blocked)]
+    [InlineData(85, false, false, SortDecision.Review)]
+    [InlineData(85, true, true, SortDecision.Review)]
+    [InlineData(85, true, false, SortDecision.Blocked)]
+    [InlineData(50, false, false, SortDecision.Blocked)]
+    public void DetermineSortDecision_Matrix(int confidence, bool conflict, bool hardEvidence, SortDecision expected)
+    {
+        Assert.Equal(expected, HypothesisResolver.DetermineSortDecision(confidence, conflict, hardEvidence));
+    }
+
+    #endregion
+
+    // ──────────────────────────────────────────────────────────────────
+    //  PS1/PS2 Serial Overlap Fix
+    // ──────────────────────────────────────────────────────────────────
+
+    #region PS1/PS2 Serial Fix
+
+    [Theory]
+    [InlineData("SLUS-001 Game.bin", "PS1")]   // 3-digit → PS1
+    [InlineData("SLUS-0012 Game.bin", "PS1")]  // 4-digit → PS1
+    [InlineData("SLUS-00123 Game.bin", "PS1")] // 5-digit, starts with 0 → PS1
+    [InlineData("SCES-12345 Game.bin", "PS1")] // 5-digit, starts with 1 → PS1
+    [InlineData("SLES-01578 Game.bin", "PS1")] // 5-digit, starts with 0 → PS1
+    public void Serial_PS1_DisjunctFromPS2(string fileName, string expected)
+    {
+        var result = FilenameConsoleAnalyzer.DetectBySerial(fileName);
+        Assert.NotNull(result);
+        Assert.Equal(expected, result.Value.ConsoleKey);
+    }
+
+    [Theory]
+    [InlineData("SLUS-20001 Game.iso", "PS2")] // 5-digit, starts with 2 → PS2
+    [InlineData("SCUS-97124 Game.iso", "PS2")] // 5-digit, starts with 9 → PS2
+    [InlineData("PBPX-12345 Game.iso", "PS2")] // PBPX = PS2-exclusive prefix
+    public void Serial_PS2_DisjunctFromPS1(string fileName, string expected)
+    {
+        var result = FilenameConsoleAnalyzer.DetectBySerial(fileName);
+        Assert.NotNull(result);
+        Assert.Equal(expected, result.Value.ConsoleKey);
+    }
+
+    [Fact]
+    public void Serial_PS1_PS2_NeverOverlap()
+    {
+        // SLUS-20001 must be PS2, not PS1 (should not match PS1 pattern)
+        var result = FilenameConsoleAnalyzer.DetectBySerial("SLUS-20001 Game.iso");
+        Assert.NotNull(result);
+        Assert.Equal("PS2", result.Value.ConsoleKey);
+    }
+
+    #endregion
+
+    // ──────────────────────────────────────────────────────────────────
+    //  RomCandidate Evidence Properties
+    // ──────────────────────────────────────────────────────────────────
+
+    #region RomCandidate Evidence Properties
+
+    [Fact]
+    public void CandidateFactory_PropagatesEvidenceFlags()
+    {
+        var candidate = CandidateFactory.Create(
+            normalizedPath: "/test/game.nes",
+            extension: ".nes",
+            sizeBytes: 1024,
+            category: FileCategory.Game,
+            gameKey: "game",
+            region: "USA",
+            regionScore: 100,
+            formatScore: 50,
+            versionScore: 0,
+            headerScore: 0,
+            completenessScore: 100,
+            sizeTieBreakScore: 0,
+            datMatch: false,
+            consoleKey: "NES",
+            detectionConfidence: 90,
+            detectionConflict: false,
+            hasHardEvidence: true,
+            isSoftOnly: false,
+            sortDecision: SortDecision.Sort);
+
+        Assert.True(candidate.HasHardEvidence);
+        Assert.False(candidate.IsSoftOnly);
+        Assert.Equal("Sort", candidate.SortDecision);
+    }
+
+    [Fact]
+    public void CandidateFactory_DefaultsToBlocked()
+    {
+        var candidate = CandidateFactory.Create(
+            normalizedPath: "/test/game.bin",
+            extension: ".bin",
+            sizeBytes: 1024,
+            category: FileCategory.Game,
+            gameKey: "game",
+            region: "USA",
+            regionScore: 100,
+            formatScore: 50,
+            versionScore: 0,
+            headerScore: 0,
+            completenessScore: 100,
+            sizeTieBreakScore: 0,
+            datMatch: false,
+            consoleKey: "MD");
+
+        // Defaults
+        Assert.False(candidate.HasHardEvidence);
+        Assert.True(candidate.IsSoftOnly);
+        Assert.Equal("Blocked", candidate.SortDecision);
+    }
+
+    #endregion
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Sorting Gate Integration
+    // ──────────────────────────────────────────────────────────────────
+
+    #region Sorting Gate
+
+    [Fact]
+    public void SortingGate_SortAllowed_OnlyForSortAndDatVerified()
+    {
+        // Simulate the gate logic from RunOrchestrator.StandardPhaseSteps
+        var candidates = new[]
+        {
+            new RomCandidate { MainPath = "/a.nes", ConsoleKey = "NES", Category = FileCategory.Game, SortDecision = "Sort" },
+            new RomCandidate { MainPath = "/b.gba", ConsoleKey = "GBA", Category = FileCategory.Game, SortDecision = "DatVerified" },
+            new RomCandidate { MainPath = "/c.bin", ConsoleKey = "MD", Category = FileCategory.Game, SortDecision = "Review" },
+            new RomCandidate { MainPath = "/d.bin", ConsoleKey = "PS1", Category = FileCategory.Game, SortDecision = "Blocked" },
+            new RomCandidate { MainPath = "/e.bin", ConsoleKey = "UNKNOWN", Category = FileCategory.Game, SortDecision = "Blocked" },
+            new RomCandidate { MainPath = "/f.bin", ConsoleKey = "AMBIGUOUS", Category = FileCategory.Game, SortDecision = "Blocked" },
+            new RomCandidate { MainPath = "/g.bin", ConsoleKey = "NES", Category = FileCategory.Junk, SortDecision = "Sort" },
+        };
+
+        var sortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in candidates)
+        {
+            if (c.Category != FileCategory.Game)
+            {
+                sortMap[c.MainPath] = "UNKNOWN";
+                continue;
+            }
+            if (string.IsNullOrEmpty(c.ConsoleKey) || c.ConsoleKey is "UNKNOWN" or "AMBIGUOUS")
+            {
+                sortMap[c.MainPath] = "UNKNOWN";
+                continue;
+            }
+            sortMap[c.MainPath] = c.SortDecision is "Sort" or "DatVerified" ? c.ConsoleKey : "UNKNOWN";
+        }
+
+        Assert.Equal("NES", sortMap["/a.nes"]);      // Sort → allowed
+        Assert.Equal("GBA", sortMap["/b.gba"]);      // DatVerified → allowed
+        Assert.Equal("UNKNOWN", sortMap["/c.bin"]);   // Review → blocked
+        Assert.Equal("UNKNOWN", sortMap["/d.bin"]);   // Blocked → blocked
+        Assert.Equal("UNKNOWN", sortMap["/e.bin"]);   // UNKNOWN key → blocked
+        Assert.Equal("UNKNOWN", sortMap["/f.bin"]);   // AMBIGUOUS key → blocked
+        Assert.Equal("UNKNOWN", sortMap["/g.bin"]);   // Junk category → blocked
+    }
+
+    [Fact]
+    public void SortingGate_SoftOnly_NeverSorted()
+    {
+        // Core invariant: soft-only detection must NEVER lead to auto-sort
+        var softOnlySources = new[]
+        {
+            DetectionSource.FolderName,
+            DetectionSource.FilenameKeyword,
+            DetectionSource.AmbiguousExtension,
+            DetectionSource.SerialNumber,
+            DetectionSource.ArchiveContent,
+        };
+
+        foreach (var source in softOnlySources)
+        {
+            var result = HypothesisResolver.Resolve([
+                new("TestConsole", 95, source, $"test-{source}")
+            ]);
+
+            Assert.True(result.IsSoftOnly, $"{source} should be soft-only");
+            Assert.True(result.SortDecision != SortDecision.Sort,
+                $"{source} alone should never result in Sort");
+            Assert.True(result.SortDecision != SortDecision.DatVerified,
+                $"{source} alone should never result in DatVerified");
+        }
+    }
+
+    [Fact]
+    public void SortingGate_HardEvidence_AllowsSort()
+    {
+        // Core invariant: hard evidence alone CAN lead to auto-sort
+        var hardSources = new[]
+        {
+            (DetectionSource.UniqueExtension, 95),
+            (DetectionSource.DiscHeader, 92),
+            (DetectionSource.CartridgeHeader, 90),
+        };
+
+        foreach (var (source, confidence) in hardSources)
+        {
+            var result = HypothesisResolver.Resolve([
+                new("TestConsole", confidence, source, $"test-{source}")
+            ]);
+
+            Assert.True(result.HasHardEvidence, $"{source} should be hard evidence");
+            Assert.True(result.SortDecision == SortDecision.Sort,
+                $"{source} with confidence {confidence} should result in Sort, got {result.SortDecision}");
+        }
     }
 
     #endregion

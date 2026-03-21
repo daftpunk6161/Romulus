@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Text.RegularExpressions;
 using System.Text.Json;
 using RomCleanup.Core.Caching;
 
@@ -13,11 +12,6 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public sealed class ConsoleDetector
 {
-    private static readonly Regex JunkNamePattern = new(
-        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program|hack|pirate|bootleg|homebrew|aftermarket|translated|translation|unl|unlicensed|not\s*for\s*resale|nfr)\)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled,
-        TimeSpan.FromMilliseconds(200));
-
     private readonly Dictionary<string, string> _folderMap;     // alias → key
     private readonly Dictionary<string, string> _uniqueExtMap;  // .ext → key
     private readonly Dictionary<string, List<string>> _ambigExtMap; // .ext → [keys]
@@ -183,9 +177,6 @@ public sealed class ConsoleDetector
         if (IsClearlyInvalidFile(filePath))
             return "UNKNOWN";
 
-        if (IsLikelyJunkName(fileName))
-            return "UNKNOWN";
-
         // Method 1: Folder name
         var byFolder = DetectByFolder(filePath, rootPath);
         if (byFolder is not null)
@@ -250,10 +241,6 @@ public sealed class ConsoleDetector
         if (IsClearlyInvalidFile(filePath))
             return ConsoleDetectionResult.Unknown;
 
-        // Junk-like pre-release markers are intentionally blocked from auto classification.
-        if (IsLikelyJunkName(fileName))
-            return ConsoleDetectionResult.Unknown;
-
 
         // Method 1: Folder name
         var byFolder = DetectByFolder(filePath, rootPath);
@@ -315,21 +302,6 @@ public sealed class ConsoleDetector
                 DetectionSource.FilenameKeyword, $"keyword={fileName}"));
 
         return HypothesisResolver.Resolve(hypotheses);
-    }
-
-    private static bool IsLikelyJunkName(string fileName)
-    {
-        if (string.IsNullOrWhiteSpace(fileName))
-            return false;
-
-        try
-        {
-            return JunkNamePattern.IsMatch(fileName);
-        }
-        catch (RegexMatchTimeoutException)
-        {
-            return false;
-        }
     }
 
     private static bool IsClearlyInvalidFile(string filePath)

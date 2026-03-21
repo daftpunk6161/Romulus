@@ -28,6 +28,15 @@ public sealed class RomCandidate
 
     /// <summary>Whether multiple detection methods disagreed on the console.</summary>
     public bool DetectionConflict { get; init; }
+
+    /// <summary>Whether at least one hard evidence source (DAT/Header/UniqueExt) contributed to detection.</summary>
+    public bool HasHardEvidence { get; init; }
+
+    /// <summary>Whether detection relied exclusively on soft evidence (Folder/Keyword/AmbiguousExt).</summary>
+    public bool IsSoftOnly { get; init; } = true;
+
+    /// <summary>The computed sort gate decision from the detection pipeline.</summary>
+    public string SortDecision { get; init; } = "Blocked";
 }
 
 /// <summary>

@@ -228,6 +228,19 @@ public sealed class FormatConverterAdapter : IFormatConverter
         return _executor.Execute(plan, cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Returns the planner-generated conversion plan for preview/review UI flows.
+    /// Returns null when no planner is configured or source file does not exist.
+    /// </summary>
+    public ConversionPlan? PlanForConsole(string sourcePath, string consoleKey)
+    {
+        if (_planner is null || !File.Exists(sourcePath))
+            return null;
+
+        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        return _planner.Plan(sourcePath, consoleKey, sourceExt);
+    }
+
     private static bool IsArchiveContainerSource(string extension)
     {
         return string.Equals(extension, ".zip", StringComparison.OrdinalIgnoreCase)
@@ -505,9 +518,21 @@ public sealed class FormatConverterAdapter : IFormatConverter
                 if (!extractResult.Success)
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "7z-extract-failed");
 
-                // Post-extraction: validate all files are within extractDir
+                // SEC-CONV-07: Post-extraction validation for 7z (parity with zip bomb protection)
                 if (!ValidateExtractedContents(extractDir))
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-path-traversal-detected");
+
+                var extractedFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories);
+                if (extractedFiles.Length > MaxZipEntryCount)
+                    return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-too-many-entries");
+
+                long totalExtractedSize = 0;
+                foreach (var f in extractedFiles)
+                {
+                    totalExtractedSize += new FileInfo(f).Length;
+                    if (totalExtractedSize > MaxExtractedTotalBytes)
+                        return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-too-large");
+                }
             }
 
             // Step 2: Find the .cue file (preferred) or .gdi, or fall back to .iso/.bin

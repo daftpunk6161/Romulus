@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 
@@ -46,6 +48,12 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
             return new ToolInvocationResult(false, null, -1, null, $"tool-not-found:{toolName}", 0, VerificationStatus.VerifyNotAvailable);
         }
 
+        var toolConstraintError = ValidateToolConstraints(toolPath, capability.Tool);
+        if (toolConstraintError is not null)
+        {
+            return new ToolInvocationResult(false, null, -1, null, toolConstraintError, 0, VerificationStatus.VerifyNotAvailable);
+        }
+
         var args = BuildArguments(sourcePath, targetPath, capability);
         if (args.Length == 1 && string.Equals(args[0], "__invalid_command__", StringComparison.Ordinal))
         {
@@ -55,6 +63,9 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
         var watch = Stopwatch.StartNew();
         var result = _tools.InvokeProcess(toolPath, args, toolName);
         watch.Stop();
+
+        // SEC-CONV-06: Check cancellation after long-running tool invocation
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!result.Success)
         {
@@ -154,6 +165,62 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
             return null;
 
         return token;
+    }
+
+    private static string? ValidateToolConstraints(string toolPath, ToolRequirement requirement)
+    {
+        if (!File.Exists(toolPath))
+            return "tool-not-found-on-disk";
+
+        if (!string.IsNullOrWhiteSpace(requirement.ExpectedHash))
+        {
+            var actualHash = ComputeSha256(toolPath);
+            if (!FixedTimeHashEquals(actualHash, requirement.ExpectedHash))
+                return "tool-hash-mismatch";
+        }
+
+        if (!string.IsNullOrWhiteSpace(requirement.MinVersion))
+        {
+            var actualVersion = TryReadFileVersion(toolPath);
+            if (actualVersion is null)
+                return "tool-version-unavailable";
+
+            if (!System.Version.TryParse(requirement.MinVersion, out var requiredVersion))
+                return "tool-minversion-invalid";
+
+            if (actualVersion < requiredVersion)
+                return "tool-version-too-old";
+        }
+
+        return null;
+    }
+
+    private static string ComputeSha256(string filePath)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        var bytes = sha256.ComputeHash(stream);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static bool FixedTimeHashEquals(string actualHash, string expectedHash)
+    {
+        var a = Encoding.ASCII.GetBytes(actualHash.ToLowerInvariant());
+        var e = Encoding.ASCII.GetBytes(expectedHash.ToLowerInvariant());
+        return CryptographicOperations.FixedTimeEquals(a, e);
+    }
+
+    private static System.Version? TryReadFileVersion(string toolPath)
+    {
+        var versionInfo = FileVersionInfo.GetVersionInfo(toolPath);
+
+        if (System.Version.TryParse(versionInfo.FileVersion, out var fileVersion))
+            return fileVersion;
+
+        if (System.Version.TryParse(versionInfo.ProductVersion, out var productVersion))
+            return productVersion;
+
+        return null;
     }
 
     private static bool IsLikelyCdImage(string sourcePath)

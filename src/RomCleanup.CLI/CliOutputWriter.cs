@@ -20,9 +20,11 @@ internal static class CliOutputWriter
     /// <summary>
     /// DryRun: Formats RunProjection + DedupeGroups as JSON string.
     /// ADR-008 §C-03/C-06: CLI reads only RunProjection, never RunResult internals.
+    /// ConversionReport is the exception: provides per-file conversion details.
     /// </summary>
     internal static string FormatDryRunJson(RunProjection projection,
-        IReadOnlyList<DedupeResult> groups)
+        IReadOnlyList<DedupeResult> groups,
+        ConversionReport? conversionReport = null)
     {
         var output = new CliDryRunOutput
         {
@@ -47,6 +49,8 @@ internal static class CliOutputWriter
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
             ConvertBlockedCount = projection.ConvertBlockedCount,
+            ConvertReviewCount = projection.ConvertReviewCount,
+            ConvertSavedBytes = projection.ConvertSavedBytes,
             JunkRemovedCount = projection.JunkRemovedCount,
             FilteredNonGameCount = projection.FilteredNonGameCount,
             MoveCount = projection.MoveCount,
@@ -63,7 +67,9 @@ internal static class CliOutputWriter
                 Winner = r.Winner.MainPath,
                 WinnerDatMatch = r.Winner.DatMatch,
                 Losers = r.Losers.Select(l => l.MainPath).ToArray()
-            }).ToArray()
+            }).ToArray(),
+            ConversionPlans = BuildConversionPlans(conversionReport),
+            ConversionBlocked = BuildConversionBlocked(conversionReport)
         };
 
         var json = JsonSerializer.Serialize(output, JsonOptions);
@@ -134,6 +140,40 @@ Exit codes:
         foreach (var error in errors)
             stderr.WriteLine(error);
     }
+
+    private static CliConversionPlan[] BuildConversionPlans(ConversionReport? report)
+    {
+        if (report?.Results is null || report.Results.Count == 0)
+            return Array.Empty<CliConversionPlan>();
+
+        return report.Results
+            .Where(r => r.Outcome == ConversionOutcome.Success || r.Outcome == ConversionOutcome.Skipped)
+            .Select(r => new CliConversionPlan
+            {
+                SourcePath = r.SourcePath,
+                TargetExtension = r.TargetPath is not null ? Path.GetExtension(r.TargetPath) : null,
+                Safety = r.Safety.ToString(),
+                Outcome = r.Outcome.ToString(),
+                Verification = r.VerificationResult.ToString()
+            })
+            .ToArray();
+    }
+
+    private static CliConversionBlocked[] BuildConversionBlocked(ConversionReport? report)
+    {
+        if (report?.Results is null || report.Results.Count == 0)
+            return Array.Empty<CliConversionBlocked>();
+
+        return report.Results
+            .Where(r => r.Outcome == ConversionOutcome.Blocked || r.Outcome == ConversionOutcome.Error)
+            .Select(r => new CliConversionBlocked
+            {
+                SourcePath = r.SourcePath,
+                Reason = r.Reason ?? r.Outcome.ToString(),
+                Safety = r.Safety.ToString()
+            })
+            .ToArray();
+    }
 }
 
 /// <summary>
@@ -163,6 +203,8 @@ internal sealed class CliDryRunOutput
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
+    public int ConvertReviewCount { get; init; }
+    public long ConvertSavedBytes { get; init; }
     public int JunkRemovedCount { get; init; }
     public int FilteredNonGameCount { get; init; }
     public int MoveCount { get; init; }
@@ -174,6 +216,8 @@ internal sealed class CliDryRunOutput
     public long SavedBytes { get; init; }
     public long DurationMs { get; init; }
     public CliDedupeGroup[] Results { get; init; } = Array.Empty<CliDedupeGroup>();
+    public CliConversionPlan[] ConversionPlans { get; init; } = Array.Empty<CliConversionPlan>();
+    public CliConversionBlocked[] ConversionBlocked { get; init; } = Array.Empty<CliConversionBlocked>();
 }
 
 internal sealed class CliDedupeGroup
@@ -182,4 +226,20 @@ internal sealed class CliDedupeGroup
     public string Winner { get; init; } = "";
     public bool WinnerDatMatch { get; init; }
     public string[] Losers { get; init; } = Array.Empty<string>();
+}
+
+internal sealed class CliConversionPlan
+{
+    public string SourcePath { get; init; } = "";
+    public string? TargetExtension { get; init; }
+    public string Safety { get; init; } = "";
+    public string Outcome { get; init; } = "";
+    public string Verification { get; init; } = "";
+}
+
+internal sealed class CliConversionBlocked
+{
+    public string SourcePath { get; init; } = "";
+    public string Reason { get; init; } = "";
+    public string Safety { get; init; } = "";
 }

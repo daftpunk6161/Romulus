@@ -3,6 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using RomCleanup.Contracts.Models;
+using RomCleanup.UI.Wpf.ViewModels;
+using RomCleanup.UI.Wpf.Views;
 
 namespace RomCleanup.UI.Wpf.Services;
 
@@ -152,6 +155,29 @@ public static class DialogService
         {
             var previousFocus = Keyboard.FocusedElement;
             var result = DangerConfirmDialog.Show(title, message, confirmText, buttonLabel, owner ?? GetMainWindow());
+            (previousFocus as UIElement)?.Focus();
+            return result;
+        });
+    }
+
+    /// <summary>
+    /// Shows a modal conversion review dialog for risky/manual conversion plans.
+    /// Returns true only when explicitly confirmed.
+    /// </summary>
+    public static bool ConfirmConversionReview(string title, string summary, IReadOnlyList<ConversionReviewEntry> entries, Window? owner = null)
+    {
+        return InvokeOnUiThread(() =>
+        {
+            var previousFocus = Keyboard.FocusedElement;
+            var dialog = new ConversionReviewDialog
+            {
+                Owner = owner ?? GetMainWindow()
+            };
+
+            var vm = new ConversionReviewViewModel(title, summary, entries, result => dialog.DialogResult = result);
+            dialog.DataContext = vm;
+
+            var result = dialog.ShowDialog() == true;
             (previousFocus as UIElement)?.Focus();
             return result;
         });

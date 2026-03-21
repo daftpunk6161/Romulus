@@ -27,6 +27,8 @@ internal static class ApiRunResultMapper
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
             ConvertBlockedCount = projection.ConvertBlockedCount,
+            ConvertReviewCount = projection.ConvertReviewCount,
+            ConvertSavedBytes = projection.ConvertSavedBytes,
             JunkRemovedCount = projection.JunkRemovedCount,
             FilteredNonGameCount = projection.FilteredNonGameCount,
             JunkFailCount = projection.JunkFailCount,
@@ -39,7 +41,9 @@ internal static class ApiRunResultMapper
             DurationMs = projection.DurationMs,
             PreflightWarnings = result.Preflight?.Warnings?.ToArray() ?? Array.Empty<string>(),
             PhaseMetrics = BuildPhaseMetricsPayload(result.PhaseMetrics),
-            DedupeGroups = BuildDedupeGroupsPayload(result.DedupeGroups)
+            DedupeGroups = BuildDedupeGroupsPayload(result.DedupeGroups),
+            ConversionPlans = BuildConversionPlansPayload(result.ConversionReport),
+            ConversionBlocked = BuildConversionBlockedPayload(result.ConversionReport)
         };
     }
 
@@ -82,5 +86,39 @@ internal static class ApiRunResultMapper
             Winner = group.Winner,
             Losers = group.Losers.ToArray()
         }).ToArray();
+    }
+
+    private static ApiConversionPlan[] BuildConversionPlansPayload(ConversionReport? report)
+    {
+        if (report?.Results is null || report.Results.Count == 0)
+            return Array.Empty<ApiConversionPlan>();
+
+        return report.Results
+            .Where(r => r.Outcome == ConversionOutcome.Success || r.Outcome == ConversionOutcome.Skipped)
+            .Select(r => new ApiConversionPlan
+            {
+                SourcePath = r.SourcePath,
+                TargetExtension = r.TargetPath is not null ? Path.GetExtension(r.TargetPath) : null,
+                Safety = r.Safety.ToString(),
+                Outcome = r.Outcome.ToString(),
+                Verification = r.VerificationResult.ToString()
+            })
+            .ToArray();
+    }
+
+    private static ApiConversionBlocked[] BuildConversionBlockedPayload(ConversionReport? report)
+    {
+        if (report?.Results is null || report.Results.Count == 0)
+            return Array.Empty<ApiConversionBlocked>();
+
+        return report.Results
+            .Where(r => r.Outcome == ConversionOutcome.Blocked || r.Outcome == ConversionOutcome.Error)
+            .Select(r => new ApiConversionBlocked
+            {
+                SourcePath = r.SourcePath,
+                Reason = r.Reason ?? r.Outcome.ToString(),
+                Safety = r.Safety.ToString()
+            })
+            .ToArray();
     }
 }

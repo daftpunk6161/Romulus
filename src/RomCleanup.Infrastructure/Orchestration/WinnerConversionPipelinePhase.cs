@@ -20,6 +20,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
         int convertErrors = 0;
         int convertSkipped = 0;
         int convertBlocked = 0;
+        var conversionResults = new List<ConversionResult>();
         var totalGroups = input.GameGroups.Count;
         var processedGroups = 0;
 
@@ -57,6 +58,8 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
 
                 convResult = input.Converter.Convert(winnerPath, target, cancellationToken);
             }
+
+            conversionResults.Add(convResult);
 
             if (convResult.Outcome == ConversionOutcome.Success)
             {
@@ -125,7 +128,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
         context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertBlocked} blockiert, {convertErrors} Fehler");
         context.Metrics.CompletePhase(converted);
 
-        return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked);
+        return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked, conversionResults);
     }
 
     private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
@@ -164,4 +167,5 @@ public sealed record WinnerConversionPhaseOutput(
     int Converted,
     int ConvertErrors,
     int ConvertSkipped,
-    int ConvertBlocked);
+    int ConvertBlocked,
+    IReadOnlyList<ConversionResult> ConversionResults);

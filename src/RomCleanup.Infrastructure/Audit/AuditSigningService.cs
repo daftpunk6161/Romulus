@@ -195,13 +195,15 @@ public sealed class AuditSigningService
         if (metadata is null)
             throw new InvalidDataException("Failed to deserialize audit sidecar");
 
-        // Verify CSV hash
+        // Verify CSV hash (constant-time comparison to prevent timing attacks — SEC-AUDIT-01)
         var actualSha256 = ComputeFileSha256(auditCsvPath);
-        if (!string.Equals(actualSha256, metadata.CsvSha256, StringComparison.OrdinalIgnoreCase))
+        var actualBytes = Encoding.UTF8.GetBytes(actualSha256.ToLowerInvariant());
+        var expectedBytes = Encoding.UTF8.GetBytes((metadata.CsvSha256 ?? "").ToLowerInvariant());
+        if (!CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes))
             throw new InvalidDataException($"CSV hash mismatch: expected {metadata.CsvSha256}, got {actualSha256}");
 
         // Verify HMAC (constant-time comparison to prevent timing attacks)
-        var payload = BuildSignaturePayload(metadata.AuditFileName, metadata.CsvSha256, metadata.RowCount, metadata.CreatedUtc);
+        var payload = BuildSignaturePayload(metadata.AuditFileName, metadata.CsvSha256 ?? "", metadata.RowCount, metadata.CreatedUtc);
         var expectedHmac = ComputeHmacSha256(payload);
         if (!CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(expectedHmac),
@@ -371,6 +373,15 @@ public sealed class AuditSigningService
                     continue;
                 }
 
+                // SEC-ROLLBACK-04b: In dry run, also check restore target parent for reparse points (Preview/Execute parity)
+                var dryRunParent = Path.GetDirectoryName(oldPath);
+                if (dryRunParent is not null && Directory.Exists(dryRunParent) && _fs.IsReparsePoint(dryRunParent))
+                {
+                    failed++;
+                    _log?.Invoke($"DRYRUN rollback blocked (restore parent is reparse point): {dryRunParent}");
+                    continue;
+                }
+
                 dryRunPlanned++;
                 plannedPaths.Add(oldPath);
                 _log?.Invoke($"DRYRUN rollback: {newPath} -> {oldPath}");
@@ -387,8 +398,14 @@ public sealed class AuditSigningService
 
                 try
                 {
-                    // Ensure parent directory exists
+                    // SEC-ROLLBACK-04: Check restore target parent for reparse points
                     var parentDir = Path.GetDirectoryName(oldPath);
+                    if (parentDir is not null && Directory.Exists(parentDir) && _fs.IsReparsePoint(parentDir))
+                    {
+                        skippedUnsafe++;
+                        _log?.Invoke($"Rollback skipped (restore parent is reparse point): {parentDir}");
+                        continue;
+                    }
                     if (parentDir is not null)
                         _fs.EnsureDirectory(parentDir);
 

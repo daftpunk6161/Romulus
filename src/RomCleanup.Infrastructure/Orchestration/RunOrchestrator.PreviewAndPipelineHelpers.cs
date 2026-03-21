@@ -343,6 +343,7 @@ public sealed partial class RunOrchestrator
         result.ConvertErrorCount = output.ConvertErrors;
         result.ConvertSkippedCount = output.ConvertSkipped;
         result.ConvertBlockedCount = output.ConvertBlocked;
+        ApplyConversionReport(output.ConversionResults, result);
     }
 
     private void ExecuteWinnerConversionPhase(
@@ -368,6 +369,41 @@ public sealed partial class RunOrchestrator
         result.ConvertErrorCount = output.ConvertErrors;
         result.ConvertSkippedCount = output.ConvertSkipped;
         result.ConvertBlockedCount = output.ConvertBlocked;
+        ApplyConversionReport(output.ConversionResults, result);
+    }
+
+    private static void ApplyConversionReport(IReadOnlyList<ConversionResult> results, RunResultBuilder builder)
+    {
+        var reviewCount = results.Count(r => r.Safety == ConversionSafety.Risky);
+        long savedBytes = 0;
+        foreach (var r in results)
+        {
+            if (r.Outcome == ConversionOutcome.Success && r.SourcePath is not null && r.TargetPath is not null)
+            {
+                try
+                {
+                    var sourceInfo = new FileInfo(r.SourcePath);
+                    var targetInfo = new FileInfo(r.TargetPath);
+                    if (sourceInfo.Exists && targetInfo.Exists)
+                        savedBytes += sourceInfo.Length - targetInfo.Length;
+                }
+                catch { /* best-effort size calculation */ }
+            }
+        }
+
+        builder.ConvertReviewCount = reviewCount;
+        builder.ConvertSavedBytes = savedBytes;
+        builder.ConversionReport = new ConversionReport
+        {
+            TotalPlanned = results.Count,
+            Converted = builder.ConvertedCount,
+            Skipped = builder.ConvertSkippedCount,
+            Errors = builder.ConvertErrorCount,
+            Blocked = builder.ConvertBlockedCount,
+            RequiresReview = reviewCount,
+            TotalSavedBytes = savedBytes,
+            Results = results
+        };
     }
 
     /// <summary>FEAT-02: Generate HTML and CSV reports from pipeline results.</summary>

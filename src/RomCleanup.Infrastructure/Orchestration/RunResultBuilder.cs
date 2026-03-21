@@ -27,6 +27,9 @@ public sealed class RunResultBuilder
     public int ConvertErrorCount { get; set; }
     public int ConvertSkippedCount { get; set; }
     public int ConvertBlockedCount { get; set; }
+    public int ConvertReviewCount { get; set; }
+    public long ConvertSavedBytes { get; set; }
+    public ConversionReport? ConversionReport { get; set; }
     public long DurationMs { get; set; }
     public string? ReportPath { get; set; }
     public IReadOnlyList<RomCandidate> AllCandidates { get; set; } = Array.Empty<RomCandidate>();
@@ -53,6 +56,9 @@ public sealed class RunResultBuilder
         ConvertErrorCount = ConvertErrorCount,
         ConvertSkippedCount = ConvertSkippedCount,
         ConvertBlockedCount = ConvertBlockedCount,
+        ConvertReviewCount = ConvertReviewCount,
+        ConvertSavedBytes = ConvertSavedBytes,
+        ConversionReport = ConversionReport,
         DurationMs = DurationMs,
         ReportPath = ReportPath,
         AllCandidates = AllCandidates,

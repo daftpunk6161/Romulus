@@ -666,6 +666,50 @@ public class GuiViewModelTests
     }
 
     [Fact]
+    public void ToolCiso_Setter_RefreshesCisoStatusImmediately()
+    {
+        var vm = new MainViewModel();
+        var tempDir = Path.Combine(Path.GetTempPath(), "RomCleanup_ToolStatus_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var cisoPath = Path.Combine(tempDir, "ciso.exe");
+
+        try
+        {
+            File.WriteAllText(cisoPath, "stub");
+
+            vm.ToolCiso = cisoPath;
+
+            Assert.Equal("✓ Gefunden", vm.CisoStatusText);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void ToolPsxtract_Setter_RefreshesPsxtractStatusImmediately()
+    {
+        var vm = new MainViewModel();
+        var tempDir = Path.Combine(Path.GetTempPath(), "RomCleanup_ToolStatus_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var psxtractPath = Path.Combine(tempDir, "psxtract.exe");
+
+        try
+        {
+            File.WriteAllText(psxtractPath, "stub");
+
+            vm.ToolPsxtract = psxtractPath;
+
+            Assert.Equal("✓ Gefunden", vm.PsxtractStatusText);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void RefreshStatus_DatDisabled_ShowsDeactivated()
     {
         var vm = new MainViewModel();

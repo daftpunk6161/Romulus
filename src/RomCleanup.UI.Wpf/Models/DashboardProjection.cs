@@ -18,6 +18,10 @@ public sealed record DashboardProjection(
     string DatHits,
     string DedupeRate,
     string MoveConsequenceText,
+    string ConvertedDisplay,
+    string ConvertBlockedDisplay,
+    string ConvertReviewDisplay,
+    string ConvertSavedBytesDisplay,
     IReadOnlyList<ConsoleDistributionItem> ConsoleDistribution,
     IReadOnlyList<DedupeGroupItem> DedupeGroups)
 {
@@ -47,6 +51,15 @@ public sealed record DashboardProjection(
                 ? $"Es werden {totalMove} Dateien verschoben ({projection.Dupes} Duplikate, {projection.Junk} Junk)."
                 : "Keine Dateien zum Verschieben erkannt.";
 
+        var hasConversion = projection.ConvertedCount > 0 || projection.ConvertErrorCount > 0
+                            || projection.ConvertBlockedCount > 0 || projection.ConvertSkippedCount > 0;
+        var convertedDisplay = hasConversion ? projection.ConvertedCount.ToString() : "–";
+        var convertBlockedDisplay = hasConversion ? projection.ConvertBlockedCount.ToString() : "–";
+        var convertReviewDisplay = hasConversion ? projection.ConvertReviewCount.ToString() : "–";
+        var convertSavedBytesDisplay = hasConversion && projection.ConvertSavedBytes != 0
+            ? FormatBytes(projection.ConvertSavedBytes)
+            : "–";
+
         return new DashboardProjection(
             Winners: winners,
             Dupes: dupes,
@@ -57,8 +70,25 @@ public sealed record DashboardProjection(
             DatHits: datHits,
             DedupeRate: dedupeRate,
             MoveConsequenceText: moveConsequenceText,
+            ConvertedDisplay: convertedDisplay,
+            ConvertBlockedDisplay: convertBlockedDisplay,
+            ConvertReviewDisplay: convertReviewDisplay,
+            ConvertSavedBytesDisplay: convertSavedBytesDisplay,
             ConsoleDistribution: consoleDistribution,
             DedupeGroups: dedupeGroups);
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        var abs = Math.Abs(bytes);
+        string formatted = abs switch
+        {
+            >= 1_073_741_824 => $"{abs / 1_073_741_824.0:F1} GB",
+            >= 1_048_576 => $"{abs / 1_048_576.0:F1} MB",
+            >= 1024 => $"{abs / 1024.0:F1} KB",
+            _ => $"{abs} B"
+        };
+        return bytes < 0 ? $"+{formatted}" : $"-{formatted}";
     }
 
     private static IReadOnlyList<ConsoleDistributionItem> BuildConsoleDistribution(IReadOnlyList<RomCleanup.Contracts.Models.RomCandidate> candidates)

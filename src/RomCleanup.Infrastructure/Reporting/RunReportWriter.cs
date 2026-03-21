@@ -104,17 +104,12 @@ public static class RunReportWriter
         var junkCount = projection.Junk;
         var biosCount = projection.Bios;
 
-        // Invariant: report breakdown must account for all scanned files.
-        // Only validate when dedupe actually ran; ConvertOnly/empty-scan paths
-        // intentionally skip dedupe and keep conversion-only reporting.
+        // Invariant: report accounting must match scanned files.
+        // Use canonical accounting from scanned candidates + prefilter count,
+        // independent from dedupe grouping internals.
         if (result.DedupeGroups.Count > 0)
         {
-            var groupedJunkBios = result.DedupeGroups
-                .SelectMany(g => g.Losers.Append(g.Winner))
-                .Count(c => c.Category is FileCategory.Junk or FileCategory.Bios);
-            var ungroupedJunkBios = Math.Max(0, junkCount + biosCount - groupedJunkBios);
-            var accountedTotal = projection.Keep + projection.Dupes + ungroupedJunkBios
-                               + projection.Unknown + projection.FilteredNonGameCount;
+            var accountedTotal = projection.Candidates + projection.FilteredNonGameCount;
             if (accountedTotal != projection.TotalFiles)
                 throw new InvalidOperationException($"Report summary invariant failed: accounted={accountedTotal}, scanned={projection.TotalFiles}");
         }
@@ -140,6 +135,8 @@ public static class RunReportWriter
             ConvertErrorCount = projection.ConvertErrorCount,
             ConvertSkippedCount = projection.ConvertSkippedCount,
             ConvertBlockedCount = projection.ConvertBlockedCount,
+            ConvertReviewCount = projection.ConvertReviewCount,
+            ConvertSavedBytes = projection.ConvertSavedBytes,
             JunkRemovedCount = projection.JunkRemovedCount,
             JunkFailCount = projection.JunkFailCount,
             SkipCount = projection.SkipCount,

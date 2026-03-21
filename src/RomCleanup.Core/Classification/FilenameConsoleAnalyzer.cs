@@ -17,11 +17,17 @@ public sealed class FilenameConsoleAnalyzer
     /// </summary>
     private static readonly (Regex Pattern, string ConsoleKey)[] SerialPatterns =
     [
-        // PlayStation 1
-        (Rx(@"\b(SLUS|SCUS|SLPS|SCPS|SLPM|SIPS|SCES|SLES|SLKA|PAPX)-\d{3,5}\b"), "PS1"),
+        // PlayStation 1 — exclusive prefixes (never PS2)
+        (Rx(@"\b(SIPS|PAPX)-\d{3,5}\b"), "PS1"),
 
-        // PlayStation 2
-        (Rx(@"\b(SLUS|SCUS|SLPS|SCPS|SLPM|SCES|SLES|SLKA|PBPX)-\d{5}\b"), "PS2"),
+        // PlayStation 1 — shared prefixes: 3-4 digit serials, or 5-digit starting with 0-1 (00xxx-19xxx)
+        (Rx(@"\b(SLUS|SCUS|SLPS|SCPS|SLPM|SCES|SLES|SLKA)-(\d{3,4}|[01]\d{4})\b"), "PS1"),
+
+        // PlayStation 2 — exclusive prefix (never PS1)
+        (Rx(@"\bPBPX-\d{5}\b"), "PS2"),
+
+        // PlayStation 2 — shared prefixes: 5-digit starting with 2-9 (20xxx+)
+        (Rx(@"\b(SLUS|SCUS|SLPS|SCPS|SLPM|SCES|SLES|SLKA)-[2-9]\d{4}\b"), "PS2"),
 
         // PlayStation 3
         (Rx(@"\b(BCUS|BLUS|BCES|BLES|BCJS|BLJS|BCAS|BLAS|BLJM|NPUB|NPEB|NPJB)-\d{5}\b"), "PS3"),

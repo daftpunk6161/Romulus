@@ -61,10 +61,10 @@ public sealed partial class SetupViewModel : ObservableObject, INotifyDataErrorI
     public string Tool7z { get => _tool7z; set { if (SetProperty(ref _tool7z, value)) { ValidateToolPath(value, nameof(Tool7z)); StatusRefreshRequested?.Invoke(); } } }
 
     private string _toolPsxtract = "";
-    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) ValidateToolPath(value, nameof(ToolPsxtract)); } }
+    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) { ValidateToolPath(value, nameof(ToolPsxtract)); StatusRefreshRequested?.Invoke(); } } }
 
     private string _toolCiso = "";
-    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) ValidateToolPath(value, nameof(ToolCiso)); } }
+    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) { ValidateToolPath(value, nameof(ToolCiso)); StatusRefreshRequested?.Invoke(); } } }
 
     // ═══ BOOLEAN FLAGS (persisted) ══════════════════════════════════════
     [ObservableProperty]

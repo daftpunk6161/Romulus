@@ -125,6 +125,11 @@ public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers) : ICo
                             totalWatch.ElapsedMilliseconds);
                     }
 
+                    // SEC-CONV-05: Register intermediate artifact BEFORE invocation so that
+                    // cancellation between Invoke and registration still gets cleaned up.
+                    if (step.IsIntermediate)
+                        intermediateArtifacts.Add(outputPath);
+
                     var invokeResult = invoker.Invoke(currentInputPath, outputPath, step.Capability, cancellationToken);
                     exitCode = invokeResult.ExitCode;
 
@@ -171,8 +176,6 @@ public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers) : ICo
 
                     finalVerification = verifyStatus;
                     currentInputPath = outputPath;
-                    if (step.IsIntermediate)
-                        intermediateArtifacts.Add(outputPath);
                 }
                 catch (InvalidOperationException ex)
                 {

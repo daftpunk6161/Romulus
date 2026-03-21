@@ -16,21 +16,47 @@ public sealed record DetectionHypothesis(
 /// <summary>
 /// Aggregated console detection result from all methods.
 /// </summary>
-/// <param name="ConsoleKey">The winning console key, or "UNKNOWN".</param>
+/// <param name="ConsoleKey">The winning console key, or "UNKNOWN" or "AMBIGUOUS".</param>
 /// <param name="Confidence">Aggregate confidence 0–100.</param>
 /// <param name="Hypotheses">All hypotheses that contributed.</param>
 /// <param name="HasConflict">True if different methods disagree on the console.</param>
 /// <param name="ConflictDetail">Description of the conflict, if any.</param>
+/// <param name="HasHardEvidence">True if at least one hypothesis came from a hard evidence source.</param>
+/// <param name="IsSoftOnly">True if all hypotheses are from soft evidence sources only.</param>
+/// <param name="SortDecision">The computed sorting gate decision.</param>
 public sealed record ConsoleDetectionResult(
     string ConsoleKey,
     int Confidence,
     IReadOnlyList<DetectionHypothesis> Hypotheses,
     bool HasConflict,
-    string? ConflictDetail)
+    string? ConflictDetail,
+    bool HasHardEvidence = false,
+    bool IsSoftOnly = true,
+    SortDecision SortDecision = SortDecision.Blocked)
 {
     /// <summary>Unknown result with 0 confidence.</summary>
     public static ConsoleDetectionResult Unknown { get; } = new(
-        "UNKNOWN", 0, Array.Empty<DetectionHypothesis>(), false, null);
+        "UNKNOWN", 0, Array.Empty<DetectionHypothesis>(), false, null,
+        HasHardEvidence: false, IsSoftOnly: true, SortDecision: SortDecision.Blocked);
+}
+
+/// <summary>
+/// Sort gate decision — determines whether a file may be automatically sorted.
+/// Computed centrally by HypothesisResolver, consumed by the sorting gate.
+/// </summary>
+public enum SortDecision
+{
+    /// <summary>Sort allowed — high confidence, hard evidence, no conflict.</summary>
+    Sort,
+
+    /// <summary>Review needed — detection plausible but not fully secured.</summary>
+    Review,
+
+    /// <summary>Blocked — confidence too low, conflict, or UNKNOWN.</summary>
+    Blocked,
+
+    /// <summary>DAT-verified — hash match, always sortable.</summary>
+    DatVerified,
 }
 
 /// <summary>
@@ -64,4 +90,37 @@ public enum DetectionSource
 
     /// <summary>Ambiguous extension with only one console match.</summary>
     AmbiguousExtension = 40,
+}
+
+/// <summary>
+/// Extension methods for evidence classification on DetectionSource.
+/// Hard evidence = binary/structural signals that can justify sorting alone.
+/// Soft evidence = contextual/heuristic signals that require corroboration.
+/// </summary>
+public static class DetectionSourceExtensions
+{
+    /// <summary>Whether this source qualifies as hard (structural) evidence.</summary>
+    public static bool IsHardEvidence(this DetectionSource source) =>
+        source is DetectionSource.DatHash
+            or DetectionSource.UniqueExtension
+            or DetectionSource.DiscHeader
+            or DetectionSource.CartridgeHeader;
+
+    /// <summary>
+    /// Maximum confidence when only this single source type is present.
+    /// Prevents over-confident sorting from a single weak signal.
+    /// </summary>
+    public static int SingleSourceCap(this DetectionSource source) => source switch
+    {
+        DetectionSource.DatHash => 100,
+        DetectionSource.UniqueExtension => 95,
+        DetectionSource.DiscHeader => 92,
+        DetectionSource.CartridgeHeader => 90,
+        DetectionSource.SerialNumber => 75,
+        DetectionSource.ArchiveContent => 70,
+        DetectionSource.FolderName => 65,
+        DetectionSource.FilenameKeyword => 60,
+        DetectionSource.AmbiguousExtension => 40,
+        _ => 60
+    };
 }

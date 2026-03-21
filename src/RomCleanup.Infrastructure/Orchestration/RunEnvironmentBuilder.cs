@@ -6,6 +6,7 @@ using RomCleanup.Core.Conversion;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.Configuration;
 using RomCleanup.Infrastructure.Conversion;
+using RomCleanup.Infrastructure.Conversion.ToolInvokers;
 using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Hashing;
@@ -104,7 +105,13 @@ public sealed class RunEnvironmentBuilder
                 if (File.Exists(conversionRegistryPath) && File.Exists(consolesJsonPath))
                 {
                     conversionRegistry = new ConversionRegistryLoader(conversionRegistryPath, consolesJsonPath);
-                    var invokers = new IToolInvoker[] { new ToolInvokerAdapter(toolRunner) };
+                    var invokers = new IToolInvoker[]
+                    {
+                        new ChdmanInvoker(toolRunner),
+                        new DolphinToolInvoker(toolRunner),
+                        new SevenZipInvoker(toolRunner),
+                        new PsxtractInvoker(toolRunner)
+                    };
                     conversionExecutor = new ConversionExecutor(invokers);
 
                     conversionPlanner = new ConversionPlanner(

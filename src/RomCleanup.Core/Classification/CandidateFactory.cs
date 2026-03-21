@@ -26,7 +26,10 @@ public static class CandidateFactory
         string classificationReasonCode = "game-default",
         int classificationConfidence = 100,
         int detectionConfidence = 0,
-        bool detectionConflict = false)
+        bool detectionConflict = false,
+        bool hasHardEvidence = false,
+        bool isSoftOnly = true,
+        SortDecision sortDecision = SortDecision.Blocked)
     {
         var effectiveGameKey = category == FileCategory.Bios
             ? $"__BIOS__{gameKey}"
@@ -51,7 +54,10 @@ public static class CandidateFactory
             ClassificationReasonCode = classificationReasonCode,
             ClassificationConfidence = classificationConfidence,
             DetectionConfidence = detectionConfidence,
-            DetectionConflict = detectionConflict
+            DetectionConflict = detectionConflict,
+            HasHardEvidence = hasHardEvidence,
+            IsSoftOnly = isSoftOnly,
+            SortDecision = sortDecision.ToString()
         };
     }
 }

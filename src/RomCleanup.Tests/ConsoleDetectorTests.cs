@@ -429,7 +429,7 @@ public class ConsoleDetectorTests
     }
 
     [Fact]
-    public void DetectWithConfidence_JunkMarkerName_ReturnsUnknown()
+    public void DetectWithConfidence_JunkMarkerName_StillDetectsConsoleByEvidence()
     {
         var detector = CreateDetector();
         var tempDir = Path.Combine(Path.GetTempPath(), $"detector-junk-{Guid.NewGuid():N}");
@@ -440,8 +440,8 @@ public class ConsoleDetectorTests
         try
         {
             var result = detector.DetectWithConfidence(filePath, tempDir);
-            Assert.Equal("UNKNOWN", result.ConsoleKey);
-            Assert.Equal(0, result.Confidence);
+            Assert.Equal("NES", result.ConsoleKey);
+            Assert.InRange(result.Confidence, 90, 100);
         }
         finally
         {

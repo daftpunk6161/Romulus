@@ -51,6 +51,16 @@ public static class FileClassifier
         @"\b(driver|utility|utilities|tool|editor|workbench|operating\s*system|encyclopedia|reference|manual|documentation|tutorial|music\s*disk|tracker|composer|word\s*processor|spreadsheet|database|desktop\s*publishing|paint\s*program)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 
+    // Conservative allow-deny prefilter: extensions that are clearly non-ROM/user-content.
+    private static readonly HashSet<string> NonRomExtensions =
+    [
+        ".txt", ".md", ".rtf", ".pdf", ".doc", ".docx",
+        ".json", ".yaml", ".yml", ".xml", ".ini", ".cfg", ".conf", ".log",
+        ".ps1", ".psm1", ".bat", ".cmd", ".sh", ".py", ".js", ".ts",
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
+        ".nfo", ".diz", ".url", ".lnk"
+    ];
+
     public sealed record ClassificationDecision(FileCategory Category, int Confidence, string ReasonCode);
 
     /// <summary>
@@ -66,7 +76,29 @@ public static class FileClassifier
     /// Returns classification category plus confidence and a machine-readable reason code.
     /// </summary>
     public static ClassificationDecision Analyze(string baseName, bool aggressiveJunk = false)
+        => Analyze(baseName, extension: null, sizeBytes: null, aggressiveJunk: aggressiveJunk);
+
+    /// <summary>
+    /// Returns classification category plus confidence and a machine-readable reason code.
+    /// Optional extension and size allow scan-level prefilter hardening.
+    /// </summary>
+    public static ClassificationDecision Analyze(string baseName, string? extension, long? sizeBytes, bool aggressiveJunk = false)
     {
+        // Scan-level hard gate: known non-ROM file types should not pass as GAME.
+        if (!string.IsNullOrWhiteSpace(extension))
+        {
+            var normalizedExt = extension.StartsWith(".", StringComparison.Ordinal)
+                ? extension.ToLowerInvariant()
+                : "." + extension.ToLowerInvariant();
+
+            if (NonRomExtensions.Contains(normalizedExt))
+                return new ClassificationDecision(FileCategory.NonGame, 98, "non-rom-extension");
+        }
+
+        // Empty files are never valid game candidates.
+        if (sizeBytes.HasValue && sizeBytes.Value == 0)
+            return new ClassificationDecision(FileCategory.NonGame, 99, "empty-file");
+
         // V2-BUG-M05: Return Unknown for empty inputs instead of misclassifying as Game
         if (string.IsNullOrWhiteSpace(baseName))
             return new ClassificationDecision(FileCategory.Unknown, 5, "empty-basename");
@@ -100,6 +132,6 @@ public static class FileClassifier
                 return new ClassificationDecision(FileCategory.Junk, 82, "junk-aggressive-word");
         }
 
-        return new ClassificationDecision(FileCategory.Game, 90, "game-default");
+        return new ClassificationDecision(FileCategory.Game, 75, "game-default");
     }
 }

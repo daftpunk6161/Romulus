@@ -315,6 +315,8 @@ public sealed class ApiRunResult
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
+    public int ConvertReviewCount { get; init; }
+    public long ConvertSavedBytes { get; init; }
     public int JunkRemovedCount { get; init; }
     public int FilteredNonGameCount { get; init; }
     public int JunkFailCount { get; init; }
@@ -328,6 +330,8 @@ public sealed class ApiRunResult
     public string[] PreflightWarnings { get; init; } = Array.Empty<string>();
     public ApiPhaseMetrics PhaseMetrics { get; init; } = new() { Phases = Array.Empty<ApiPhaseMetric>() };
     public ApiDedupeGroup[] DedupeGroups { get; init; } = Array.Empty<ApiDedupeGroup>();
+    public ApiConversionPlan[] ConversionPlans { get; init; } = Array.Empty<ApiConversionPlan>();
+    public ApiConversionBlocked[] ConversionBlocked { get; init; } = Array.Empty<ApiConversionBlocked>();
     public OperationError? Error { get; init; }
 }
 
@@ -355,6 +359,22 @@ public sealed class ApiDedupeGroup
     public string GameKey { get; init; } = string.Empty;
     public RomCandidate Winner { get; init; } = new();
     public RomCandidate[] Losers { get; init; } = Array.Empty<RomCandidate>();
+}
+
+public sealed class ApiConversionPlan
+{
+    public string SourcePath { get; init; } = string.Empty;
+    public string? TargetExtension { get; init; }
+    public string Safety { get; init; } = string.Empty;
+    public string Outcome { get; init; } = string.Empty;
+    public string Verification { get; init; } = string.Empty;
+}
+
+public sealed class ApiConversionBlocked
+{
+    public string SourcePath { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+    public string Safety { get; init; } = string.Empty;
 }
 
 public sealed class RunStatusDto

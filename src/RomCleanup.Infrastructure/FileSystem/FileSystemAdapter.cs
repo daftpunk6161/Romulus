@@ -158,6 +158,13 @@ public sealed class FileSystemAdapter : IFileSystem
         if (destSegments.Any(s => s == ".."))
             throw new InvalidOperationException("Blocked: Destination path contains directory traversal.");
 
+        // SEC-MOVE-03: Block NTFS Alternate Data Streams (parity with ResolveChildPathWithinRoot)
+        if (sourcePath.Contains(':') && !Path.IsPathRooted(sourcePath))
+            throw new InvalidOperationException("Blocked: Source path contains NTFS ADS reference.");
+        var destFileName = Path.GetFileName(destinationPath);
+        if (destFileName.Contains(':'))
+            throw new InvalidOperationException("Blocked: Destination filename contains NTFS ADS reference.");
+
         var fullSource = NormalizePathNfc(sourcePath);
         var fullDest = NormalizePathNfc(destinationPath);
 

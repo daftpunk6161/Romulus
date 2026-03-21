@@ -47,6 +47,8 @@ public sealed record ReportSummary
     public int ConvertErrorCount { get; init; }
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
+    public int ConvertReviewCount { get; init; }
+    public long ConvertSavedBytes { get; init; }
     public int JunkRemovedCount { get; init; }
     public int JunkFailCount { get; init; }
     public int SkipCount { get; init; }
@@ -212,6 +214,10 @@ tr:hover { background: rgba(137,180,250,0.05); }
             AppendCard(sb, "", s.ConvertSkippedCount.ToString(), "Convert-Skip");
         if (s.ConvertBlockedCount > 0)
             AppendCard(sb, "", s.ConvertBlockedCount.ToString(), "Convert-Blocked");
+        if (s.ConvertReviewCount > 0)
+            AppendCard(sb, "", s.ConvertReviewCount.ToString(), "Convert-Review");
+        if (s.ConvertSavedBytes != 0)
+            AppendCard(sb, "", FormatSize(s.ConvertSavedBytes), "Convert-Gespart");
         if (s.ConvertErrorCount > 0)
             AppendCard(sb, "junk", s.ConvertErrorCount.ToString(), "Convert-Fehler");
         if (s.ErrorCount > 0)

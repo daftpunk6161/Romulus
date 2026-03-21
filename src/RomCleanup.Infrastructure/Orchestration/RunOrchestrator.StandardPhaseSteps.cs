@@ -77,7 +77,7 @@ public sealed partial class RunOrchestrator
         _onProgress?.Invoke("[Sort] Sortiere Dateien nach Konsole…");
 
         // Build sort-decision map from enrichment phase.
-        // We only allow sorting when confidence is high and no detection conflict exists.
+        // We use the SortDecision computed by HypothesisResolver instead of raw confidence.
         Dictionary<string, string>? enrichedConsoleKeys = null;
         if (state.AllCandidates is not null)
         {
@@ -92,15 +92,21 @@ public sealed partial class RunOrchestrator
                 }
 
                 if (string.IsNullOrEmpty(c.ConsoleKey) ||
-                    c.ConsoleKey == "UNKNOWN" ||
-                    c.DetectionConflict ||
-                    c.DetectionConfidence < 80)
+                    c.ConsoleKey is "UNKNOWN" or "AMBIGUOUS")
                 {
                     enrichedConsoleKeys[c.MainPath] = "UNKNOWN";
                     continue;
                 }
 
-                enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
+                // SortDecision-based gate: only Sort and DatVerified pass
+                if (c.SortDecision is "Sort" or "DatVerified")
+                {
+                    enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
+                }
+                else
+                {
+                    enrichedConsoleKeys[c.MainPath] = "UNKNOWN";
+                }
             }
         }
 

@@ -165,5 +165,12 @@ public sealed class GoldenCoreBenchmarkTests : IClassFixture<BenchmarkFixture>
         {
             _output.WriteLine($"  FAIL: [{r.Id}] {r.Verdict} — {r.Details}");
         }
+
+        // F-P3-06: Formal false-positive rate gate (must stay below 5%)
+        int falsePositives = results.Count(r => r.Verdict == BenchmarkVerdict.FalsePositive);
+        double fpRate = results.Count > 0 ? (double)falsePositives / results.Count * 100 : 0;
+        _output.WriteLine($"  False-Positive Rate: {fpRate:F2}%");
+        Assert.True(fpRate < 5.0,
+            $"False-positive rate {fpRate:F2}% exceeds 5% threshold ({falsePositives}/{results.Count})");
     }
 }

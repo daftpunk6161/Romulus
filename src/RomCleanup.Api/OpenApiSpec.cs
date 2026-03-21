@@ -144,6 +144,8 @@ public static class OpenApiSpec
           "convertErrorCount": { "type": "integer" },
           "convertSkippedCount": { "type": "integer" },
           "convertBlockedCount": { "type": "integer" },
+          "convertReviewCount": { "type": "integer" },
+          "convertSavedBytes": { "type": "integer", "format": "int64" },
           "junkRemovedCount": { "type": "integer" },
           "filteredNonGameCount": { "type": "integer" },
           "junkFailCount": { "type": "integer" },
@@ -154,10 +156,12 @@ public static class OpenApiSpec
           "failCount": { "type": "integer" },
           "savedBytes": { "type": "integer", "format": "int64" },
           "durationMs": { "type": "integer", "format": "int64" },
-          "preflightWarnings": { "type": "array", "items": { "type": "string" } },
-          "phaseMetrics": { "$ref": "#/components/schemas/ApiPhaseMetrics" },
-          "dedupeGroups": { "type": "array", "items": { "$ref": "#/components/schemas/ApiDedupeGroup" } },
-          "error": { "$ref": "#/components/schemas/OperationError" }
+          "preflightWarnings": { "type": "array", "items": { "type": "string" }, "nullable": true },
+          "phaseMetrics": { "$ref": "#/components/schemas/ApiPhaseMetrics", "nullable": true },
+          "dedupeGroups": { "type": "array", "items": { "$ref": "#/components/schemas/ApiDedupeGroup" }, "nullable": true },
+          "conversionPlans": { "type": "array", "items": { "$ref": "#/components/schemas/ApiConversionPlan" }, "nullable": true },
+          "conversionBlocked": { "type": "array", "items": { "$ref": "#/components/schemas/ApiConversionBlocked" }, "nullable": true },
+          "error": { "$ref": "#/components/schemas/OperationError", "nullable": true }
         }
       },
       "ApiPhaseMetrics": {
@@ -187,6 +191,24 @@ public static class OpenApiSpec
           "gameKey": { "type": "string" },
           "winner": { "$ref": "#/components/schemas/RomCandidate" },
           "losers": { "type": "array", "items": { "$ref": "#/components/schemas/RomCandidate" } }
+        }
+      },
+      "ApiConversionPlan": {
+        "type": "object",
+        "properties": {
+          "sourcePath": { "type": "string" },
+          "targetExtension": { "type": "string", "nullable": true },
+          "safety": { "type": "string" },
+          "outcome": { "type": "string" },
+          "verification": { "type": "string" }
+        }
+      },
+      "ApiConversionBlocked": {
+        "type": "object",
+        "properties": {
+          "sourcePath": { "type": "string" },
+          "reason": { "type": "string" },
+          "safety": { "type": "string" }
         }
       },
       "RomCandidate": {

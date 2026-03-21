@@ -20,6 +20,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         int convertErrors = 0;
         int convertSkipped = 0;
         int convertBlocked = 0;
+        var conversionResults = new List<ConversionResult>();
         var totalCandidates = input.Candidates.Count;
         var processedCandidates = 0;
 
@@ -67,6 +68,8 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
                 context.OnProgress?.Invoke($"[Convert] {Path.GetFileName(path)} → {target.Extension}");
                 convResult = input.Converter.Convert(path, target, cancellationToken);
             }
+
+            conversionResults.Add(convResult);
 
             if (convResult.Outcome == ConversionOutcome.Success)
             {
@@ -129,7 +132,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertBlocked} blockiert, {convertErrors} Fehler");
         context.Metrics.CompletePhase(converted);
 
-        return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked);
+        return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked, conversionResults);
     }
 
     private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
@@ -167,4 +170,5 @@ public sealed record ConvertOnlyPhaseOutput(
     int Converted,
     int ConvertErrors,
     int ConvertSkipped,
-    int ConvertBlocked);
+    int ConvertBlocked,
+    IReadOnlyList<ConversionResult> ConversionResults);

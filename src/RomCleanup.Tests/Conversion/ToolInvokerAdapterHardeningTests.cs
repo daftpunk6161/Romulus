@@ -1,6 +1,7 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Conversion;
+using System.Security.Cryptography;
 using Xunit;
 
 namespace RomCleanup.Tests.Conversion;
@@ -28,7 +29,7 @@ public sealed class ToolInvokerAdapterHardeningTests
     {
         var source = CreateTempFile(".iso");
         var target = Path.ChangeExtension(source, ".chd");
-        var runner = new RecordingToolRunner();
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
         var invoker = new ToolInvokerAdapter(runner);
 
         try
@@ -53,7 +54,7 @@ public sealed class ToolInvokerAdapterHardeningTests
     {
         var source = CreateTempFile(".iso");
         var target = Path.ChangeExtension(source, ".chd");
-        var runner = new RecordingToolRunner();
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
         var invoker = new ToolInvokerAdapter(runner);
 
         try
@@ -63,6 +64,111 @@ public sealed class ToolInvokerAdapterHardeningTests
             Assert.True(result.Success);
             Assert.NotNull(runner.LastArgs);
             Assert.Equal("createcd", runner.LastArgs![0]);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
+    public void Invoke_ExpectedHashMismatch_BlocksInvocation()
+    {
+        var source = CreateTempFile(".iso");
+        var target = Path.ChangeExtension(source, ".chd");
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
+        var invoker = new ToolInvokerAdapter(runner);
+
+        try
+        {
+            var capability = Capability("chdman", "createcd");
+            capability = capability with
+            {
+                Tool = new ToolRequirement
+                {
+                    ToolName = "chdman",
+                    ExpectedHash = new string('0', 64)
+                }
+            };
+
+            var result = invoker.Invoke(source, target, capability);
+
+            Assert.False(result.Success);
+            Assert.Equal("tool-hash-mismatch", result.StdErr);
+            Assert.False(runner.WasInvokeCalled);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
+    public void Invoke_ExpectedHashMatch_AllowsInvocation()
+    {
+        var source = CreateTempFile(".iso");
+        var target = Path.ChangeExtension(source, ".chd");
+        var toolPath = GetExistingExecutablePath();
+        var runner = new RecordingToolRunner { ToolPath = toolPath };
+        var invoker = new ToolInvokerAdapter(runner);
+
+        try
+        {
+            var capability = Capability("chdman", "createcd");
+            capability = capability with
+            {
+                Tool = new ToolRequirement
+                {
+                    ToolName = "chdman",
+                    ExpectedHash = ComputeSha256(toolPath)
+                }
+            };
+
+            var result = invoker.Invoke(source, target, capability);
+
+            Assert.True(result.Success);
+            Assert.True(runner.WasInvokeCalled);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
+    public void Invoke_MinVersionTooHigh_BlocksInvocation()
+    {
+        var source = CreateTempFile(".iso");
+        var target = Path.ChangeExtension(source, ".chd");
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
+        var invoker = new ToolInvokerAdapter(runner);
+
+        try
+        {
+            var capability = Capability("chdman", "createcd");
+            capability = capability with
+            {
+                Tool = new ToolRequirement
+                {
+                    ToolName = "chdman",
+                    MinVersion = "99.0.0.0"
+                }
+            };
+
+            var result = invoker.Invoke(source, target, capability);
+
+            Assert.False(result.Success);
+            Assert.Equal("tool-version-too-old", result.StdErr);
+            Assert.False(runner.WasInvokeCalled);
         }
         finally
         {
@@ -96,12 +202,39 @@ public sealed class ToolInvokerAdapterHardeningTests
         return path;
     }
 
+    private static string GetExistingExecutablePath()
+    {
+        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        var candidates = new[]
+        {
+            Path.Combine(winDir, "System32", "cmd.exe"),
+            Path.Combine(winDir, "System32", "where.exe")
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new InvalidOperationException("No suitable tool executable found for hash/version test.");
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(path);
+        var hash = sha256.ComputeHash(stream);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     private sealed class RecordingToolRunner : IToolRunner
     {
         public bool WasInvokeCalled { get; private set; }
         public string[]? LastArgs { get; private set; }
+        public string? ToolPath { get; init; }
 
-        public string? FindTool(string toolName) => $"C:\\mock\\{toolName}.exe";
+        public string? FindTool(string toolName) => ToolPath ?? $"C:\\mock\\{toolName}.exe";
 
         public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null)
         {

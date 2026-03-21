@@ -60,24 +60,6 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var ext = file.Extension;
         var fileName = Path.GetFileNameWithoutExtension(filePath);
         var gameKey = GameKeyNormalizer.Normalize(fileName);
-        var classification = FileClassifier.Analyze(fileName, context.Options.AggressiveJunk);
-        var category = classification.Category;
-
-        string consoleKey = "";
-        int detectionConfidence = 0;
-        bool detectionConflict = false;
-        if (consoleDetector is not null)
-        {
-            var result = consoleDetector.DetectWithConfidence(filePath, root);
-            consoleKey = result.ConsoleKey;
-            detectionConfidence = result.Confidence;
-            detectionConflict = result.HasConflict;
-        }
-
-        var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
-        var regionScore = FormatScorer.GetRegionScore(regionTag, context.Options.PreferRegions);
-        var fmtScore = FormatScorer.GetFormatScore(ext);
-        var verScore = versionScorer.GetVersionScore(fileName);
 
         long sizeBytes = 0;
         if (File.Exists(filePath))
@@ -91,6 +73,31 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 context.OnProgress?.Invoke($"WARNING: Could not read file size for {filePath}: {ex.Message}");
             }
         }
+
+        var classification = FileClassifier.Analyze(fileName, ext, sizeBytes, context.Options.AggressiveJunk);
+        var category = classification.Category;
+
+        string consoleKey = "";
+        int detectionConfidence = 0;
+        bool detectionConflict = false;
+        bool hasHardEvidence = false;
+        bool isSoftOnly = true;
+        var sortDecision = Core.Classification.SortDecision.Blocked;
+        if (consoleDetector is not null)
+        {
+            var result = consoleDetector.DetectWithConfidence(filePath, root);
+            consoleKey = result.ConsoleKey;
+            detectionConfidence = result.Confidence;
+            detectionConflict = result.HasConflict;
+            hasHardEvidence = result.HasHardEvidence;
+            isSoftOnly = result.IsSoftOnly;
+            sortDecision = result.SortDecision;
+        }
+
+        var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
+        var regionScore = FormatScorer.GetRegionScore(regionTag, context.Options.PreferRegions);
+        var fmtScore = FormatScorer.GetFormatScore(ext);
+        var verScore = versionScorer.GetVersionScore(fileName);
 
         bool datMatch = false;
         if (datIndex is not null && hashService is not null)
@@ -178,12 +185,17 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             }
         }
 
-        // DAT match is the ultimate authority — set max confidence
+        // DAT match is the ultimate authority — set max confidence and SortDecision
         if (datMatch && consoleKey is not "UNKNOWN" and not "")
         {
             detectionConfidence = detectionConflict
                 ? Math.Max(detectionConfidence, 95)
                 : 100;
+            hasHardEvidence = true;
+            isSoftOnly = false;
+            sortDecision = detectionConflict
+                ? Core.Classification.SortDecision.Review
+                : Core.Classification.SortDecision.DatVerified;
         }
 
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
@@ -209,7 +221,10 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             classificationReasonCode: classification.ReasonCode,
             classificationConfidence: classification.Confidence,
             detectionConfidence: detectionConfidence,
-            detectionConflict: detectionConflict);
+            detectionConflict: detectionConflict,
+            hasHardEvidence: hasHardEvidence,
+            isSoftOnly: isSoftOnly,
+            sortDecision: sortDecision);
     }
 
     private static IReadOnlyList<string> GetSetMembers(string filePath, string ext)

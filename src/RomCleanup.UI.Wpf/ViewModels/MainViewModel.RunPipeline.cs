@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Input;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Conversion;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
@@ -412,6 +413,88 @@ public sealed partial class MainViewModel
             "Jetzt verschieben");
     }
 
+    private async Task<bool> ConfirmConversionReviewDialogAsync(RunOptions runOptions, CancellationToken cancellationToken)
+    {
+        if (DryRun || runOptions.ConvertFormat is null)
+            return true;
+
+        if (runOptions.Mode != "Move" && !runOptions.ConvertOnly)
+            return true;
+
+        if (runOptions.ConvertOnly)
+            return true;
+
+        if (LastDedupeGroups.Count == 0)
+            return true;
+
+        var reviewEntries = await Task.Run(() => BuildConversionReviewEntries(runOptions, cancellationToken), cancellationToken);
+        if (reviewEntries.Count == 0)
+            return true;
+
+        var summary = "Mindestens ein Konvertierungspfad ist als ManualOnly/Risky/Lossy markiert. "
+                    + "Bitte die betroffenen Dateien vor dem Start prüfen und explizit bestätigen.";
+
+        var confirmed = DialogService.ConfirmConversionReview(
+            "Konvertierung manuell prüfen",
+            summary,
+            reviewEntries);
+
+        if (!confirmed)
+            AddLog("Konvertierung abgebrochen: ManualOnly/Risky-Review nicht bestätigt.", "WARN");
+
+        return confirmed;
+    }
+
+    private IReadOnlyList<ConversionReviewEntry> BuildConversionReviewEntries(RunOptions runOptions, CancellationToken cancellationToken)
+    {
+        var dataDir = FeatureService.ResolveDataDirectory() ?? RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        var env = RunEnvironmentBuilder.Build(runOptions, settings, dataDir);
+
+        if (env.Converter is not FormatConverterAdapter converter)
+            return Array.Empty<ConversionReviewEntry>();
+
+        var entries = new List<ConversionReviewEntry>();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in LastDedupeGroups)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var winner = group.Winner;
+            if (winner is null || string.IsNullOrWhiteSpace(winner.MainPath))
+                continue;
+
+            if (!seenPaths.Add(winner.MainPath))
+                continue;
+
+            if (!File.Exists(winner.MainPath))
+                continue;
+
+            var plan = converter.PlanForConsole(winner.MainPath, winner.ConsoleKey ?? string.Empty);
+            if (plan is null || !plan.RequiresReview)
+                continue;
+
+            entries.Add(new ConversionReviewEntry(
+                winner.MainPath,
+                plan.FinalTargetExtension,
+                BuildConversionSafetyReason(plan)));
+        }
+
+        return entries;
+    }
+
+    private static string BuildConversionSafetyReason(ConversionPlan plan)
+    {
+        if (plan.Policy == ConversionPolicy.ManualOnly)
+            return "Policy=ManualOnly";
+        if (plan.Safety == ConversionSafety.Risky)
+            return "Safety=Risky";
+        if (plan.SourceIntegrity == SourceIntegrity.Lossy)
+            return "SourceIntegrity=Lossy";
+        return "Review erforderlich";
+    }
+
     private void OnRun()
     {
         if (HasBlockingValidationErrors)
@@ -517,7 +600,10 @@ public sealed partial class MainViewModel
     private void OnOpenReport()
     {
         if (string.IsNullOrWhiteSpace(LastReportPath) || !System.IO.File.Exists(LastReportPath))
+        {
+            AddLog("Kein Report aus dem letzten Lauf vorhanden oder Datei wurde nicht erstellt.", "WARN");
             return;
+        }
 
         string fullPath;
         try
@@ -786,6 +872,12 @@ public sealed partial class MainViewModel
                 });
             }, ct);
 
+            if (!await ConfirmConversionReviewDialogAsync(runOptions, ct))
+            {
+                CurrentRunState = RunState.Idle;
+                return;
+            }
+
             var svcResult = await Task.Run(
                 () => _runService.ExecuteRun(orchestrator, runOptions, auditPath, reportPath, ct), ct);
 
@@ -966,6 +1058,13 @@ public sealed partial class MainViewModel
         }
         else
         {
+            // F-P2-01: Surface preflight warnings in GUI log
+            if (result.Preflight?.Warnings is { Count: > 0 } warnings)
+            {
+                foreach (var w in warnings)
+                    AddLog($"Preflight-Warnung: {w}", "WARN");
+            }
+
             AddLog($"Scan: {result.TotalFilesScanned} Dateien", "INFO");
             AddLog($"Dedupe: Keep={projection.Keep}, Move={projection.Dupes}, Junk={projection.Junk}", "INFO");
             if (result.MoveResult is { } mv)
@@ -977,6 +1076,26 @@ public sealed partial class MainViewModel
             }
             if (result.ConvertedCount > 0)
                 AddLog($"Konvertiert: {result.ConvertedCount}", "INFO");
+            if (result.ConvertErrorCount > 0)
+                AddLog($"Konvertierung fehlgeschlagen: {result.ConvertErrorCount}", "WARN");
+            if (result.ConvertBlockedCount > 0)
+                AddLog($"Konvertierung blockiert: {result.ConvertBlockedCount}", "WARN");
+
+            // F-P1-03: Per-file conversion details in GUI log (parity with CLI/API)
+            if (result.ConversionReport is { Results.Count: > 0 })
+            {
+                foreach (var cr in result.ConversionReport.Results)
+                {
+                    var detail = cr.Outcome switch
+                    {
+                        ConversionOutcome.Error => $"Konvertierung Fehler: {Path.GetFileName(cr.SourcePath)} → {cr.Reason}",
+                        ConversionOutcome.Blocked => $"Konvertierung blockiert: {Path.GetFileName(cr.SourcePath)} → {cr.Reason}",
+                        _ => null
+                    };
+                    if (detail is not null)
+                        AddLog(detail, "WARN");
+                }
+            }
         }
 
         // GUI-071: Console distribution bars

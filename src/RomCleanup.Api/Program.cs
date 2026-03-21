@@ -266,6 +266,10 @@ app.MapPost("/runs", async (HttpContext ctx, RunLifecycleManager mgr) =>
     // TASK-200: Validate PreferRegions to prevent injection
     if (request.PreferRegions is { Length: > 0 })
     {
+        // SEC-API-01: Limit array length to prevent abuse
+        if (request.PreferRegions.Length > 20)
+            return ApiError(400, "RUN-TOO-MANY-REGIONS", "PreferRegions must contain at most 20 entries.");
+
         foreach (var region in request.PreferRegions)
         {
             if (string.IsNullOrWhiteSpace(region) || region.Length > 10 ||
