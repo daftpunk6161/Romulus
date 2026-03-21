@@ -6,6 +6,8 @@ internal sealed record ConfusionEntry(string ExpectedSystem, string ActualSystem
 
 internal static class MetricsAggregator
 {
+    private const int FalseConfidenceThreshold = 90;
+
     public static IReadOnlyDictionary<string, SystemMetrics> CalculatePerSystem(IReadOnlyList<BenchmarkSampleResult> results)
     {
         var systems = results
@@ -46,21 +48,24 @@ internal static class MetricsAggregator
         int total = results.Count;
         int wrong = results.Count(r => r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive);
         int unknown = results.Count(r => string.IsNullOrWhiteSpace(r.ActualConsoleKey) || string.Equals(r.ActualConsoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase));
-        int unsafeSort = results.Count(r => r.ActualConfidence >= 80 && (r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive));
+        int falseConfidence = results.Count(r =>
+            r.ActualConfidence >= FalseConfidenceThreshold &&
+            (r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive));
 
         return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
             ["wrongMatchRate"] = total == 0 ? 0 : (double)wrong / total,
             ["unknownRate"] = total == 0 ? 0 : (double)unknown / total,
-            ["unsafeSortRate"] = total == 0 ? 0 : (double)unsafeSort / total,
-            ["safeSortCoverage"] = total == 0 ? 0 : 1d - ((double)unsafeSort / total)
+            ["falseConfidenceRate"] = total == 0 ? 0 : (double)falseConfidence / total,
+            ["unsafeSortRate"] = total == 0 ? 0 : (double)falseConfidence / total,
+            ["safeSortCoverage"] = total == 0 ? 0 : 1d - ((double)falseConfidence / total)
         };
     }
 
     public static IReadOnlyList<ConfusionEntry> BuildConfusionMatrix(IReadOnlyList<BenchmarkSampleResult> results)
     {
         return results
-            .Where(r => r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive or BenchmarkVerdict.Missed)
+            .Where(r => r.Verdict is BenchmarkVerdict.Wrong or BenchmarkVerdict.FalsePositive or BenchmarkVerdict.Ambiguous)
             .GroupBy(r => new
             {
                 Expected = r.ExpectedConsoleKey ?? "UNKNOWN",

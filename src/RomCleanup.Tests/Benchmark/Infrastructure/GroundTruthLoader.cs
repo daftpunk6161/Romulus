@@ -38,6 +38,7 @@ internal sealed class GroundTruthLoader
     public static List<GroundTruthEntry> LoadFile(string path)
     {
         var entries = new List<GroundTruthEntry>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var lines = File.ReadAllLines(path);
 
         for (int lineNum = 0; lineNum < lines.Length; lineNum++)
@@ -50,7 +51,15 @@ internal sealed class GroundTruthLoader
             {
                 var entry = JsonSerializer.Deserialize<GroundTruthEntry>(line, JsonOptions);
                 if (entry is not null)
+                {
+                    if (!seenIds.Add(entry.Id))
+                    {
+                        throw new InvalidOperationException(
+                            $"Duplicate ground-truth id '{entry.Id}' in {Path.GetFileName(path)} (line {lineNum + 1}).");
+                    }
+
                     entries.Add(entry);
+                }
             }
             catch (JsonException ex)
             {

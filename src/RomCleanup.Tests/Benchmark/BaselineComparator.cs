@@ -27,16 +27,20 @@ internal static class BaselineComparator
         var baselinePerSystem = baseline.PerSystem ?? new Dictionary<string, BenchmarkSystemSummary>(StringComparer.OrdinalIgnoreCase);
 
         var regressions = new List<string>();
-        foreach (var currentPair in currentPerSystem)
-        {
-            if (!baselinePerSystem.TryGetValue(currentPair.Key, out var previous))
-            {
-                continue;
-            }
+        var allSystemKeys = new HashSet<string>(baselinePerSystem.Keys, StringComparer.OrdinalIgnoreCase);
+        allSystemKeys.UnionWith(currentPerSystem.Keys);
 
-            if (currentPair.Value.Wrong + currentPair.Value.FalsePositive > previous.Wrong + previous.FalsePositive)
+        foreach (var systemKey in allSystemKeys)
+        {
+            baselinePerSystem.TryGetValue(systemKey, out var previous);
+            currentPerSystem.TryGetValue(systemKey, out var current);
+
+            int baselineWrong = (previous?.Wrong ?? 0) + (previous?.FalsePositive ?? 0);
+            int currentWrong = (current?.Wrong ?? 0) + (current?.FalsePositive ?? 0);
+
+            if (currentWrong > baselineWrong)
             {
-                regressions.Add(currentPair.Key);
+                regressions.Add(systemKey);
             }
         }
 

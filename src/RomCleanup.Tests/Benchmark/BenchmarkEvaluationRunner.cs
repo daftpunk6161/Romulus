@@ -27,6 +27,9 @@ internal static class BenchmarkEvaluationRunner
     public static List<BenchmarkSampleResult> EvaluateSet(BenchmarkFixture fixture, string setFileName)
     {
         var entries = GroundTruthLoader.LoadSet(setFileName);
-        return entries.Select(entry => Evaluate(fixture, entry)).ToList();
+        return entries
+            .OrderBy(entry => entry.Id, StringComparer.Ordinal)
+            .Select(entry => Evaluate(fixture, entry))
+            .ToList();
     }
 }

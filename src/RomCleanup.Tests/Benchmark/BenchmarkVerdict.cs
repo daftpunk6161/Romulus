@@ -14,6 +14,9 @@ public enum BenchmarkVerdict
     /// <summary>Detection produced a wrong console key.</summary>
     Wrong,
 
+    /// <summary>Detection is inconclusive because multiple conflicting hypotheses remain plausible.</summary>
+    Ambiguous,
+
     /// <summary>Detection produced no result (UNKNOWN) for a known console.</summary>
     Missed,
 
