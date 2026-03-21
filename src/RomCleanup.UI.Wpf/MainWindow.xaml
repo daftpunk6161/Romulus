@@ -175,14 +175,15 @@
           </StackPanel>
           <!-- Help / Shortcut-Sheet toggle at bottom of sidebar -->
           <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,8">
-            <Button Command="{Binding ToggleShortcutSheetCommand}"
-                    Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Shortcuts.Title]}" TabIndex="54"
-                    AutomationProperties.Name="{Binding Loc[Shortcuts.Title]}">
+            <RadioButton GroupName="Nav" IsChecked="False"
+                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Shortcuts.Title]}" TabIndex="54"
+                         Command="{Binding ToggleShortcutSheetCommand}"
+                         AutomationProperties.Name="{Binding Loc[Shortcuts.Title]}">
               <StackPanel HorizontalAlignment="Center">
                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE897;" FontSize="18" HorizontalAlignment="Center"/>
                 <TextBlock Text="Hilfe" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
               </StackPanel>
-            </Button>
+            </RadioButton>
           </StackPanel>
         </DockPanel>
       </Border>
