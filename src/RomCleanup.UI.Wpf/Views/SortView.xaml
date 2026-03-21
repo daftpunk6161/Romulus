@@ -27,6 +27,7 @@
                            IsChecked="{Binding ActivePreset, Converter={StaticResource StrEqualsToBool}, ConverterParameter=SafeDryRun}"
                            Command="{Binding PresetSafeDryRunCommand}"
                            ToolTip="{Binding Loc[Sort.PresetSafeDryRunTip]}"
+                           TabIndex="20"
                            AutomationProperties.Name="{Binding Loc[Sort.PresetSafeDryRun]}">
                 <StackPanel>
                   <TextBlock Text="{Binding Loc[Sort.PresetSafeDryRun]}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -38,6 +39,7 @@
                            IsChecked="{Binding ActivePreset, Converter={StaticResource StrEqualsToBool}, ConverterParameter=FullSort}"
                            Command="{Binding PresetFullSortCommand}"
                            ToolTip="Volle Sortierung: Alle Regionen, Standard-Regeln, Vorschau aktiv"
+                           TabIndex="21"
                            AutomationProperties.Name="{Binding Loc[Sort.PresetFullSort]}">
                 <StackPanel>
                   <TextBlock Text="{Binding Loc[Sort.PresetFullSort]}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -49,6 +51,7 @@
                            IsChecked="{Binding ActivePreset, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Convert}"
                            Command="{Binding PresetConvertCommand}"
                            ToolTip="{Binding Loc[Sort.PresetConvertTip]}"
+                           TabIndex="22"
                            AutomationProperties.Name="{Binding Loc[Sort.PresetConvert]}">
                 <StackPanel>
                   <TextBlock Text="{Binding Loc[Sort.PresetConvert]}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
