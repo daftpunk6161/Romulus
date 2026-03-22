@@ -559,8 +559,9 @@ public sealed class AuditComplianceTests : IDisposable
 
         Assert.Contains("ResultDialog.ShowText(title, content, this);", mainWindow, StringComparison.Ordinal);
         Assert.Contains("Background=\"{DynamicResource BrushBackground}\"", resultDialog, StringComparison.Ordinal);
-        Assert.Contains("<SolidColorBrush x:Key=\"BrushBackground\" Color=\"#F4F6FF\"/>", lightTheme, StringComparison.Ordinal);
-        Assert.Contains("<SolidColorBrush x:Key=\"BrushSurface\" Color=\"#FFFFFF\"/>", lightTheme, StringComparison.Ordinal);
+        // Whitespace-flexible: Light.xaml uses column-aligned spacing
+        Assert.Matches(@"<SolidColorBrush\s+x:Key=""BrushBackground""\s+Color=""#F4F6FF""\s*/>", lightTheme);
+        Assert.Matches(@"<SolidColorBrush\s+x:Key=""BrushSurface""\s+Color=""#FFFFFF""\s*/>", lightTheme);
     }
 
     /// <summary>

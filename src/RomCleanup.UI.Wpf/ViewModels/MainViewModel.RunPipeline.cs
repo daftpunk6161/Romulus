@@ -1052,6 +1052,9 @@ public sealed partial class MainViewModel
         DashDatHits = dashboard.DatHits;
         DedupeRate = dashboard.DedupeRate;
 
+        // GUI-021: Sync to MissionControl child VM
+        MissionControl.UpdateLastRun(dashboard.Winners, dashboard.Dupes, dashboard.Junk, dashboard.Duration);
+
         if (result.Status == "blocked")
         {
             AddLog($"Preflight blockiert: {result.Preflight?.Reason}", "ERROR");

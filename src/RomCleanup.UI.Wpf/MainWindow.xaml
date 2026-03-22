@@ -71,10 +71,14 @@
       </Grid.ColumnDefinitions>
 
       <!-- ═══ ROW 0: COMMAND BAR (spans all columns) ══════════════════════ -->
-      <views:CommandBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"/>
+      <views:CommandBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                        AutomationProperties.Name="CommandBar"
+                        TabIndex="1"/>
 
       <!-- ═══ ROW 1, COL 0: NAVIGATION RAIL ══════════════════════════════ -->
-      <views:NavigationRail Grid.Row="1" Grid.Column="0"/>
+      <views:NavigationRail Grid.Row="1" Grid.Column="0"
+                            AutomationProperties.Name="NavigationRail"
+                            TabIndex="50"/>
 
       <!-- ═══ ROW 1, COL 1: SUB-TAB BAR + CONTENT AREA ══════════════════ -->
       <Grid Grid.Row="1" Grid.Column="1">
@@ -84,20 +88,23 @@
         </Grid.RowDefinitions>
 
         <!-- Sub-Tab Bar -->
-        <views:SubTabBar Grid.Row="0"/>
+        <views:SubTabBar Grid.Row="0" TabIndex="2"/>
 
         <!-- Content: auto-switch to Progress during run -->
         <Grid Grid.Row="1">
-          <views:ProgressView Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+          <views:ProgressView Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                             TabIndex="3"/>
 
           <!-- Normal screens (hidden during run) -->
           <Grid Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}">
 
             <!-- ── MissionControl ──────────────────────────────── -->
-            <views:StartView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}"/>
+            <views:StartView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}"
+                             TabIndex="51"/>
 
             <!-- ── Library (sub-tab-aware) ─────────────────────── -->
-            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Library}">
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Library}"
+                  KeyboardNavigation.TabIndex="52">
               <views:ResultView x:Name="resultView"
                   Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Results}"/>
               <views:LibraryReportView
@@ -105,7 +112,8 @@
             </Grid>
 
             <!-- ── Config (sub-tab-aware) ──────────────────────── -->
-            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}">
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}"
+                  KeyboardNavigation.TabIndex="53">
               <views:SortView
                   Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Workflow}"/>
               <views:ConfigFiltersView
@@ -117,7 +125,8 @@
             </Grid>
 
             <!-- ── Tools (sub-tab-aware) ───────────────────────── -->
-            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}">
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}"
+                  KeyboardNavigation.TabIndex="54">
               <views:ToolsView DataContext="{Binding Tools}"
                   Visibility="{Binding DataContext.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ExternalTools}"/>
               <views:ToolsDatView
@@ -127,7 +136,8 @@
             </Grid>
 
             <!-- ── System (sub-tab-aware) ──────────────────────── -->
-            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}">
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}"
+                  KeyboardNavigation.TabIndex="55">
               <views:SystemActivityView
                   Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ActivityLog}"/>
               <views:SystemAppearanceView
@@ -146,7 +156,8 @@
                           TabIndex="4"/>
 
       <!-- ═══ ROW 2: ACTION RAIL (spans all columns) ═════════════════════ -->
-      <views:SmartActionBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"/>
+      <views:SmartActionBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                            TabIndex="56"/>
 
       <!-- ═══ TOAST / NOTIFICATION OVERLAY ════════════════════════════════ -->
       <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Notifications}"

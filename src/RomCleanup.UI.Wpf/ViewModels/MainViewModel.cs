@@ -44,6 +44,16 @@ public sealed partial class MainViewModel : ObservableObject
     public ToolsViewModel Tools { get; }
     /// <summary>Run pipeline state, progress, dashboard, rollback.</summary>
     public RunViewModel Run { get; }
+    /// <summary>MissionControl dashboard: Sources, Intent, Health, LastRun.</summary>
+    public MissionControlViewModel MissionControl { get; }
+    /// <summary>Library area: Analysis state, sub-tabs, search/filter.</summary>
+    public LibraryViewModel Library { get; }
+    /// <summary>Config area: Profile state, validation summary, sub-tabs.</summary>
+    public ConfigViewModel Config { get; }
+    /// <summary>Context-dependent Inspector for the Context Wing.</summary>
+    public InspectorViewModel Inspector { get; }
+    /// <summary>System area: Activity Log, Appearance, About/Health.</summary>
+    public SystemViewModel SystemArea { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -60,6 +70,11 @@ public sealed partial class MainViewModel : ObservableObject
         Setup = new SetupViewModel(_theme, _dialog, _settings, _loc);
         Tools = new ToolsViewModel(_loc);
         Run = new RunViewModel(_loc);
+        Inspector = new InspectorViewModel(_loc);
+        MissionControl = new MissionControlViewModel(_loc);
+        Library = new LibraryViewModel(_loc);
+        Config = new ConfigViewModel(_loc);
+        SystemArea = new SystemViewModel(_loc);
 
         // Wire child VM events
         Setup.StatusRefreshRequested += () => RefreshStatus();
@@ -551,6 +566,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshStatus();
         OnPropertyChanged(nameof(HasNoRoots));
         OnPropertyChanged(nameof(HasRootsConfigured));
+        MissionControl.UpdateSourceCount(Roots.Count);
         DeferCommandRequery();
     }
 

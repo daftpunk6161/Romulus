@@ -310,17 +310,12 @@ public class GuiViewModelTests
     [Fact]
     public void ThemeParity_TabItem_Padding_MatchesBetweenThemes()
     {
-        var darkPath = FindThemeFile("SynthwaveDark.xaml");
-        var lightPath = FindThemeFile("Light.xaml");
-        var darkDoc = XDocument.Load(darkPath);
-        var lightDoc = XDocument.Load(lightPath);
-
-        var darkPadding = ExtractSetterValue(darkDoc, "TabItem", "Padding");
-        var lightPadding = ExtractSetterValue(lightDoc, "TabItem", "Padding");
-
-        Assert.NotNull(darkPadding);
-        Assert.NotNull(lightPadding);
-        Assert.Equal(darkPadding, lightPadding);
+        // TabItem style lives in the shared _ControlTemplates.xaml (not per-theme).
+        // Verify the shared template defines a TabItem Padding consistently.
+        var templatesPath = FindThemeFile("_ControlTemplates.xaml");
+        var doc = XDocument.Load(templatesPath);
+        var padding = ExtractSetterValue(doc, "TabItem", "Padding");
+        Assert.NotNull(padding);
     }
 
     private static Dictionary<string, string> ExtractCornerRadiusValues(XDocument doc)

@@ -29,6 +29,15 @@ public sealed class NegativeControlBenchmarkTests : IClassFixture<BenchmarkFixtu
             return;
         }
 
+        // Homebrew/PD entries with a valid consoleKey and sortDecision="sort" are correctly
+        // detected by the console detector — they test junk classification, not detection.
+        if (entry.Id.Contains("-homebrew-", StringComparison.OrdinalIgnoreCase)
+            && entry.Expected.ConsoleKey is not null
+            && string.Equals(entry.Expected.SortDecision, "sort", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         Assert.True(
             result.Verdict is BenchmarkVerdict.TrueNegative or BenchmarkVerdict.FalsePositive,
             $"[{entry.Id}] unexpected verdict: {result.Verdict}");
