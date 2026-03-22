@@ -146,7 +146,25 @@ src/
 │   ├── Services/                #   ThemeService, DialogService, SettingsService
 │   ├── Converters/              #   WPF Value Converters
 │   └── Themes/                  #   ResourceDictionary (Dark + Neon Accent)
-└── RomCleanup.Tests/            # xUnit Tests (3090+ Tests, 72 Testdateien)
+└── RomCleanup.Tests/            # xUnit Tests (5200+ Tests)
+
+docs/                            # Permanente Referenzdokumentation
+├── architecture/                #   Technische Specs, Architektur, API, OpenAPI, Strategien
+├── adrs/                        #   Architecture Decision Records (0001–0017)
+├── guides/                      #   User Handbook, FAQ, Naming Guide, Review Checklist
+├── product/                     #   Produkt-Analyse & Entscheidungen
+├── ux/                          #   UX/GUI-Design & A11y-Testpläne
+└── screenshots/                 #   UI-Screenshots
+
+plan/                            #   Aktive Implementierungspläne
+├── feature-conversion-*.md      #   Conversion Engine Plan (In Progress)
+└── feature-benchmark-*.md       #   Benchmark Expansion Plans
+
+archive/                         #   Historische/abgeschlossene Dokumente
+├── audits/                      #   Fertige Code-/Security-/Bug-Audits
+├── completed/                   #   Erledigte Tracker & Checklisten
+├── legacy/                      #   PowerShell-Ära Dokumente
+└── powershell/                  #   Archivierter PS-Quellcode
 ```
 
 ---
@@ -183,7 +201,7 @@ Clean Architecture (Ports & Adapters). Abhängigkeiten nur abwärts:
 # Build
 dotnet build src/RomCleanup.sln
 
-# Alle Tests (3090+)
+# Alle Tests (5200+)
 dotnet test src/RomCleanup.sln
 
 # Einzelnes Testprojekt

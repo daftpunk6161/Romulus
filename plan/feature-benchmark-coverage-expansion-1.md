@@ -2,9 +2,9 @@
 goal: "Coverage Expansion Plan — Benchmark-Testset von 70 auf 1.200+ Ground-Truth-Einträge ausbauen gemäss Minimum Coverage Matrix"
 version: "1.0"
 date_created: 2026-03-20
-last_updated: 2026-03-20
+last_updated: 2026-03-22
 owner: "Romulus Team"
-status: "Planned"
+status: "Mostly Complete"
 tags:
   - feature
   - testing

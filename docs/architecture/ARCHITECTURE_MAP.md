@@ -93,7 +93,7 @@ src/
 ├── RomCleanup.CLI/            ← Headless Entry Point
 ├── RomCleanup.Api/            ← ASP.NET Core Minimal API
 ├── RomCleanup.UI.Wpf/         ← WPF GUI (MVVM, net10.0-windows)
-└── RomCleanup.Tests/          ← xUnit Tests (3090+ Tests, 72 Testdateien)
+└── RomCleanup.Tests/          ← xUnit Tests (5200+ Tests, 136 Testdateien)
 ```
 
 ---
@@ -218,6 +218,6 @@ src/
 
 ## 6 — Tests
 
-3090+ xUnit-Tests in 72 Testdateien (`src/RomCleanup.Tests/`).
+5200+ xUnit-Tests in 136 Testdateien (`src/RomCleanup.Tests/`).
 
 Detaillierte Teststrategie: siehe `docs/TEST_STRATEGY.md`.

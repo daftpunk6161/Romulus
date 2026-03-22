@@ -8,17 +8,17 @@
 
 ## Executive Summary
 
-Die Benchmark-Infrastruktur ist zu **~80–85 %** implementiert. Kernkomponenten (Evaluation Runner, Ground-Truth-Loader, MetricsAggregator, Coverage Gates, Quality Gates, HTML-Report, CI-Workflow, TrendAnalyzer, Baseline-System) existieren und sind funktional.
+Die Benchmark-Infrastruktur ist zu **~90–95 %** implementiert. Kernkomponenten (Evaluation Runner, Ground-Truth-Loader, MetricsAggregator, Coverage Gates, Quality Gates, HTML-Report, CI-Workflow, TrendAnalyzer, Baseline-System, AntiGamingGateTests, ConfidenceCalibrationTests) existieren und sind funktional.
 
 **Hauptlücken:**
 1. ~~Manifest/Realität-Diskrepanz bei Ground-Truth-Zahlen~~ → **BEHOBEN** (manifest.json auf 2.073 korrigiert)
 2. `performance-scale.jsonl` = 0 Einträge (leer)
 3. ~~`AntiGamingGateTests.cs` nicht implementiert~~ → **BEHOBEN** (2 Tests: M15 + M16)
 4. ~~`ConfidenceCalibrationTests.cs` als eigenständige Test-Klasse fehlt~~ → **BEHOBEN** (3 Tests: HighConf, LowConf, PerSet ECE)
-5. Holdout-Set bei 50 Einträgen (Ziel: 200)
+5. Holdout-Set nicht als separate Datei vorhanden (kein `holdout-blind.jsonl`)
 6. Quality Gates nur informativ (nicht enforced in PR-Gate)
 7. Repair-Feature selbst nicht implementiert (nur Evaluator-Infrastruktur)
-8. Plan-Dateien veraltet (Status "Planned" obwohl Infrastruktur existiert)
+8. ~~Plan-Dateien veraltet (Status "Planned" obwohl Infrastruktur existiert)~~ → **BEHOBEN** (alle auf "Mostly Complete" aktualisiert)
 
 ---
 
@@ -44,9 +44,9 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 | 12 | Phase 3 / TASK-045–046 | CSV-Export — `BenchmarkArtifactWriter.WriteConfusionCsv()` + `WriteCategoryConfusionCsv()` existieren | — | **Erledigt** ✅ |
 | 13 | Phase 3 / TASK-047–050 | TrendAnalyzer — **existiert** mit `TrendAnalyzerTests` | — | **Erledigt** ✅ |
 | 14 | Phase 3 / TASK-051–054 | CI-Pipeline — `.github/workflows/benchmark.yml` existiert (PR-Gate + Nightly + Baseline-Publish) | — | **Erledigt** ✅ |
-| 15 | Phase 4 / TASK-056–060 | **`AntiGamingGateTests.cs` fehlt komplett** — M15/M16 werden zwar berechnet und in `BaselineRegressionGateTests` genutzt, aber kein dedizierter Anti-Gaming-Trait/Gate-Test | **Medium** | Offen |
+| 15 | Phase 4 / TASK-056–060 | ~~**`AntiGamingGateTests.cs` fehlt komplett**~~ — **BEHOBEN**: `AntiGamingGateTests.cs` existiert mit 2 Tests (M15 UnknownToWrongMigration + M16 ECE), `ConfidenceCalibrationTests.cs` existiert mit 3 Tests | **Medium** | **Erledigt** ✅ |
 | 16 | Phase 4 / TASK-061–062 | Repair Gate Feature-Flag — `RepairGateEvaluator.IsRepairFeatureReady()` existiert, in QualityGateTests ist M14 nur info | **Low** | Teilweise |
-| 17 | Phase 4 / TASK-063–066 | **Plan-Dateien Status-Update** — alle 4 Plans stehen noch auf "Planned", obwohl 80–90 % implementiert | **Low** | Offen |
+| 17 | Phase 4 / TASK-063–066 | ~~**Plan-Dateien Status-Update**~~ — **BEHOBEN**: Alle 4 Plans auf "Mostly Complete" aktualisiert (2026-03-22) | **Low** | **Erledigt** ✅ |
 
 ---
 
@@ -211,7 +211,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 ### Low
 | # | Item | Betroffene Dokumente |
 |---|------|---------------------|
-| L1 | Plan-Dateien Status "Planned" statt "Completed"/"In Progress" | feature-benchmark-testset-1.md, feature-benchmark-coverage-expansion-1.md, feature-benchmark-coverage-matrix-impl-1.md |
+| ~~L1~~ | ~~Plan-Dateien Status "Planned" statt "Completed"/"In Progress"~~ → **BEHOBEN** (2026-03-22) | feature-benchmark-testset-1.md, feature-benchmark-coverage-expansion-1.md, feature-benchmark-coverage-matrix-impl-1.md |
 | L2 | Ground-Truth Schema "1.0.0-draft" / "Design/Review" — sollte stable sein | GROUND_TRUTH_SCHEMA.md |
 | L3 | ADR-015 referenziert `BenchmarkReportGenerator.cs` — existiert als `BenchmarkHtmlReportWriter.cs` | ADR-015 |
 | L4 | `ExtendedMetrics` als Dictionary statt typisiertem Record | feature-benchmark-evaluation-pipeline-1.md |

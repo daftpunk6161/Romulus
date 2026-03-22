@@ -2,9 +2,9 @@
 goal: "Real-World Benchmark Testset – Vollständige Implementierung von Ground Truth, Stub-Generatoren, Evaluation-Runner und CI-Integration"
 version: "1.0"
 date_created: 2026-03-20
-last_updated: 2026-03-20
+last_updated: 2026-03-22
 owner: "Romulus Team"
-status: "Planned"
+status: "Mostly Complete"
 tags:
   - feature
   - testing

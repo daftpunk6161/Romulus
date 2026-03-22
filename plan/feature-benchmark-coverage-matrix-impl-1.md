@@ -2,9 +2,9 @@
 goal: "Coverage Matrix Implementation Plan — Verbindliche Umsetzung der Minimum Coverage Matrix als prüfbare Benchmark-Struktur im Repository"
 version: "1.0"
 date_created: 2026-03-20
-last_updated: 2026-03-20
+last_updated: 2026-03-22
 owner: "Romulus Team"
-status: "Planned"
+status: "Mostly Complete"
 tags:
   - feature
   - testing

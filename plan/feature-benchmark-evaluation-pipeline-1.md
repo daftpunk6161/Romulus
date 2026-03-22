@@ -2,9 +2,9 @@
 goal: "Benchmark Evaluation Pipeline — Quality Gates, fehlende Metriken, Reports, Regressionserkennung und CI-Integration"
 version: "1.0"
 date_created: 2026-03-21
-last_updated: 2026-03-21
+last_updated: 2026-03-22
 owner: "Romulus Team"
-status: "Planned"
+status: "Mostly Complete"
 tags:
   - feature
   - testing

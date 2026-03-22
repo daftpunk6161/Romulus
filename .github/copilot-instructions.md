@@ -278,10 +278,13 @@ Wenn Code erzeugt wird, liefere vollständige, zusammenhängende Änderungen sta
 
 ### Wichtige Datenquellen
 - `data/consoles.json`
+- `data/console-maps.json`
 - `data/rules.json`
 - `data/dat-catalog.json`
 - `data/defaults.json`
 - `data/tool-hashes.json`
+- `data/conversion-registry.json`
+- `data/ui-lookups.json`
 
 ### User Settings
 - `%APPDATA%\RomCleanupRegionDedupe\settings.json`
@@ -292,15 +295,22 @@ Wenn Code erzeugt wird, liefere vollständige, zusammenhängende Änderungen sta
 - `src/RomCleanup.UI.Wpf`
 
 ### Wichtige Kernbereiche
+- `RomCleanup.Contracts` (Interfaces, Models, Fehlerverträge)
 - `RomCleanup.Core/GameKeys`
 - `RomCleanup.Core/Regions`
 - `RomCleanup.Core/Scoring`
 - `RomCleanup.Core/Deduplication`
+- `RomCleanup.Core/Classification`
+- `RomCleanup.Core/Conversion`
 - `RomCleanup.Infrastructure/Orchestration`
 - `RomCleanup.Infrastructure/FileSystem`
 - `RomCleanup.Infrastructure/Tools`
 - `RomCleanup.Infrastructure/Reporting`
 - `RomCleanup.Infrastructure/Dat`
+- `RomCleanup.Infrastructure/Conversion`
+- `RomCleanup.Infrastructure/Hashing`
+- `RomCleanup.Infrastructure/Safety`
+- `RomCleanup.Infrastructure/Sorting`
 
 ---
 

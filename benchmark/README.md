@@ -32,6 +32,6 @@ dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj --filter Category=Bench
 
 ## Referenzen
 
-- `docs/TESTSET_DESIGN.md`
-- `docs/RECOGNITION_QUALITY_BENCHMARK.md`
+- `docs/architecture/TESTSET_DESIGN.md`
+- `docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md`
 - `plan/feature-benchmark-testset-1.md`

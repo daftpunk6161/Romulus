@@ -12,16 +12,16 @@
         ┌──────────────────┐
         │   Integration    │  RunOrchestrator, API-RunManager, FileSystem-Ops
         ├──────────────────┤
-        │   Unit           │  72 Testdateien, 3090+ Tests
+        │   Unit           │  136 Testdateien, 5200+ Tests
         └──────────────────┘
-        Gesamt: 3090+ Tests (xUnit, alle grün)
+        Gesamt: 5200+ Tests (xUnit, alle grün)
 ```
 
 ---
 
 ## 2. Testdateien-Übersicht
 
-Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 72 Testdateien):
+Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 136 Testdateien):
 
 ### 2.1 Core-/Engine-Tests
 

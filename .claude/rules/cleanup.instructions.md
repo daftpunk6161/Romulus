@@ -89,6 +89,9 @@ Das System muss klar in Schichten getrennt bleiben:
 - **DAT / Hashing / Indexing**  
   Streaming XML, Cache, Lookup, Thresholds, Matching
 
+- **Conversion**  
+  Formatkonvertierung (chdman, dolphintool, 7z, psxtract etc.), ConversionRegistry, ConversionExecutor, Tool-Validierung, Safety-Einstufung
+
 ### Verbindliche Architekturregeln
 - Core-Logik muss **ohne UI, Globals und unnötige Side Effects** testbar sein.
 - Code-Behind in WPF nur für echte View-spezifische Fälle, nicht für Businesslogik.
