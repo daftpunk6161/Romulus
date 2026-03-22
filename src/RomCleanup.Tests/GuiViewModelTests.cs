@@ -3138,22 +3138,18 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void ThemeService_ToggleCycle_FollowsDarkLightHC()
+    public void ThemeService_ToggleCycle_FollowsAllThemes()
     {
         // Toggle() calls ApplyTheme() which needs Application.Current — not available in unit tests.
-        // Verify the cycle logic is correct by checking the switch expression result.
-        // The cycle is: Dark → Light → HighContrast → Dark
-        AppTheme Next(AppTheme current) => current switch
-        {
-            AppTheme.Dark => AppTheme.Light,
-            AppTheme.Light => AppTheme.HighContrast,
-            AppTheme.HighContrast => AppTheme.Dark,
-            _ => AppTheme.Dark,
-        };
-
-        Assert.Equal(AppTheme.Light, Next(AppTheme.Dark));
-        Assert.Equal(AppTheme.HighContrast, Next(AppTheme.Light));
-        Assert.Equal(AppTheme.Dark, Next(AppTheme.HighContrast));
+        // Verify the cycle logic is correct by checking the AllThemes list order.
+        var all = ThemeService.AllThemes;
+        Assert.Equal(6, all.Count);
+        Assert.Equal(AppTheme.Dark, all[0]);
+        Assert.Equal(AppTheme.CleanDarkPro, all[1]);
+        Assert.Equal(AppTheme.RetroCRT, all[2]);
+        Assert.Equal(AppTheme.ArcadeNeon, all[3]);
+        Assert.Equal(AppTheme.Light, all[4]);
+        Assert.Equal(AppTheme.HighContrast, all[5]);
     }
 
     [Fact]
@@ -3172,7 +3168,10 @@ public class GuiViewModelTests
         Assert.Contains("Dark", names);
         Assert.Contains("Light", names);
         Assert.Contains("HighContrast", names);
-        Assert.Equal(3, names.Length);
+        Assert.Contains("CleanDarkPro", names);
+        Assert.Contains("RetroCRT", names);
+        Assert.Contains("ArcadeNeon", names);
+        Assert.Equal(6, names.Length);
     }
 
     // ═══ TEST-010: VM Smoke Tests ═══════════════════════════════════════

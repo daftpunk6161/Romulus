@@ -1,48 +1,14 @@
 <UserControl x:Class="RomCleanup.UI.Wpf.Views.ResultView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     xmlns:scott="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
-  <UserControl.Resources>
-    <DataTemplate x:Key="LogEntryTemplate">
-      <StackPanel Orientation="Horizontal">
-        <TextBlock Text="&#x2022; " Foreground="{Binding Level, Converter={StaticResource LogLevelToBrush}}"/>
-        <TextBlock Text="{Binding Text}" Foreground="{Binding Level, Converter={StaticResource LogLevelToBrush}}"
-                   FontFamily="Consolas" FontSize="11"/>
-      </StackPanel>
-    </DataTemplate>
-  </UserControl.Resources>
 
-  <Grid Background="{DynamicResource BrushBackground}">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="180" MinWidth="140" MaxWidth="240"/>
-      <ColumnDefinition Width="1"/>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
+  <!-- ResultView: now only Dashboard (Library > Results).
+       Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
 
-    <!-- ═══ SIDEBAR NAVIGATION ═══════════════════════════════════════════ -->
-    <Border Grid.Column="0" Background="{DynamicResource BrushSurface}" Padding="0,12">
-      <ListBox Background="Transparent" BorderThickness="0"
-               SelectedValue="{Binding SelectedResultSection, Mode=TwoWay}"
-               SelectedValuePath="Tag"
-               ItemContainerStyle="{DynamicResource SidebarNavItem}"
-               AutomationProperties.Name="{Binding Loc[Result.NavCategories]}">
-        <ListBoxItem Tag="Dashboard" Content="{Binding Loc[Result.NavDashboard]}" AutomationProperties.Name="{Binding Loc[Result.NavDashboard]}"/>
-        <ListBoxItem Tag="Protokoll" Content="{Binding Loc[Result.NavLog]}" AutomationProperties.Name="{Binding Loc[Result.NavLog]}"/>
-        <ListBoxItem Tag="Report-Vorschau" Content="{Binding Loc[Result.NavReport]}" AutomationProperties.Name="{Binding Loc[Result.NavReport]}"/>
-      </ListBox>
-    </Border>
-
-    <!-- Divider -->
-    <Border Grid.Column="1" Background="{DynamicResource BrushBorder}"/>
-
-    <!-- ═══ CONTENT AREA ═══════════════════════════════════════════════ -->
-    <Grid Grid.Column="2">
-
-      <!-- ── Dashboard ── -->
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16"
-                    Visibility="{Binding SelectedResultSection, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Dashboard}">
-        <StackPanel>
+  <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16"
+                Background="{DynamicResource BrushBackground}">
+    <StackPanel>
 
           <!-- Run status summary banner -->
           <Border Padding="14,10" CornerRadius="8" Margin="0,0,0,16"
@@ -309,71 +275,6 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ── Protokoll ── -->
-      <DockPanel Visibility="{Binding SelectedResultSection, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Protokoll}">
-        <!-- Log Footer -->
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource BrushSurfaceAlt}"
-                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,8">
-          <StackPanel Orientation="Horizontal">
-            <Button Command="{Binding ClearLogCommand}" Content="{Binding Loc[Result.ClearLog]}" MinWidth="118" Padding="8,2" Margin="{DynamicResource SpaceRightSM}" AutomationProperties.Name="{Binding Loc[Result.ClearLog]}"/>
-            <Button Content="{Binding Loc[Result.ExportLog]}" MinWidth="130" Padding="8,2"
-                    Command="{Binding FeatureCommands[ExportLog]}" AutomationProperties.Name="{Binding Loc[Result.ExportLog]}"/>
-          </StackPanel>
-        </Border>
-        <ListBox x:Name="listLog"
-                 ItemsSource="{Binding LogEntries}"
-                 Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushAccentCyan}"
-                 FontFamily="Consolas" FontSize="11"
-                 BorderThickness="0" Margin="12"
-                 ItemTemplate="{StaticResource LogEntryTemplate}"
-                 VirtualizingPanel.IsVirtualizing="True"
-                 VirtualizingPanel.VirtualizationMode="Recycling"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                 ScrollViewer.CanContentScroll="True"
-                 AutomationProperties.Name="{Binding Loc[Result.LogEntries]}"/>
-      </DockPanel>
+      <!-- Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
 
-      <!-- ── Report-Vorschau ── -->
-      <DockPanel Visibility="{Binding SelectedResultSection, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Report-Vorschau}">
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="20,16,20,8">
-          <TextBlock Text="{Binding Loc[Result.ReportPreviewHeader]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceRightSM}"/>
-          <Button x:Name="btnRefreshReportPreview" Width="120" Height="28" Content="{Binding Loc[Result.Refresh]}"
-                  AutomationProperties.Name="{Binding Loc[Result.RefreshReportTip]}"/>
-        </StackPanel>
-        <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="6" Padding="8" Margin="20,0,20,8">
-          <StackPanel>
-            <TextBlock Text="{Binding Loc[Result.ErrorSummary]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomXS}"/>
-            <ListBox MinHeight="60"
-                     ItemsSource="{Binding ErrorSummaryItems}"
-                     Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushWarning}"
-                     BorderThickness="0" FontSize="12"
-                     VirtualizingPanel.IsVirtualizing="True"
-                     VirtualizingPanel.VirtualizationMode="Recycling"
-                     ScrollViewer.CanContentScroll="True"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     AutomationProperties.Name="{Binding Loc[Result.ErrorSummary]}"
-                     AutomationProperties.LiveSetting="Assertive">
-              <ListBox.ItemTemplate>
-                <DataTemplate>
-                  <StackPanel Margin="0,2">
-                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextPrimary}"/>
-                    <TextBlock FontSize="10" Opacity="0.8" Foreground="{DynamicResource BrushTextMuted}">
-                      <Run Text="Code: "/>
-                      <Run Text="{Binding Code}"/>
-                    </TextBlock>
-                  </StackPanel>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </StackPanel>
-        </Border>
-        <wv2:WebView2 x:Name="webReportPreview" Margin="20,0,20,16" MinHeight="80"
-                     AutomationProperties.Name="{Binding Loc[Result.ReportPreviewLabel]}"
-                     AutomationProperties.HelpText="{Binding Loc[Result.ReportPreviewHelp]}"/>
-      </DockPanel>
-
-    </Grid>
-  </Grid>
 </UserControl>

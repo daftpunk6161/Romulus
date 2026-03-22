@@ -1071,6 +1071,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
     {
         public AppTheme Current => AppTheme.Dark;
         public bool IsDark => true;
+        public IReadOnlyList<AppTheme> AvailableThemes => [AppTheme.Dark];
         public void ApplyTheme(AppTheme theme) { }
         public void ApplyTheme(bool dark) { }
         public void Toggle() { }
@@ -1729,6 +1730,7 @@ public sealed class HardGuiInvariantTests
     {
         public AppTheme Current => AppTheme.Dark;
         public bool IsDark => true;
+        public IReadOnlyList<AppTheme> AvailableThemes => [AppTheme.Dark];
         public void ApplyTheme(AppTheme theme) { }
         public void ApplyTheme(bool dark) { }
         public void Toggle() { }

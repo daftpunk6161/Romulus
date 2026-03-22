@@ -48,6 +48,9 @@ public partial class MainWindow : Window, IWindowHost
         SizeChanged += OnWindowSizeChanged;
         Closing += OnClosing;
 
+        // React to ContextWing toggle from ViewModel
+        _vm.PropertyChanged += OnVmPropertyChanged;
+
         // Wire orchestration events
         _vm.RunRequested += OnRunRequested;
 
@@ -90,9 +93,9 @@ public partial class MainWindow : Window, IWindowHost
 
     private void UpdateContextPanelWidth()
     {
-        var targetWidth = ActualWidth >= ContextPanelMinWindowWidth
-            ? ContextPanelDefaultWidth
-            : 0d;
+        // Context Wing can be toggled off by the user (Ctrl+I)
+        var showWing = _vm.ShowContextWing && ActualWidth >= ContextPanelMinWindowWidth;
+        var targetWidth = showWing ? ContextPanelDefaultWidth : 0d;
 
         if (contextColumn.Width.GridUnitType != GridUnitType.Pixel ||
             Math.Abs(contextColumn.Width.Value - targetWidth) > 0.1)
@@ -188,6 +191,7 @@ public partial class MainWindow : Window, IWindowHost
 
         // GUI-115: Unsubscribe all VM events to prevent leaks
         _vm.RunRequested -= OnRunRequested;
+        _vm.PropertyChanged -= OnVmPropertyChanged;
         Loaded -= OnLoaded;
         SizeChanged -= OnWindowSizeChanged;
         Closing -= OnClosing;
@@ -210,6 +214,12 @@ public partial class MainWindow : Window, IWindowHost
     {
         if (e.OriginalSource == sender)
             _vm.ShowShortcutSheet = false;
+    }
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.ShowContextWing))
+            UpdateContextPanelWidth();
     }
 
     // ═══ DRAG & DROP ════════════════════════════════════════════════════
@@ -246,7 +256,9 @@ public partial class MainWindow : Window, IWindowHost
         _trayService?.UpdateTooltip("RomCleanup");
 
         if (_vm.CurrentRunState is RunState.Completed or RunState.CompletedDryRun)
-            resultView.RefreshReportPreview();
+        {
+            // Report preview auto-refreshes via LibraryReportView.OnLoaded
+        }
     }
 
     // ═══ WORKFLOW & AUTOMATISIERUNG ═════════════════════════════════════

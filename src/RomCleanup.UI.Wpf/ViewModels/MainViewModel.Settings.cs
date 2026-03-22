@@ -341,10 +341,13 @@ public sealed partial class MainViewModel
 
     public string ThemeToggleText => _theme.Current switch
     {
-        AppTheme.Dark => "☀ Hell",
-        AppTheme.Light => "◐ Kontrast",
-        AppTheme.HighContrast => "☾ Dunkel",
-        _ => "☾ Dunkel",
+        AppTheme.Dark         => "⮞ Clean Dark",
+        AppTheme.CleanDarkPro => "⮞ Retro CRT",
+        AppTheme.RetroCRT     => "⮞ Arcade Neon",
+        AppTheme.ArcadeNeon   => "⮞ Hell",
+        AppTheme.Light        => "⮞ Kontrast",
+        AppTheme.HighContrast => "⮞ Synthwave",
+        _                     => "⮞ Synthwave",
     };
 
     // ═══ SETTINGS HANDLERS ══════════════════════════════════════════════

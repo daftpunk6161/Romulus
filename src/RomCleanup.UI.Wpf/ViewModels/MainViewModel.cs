@@ -135,8 +135,12 @@ public sealed partial class MainViewModel : ObservableObject
         // GUI-063: Navigation history commands
         NavBackCommand = new RelayCommand(NavGoBack, () => CanNavBack);
         NavForwardCommand = new RelayCommand(NavGoForward, () => CanNavForward);
-        GoToSetupCommand = new RelayCommand(() => NavigateTo("Setup"));
-        GoToAnalyseCommand = new RelayCommand(() => NavigateTo("Analyse"));
+        GoToSetupCommand = new RelayCommand(() => NavigateTo("Config"));
+        GoToAnalyseCommand = new RelayCommand(() => NavigateTo("Library"));
+        GoToConfigCommand = new RelayCommand(() => NavigateTo("Config"));
+        GoToLibraryCommand = new RelayCommand(() => NavigateTo("Library"));
+        GoToToolsCommand = new RelayCommand(() => NavigateTo("Tools"));
+        ToggleContextWingCommand = new RelayCommand(() => ShowContextWing = !ShowContextWing);
 
         // GUI-081: First-Run Wizard commands
         WizardNextCommand = new RelayCommand(WizardNext);
@@ -167,9 +171,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>GUI-115: Named handler for proper unsubscription in CleanupWatchers.</summary>
     private void OnWatcherError(string msg) => AddLog(msg, "WARN");
 
-    // ═══ NAVIGATION (GUI-061) ═══════════════════════════════════════════
+    // ═══ NAVIGATION (GUI-061 → Phase 1: 5-area shell) ═══════════════════
     private int _selectedNavIndex;
-    /// <summary>GUI-061: Active sidebar navigation index (0=Start, 1=Analyse, 2=Setup, 3=System).</summary>
+    /// <summary>Active sidebar navigation index (0=MissionControl, 1=Library, 2=Config, 3=Tools, 4=System).</summary>
     public int SelectedNavIndex
     {
         get => _selectedNavIndex;
@@ -180,6 +184,7 @@ public sealed partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(SelectedNavTag));
                 OnPropertyChanged(nameof(CanNavBack));
                 OnPropertyChanged(nameof(CanNavForward));
+                ApplyDefaultSubTab();
             }
         }
     }
@@ -189,26 +194,61 @@ public sealed partial class MainViewModel : ObservableObject
     {
         get => _selectedNavIndex switch
         {
-            0 => "Start",
-            1 => "Analyse",
-            2 => "Setup",
-            3 => "System",
-            _ => "Start"
+            0 => "MissionControl",
+            1 => "Library",
+            2 => "Config",
+            3 => "Tools",
+            4 => "System",
+            _ => "MissionControl"
         };
         set
         {
             int idx = value switch
             {
+                // New 5-area tags
+                "MissionControl" => 0,
+                "Library" => 1,
+                "Config" => 2,
+                "Tools" => 3,
+                "System" => 4,
+                // Legacy compatibility aliases
                 "Start" => 0,
                 "Analyse" => 1,
                 "Setup" => 2,
-                "System" => 3,
-                "Tools" => 3,
-                "Log" => 3,
+                "Log" => 4,
                 _ => 0
             };
             SelectedNavIndex = idx;
         }
+    }
+
+    // ═══ SUB-TAB NAVIGATION ═════════════════════════════════════════════
+    private string _selectedSubTab = "Dashboard";
+    public string SelectedSubTab
+    {
+        get => _selectedSubTab;
+        set => SetProperty(ref _selectedSubTab, value);
+    }
+
+    private void ApplyDefaultSubTab()
+    {
+        SelectedSubTab = _selectedNavIndex switch
+        {
+            0 => "Dashboard",
+            1 => "Results",
+            2 => "Workflow",
+            3 => "ExternalTools",
+            4 => "ActivityLog",
+            _ => "Dashboard"
+        };
+    }
+
+    // ═══ CONTEXT WING (Inspector) ═══════════════════════════════════════
+    private bool _showContextWing = true;
+    public bool ShowContextWing
+    {
+        get => _showContextWing;
+        set => SetProperty(ref _showContextWing, value);
     }
 
     // ═══ GUI-063: NAVIGATION HISTORY ════════════════════════════════════
@@ -224,12 +264,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         int newIndex = tag switch
         {
-            "Start" => 0,
-            "Analyse" => 1,
-            "Setup" => 2,
-            "System" => 3,
+            "MissionControl" or "Start" => 0,
+            "Library" or "Analyse" => 1,
+            "Config" or "Setup" => 2,
             "Tools" => 3,
-            "Log" => 3,
+            "System" or "Log" => 4,
             _ => 0
         };
 
@@ -427,6 +466,10 @@ public sealed partial class MainViewModel : ObservableObject
     public IRelayCommand NavForwardCommand { get; }
     public IRelayCommand GoToSetupCommand { get; }
     public IRelayCommand GoToAnalyseCommand { get; }
+    public IRelayCommand GoToConfigCommand { get; }
+    public IRelayCommand GoToLibraryCommand { get; }
+    public IRelayCommand GoToToolsCommand { get; }
+    public IRelayCommand ToggleContextWingCommand { get; }
 
     // ═══ FEATURE COMMANDS (TASK-111: replaces Click event handlers) ═══════
     public Dictionary<string, ICommand> FeatureCommands { get; } = new();

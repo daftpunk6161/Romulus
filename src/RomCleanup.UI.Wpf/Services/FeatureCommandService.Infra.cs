@@ -241,7 +241,7 @@ public sealed partial class FeatureCommandService
             case "rollback": _vm.RollbackCommand.Execute(null); break;
             case "theme": _vm.ThemeToggleCommand.Execute(null); break;
             case "clear-log": _vm.ClearLogCommand.Execute(null); break;
-            case "settings": _windowHost?.SelectTab(3); break;
+            case "settings": _windowHost?.SelectTab(4); break;
             default: _vm.AddLog($"Befehl: {key}", "INFO"); break;
         }
     }

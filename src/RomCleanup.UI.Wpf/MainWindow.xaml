@@ -36,6 +36,8 @@
     <KeyBinding Key="Right" Modifiers="Control" Command="{Binding NavForwardCommand}"/>
     <!-- GUI-101: Shortcut cheatsheet -->
     <KeyBinding Key="F1" Command="{Binding ToggleShortcutSheetCommand}"/>
+    <!-- Context Wing toggle -->
+    <KeyBinding Key="I" Modifiers="Control" Command="{Binding ToggleContextWingCommand}"/>
   </Window.InputBindings>
 
   <Grid>
@@ -55,165 +57,99 @@
       </Canvas>
     </Viewbox>
 
-    <!-- App-Inhalt -->
-    <DockPanel LastChildFill="True">
-
-    <!-- ═══ TOP STATUS BAR ════════════════════════════════════════════════ -->
-    <Border DockPanel.Dock="Top"
-            Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="0,0,0,1" Padding="{DynamicResource PaddingBar}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-          <ComboBox x:Name="cmbQuickProfile" Width="160" Margin="{DynamicResource SpaceDotInline}"
-                    ToolTip="{Binding Loc[Profile.QuickSwitch]}" IsEditable="False"
-                    SelectedIndex="{Binding QuickProfileIndex, Mode=TwoWay}"
-                    AutomationProperties.Name="{Binding Loc[Profile.QuickSwitch]}" TabIndex="1">
-            <ComboBoxItem Content="Standard" IsSelected="True"/>
-            <ComboBoxItem Content="Disc (CHD)"/>
-            <ComboBoxItem Content="Cartridge (ZIP)"/>
-            <ComboBoxItem Content="Gemischt"/>
-          </ComboBox>
-          <Button Command="{Binding OpenReportCommand}" ToolTip="{Binding Loc[Report.OpenReportTip]}" Margin="4,0,8,0"
-                  AutomationProperties.Name="{Binding Loc[Report.OpenReport]}"
-                  AutomationProperties.AcceleratorKey="Ctrl+R" TabIndex="2">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" FontSize="14" Margin="{DynamicResource SpaceRightSM}"/>
-              <TextBlock Text="{Binding Loc[Report.OpenReportLog]}"/>
-            </StackPanel>
-          </Button>
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,24,0">
-            <Border Width="28" Height="28" CornerRadius="7" BorderBrush="{DynamicResource BrushAccentCyan}" BorderThickness="1.5" Background="#0B2230" Margin="0,0,8,0">
-              <views:RomulusLogoMark Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-            <TextBlock Text="{Binding Loc[App.Title]}" Style="{StaticResource TitleText}" VerticalAlignment="Center"/>
-          </StackPanel>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceRightSM}"/>
-          <!-- Status dots bound to ViewModel StatusLevel via converter -->
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
-                   Fill="{Binding RootsStatusLevel, Converter={StaticResource StatusToBrush}}"
-                   ToolTip="{Binding Loc[Status.RootsTip]}"/>
-          <TextBlock Text="{Binding StatusRoots}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" Margin="{DynamicResource SpaceRightMD}" FontSize="11"/>
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
-                   Fill="{Binding ToolsStatusLevel, Converter={StaticResource StatusToBrush}}"
-                   ToolTip="{Binding Loc[Status.ToolsTip]}"/>
-          <TextBlock Text="{Binding StatusTools}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" Margin="{DynamicResource SpaceRightMD}" FontSize="11"/>
-          <Ellipse Width="12" Height="12" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
-                   Fill="{Binding DatStatusLevel, Converter={StaticResource StatusToBrush}}"
-                   ToolTip="{Binding Loc[Status.DatTip]}"/>
-          <TextBlock Text="{Binding StatusDat}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" FontSize="11"/>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
-          <Ellipse Width="14" Height="14" VerticalAlignment="Center" Margin="{DynamicResource SpaceDotInline}"
-                   Fill="{Binding ReadyStatusLevel, Converter={StaticResource StatusToBrush}}"
-                   ToolTip="{Binding Loc[Status.ReadyTip]}"/>
-          <TextBlock Text="{Binding StatusReady}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" FontSize="11"
-                     AutomationProperties.Name="{Binding Loc[Status.ReadyLabel]}" AutomationProperties.LiveSetting="Polite"/>
-          <Rectangle Width="1" Height="16" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
-          <TextBlock Text="{Binding StatusRuntime}" Foreground="{DynamicResource BrushTextMuted}"
-                     VerticalAlignment="Center" FontSize="11"/>
-        </StackPanel>
-      </DockPanel>
-    </Border>
-
-    <!-- ═══ FOOTER ACTION BAR ═════════════════════════════════════════════ -->
-    <views:SmartActionBar DockPanel.Dock="Bottom"/>
-
-    <!-- ═══ MAIN CONTENT: SIDEBAR + VIEWS ════════════════════════════════ -->
+    <!-- ═══ SHELL LAYOUT: 3-Row × 3-Column Command Center ═══════════════ -->
     <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="48"/>   <!-- Row 0: CommandBar -->
+        <RowDefinition Height="*"/>    <!-- Row 1: Main content -->
+        <RowDefinition Height="52"/>   <!-- Row 2: ActionRail -->
+      </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="84"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition x:Name="contextColumn" Width="280"/>
+        <ColumnDefinition Width="72"/>  <!-- Col 0: NavigationRail -->
+        <ColumnDefinition Width="*"/>   <!-- Col 1: Content -->
+        <ColumnDefinition x:Name="contextColumn" Width="280"/> <!-- Col 2: ContextWing -->
       </Grid.ColumnDefinitions>
 
-      <!-- ═══ GUI-061: Vertical Sidebar Navigation ═══════════════════════ -->
-      <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceAlt}"
-              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
-        <DockPanel LastChildFill="False">
-          <StackPanel DockPanel.Dock="Top" Margin="0,8,0,0">
-            <!-- Start -->
-            <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Start}"
-                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Start]}" TabIndex="50"
-                         AutomationProperties.Name="{Binding Loc[Nav.Start]}">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE80F;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding Loc[Nav.Start]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
-              </StackPanel>
-            </RadioButton>
-            <!-- Analyse -->
-            <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Analyse}"
-                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Analyse]}" TabIndex="51"
-                         AutomationProperties.Name="{Binding Loc[Nav.Analyse]}">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding Loc[Nav.Analyse]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
-              </StackPanel>
-            </RadioButton>
-            <!-- Setup -->
-            <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Setup}"
-                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.Setup]}" TabIndex="52"
-                         AutomationProperties.Name="{Binding Loc[Nav.Setup]}">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding Loc[Nav.Setup]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
-              </StackPanel>
-            </RadioButton>
-            <!-- System (Tools + Settings) -->
-            <RadioButton GroupName="Nav" IsChecked="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToBool}, ConverterParameter=System}"
-                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Nav.System]}" TabIndex="53"
-                         AutomationProperties.Name="{Binding Loc[Nav.System]}">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE90F;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding Loc[Nav.System]}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
-              </StackPanel>
-            </RadioButton>
-          </StackPanel>
-          <!-- Help / Shortcut-Sheet toggle at bottom of sidebar -->
-          <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,8">
-            <RadioButton GroupName="Nav" IsChecked="False"
-                         Style="{StaticResource NavButton}" ToolTip="{Binding Loc[Shortcuts.Title]}" TabIndex="54"
-                         Command="{Binding ToggleShortcutSheetCommand}"
-                         AutomationProperties.Name="{Binding Loc[Shortcuts.Title]}">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE897;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="Hilfe" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextMuted}"/>
-              </StackPanel>
-            </RadioButton>
-          </StackPanel>
-        </DockPanel>
-      </Border>
+      <!-- ═══ ROW 0: COMMAND BAR (spans all columns) ══════════════════════ -->
+      <views:CommandBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"/>
 
-      <!-- ═══ CONTENT AREA (view switching) ═════════════════════════════ -->
-      <Grid Grid.Column="1">
-        <!-- GUI-064: Auto-switch to Progress during run -->
-        <views:ProgressView Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+      <!-- ═══ ROW 1, COL 0: NAVIGATION RAIL ══════════════════════════════ -->
+      <views:NavigationRail Grid.Row="1" Grid.Column="0"/>
 
-        <!-- Normal screens (hidden during run) -->
-        <Grid Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}">
-          <views:StartView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Start}"/>
-          <views:ResultView x:Name="resultView" Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Analyse}"/>
-          <views:SortView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Setup}"/>
-          <TabControl Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}" TabIndex="3">
-            <TabItem Header="{Binding Loc[System.ToolsTab], Mode=OneWay}">
-              <views:ToolsView DataContext="{Binding Tools}"/>
-            </TabItem>
-            <TabItem Header="{Binding Loc[System.SettingsTab], Mode=OneWay}">
-              <views:SettingsView/>
-            </TabItem>
-          </TabControl>
+      <!-- ═══ ROW 1, COL 1: SUB-TAB BAR + CONTENT AREA ══════════════════ -->
+      <Grid Grid.Row="1" Grid.Column="1">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="32"/>  <!-- Sub-tab navigation -->
+          <RowDefinition Height="*"/>   <!-- View content -->
+        </Grid.RowDefinitions>
+
+        <!-- Sub-Tab Bar -->
+        <views:SubTabBar Grid.Row="0"/>
+
+        <!-- Content: auto-switch to Progress during run -->
+        <Grid Grid.Row="1">
+          <views:ProgressView Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+
+          <!-- Normal screens (hidden during run) -->
+          <Grid Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}">
+
+            <!-- ── MissionControl ──────────────────────────────── -->
+            <views:StartView Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}"/>
+
+            <!-- ── Library (sub-tab-aware) ─────────────────────── -->
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Library}">
+              <views:ResultView x:Name="resultView"
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Results}"/>
+              <views:LibraryReportView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Report}"/>
+            </Grid>
+
+            <!-- ── Config (sub-tab-aware) ──────────────────────── -->
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}">
+              <views:SortView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Workflow}"/>
+              <views:ConfigFiltersView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Filtering}"/>
+              <views:ConfigProfilesView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Profiles}"/>
+              <views:ConfigAdvancedView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Advanced}"/>
+            </Grid>
+
+            <!-- ── Tools (sub-tab-aware) ───────────────────────── -->
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}">
+              <views:ToolsView DataContext="{Binding Tools}"
+                  Visibility="{Binding DataContext.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ExternalTools}"/>
+              <views:ToolsDatView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatManagement}"/>
+              <views:ToolsGameKeyLabView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Conversion}"/>
+            </Grid>
+
+            <!-- ── System (sub-tab-aware) ──────────────────────── -->
+            <Grid Visibility="{Binding SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}">
+              <views:SystemActivityView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ActivityLog}"/>
+              <views:SystemAppearanceView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Appearance}"/>
+              <views:SystemAboutView
+                  Visibility="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=About}"/>
+            </Grid>
+
+          </Grid>
         </Grid>
       </Grid>
 
-      <!-- ═══ CONTEXT PANEL (Hybrid Dashboard foundation) ═══════════════ -->
-      <views:ContextPanel Grid.Column="2" Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}" TabIndex="4"/>
+      <!-- ═══ ROW 1, COL 2: CONTEXT WING (Inspector Panel) ══════════════ -->
+      <views:ContextPanel Grid.Row="1" Grid.Column="2"
+                          Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}"
+                          TabIndex="4"/>
 
-      <!-- ═══ GUI-055: Toast/Notification overlay ═════════════════════════ -->
-      <ItemsControl Grid.Column="1" ItemsSource="{Binding Notifications}"
+      <!-- ═══ ROW 2: ACTION RAIL (spans all columns) ═════════════════════ -->
+      <views:SmartActionBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"/>
+
+      <!-- ═══ TOAST / NOTIFICATION OVERLAY ════════════════════════════════ -->
+      <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Notifications}"
                     VerticalAlignment="Bottom" HorizontalAlignment="Right"
                     Margin="0,0,16,16" IsHitTestVisible="True"
                     AutomationProperties.LiveSetting="Assertive">
@@ -246,13 +182,13 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <!-- ═══ GUI-081: First-Run-Wizard overlay ═══════════════════════════ -->
-      <views:WizardView Grid.Column="0" Grid.ColumnSpan="3"
+      <!-- ═══ FIRST-RUN-WIZARD OVERLAY ════════════════════════════════════ -->
+      <views:WizardView Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Grid.ColumnSpan="3"
                         Visibility="{Binding ShowFirstRunWizard, Converter={StaticResource BoolToVis}}"
                         AutomationProperties.Name="{Binding Loc[Wizard.Title]}"/>
 
-      <!-- ═══ GUI-101: Shortcut Cheatsheet overlay ══════════════════════ -->
-      <Border Grid.Column="0" Grid.ColumnSpan="3"
+      <!-- ═══ SHORTCUT CHEATSHEET OVERLAY ═════════════════════════════════ -->
+      <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Grid.ColumnSpan="3"
               Background="#CC181825" IsHitTestVisible="True"
               Visibility="{Binding ShowShortcutSheet, Converter={StaticResource BoolToVis}}"
               MouseDown="OnShortcutOverlayClick">
@@ -284,6 +220,7 @@
                            Foreground="{DynamicResource BrushAccentCyan}" Margin="0,12,0,8"/>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2"><Run FontWeight="Bold" Text="Ctrl+←"/><Run Text="  Zurück"/></TextBlock>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2"><Run FontWeight="Bold" Text="Ctrl+→"/><Run Text="  Vorwärts"/></TextBlock>
+                <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2"><Run FontWeight="Bold" Text="Ctrl+I"/><Run Text="  Inspector ein/aus"/></TextBlock>
               </StackPanel>
               <StackPanel>
                 <TextBlock Text="{Binding Loc[Shortcuts.SectionTools]}" FontWeight="SemiBold"
@@ -302,6 +239,5 @@
         </Border>
       </Border>
     </Grid>
-  </DockPanel>
   </Grid>
 </Window>
