@@ -23,9 +23,15 @@ internal sealed class StubGeneratorRegistry
         // Disc header generators
         Register(new Disc.Ps1PvdGenerator());
         Register(new Disc.Ps2PvdGenerator());
+        Register(new Disc.Ps3PvdGenerator());
         Register(new Disc.SegaIpBinGenerator());
         Register(new Disc.NintendoDiscGenerator());
         Register(new Disc.MultiFileSetGenerator());
+        Register(new Disc.OperaFsGenerator());
+        Register(new Disc.BootSectorTextGenerator());
+        Register(new Disc.XdvdfsGenerator());
+        Register(new Disc.FmTownsPvdGenerator());
+        Register(new Disc.CdiDiscGenerator());
 
         // Utility generators
         Register(new ExtOnlyGenerator());

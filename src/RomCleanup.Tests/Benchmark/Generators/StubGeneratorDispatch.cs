@@ -31,11 +31,22 @@ internal sealed class StubGeneratorDispatch
         ["PS1"] = ("ps1-pvd", "standard"),
         ["PS2"] = ("ps2-pvd", "standard"),
         ["PSP"] = ("ps2-pvd", "psp"),
+        ["PS3"] = ("ps3-pvd", "standard"),
         ["GC"] = ("nintendo-disc", "gamecube"),
         ["WII"] = ("nintendo-disc", "wii"),
         ["SAT"] = ("sega-ipbin", "saturn"),
         ["DC"] = ("sega-ipbin", "dreamcast"),
         ["SCD"] = ("sega-ipbin", "segacd"),
+        ["3DO"] = ("3do-opera", "standard"),
+        ["CD32"] = ("boot-sector-text", "cd32"),
+        ["NEOCD"] = ("boot-sector-text", "neocd"),
+        ["PCECD"] = ("boot-sector-text", "pcecd"),
+        ["PCFX"] = ("boot-sector-text", "pcfx"),
+        ["JAGCD"] = ("boot-sector-text", "jagcd"),
+        ["XBOX"] = ("xdvdfs", "xbox"),
+        ["X360"] = ("xdvdfs", "x360"),
+        ["FMTOWNS"] = ("fmtowns-pvd", "standard"),
+        ["CDI"] = ("cdi-disc", "standard"),
     };
 
     /// <summary>
@@ -46,6 +57,7 @@ internal sealed class StubGeneratorDispatch
     {
         var resolvedOutput = Path.GetFullPath(outputDir);
         int count = 0;
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in entries)
         {
@@ -56,6 +68,10 @@ internal sealed class StubGeneratorDispatch
             if (!fullPath.StartsWith(resolvedOutput, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"Path traversal detected for entry '{entry.Id}': '{fullPath}' escapes output root '{resolvedOutput}'");
+
+            // Duplicate-path guard: skip entries that map to an already-written path
+            if (!seenPaths.Add(fullPath))
+                continue;
 
             var dir = Path.GetDirectoryName(fullPath);
             if (dir is not null)
@@ -139,6 +155,24 @@ internal sealed class StubGeneratorDispatch
                 var gen = _registry.Get(disc.GeneratorId);
                 if (gen is not null)
                     return gen.Generate(disc.Variant);
+            }
+        }
+
+        // Priority 2b: Null primaryMethod fallback — infer from consoleKey using disc/cartridge maps
+        if (method is null && consoleKey is not null)
+        {
+            if (DiscMap.TryGetValue(consoleKey, out var disc))
+            {
+                var gen = _registry.Get(disc.GeneratorId);
+                if (gen is not null)
+                    return gen.Generate(disc.Variant);
+            }
+
+            if (CartridgeMap.TryGetValue(consoleKey, out var cart))
+            {
+                var gen = _registry.Get(cart.GeneratorId);
+                if (gen is not null)
+                    return gen.Generate(cart.Variant);
             }
         }
 

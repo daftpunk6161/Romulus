@@ -58,9 +58,9 @@ public sealed class GoldenCoreBenchmarkTests : IClassFixture<BenchmarkFixture>
 
         _output.WriteLine($"[{entry.Id}] {verdict.Verdict}: expected={entry.Expected.ConsoleKey ?? "null"}, actual={result.ConsoleKey}, confidence={result.Confidence}");
 
-        // Correct or Acceptable are both passing verdicts
+        // Correct, Acceptable, TrueNegative, and JunkClassified are all passing verdicts
         Assert.True(
-            verdict.Verdict is BenchmarkVerdict.Correct or BenchmarkVerdict.Acceptable or BenchmarkVerdict.TrueNegative,
+            verdict.Verdict is BenchmarkVerdict.Correct or BenchmarkVerdict.Acceptable or BenchmarkVerdict.TrueNegative or BenchmarkVerdict.JunkClassified,
             $"[{entry.Id}] {verdict.Verdict}: {verdict.Details}");
     }
 

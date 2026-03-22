@@ -68,7 +68,7 @@
       "datTosec":                      { "target": 155, "hardFail": 120 },
       "directoryBased":                { "target": 33, "hardFail": 24 },
       "headerless":                    { "target": 55, "hardFail": 40 },
-      "holdout":                       { "target": 5,  "hardFail": 0 }
+      "holdout":                       { "target": 50, "hardFail": 20 }
     }
   }
 }

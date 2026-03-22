@@ -5,15 +5,15 @@
     "groundTruthVersion": "2.0.0",
     "lastModified": "2026-03-22"
   },
-  "totalEntries": 2200,
+  "totalEntries": 2073,
   "bySet": {
-    "golden-core": 550,
-    "golden-realworld": 400,
-    "edge-cases": 250,
-    "negative-controls": 100,
-    "chaos-mixed": 220,
-    "repair-safety": 130,
-    "dat-coverage": 300,
+    "golden-core": 654,
+    "golden-realworld": 493,
+    "edge-cases": 198,
+    "negative-controls": 74,
+    "chaos-mixed": 204,
+    "repair-safety": 100,
+    "dat-coverage": 350,
     "performance-scale": 0
   }
 }
