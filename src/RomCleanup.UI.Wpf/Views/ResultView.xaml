@@ -6,8 +6,10 @@
   <!-- ResultView: now only Dashboard (Library > Results).
        Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
 
+  <Grid>
   <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16"
-                Background="{DynamicResource BrushBackground}">
+                Background="{DynamicResource BrushBackground}"
+                Visibility="{Binding HasRunData, Converter={StaticResource BoolToVis}}">
     <StackPanel>
 
           <!-- Run status summary banner -->
@@ -83,7 +85,8 @@
           </UniformGrid>
 
           <!-- Secondary Metrics (expandable) -->
-          <Expander Header="{Binding Loc[Result.PerfDetails], Mode=OneWay}" IsExpanded="{Binding IsResultPerfDetailsExpanded, Mode=TwoWay}" Margin="0,0,0,12">
+          <Expander Header="{Binding Loc[Result.PerfDetails], Mode=OneWay}" IsExpanded="{Binding IsResultPerfDetailsExpanded, Mode=TwoWay}" Margin="0,0,0,12"
+                   AutomationProperties.Name="{Binding Loc[Result.PerfDetails]}">
             <WrapPanel Margin="0,8,0,0" MaxWidth="1200">
               <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
                 <StackPanel HorizontalAlignment="Center">
@@ -275,6 +278,17 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
+      <!-- Empty state: no analysis data yet -->
+      <StackPanel Visibility="{Binding HasRunData, Converter={StaticResource InverseBoolToVis}}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="48"
+                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+        <TextBlock Text="Noch keine Analyse-Daten" FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+        <TextBlock Text="Starte eine Vorschau mit F5 um die Ergebnisse zu sehen."
+                   Foreground="{DynamicResource BrushTextMuted}" FontSize="12" HorizontalAlignment="Center"/>
+      </StackPanel>
 
+      <!-- Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
+  </Grid>
 </UserControl>

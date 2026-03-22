@@ -1,0 +1,81 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using RomCleanup.UI.Wpf.ViewModels;
+
+namespace RomCleanup.UI.Wpf.Views;
+
+public partial class LibrarySafetyView : UserControl
+{
+    public LibrarySafetyView()
+    {
+        InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is MainViewModel oldVm)
+            oldVm.PropertyChanged -= OnMainVmPropertyChanged;
+        if (e.NewValue is MainViewModel newVm)
+        {
+            newVm.PropertyChanged += OnMainVmPropertyChanged;
+            RefreshLists(newVm);
+        }
+    }
+
+    private void OnMainVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainViewModel.LastCandidates) or nameof(MainViewModel.HasRunData))
+        {
+            if (sender is MainViewModel vm)
+                Dispatcher.BeginInvoke(() => RefreshLists(vm));
+        }
+    }
+
+    private void RefreshLists(MainViewModel vm)
+    {
+        var candidates = vm.LastCandidates;
+        var blocked = new List<SafetyListItem>();
+        var review = new List<SafetyListItem>();
+        var unknown = new List<SafetyListItem>();
+
+        foreach (var c in candidates)
+        {
+            var item = new SafetyListItem(
+                Path.GetFileName(c.MainPath),
+                c.ConsoleKey,
+                c.ClassificationReasonCode);
+
+            switch (c.SortDecision)
+            {
+                case "Blocked":
+                    blocked.Add(item);
+                    break;
+                case "Review":
+                    review.Add(item);
+                    break;
+                case "Unknown":
+                    unknown.Add(item);
+                    break;
+            }
+        }
+
+        BlockedList.ItemsSource = blocked;
+        ReviewList.ItemsSource = review;
+        UnknownList.ItemsSource = unknown;
+
+        BlockedCount.Text = $"({blocked.Count})";
+        ReviewCount.Text = $"({review.Count})";
+        UnknownCount.Text = $"({unknown.Count})";
+
+        BlockedEmpty.Visibility = blocked.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ReviewEmpty.Visibility = review.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UnknownEmpty.Visibility = unknown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        BlockedList.Visibility = blocked.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ReviewList.Visibility = review.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UnknownList.Visibility = unknown.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+}
+
+internal sealed record SafetyListItem(string FileName, string ConsoleKey, string Reason);

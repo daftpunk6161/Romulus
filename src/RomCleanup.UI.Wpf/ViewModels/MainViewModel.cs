@@ -54,6 +54,8 @@ public sealed partial class MainViewModel : ObservableObject
     public InspectorViewModel Inspector { get; }
     /// <summary>System area: Activity Log, Appearance, About/Health.</summary>
     public SystemViewModel SystemArea { get; }
+    /// <summary>Command Palette overlay (Ctrl+K): fuzzy search + execute.</summary>
+    public CommandPaletteViewModel CommandPalette { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -75,6 +77,7 @@ public sealed partial class MainViewModel : ObservableObject
         Library = new LibraryViewModel(_loc);
         Config = new ConfigViewModel(_loc);
         SystemArea = new SystemViewModel(_loc);
+        CommandPalette = new CommandPaletteViewModel(_loc);
 
         // Wire child VM events
         Setup.StatusRefreshRequested += () => RefreshStatus();
@@ -164,6 +167,12 @@ public sealed partial class MainViewModel : ObservableObject
 
         // GUI-101: Shortcut cheatsheet toggle
         ToggleShortcutSheetCommand = new RelayCommand(() => ShowShortcutSheet = !ShowShortcutSheet);
+
+        // GUI-Phase4 4.1: Command Palette toggle (Ctrl+K)
+        ToggleCommandPaletteCommand = new RelayCommand(() => CommandPalette.IsOpen = !CommandPalette.IsOpen);
+
+        // GUI-Phase4 4.4: Detail Drawer toggle (Ctrl+J)
+        ToggleDetailDrawerCommand = new RelayCommand(() => ShowDetailDrawer = !ShowDetailDrawer);
 
         // Extension filter collection (UX-004)
         InitExtensionFilters();
@@ -428,6 +437,16 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public RelayCommand ToggleShortcutSheetCommand { get; private set; } = null!;
+    public RelayCommand ToggleCommandPaletteCommand { get; private set; } = null!;
+    public RelayCommand ToggleDetailDrawerCommand { get; private set; } = null!;
+
+    // ═══ DETAIL DRAWER (Phase 4.4) ═════════════════════════════════════
+    private bool _showDetailDrawer;
+    public bool ShowDetailDrawer
+    {
+        get => _showDetailDrawer;
+        set => SetProperty(ref _showDetailDrawer, value);
+    }
 
     // ═══ NOTIFICATIONS (GUI-055) ════════════════════════════════════════
     public ObservableCollection<NotificationItem> Notifications { get; } = [];

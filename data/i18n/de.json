@@ -850,5 +850,49 @@
   "Wizard.Next": "Weiter",
   "Wizard.Back": "Zurück",
   "Wizard.Finish": "Los geht's",
-  "Wizard.Skip": "Überspringen"
+  "Wizard.Skip": "Überspringen",
+
+  "Palette.SearchPlaceholder": "Befehl suchen…",
+  "Palette.Empty": "Kein Befehl gefunden",
+  "Palette.HintNav": "↑↓ navigieren",
+  "Palette.HintExec": "Enter ausführen",
+  "Palette.HintClose": "Esc schließen",
+
+  "Safety.Title": "Safety Review",
+  "Safety.Desc": "Dateien, die vom Sort-Gate blockiert, zur Überprüfung markiert oder als unbekannt klassifiziert wurden.",
+  "Safety.Blocked": "Blockiert",
+  "Safety.Review": "Überprüfung",
+  "Safety.Unknown": "Unbekannt",
+  "Safety.NoBlocked": "Keine blockierten Dateien",
+  "Safety.NoReview": "Keine Dateien zur Überprüfung",
+  "Safety.NoUnknown": "Keine unbekannten Dateien",
+  "Safety.NoRunData": "Noch keine Analyse-Daten",
+  "Safety.NoRunHint": "Starte eine Vorschau (F5) um die Safety-Übersicht zu füllen.",
+
+  "Conversion.Title": "Konvertierungs-Registry",
+  "Conversion.Desc": "Verfügbare Formatkonvertierungen aus der Konfiguration.",
+  "Conversion.ColSource": "Quelle",
+  "Conversion.ColTarget": "Ziel",
+  "Conversion.ColTool": "Tool",
+  "Conversion.ColCommand": "Befehl",
+  "Conversion.ColLossless": "Verlustfrei",
+  "Conversion.ColCost": "Kosten",
+  "Conversion.ColConsoles": "Konsolen",
+  "Conversion.EmptyTitle": "Keine Konvertierungs-Regeln geladen",
+  "Conversion.EmptyHint": "conversion-registry.json konnte nicht gefunden oder geladen werden.",
+
+  "Context.SystemHealth": "System Health",
+
+  "Drawer.LogStream": "Log-Stream",
+  "Drawer.Clear": "Leeren",
+  "Drawer.Close": "Schließen",
+
+  "Empty.NoAnalysis": "Noch keine Analyse-Daten",
+  "Empty.RunPreviewHint": "Starte eine Vorschau mit F5 um die Ergebnisse zu sehen.",
+  "Empty.NoReport": "Kein Report verfügbar",
+  "Empty.NoReportHint": "Starte eine Vorschau (F5) um den Report zu generieren.",
+  "Empty.NoLog": "Noch keine Protokoll-Einträge",
+
+  "Shortcuts.CommandPalette": "Command Palette",
+  "Shortcuts.LogDrawer": "Log-Drawer ein/aus"
 }

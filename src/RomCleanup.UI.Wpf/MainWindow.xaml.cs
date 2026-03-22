@@ -58,6 +58,9 @@ public partial class MainWindow : Window, IWindowHost
         var featureCommands = new FeatureCommandService(_vm, _settings, dialog, this);
         featureCommands.RegisterCommands();
         _vm.WireToolItemCommands();
+
+        // Wire Command Palette execute callback to FeatureCommandService
+        _vm.CommandPalette.SetExecuteCallback(featureCommands.ExecuteCommand);
     }
 
     // ═══ LIFECYCLE ══════════════════════════════════════════════════════

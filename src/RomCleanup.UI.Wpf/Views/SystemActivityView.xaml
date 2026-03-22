@@ -23,17 +23,27 @@
                 Command="{Binding FeatureCommands[ExportLog]}" AutomationProperties.Name="{Binding Loc[Result.ExportLog]}"/>
       </StackPanel>
     </Border>
-    <ListBox x:Name="listLog"
-             ItemsSource="{Binding LogEntries}"
-             Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushAccentCyan}"
-             FontFamily="Consolas" FontSize="11"
-             BorderThickness="0" Margin="12"
-             ItemTemplate="{StaticResource LogEntryTemplate}"
-             VirtualizingPanel.IsVirtualizing="True"
-             VirtualizingPanel.VirtualizationMode="Recycling"
-             ScrollViewer.VerticalScrollBarVisibility="Auto"
-             ScrollViewer.HorizontalScrollBarVisibility="Auto"
-             ScrollViewer.CanContentScroll="True"
-             AutomationProperties.Name="{Binding Loc[Result.LogEntries]}"/>
+    <Grid>
+      <ListBox x:Name="listLog"
+               ItemsSource="{Binding LogEntries}"
+               Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushAccentCyan}"
+               FontFamily="Consolas" FontSize="11"
+               BorderThickness="0" Margin="12"
+               ItemTemplate="{StaticResource LogEntryTemplate}"
+               VirtualizingPanel.IsVirtualizing="True"
+               VirtualizingPanel.VirtualizationMode="Recycling"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               ScrollViewer.CanContentScroll="True"
+               AutomationProperties.Name="{Binding Loc[Result.LogEntries]}"/>
+      <!-- Empty state -->
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                  IsHitTestVisible="False" x:Name="LogEmptyState">
+        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="36"
+                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+        <TextBlock Text="Noch keine Protokoll-Einträge" FontSize="14"
+                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"/>
+      </StackPanel>
+    </Grid>
   </DockPanel>
 </UserControl>

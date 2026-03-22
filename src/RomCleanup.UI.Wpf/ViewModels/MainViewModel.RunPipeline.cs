@@ -59,8 +59,10 @@ public sealed partial class MainViewModel
     public ObservableCollection<RomCandidate> LastCandidates
     {
         get => _lastCandidates;
-        set { _lastCandidates = value; OnPropertyChanged(); }
+        set { _lastCandidates = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRunData)); }
     }
+
+    public bool HasRunData => _lastCandidates.Count > 0;
 
     private ObservableCollection<DedupeResult> _lastDedupeGroups = [];
     public ObservableCollection<DedupeResult> LastDedupeGroups

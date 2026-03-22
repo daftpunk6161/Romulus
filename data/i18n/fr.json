@@ -168,5 +168,27 @@
   "Error.ToolNotFound": "L'outil externe n'a pas ete trouve:\n{0}",
   "Error.DatFolderMissing": "Veuillez d'abord definir un dossier DAT.",
   "Error.RunFailed": "L'execution s'est terminee avec une erreur: {0}",
-  "Error.GenericFailed": "Une erreur inattendue s'est produite:\n{0}\n\nVeuillez reessayer."
+  "Error.GenericFailed": "Une erreur inattendue s'est produite:\n{0}\n\nVeuillez reessayer.",
+
+  "Palette.SearchPlaceholder": "Rechercher commande…",
+  "Palette.Empty": "Aucune commande trouvée",
+
+  "Safety.Title": "Revue de sécurité",
+  "Safety.Blocked": "Bloqué",
+  "Safety.Review": "Vérification",
+  "Safety.Unknown": "Inconnu",
+  "Safety.NoRunData": "Pas encore de données d'analyse",
+
+  "Conversion.Title": "Registre de conversion",
+
+  "Context.SystemHealth": "Santé système",
+
+  "Drawer.LogStream": "Flux de log",
+
+  "Empty.NoAnalysis": "Pas encore de données d'analyse",
+  "Empty.NoReport": "Aucun rapport disponible",
+  "Empty.NoLog": "Aucune entrée de journal",
+
+  "Shortcuts.CommandPalette": "Palette de commandes",
+  "Shortcuts.LogDrawer": "Ouvrir/fermer le tiroir de log"
 }

@@ -855,5 +855,49 @@
   "Wizard.Next": "Next",
   "Wizard.Back": "Back",
   "Wizard.Finish": "Let's go",
-  "Wizard.Skip": "Skip"
+  "Wizard.Skip": "Skip",
+
+  "Palette.SearchPlaceholder": "Search command…",
+  "Palette.Empty": "No command found",
+  "Palette.HintNav": "↑↓ navigate",
+  "Palette.HintExec": "Enter to execute",
+  "Palette.HintClose": "Esc to close",
+
+  "Safety.Title": "Safety Review",
+  "Safety.Desc": "Files blocked, flagged for review, or classified as unknown by the sort gate.",
+  "Safety.Blocked": "Blocked",
+  "Safety.Review": "Review",
+  "Safety.Unknown": "Unknown",
+  "Safety.NoBlocked": "No blocked files",
+  "Safety.NoReview": "No files for review",
+  "Safety.NoUnknown": "No unknown files",
+  "Safety.NoRunData": "No analysis data yet",
+  "Safety.NoRunHint": "Run a preview (F5) to populate the safety overview.",
+
+  "Conversion.Title": "Conversion Registry",
+  "Conversion.Desc": "Available format conversions from configuration.",
+  "Conversion.ColSource": "Source",
+  "Conversion.ColTarget": "Target",
+  "Conversion.ColTool": "Tool",
+  "Conversion.ColCommand": "Command",
+  "Conversion.ColLossless": "Lossless",
+  "Conversion.ColCost": "Cost",
+  "Conversion.ColConsoles": "Consoles",
+  "Conversion.EmptyTitle": "No conversion rules loaded",
+  "Conversion.EmptyHint": "conversion-registry.json could not be found or loaded.",
+
+  "Context.SystemHealth": "System Health",
+
+  "Drawer.LogStream": "Log Stream",
+  "Drawer.Clear": "Clear",
+  "Drawer.Close": "Close",
+
+  "Empty.NoAnalysis": "No analysis data yet",
+  "Empty.RunPreviewHint": "Run a preview with F5 to see results.",
+  "Empty.NoReport": "No report available",
+  "Empty.NoReportHint": "Run a preview (F5) to generate the report.",
+  "Empty.NoLog": "No log entries yet",
+
+  "Shortcuts.CommandPalette": "Command Palette",
+  "Shortcuts.LogDrawer": "Toggle Log Drawer"
 }

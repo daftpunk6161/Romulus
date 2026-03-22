@@ -40,5 +40,6 @@
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#33FF3355"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#33FF3377"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#FF222222"/>
+    <SolidColorBrush x:Key="BrushScrimOverlay"    Color="#CC000800"/>
 
 </ResourceDictionary>

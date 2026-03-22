@@ -231,7 +231,7 @@ public sealed partial class FeatureCommandService
         if (results[0].score == 0) ExecuteCommand(results[0].key);
     }
 
-    private void ExecuteCommand(string key)
+    internal void ExecuteCommand(string key)
     {
         switch (key)
         {

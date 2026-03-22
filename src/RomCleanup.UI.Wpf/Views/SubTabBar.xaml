@@ -72,6 +72,9 @@
         <RadioButton GroupName="SubTab" Content="Conversion" Style="{StaticResource SidebarNavItem}"
                      IsChecked="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Conversion}"
                      AutomationProperties.Name="Conversion Registry"/>
+        <RadioButton GroupName="SubTab" Content="GameKey Lab" Style="{StaticResource SidebarNavItem}"
+                     IsChecked="{Binding SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=GameKeyLab}"
+                     AutomationProperties.Name="GameKey Lab"/>
       </StackPanel>
 
       <!-- ── System tabs ──────────────────────────────────────────── -->
