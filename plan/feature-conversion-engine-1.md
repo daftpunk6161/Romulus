@@ -76,9 +76,9 @@ Dieser Plan überführt die monolithische Conversion-Implementierung (`FormatCon
 
 **Referenzdokumente:**
 - `docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md` — Technische Zielarchitektur
-- `docs/CONVERSION_MATRIX.md` — Vollständige Matrix (76 Pfade, 65 Systeme, 5 Plattformfamilien)
+- `docs/architecture/CONVERSION_MATRIX.md` — Vollständige Matrix (76 Pfade, 65 Systeme, 5 Plattformfamilien)
 - `docs/product/CONVERSION_PRODUCT_MODEL.md` — Fachmodell (Policies, Safety, Integrity, Regeln R-01..R-10)
-- `docs/CONVERSION_DOMAIN_AUDIT.md` — Domänenanalyse (12 Lücken L1-L12, aktiver Bug)
+- `docs/architecture/CONVERSION_DOMAIN_AUDIT.md` — Domänenanalyse (12 Lücken L1-L12, aktiver Bug)
 
 **IST-Zustand:**
 - `FormatConverterAdapter` (523 Zeilen) mit `DefaultBestFormats` Dictionary (22 Einträge)
@@ -150,7 +150,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 
 ### Constraints
 
-- **CON-001**: Alle 3385+ bestehenden Tests müssen nach jeder Phase grün sein. Kein roter CI-State zwischen Phasen.
+- **CON-001**: Alle 5200+ bestehenden Tests müssen nach jeder Phase grün sein. Kein roter CI-State zwischen Phasen.
 - **CON-002**: `IFormatConverter` bleibt als Public-Interface erhalten. Bestehende Aufrufer (WinnerConversionPipelinePhase, ConvertOnlyPipelinePhase, GUI, CLI) müssen weiter funktionieren.
 - **CON-003**: Dependency-Richtung `Entry Points → Infrastructure → Core → Contracts` darf nicht verletzt werden.
 - **CON-004**: Keine neuen NuGet-Dependencies. Dijkstra ist trivial genug für eigene Implementierung (<100 Zeilen).
@@ -236,7 +236,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 
 ### Phase 5 – Integration: Pipeline-Phasen, Facade, Bug-Fix
 
-- GOAL-005: Neue Conversion-Engine in bestehende Pipeline integrieren. FormatConverterAdapter wird zur Facade. ARCADE/NEOGEO-Bug fixen. Bestehende 3385+ Tests plus neue Tests müssen grün sein.
+- GOAL-005: Neue Conversion-Engine in bestehende Pipeline integrieren. FormatConverterAdapter wird zur Facade. ARCADE/NEOGEO-Bug fixen. Bestehende 5200+ Tests plus neue Tests müssen grün sein.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
@@ -250,7 +250,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 | TASK-045 | DI-Registration: In `src/RomCleanup.CLI/Program.cs`, `src/RomCleanup.Api/Program.cs`, `src/RomCleanup.UI.Wpf/App.xaml.cs` (oder ServiceRegistration): `IConversionRegistry → ConversionRegistryLoader`, `IConversionPlanner → ConversionPlanner`, `IConversionExecutor → ConversionExecutor`, `IToolInvoker → [ChdmanInvoker, DolphinToolInvoker, SevenZipInvoker, PsxtractInvoker]`. | | |
 | TASK-046 | Regressionstests: Alle bestehenden FormatConverterAdapter-Tests müssen mit refactored Facade identische Ergebnisse liefern. Neue Tests: ARCADE-Candidate → Blocked. NEOGEO-Candidate → Blocked. Datei: `src/RomCleanup.Tests/Conversion/ConversionFacadeRegressionTests.cs`. Min. 10 Testfälle. | | |
 | TASK-047 | Pipeline-Integrationstests: Full-Pipeline DryRun mit Conversion zeigt ConversionPlans. Full-Pipeline Execute mit Mock-Tools konvertiert korrekt. ConversionReport-Zahlen stimmen mit RunProjection überein. Min. 8 Testfälle. Datei: `src/RomCleanup.Tests/Conversion/ConversionPipelineIntegrationTests.cs`. | | |
-| TASK-048 | Build-Validierung: `dotnet build src/RomCleanup.sln` 0 Errors + `dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj --nologo` ALLE Tests grün (bestehende 3385+ plus neue). | | |
+| TASK-048 | Build-Validierung: `dotnet build src/RomCleanup.sln` 0 Errors + `dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj --nologo` ALLE Tests grün (bestehende 5200+ plus neue). | | |
 
 ### Phase 6 – Entry Points: CLI, GUI, API + Reports
 
@@ -376,7 +376,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 | **P5** | Integration | Full-Pipeline DryRun + Execute + Report | 8 | `Conversion/ConversionPipelineIntegrationTests.cs` |
 | **P6** | Parity | CLI / API / GUI identische Counts | 5 | `Conversion/ConversionParityTests.cs` |
 
-**Gesamt:** ~123 neue Testfälle + 3385 bestehende = ~3508 Tests
+**Gesamt:** ~123 neue Testfälle + 5200 bestehende = ~5323 Tests
 
 ### Kritische Invarianten
 
@@ -413,7 +413,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 ### Architekturrisiken
 
 - **RISK-001**: **Graph-Zyklen** – Dijkstra mit Visited-Set + Max-Pfadlänge 5 mitigiert. Ohne diesen Schutz Endlosschleife möglich. *Mitigation: TASK-013 erzwingt Max-Depth.*
-- **RISK-002**: **Rückwärtskompatibilitäts-Bruch** – FormatConverterAdapter-Facade muss identische Ergebnisse liefern. Bestehende 3385+ Tests sind die Sicherung. *Mitigation: TASK-046 Regressionstests.*
+- **RISK-002**: **Rückwärtskompatibilitäts-Bruch** – FormatConverterAdapter-Facade muss identische Ergebnisse liefern. Bestehende 5200+ Tests sind die Sicherung. *Mitigation: TASK-046 Regressionstests.*
 - **RISK-003**: **Registry-Drift** – conversion-registry.json und Code können divergieren. *Mitigation: TASK-024 Schema-Validierungstests + TASK-036 Loader-Tests.*
 - **RISK-004**: **Intermediate-Datei-Leaks** – Temp-ISOs bleiben liegen bei Crash/OOM. *Mitigation: Deterministische Temp-Pfade mit Guid + finally-Block-Cleanup + Startup-Scan für Orphans.*
 - **RISK-005**: **RVZ-Verify zu schwach** – Magic-Byte-Check erkennt korrumpierte RVZ nicht. *Mitigation: Akzeptiert als Known-Weakness. Mittelfristig dolphintool convert -f iso → /dev/null als Dry-Verify.*
@@ -441,7 +441,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 | # | Kriterium | Prüfmethode |
 |---|-----------|-------------|
 | E-01 | Alle Enums, Records, Port-Interfaces kompilieren | `dotnet build src/RomCleanup.sln` = 0 Errors |
-| E-02 | Kein bestehender Test bricht | `dotnet test` = 3385+ passed, 0 failed |
+| E-02 | Kein bestehender Test bricht | `dotnet test` = 5200+ passed, 0 failed |
 | E-03 | Keine Dependency-Verletzung | Contracts-Projekt hat keine Referenz auf Core/Infrastructure/EntryPoints |
 
 ### Phase 2 – Core
@@ -480,7 +480,7 @@ P1 ist Voraussetzung für alles. P2 und P3 können parallel starten. P4 braucht 
 | E-18 | ARCADE/NEOGEO werden NICHT konvertiert (Bug-Fix verifiziert) | Explizite Tests für beide Keys |
 | E-19 | Pipeline-DryRun zeigt ConversionPlans | Integrationstest |
 | E-20 | RunProjection enthält neue Conversion-Metriken | Unit-Test auf Factory |
-| E-21 | Alle bestehenden 3385+ Tests grün | `dotnet test` = 0 failed |
+| E-21 | Alle bestehenden 5200+ Tests grün | `dotnet test` = 0 failed |
 
 ### Phase 6 – Entry Points
 
@@ -595,8 +595,8 @@ Die folgenden Themen sind bewusst NICHT Teil dieses Plans und gehören in separa
 ## 14. Related Specifications / Further Reading
 
 - [CONVERSION_ENGINE_ARCHITECTURE.md](../docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md) — Technische Zielarchitektur
-- [CONVERSION_MATRIX.md](../docs/CONVERSION_MATRIX.md) — Vollständige Conversion-Matrix (76 Pfade, 65 Systeme)
+- [CONVERSION_MATRIX.md](../docs/architecture/CONVERSION_MATRIX.md) — Vollständige Conversion-Matrix (76 Pfade, 65 Systeme)
 - [CONVERSION_PRODUCT_MODEL.md](../docs/product/CONVERSION_PRODUCT_MODEL.md) — Fachliches Produktmodell
-- [CONVERSION_DOMAIN_AUDIT.md](../docs/CONVERSION_DOMAIN_AUDIT.md) — Domänenanalyse (12 Lücken)
-- [ARCHITECTURE_MAP.md](../docs/ARCHITECTURE_MAP.md) — Clean Architecture Übersicht
+- [CONVERSION_DOMAIN_AUDIT.md](../docs/architecture/CONVERSION_DOMAIN_AUDIT.md) — Domänenanalyse (12 Lücken)
+- [ARCHITECTURE_MAP.md](../docs/architecture/ARCHITECTURE_MAP.md) — Clean Architecture Übersicht
 - [ADR-0007](../docs/adrs/0007-final-core-functions-review.md) — Architektur-Review Verdict

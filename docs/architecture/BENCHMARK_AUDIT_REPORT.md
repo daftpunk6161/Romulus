@@ -50,11 +50,11 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 2. `docs/EVALUATION_STRATEGY.md`
+### 2. `docs/architecture/EVALUATION_STRATEGY.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
-| 1 | §10, P0 #2 | **Baseline-Metriken messen und speichern** — `latest-baseline.json` existiert mit 1.152 Samples, aber es gibt keine systematische M1–M16-Baseline-Referenz als Named-Record | **Low** |
+| 1 | §10, P0 #2 | **Baseline-Metriken messen und speichern** — `latest-baseline.json` existiert mit 2.073 Samples, aber es gibt keine systematische M1–M16-Baseline-Referenz als Named-Record | **Low** |
 | 2 | §10, P1 #5 | **UNKNOWN→WRONG Regression Gate** — implementiert in `BaselineRegressionGateTests` (≤ 2 % Schwelle) | **Erledigt** ✅ |
 | 3 | §10, P2 #11 | **`ConfidenceCalibrationTests.cs`** — als dedizierte Test-Klasse mit `[Trait("Category", "AntiGaming")]` nicht vorhanden. Funktionalität existiert in `MetricsAggregator.CalculateConfidenceCalibration()` und wird in `BaselineRegressionGateTests` aufgerufen, aber kein eigenständiger Test | **Medium** |
 | 4 | §10, P2 #12 | **HTML Benchmark Report** — `BenchmarkHtmlReportWriter` existiert | **Erledigt** ✅ |
@@ -75,7 +75,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 4. `docs/RECOGNITION_QUALITY_BENCHMARK.md`
+### 4. `docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
@@ -84,7 +84,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 5. `docs/GROUND_TRUTH_SCHEMA.md`
+### 5. `docs/architecture/GROUND_TRUTH_SCHEMA.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
@@ -93,7 +93,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 6. `docs/COVERAGE_GAP_AUDIT.md`
+### 6. `docs/architecture/COVERAGE_GAP_AUDIT.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
@@ -107,7 +107,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 7. `docs/TESTSET_DESIGN.md`
+### 7. `TESTSET_DESIGN.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
@@ -116,7 +116,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 8. `docs/TEST_STRATEGY.md`
+### 8. `TEST_STRATEGY.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|
@@ -212,8 +212,8 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 | # | Item | Betroffene Dokumente |
 |---|------|---------------------|
 | ~~L1~~ | ~~Plan-Dateien Status "Planned" statt "Completed"/"In Progress"~~ → **BEHOBEN** (2026-03-22) | feature-benchmark-testset-1.md, feature-benchmark-coverage-expansion-1.md, feature-benchmark-coverage-matrix-impl-1.md |
-| L2 | Ground-Truth Schema "1.0.0-draft" / "Design/Review" — sollte stable sein | GROUND_TRUTH_SCHEMA.md |
-| L3 | ADR-015 referenziert `BenchmarkReportGenerator.cs` — existiert als `BenchmarkHtmlReportWriter.cs` | ADR-015 |
+| ~~L2~~ | ~~Ground-Truth Schema "1.0.0-draft" / "Design/Review" — sollte stable sein~~ → **BEHOBEN** (2026-03-22) | GROUND_TRUTH_SCHEMA.md |
+| ~~L3~~ | ~~ADR-015 referenziert `BenchmarkReportGenerator.cs` — existiert als `BenchmarkHtmlReportWriter.cs`~~ → **BEHOBEN** (2026-03-22) | ADR-015 |
 | L4 | `ExtendedMetrics` als Dictionary statt typisiertem Record | feature-benchmark-evaluation-pipeline-1.md |
 | L5 | Mutation-Testing Status unklar | TEST_STRATEGY |
 

@@ -8,13 +8,13 @@ Proposed
 
 ## Kontext
 
-RomCleanup besitzt bereits ein Benchmark-Framework (ADR-015) mit 1.152 Ground-Truth-Einträgen, 16 Stub-Generatoren, einem 7-Ebenen-Qualitätsmodell und CI-fähiger Evaluationspipeline. Die bisherigen Designdokumente (TESTSET_DESIGN.md, GROUND_TRUTH_SCHEMA.md) definieren Schema, Dataset-Klassen und Pflichtfälle auf konzeptioneller Ebene.
+RomCleanup besitzt bereits ein Benchmark-Framework (ADR-015) mit 2.073 Ground-Truth-Einträgen, 16 Stub-Generatoren, einem 7-Ebenen-Qualitätsmodell und CI-fähiger Evaluationspipeline. Die bisherigen Designdokumente (TESTSET_DESIGN.md, GROUND_TRUTH_SCHEMA.md) definieren Schema, Dataset-Klassen und Pflichtfälle auf konzeptioneller Ebene.
 
 Was fehlt, ist die **architektonische Entscheidung**, wie das Testset als **langfristig belastbares, Anti-Overfitting-gesichertes, versioniertes Real-World-Testsystem** betrieben wird – insbesondere:
 
 1. **Daten-Isolation** zwischen Entwicklungs-Fixtures und Benchmark-Evaluation
 2. **Testset-Governance** als formaler Prozess (nicht als Gentleman's Agreement)
-3. **Skalierungsstrategie** von 1.152 auf 3.000+ Entries ohne Qualitätsverlust
+3. **Skalierungsstrategie** von 2.073 auf 3.000+ Entries ohne Qualitätsverlust
 4. **Härtungsstrategie** gegen die 12 identifizierten Bias-Risiken
 5. **Architektonische Verbindung** zwischen Testset-Struktur und Produktions-Detection-Cascade
 
@@ -23,7 +23,7 @@ Was fehlt, ist die **architektonische Entscheidung**, wie das Testset als **lang
 | # | Treiber | Risiko ohne Entscheidung |
 |---|---------|--------------------------|
 | T1 | Stub-Dateien sind synthetisch; echte ROMs haben Varianz in Header-Padding, Alignment, Sektorgrößen | False Confidence: 100 % Pass auf Stubs, 85 % auf echten Sammlungen |
-| T2 | Alle 1.152 Entries sind für Entwickler sichtbar und als Optimierungsziel nutzbar | Benchmark-Overfitting: Detection wird gegen bekannte Stubs getuned |
+| T2 | Alle 2.073 Entries sind für Entwickler sichtbar und als Optimierungsziel nutzbar | Benchmark-Overfitting: Detection wird gegen bekannte Stubs getuned |
 | T3 | performance-scale.jsonl ist leer (0 Entries) | Keine Performance-Regression-Erkennung |
 | T4 | PC/Computer-Systeme (DOS, AMIGA, C64, ZX, MSX) sind unterrepräsentiert | Blinde Spots bei ~15 % der realen Sammlungen |
 | T5 | Arcade-Parent/Clone und Split/Merged-Varianten haben minimale Tiefe | MAME-Nutzer (größte Einzelgruppe) unzureichend getestet |

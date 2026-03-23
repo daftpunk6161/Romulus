@@ -601,10 +601,10 @@ Vergleich pro Ebene:
 - Confidence: actual.confidence vs expected.confidenceClass → CALIBRATED/OVER/UNDER
 ```
 
-#### D) Report Generator (`BenchmarkReportGenerator`)
+#### D) Report Generator (`BenchmarkHtmlReportWriter`)
 
 ```
-Klasse: RomCleanup.Tests/Benchmark/BenchmarkReportGenerator.cs
+Klasse: RomCleanup.Tests/Benchmark/BenchmarkHtmlReportWriter.cs
 
 Outputs:
 1. benchmark-results.json         ← Maschinen-lesbar, für CI/CD

@@ -14,14 +14,14 @@ tags:
 
 # Coverage Expansion Plan
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
-Dieser Plan konkretisiert den Ausbau des Benchmark-Testsets von den initialen 70 Einträgen (Phase 2 des Basis-Plans `feature-benchmark-testset-1.md`) auf das S1-Gate von ≥1.200 Einträgen gemäss `docs/COVERAGE_GAP_AUDIT.md`. Der Basis-Plan deckt Infrastruktur + erste 70 Einträge ab. Dieser Plan beginnt dort, wo der Basis-Plan aufhört, und definiert die konkreten Inhalte, Generatoren und Prüfmechanismen für jede Ausbauphase.
+Dieser Plan konkretisiert den Ausbau des Benchmark-Testsets von den initialen 70 Einträgen (Phase 2 des Basis-Plans `feature-benchmark-testset-1.md`) auf das S1-Gate von ≥1.200 Einträgen gemäss `docs/architecture/COVERAGE_GAP_AUDIT.md`. Der Basis-Plan deckt Infrastruktur + erste 70 Einträge ab. Dieser Plan beginnt dort, wo der Basis-Plan aufhört, und definiert die konkreten Inhalte, Generatoren und Prüfmechanismen für jede Ausbauphase.
 
 **Referenzdokumente:**
-- `docs/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix, Gates, Lückenanalyse
-- `docs/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell, Felddefinitionen
-- `docs/TESTSET_DESIGN.md` — Dataset-Klassen, Generator-Spec, Pflichtfälle
+- `docs/architecture/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix, Gates, Lückenanalyse
+- `docs/architecture/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell, Felddefinitionen
+- `docs/architecture/TESTSET_DESIGN.md` — Dataset-Klassen, Generator-Spec, Pflichtfälle
 - `plan/feature-benchmark-testset-1.md` — Basis-Plan (Infrastruktur + erste 70 Einträge)
 
 **Voraussetzung:** Phasen 1–5 des Basis-Plans sind abgeschlossen (Ordnerstruktur, Schema, 70 golden-core-Einträge, StubGenerator, Evaluation-Runner).
@@ -644,8 +644,8 @@ Zusätzlich zum Coverage-Gate prüft ein separater Test:
 
 ## 12. Related Specifications / Further Reading
 
-- [docs/COVERAGE_GAP_AUDIT.md](../docs/COVERAGE_GAP_AUDIT.md) — Minimum Coverage Matrix, Gate-Definitionen
-- [docs/GROUND_TRUTH_SCHEMA.md](../docs/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema, Datenmodell, Felddefinitionen
-- [docs/TESTSET_DESIGN.md](../docs/TESTSET_DESIGN.md) — Dataset-Klassen, Tier-System, Pflichtfälle
-- [docs/RECOGNITION_QUALITY_BENCHMARK.md](../docs/RECOGNITION_QUALITY_BENCHMARK.md) — Qualitätsmodell, Metriken M1–M16
+- [docs/architecture/COVERAGE_GAP_AUDIT.md](../docs/architecture/COVERAGE_GAP_AUDIT.md) — Minimum Coverage Matrix, Gate-Definitionen
+- [docs/architecture/GROUND_TRUTH_SCHEMA.md](../docs/architecture/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema, Datenmodell, Felddefinitionen
+- [docs/architecture/TESTSET_DESIGN.md](../docs/architecture/TESTSET_DESIGN.md) — Dataset-Klassen, Tier-System, Pflichtfälle
+- [docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md) — Qualitätsmodell, Metriken M1–M16
 - [plan/feature-benchmark-testset-1.md](feature-benchmark-testset-1.md) — Basis-Plan (Infrastruktur + erste 70 Einträge)

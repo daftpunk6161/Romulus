@@ -11,7 +11,7 @@ Permanente Referenzdoku liegt in [`docs/`](../docs/README.md).
 
 | Plan | Feature | Status | Beschreibung |
 |------|---------|--------|--------------|
-| [feature-conversion-engine-1.md](feature-conversion-engine-1.md) | Conversion Engine | **In Progress** | Graphbasierte Konvertierung: 65 Systeme, 76 Pfade, 5 Tools. Phase 5 abgeschlossen, Phase 6 (Entry Points) offen |
+| [feature-conversion-engine-1.md](feature-conversion-engine-1.md) | Conversion Engine | **Completed** | Graphbasierte Konvertierung: 65 Systeme, 76 Pfade, 5 Tools. Alle 6 Phasen abgeschlossen (Tasks 001–055 ✅) |
 | [feature-benchmark-coverage-expansion-1.md](feature-benchmark-coverage-expansion-1.md) | Benchmark: Testset Expansion | **Mostly Complete** | 2.073 Einträge (Ziel 1.200+ erreicht). Offen: performance-scale.jsonl leer |
 | [feature-benchmark-coverage-matrix-impl-1.md](feature-benchmark-coverage-matrix-impl-1.md) | Benchmark: Coverage Matrix | **Mostly Complete** | CoverageValidator + gates.json + CoverageGateTests implementiert |
 | [feature-benchmark-evaluation-pipeline-1.md](feature-benchmark-evaluation-pipeline-1.md) | Benchmark: Eval Pipeline | **Mostly Complete** | Quality Gates M4/M6/M7/M9a, HTML-Reports, Regressions-Gate implementiert |

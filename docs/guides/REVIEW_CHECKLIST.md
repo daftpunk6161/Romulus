@@ -1,6 +1,6 @@
 # PR-Review-Checklist — C# .NET 10
 
-> Stand: 2026-03-15 | Ref: `.github/copilot-instructions.md`, `docs/ARCHITECTURE_MAP.md`
+> Stand: 2026-03-15 | Ref: `.github/copilot-instructions.md`, `docs/architecture/ARCHITECTURE_MAP.md`
 
 ---
 
@@ -44,7 +44,7 @@
 
 ### 7 Dokumentation
 - [ ] ADR geschrieben bei architekturrelevanten Entscheidungen
-- [ ] `docs/ARCHITECTURE_MAP.md` aktualisiert bei neuem Modul/Projekt
+- [ ] `docs/architecture/ARCHITECTURE_MAP.md` aktualisiert bei neuem Modul/Projekt
 
 ---
 

@@ -15,14 +15,14 @@ tags:
 
 # Coverage Matrix Implementation Plan – RomCleanup
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
-Dieser Plan überführt die abstrakten Gate-Definitionen aus `docs/COVERAGE_GAP_AUDIT.md` §10 in eine **konkrete, versionierbare, CI-prüfbare Benchmark-Struktur**. Er definiert Dateistruktur, Sollmengen, Spezialmatrizen, Generatoren, Manifest-Erweiterungen und CI-Regeln so, dass jede Unterschreitung automatisch erkannt wird.
+Dieser Plan überführt die abstrakten Gate-Definitionen aus `docs/architecture/COVERAGE_GAP_AUDIT.md` §10 in eine **konkrete, versionierbare, CI-prüfbare Benchmark-Struktur**. Er definiert Dateistruktur, Sollmengen, Spezialmatrizen, Generatoren, Manifest-Erweiterungen und CI-Regeln so, dass jede Unterschreitung automatisch erkannt wird.
 
 **Bezug:**
-- `docs/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix (§10), Lückenanalyse
-- `docs/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell
-- `docs/TESTSET_DESIGN.md` — Dataset-Klassen, Pflichtfälle
+- `docs/architecture/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix (§10), Lückenanalyse
+- `docs/architecture/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell
+- `docs/architecture/TESTSET_DESIGN.md` — Dataset-Klassen, Pflichtfälle
 - `plan/feature-benchmark-testset-1.md` — Basis-Plan (Infrastruktur + 70 golden-core)
 - `plan/feature-benchmark-coverage-expansion-1.md` — Ausbauplan E1–E4 (56 Tasks)
 - `data/consoles.json` — 69 Systeme (47 Cartridge, 22 Disc)
@@ -1095,9 +1095,9 @@ Nur messbare Kriterien. Jedes einzelne muss erfüllt sein, damit die Coverage-Ma
 
 ## Related Specifications
 
-- [docs/COVERAGE_GAP_AUDIT.md](../docs/COVERAGE_GAP_AUDIT.md) — Quell-Matrix (§10)
-- [docs/GROUND_TRUTH_SCHEMA.md](../docs/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema
-- [docs/TESTSET_DESIGN.md](../docs/TESTSET_DESIGN.md) — Dataset-Klassen
-- [docs/RECOGNITION_QUALITY_BENCHMARK.md](../docs/RECOGNITION_QUALITY_BENCHMARK.md) — Metriken M1–M16
+- [docs/architecture/COVERAGE_GAP_AUDIT.md](../docs/architecture/COVERAGE_GAP_AUDIT.md) — Quell-Matrix (§10)
+- [docs/architecture/GROUND_TRUTH_SCHEMA.md](../docs/architecture/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema
+- [docs/architecture/TESTSET_DESIGN.md](../docs/architecture/TESTSET_DESIGN.md) — Dataset-Klassen
+- [docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md) — Metriken M1–M16
 - [plan/feature-benchmark-testset-1.md](feature-benchmark-testset-1.md) — Basis-Plan
 - [plan/feature-benchmark-coverage-expansion-1.md](feature-benchmark-coverage-expansion-1.md) — Ausbauplan E1–E4

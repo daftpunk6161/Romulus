@@ -297,14 +297,15 @@ UNKNOWN IST KEIN FEHLER. WRONG IST EIN FEHLER.
 
 | Dataset | Einträge | Bewertung |
 |---------|----------|-----------|
-| golden-core.jsonl | 370 | ✅ Solide Basis |
-| golden-realworld.jsonl | 232 | ⚠️ Unter 350-Ziel |
-| edge-cases.jsonl | 142 | ⚠️ Unter 150-Ziel |
-| negative-controls.jsonl | 62 | ✅ Über 40-Minimum |
-| chaos-mixed.jsonl | 101 | ⚠️ Unter 150-Ziel |
-| repair-safety.jsonl | 65 | ✅ Grundlage vorhanden |
-| dat-coverage.jsonl | 180 | ✅ Solide |
-| **Gesamt** | **1.152** | ⚠️ Knapp unter 1.200-Target |
+| golden-core.jsonl | 648 | ✅ Deutlich über 400-Ziel |
+| golden-realworld.jsonl | 493 | ✅ Über 350-Ziel |
+| edge-cases.jsonl | 198 | ✅ Über 150-Ziel |
+| negative-controls.jsonl | 80 | ✅ Über 40-Minimum |
+| chaos-mixed.jsonl | 204 | ✅ Über 150-Ziel |
+| repair-safety.jsonl | 100 | ✅ Über 80-Minimum |
+| dat-coverage.jsonl | 350 | ✅ Solide |
+| performance-scale.jsonl | 0 | ⚠️ Noch leer |
+| **Gesamt** | **2.073** | ✅ Deutlich über 1.200-Target |
 
 ### 5.2 Kritische Coverage-Lücken
 
@@ -371,18 +372,18 @@ Der Benchmark-Datensatz besteht aus:
 - **Verzeichnisstruktur-Fixtures** (leere Dateien in benannten Ordnern)
 - **Archiv-Stubs** (ZIP/7z mit korrekten inneren Namen, Minimal-Inhalt)
 
-### 5.5 Empfohlene Erweiterung auf 1.500+ Einträge
+### 5.5 Skalierungs-Übersicht
 
-| Dataset | Ist | Ziel | Delta |
-|---------|-----|------|-------|
-| golden-core | 370 | 400 | +30 (fehlende Systeme + BIOS) |
-| golden-realworld | 232 | 350 | +118 (Tier-Tiefe + Arcade + Computer) |
-| edge-cases | 142 | 200 | +58 (Cross-System + BIOS-Edge) |
-| negative-controls | 62 | 80 | +18 (irreführende Fälle) |
-| chaos-mixed | 101 | 200 | +99 (Unicode + Mixed + Headerless) |
-| repair-safety | 65 | 100 | +35 (Disc-Repair + DAT-Edge) |
-| dat-coverage | 180 | 200 | +20 (TOSEC + CHD-RAW-SHA1) |
-| **Gesamt** | **1.152** | **1.530** | **+378** |
+| Dataset | Ist | Urspr. Ziel | Status |
+|---------|-----|-------------|--------|
+| golden-core | 648 | 400 | ✅ Übertroffen |
+| golden-realworld | 493 | 350 | ✅ Übertroffen |
+| edge-cases | 198 | 200 | ✅ Erreicht |
+| negative-controls | 80 | 80 | ✅ Erreicht |
+| chaos-mixed | 204 | 200 | ✅ Erreicht |
+| repair-safety | 100 | 100 | ✅ Erreicht |
+| dat-coverage | 350 | 200 | ✅ Übertroffen |
+| **Gesamt** | **2.073** | **1.530** | ✅ **Ziel übertroffen** |
 
 ---
 
@@ -661,7 +662,7 @@ Das impliziert:
 
 | # | Schritt | Output |
 |---|---------|--------|
-| 6 | **RegressionGateTests.cs implementieren** — M15 UNKNOWN→WRONG-Migration gegen Baseline | Automatische Regressionserkennung |
+| 6 | **BaselineRegressionGateTests.cs implementieren** — M15 UNKNOWN→WRONG-Migration gegen Baseline | Automatische Regressionserkennung |
 | 7 | **Arcade auf ≥200 erweitern** — Parent/Clone/BIOS/Split-Merged/CHD | Arcade-Metriken belastbar |
 | 8 | **Computer/PC auf ≥150 erweitern** — 10 Systeme ohne Header | Computer-Metriken belastbar |
 | 9 | **Multi-File-Sets auf ≥80 erweitern** — CUE+BIN, GDI, M3U-Varianten | Disc-Set-Integrität messbar |
@@ -685,7 +686,7 @@ Das impliziert:
   #3  BIOS auf ≥60                 ← Gefährlichste Lücke zuerst
   #4  PS-Disambiguation auf ≥30    ← Häufigster Produktionsfehler
   #5  69/69 Systeme                ← Keine Blind Spots
-  #6  RegressionGateTests.cs       ← Anti-Gaming-Schutz
+  #6  BaselineRegressionGateTests.cs ← Anti-Gaming-Schutz
   #7  Arcade auf ≥200              ← Komplexeste Plattform
   #8  Computer/PC auf ≥150         ← Höchste False-Positive-Rate
   #9  Multi-File auf ≥80           ← Disc-Integrität

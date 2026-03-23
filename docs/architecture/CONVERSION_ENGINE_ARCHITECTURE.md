@@ -1276,7 +1276,7 @@ Die Entry Points zeigen dies konsistent:
 | R-2 | **Condition-Explosion** | Zu viele Sonderfall-Conditions | Conditions als Enum, max 10 definierte Prädikate, kein Freitext |
 | R-3 | **Registry-Drift** | JSON-Config divergiert vom Code | Schema-Validierung beim Laden, Integrationstests gegen alle 65 Systeme |
 | R-4 | **Performance bei Batch-Planung** | Graph-Traversal × 10.000 Kandidaten | Graph wird einmal aufgebaut und gecached. Dijkstra ist O(E log V) mit E<100 Kanten |
-| R-5 | **Rückwärtskompatibilitäts-Bruch** | Bestehende Tests erwarten altes Verhalten | IFormatConverter-Facade bleibt. Alle 3385+ Tests müssen grün bleiben |
+| R-5 | **Rückwärtskompatibilitäts-Bruch** | Bestehende Tests erwarten altes Verhalten | IFormatConverter-Facade bleibt. Alle 5200+ Tests müssen grün bleiben |
 | R-6 | **Intermediate-Datei-Leaks** | Temp-ISOs bleiben liegen bei Crash | Deterministische Temp-Pfade mit Guid, finally-Cleanup, Startup-Scan für Orphans |
 | R-7 | **RVZ-Verify zu schwach** | Korrumpierte RVZ nicht erkannt | Kurzfristig: akzeptieren. Mittelfristig: dolphintool convert -f iso → /dev/null als Dry-Verify |
 
@@ -1343,7 +1343,7 @@ Die Entry Points zeigen dies konsistent:
 | 3.6 | RunProjection erweitern (BlockedCount, ReviewCount, SavedBytes) | Infrastructure | Orchestration/RunProjection.cs | 1.6 |
 | 3.7 | ARCADE/NEOGEO aus DefaultBestFormats entfernen (BUG-FIX) | Infrastructure | Conversion/FormatConverterAdapter.cs | – |
 
-**Tests:** Full Pipeline-Tests. Preview/DryRun zeigt ConversionPlans. 3385+ bestehende Tests grün.
+**Tests:** Full Pipeline-Tests. Preview/DryRun zeigt ConversionPlans. 5200+ bestehende Tests grün.
 
 ### Phase 4: Entry-Point-Anbindung
 
@@ -1448,6 +1448,6 @@ Diese Architektur ist kompatibel mit:
 | 3 | conversion-registry.json + consoles.json Erweiterung | Schema-Validierungstest + 65 Systeme geprüft | Nein (optionale Felder) |
 | 4 | Tool-Invoker extrahiert | Alle FormatConverterAdapter-Tests grün (gleiche Ergebnisse) | Nein (internes Refactoring) |
 | 5 | ConversionExecutor implementiert | Neue Tests + alte Tests grün via Facade | Nein |
-| 6 | Neue Pipeline-Phasen + Orchestrator-Integration | Full-Pipeline-Tests, 3385+ bestehende Tests grün | Nein (alter Pfad per Facade) |
+| 6 | Neue Pipeline-Phasen + Orchestrator-Integration | Full-Pipeline-Tests, 5200+ bestehende Tests grün | Nein (alter Pfad per Facade) |
 | 7 | ARCADE/NEOGEO Bug-Fix | Regressionstests: Arcade-ZIP wird NICHT konvertiert | Verhaltens-Änderung (Bug-Fix) |
 | 8 | RunProjection-Erweiterung | CLI/API/GUI zeigen neue Metriken | Additive Erweiterung |

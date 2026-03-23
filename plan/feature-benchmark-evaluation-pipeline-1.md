@@ -15,11 +15,11 @@ tags:
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
 Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluation-Pipeline-Komponenten: harte Quality Gates (M4/M6/M7/M9a), erweiterte Metriken (M8–M16), HTML-Reports, Trend-Vergleich, Anti-Gaming-Schutz und CI-Integration.
 
-**Ausgangslage:** Die Benchmark-Infrastruktur ist zu ~90 % vorhanden (1.152 Ground-Truth-Einträge, 24+ C#-Dateien, 16 Stub-Generatoren, Evaluation-Runner, Comparator, Aggregator, JSON-Report, Baseline-Vergleich, Coverage-Gates). Die bestehenden Pläne (`feature-benchmark-testset-1.md`, `feature-benchmark-coverage-expansion-1.md`) sind als "Planned" markiert, obwohl die Infrastruktur bereits implementiert ist — sie dokumentieren den *damaligen* Plan, nicht den aktuellen Zustand.
+**Ausgangslage:** Die Benchmark-Infrastruktur ist zu ~90 % vorhanden (2.073 Ground-Truth-Einträge, 83 C#-Dateien, 16 Stub-Generatoren, Evaluation-Runner, Comparator, Aggregator, JSON-Report, Baseline-Vergleich, Coverage-Gates). Die bestehenden Pläne (`feature-benchmark-testset-1.md`, `feature-benchmark-coverage-expansion-1.md`) sind als "Planned" markiert, obwohl die Infrastruktur bereits implementiert ist — sie dokumentieren den *damaligen* Plan, nicht den aktuellen Zustand.
 
 **Dieser Plan adressiert die verbleibenden Lücken:**
 
@@ -33,13 +33,13 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 | Trend-Vergleich | BaselineComparator vergleicht 1:1 gegen Baseline | N-Run-History mit Trendrichtung |
 | CI-Pipeline | Kein GitHub Actions Workflow | PR-Gate + Nightly + Baseline-Publish |
 | Baseline Snapshot | Kein committed Baseline-Report | Initiale baseline-metrics.json |
-| Dataset-Lücken | 1.152 Einträge; Arcade -85, Computer -125, BIOS -10 | DatasetExpander ausführen → ≥1.200 Einträge |
+| Dataset-Lücken | 2.073 Einträge (DatasetExpander bereits ausgeführt, ≥1.200 Gate erfüllt) | Weitere Expansion auf ≥3.000 Einträge |
 | Performance-Scale | performance-scale.jsonl leer (0 Einträge) | ScaleDatasetGenerator ausführen → ≥5.000 Einträge |
 
 **Referenzdokumente:**
 - `docs/architecture/ADR-015-recognition-quality-benchmark-framework.md` — Qualitätsmodell, Gate-Schwellen
-- `docs/EVALUATION_STRATEGY.md` — Evaluationsstrategie, Metriken M1–M16
-- `docs/RECOGNITION_QUALITY_BENCHMARK.md` — Benchmark-Design
+- `docs/architecture/EVALUATION_STRATEGY.md` — Evaluationsstrategie, Metriken M1–M16
+- `docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md` — Benchmark-Design
 - `plan/feature-benchmark-testset-1.md` — Basis-Infrastruktur-Plan (bereits implementiert)
 - `plan/feature-benchmark-coverage-expansion-1.md` — Coverage-Expansion-Plan (DatasetExpander implementiert, noch nicht ausgeführt)
 
@@ -169,7 +169,7 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 |------|-------------|-----------|------|
 | TASK-027 | `DatasetExpansionTests.RunExpansion_GeneratesAndWritesEntries()` ausführen: `dotnet test --filter "Category=DatasetGeneration"`. Prüfen, dass ≥65 Systeme und ≥20 Fallklassen generiert werden. Output: erweiterte JSONL-Dateien in `benchmark/ground-truth/`. | | |
 | TASK-028 | Nach Expansion: `SchemaValidator` gegen alle JSONL ausführen (wird durch `CoverageGateTests.AllEntries_PassStructuralValidation` automatisch geprüft). Fix von ggf. fehlerhaften generierten Einträgen. | | |
-| TASK-029 | Prüfen, ob DatasetExpander die Expansion *mergt* (bestehende + neue Einträge) oder *ersetzt*. Falls Ersetzung: Expansion-Modus auf Merge umstellen (bestehende 1.152 Einträge dürfen nicht verloren gehen). | | |
+| TASK-029 | Prüfen, ob DatasetExpander die Expansion *mergt* (bestehende + neue Einträge) oder *ersetzt*. Falls Ersetzung: Expansion-Modus auf Merge umstellen (bestehende 2.073 Einträge dürfen nicht verloren gehen). | | |
 | TASK-030 | `benchmark/manifest.json` nach Expansion aktualisieren: `totalEntries`, `version`, Datum. | | |
 
 **2.2 — Spezifische Coverage-Lücken schliessen**
@@ -287,7 +287,7 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-063 | `docs/RECOGNITION_QUALITY_BENCHMARK.md` aktualisieren: Link zu QualityGateTests, aktuelle Gate-Schwellenwerte, Verweis auf HTML-Report. | | |
+| TASK-063 | `docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md` aktualisieren: Link zu QualityGateTests, aktuelle Gate-Schwellenwerte, Verweis auf HTML-Report. | | |
 | TASK-064 | `plan/feature-benchmark-testset-1.md` Status auf `Completed` setzen (Infrastruktur ist implementiert). | | |
 | TASK-065 | `plan/feature-benchmark-coverage-expansion-1.md` Status aktualisieren (auf `In progress` oder `Completed` je nach Phase-2-Ergebnis). | | |
 | TASK-066 | `benchmark/manifest.json` finale Version setzen nach allen Phasen. | | |
@@ -398,8 +398,8 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 
 ### Risiken
 
-- **RISK-001**: **DatasetExpander überschreibt bestehende JSONL-Einträge** — Der Expander generiert Einträge "from scratch" (Zeile: `var expander = new DatasetExpander([])` in `DatasetExpansionTests`). Muss sichergestellt werden, dass bestehende 1.152 Einträge erhalten bleiben. Mitigation: TASK-029 prüft explizit den Merge-Modus.
-- **RISK-002**: **Quality Gates failen initial** — Die aktuellen 1.152 Entries könnten WrongMatchRate > 0.5 % zeigen, weil Edge-Cases und Chaos-Mixed absichtlich schwierige Fälle enthalten. Mitigation: Initialen Baseline-Run durchführen und Schwellenwerte ggf. anpassen (aber ≤ 1 % als absolute Obergrenze).
+- **RISK-001**: **DatasetExpander überschreibt bestehende JSONL-Einträge** — Der Expander generiert Einträge "from scratch" (Zeile: `var expander = new DatasetExpander([])` in `DatasetExpansionTests`). Muss sichergestellt werden, dass bestehende 2.073 Einträge erhalten bleiben. Mitigation: TASK-029 prüft explizit den Merge-Modus.
+- **RISK-002**: **Quality Gates failen initial** — Die aktuellen 2.073 Entries könnten WrongMatchRate > 0.5 % zeigen, weil Edge-Cases und Chaos-Mixed absichtlich schwierige Fälle enthalten. Mitigation: Initialen Baseline-Run durchführen und Schwellenwerte ggf. anpassen (aber ≤ 1 % als absolute Obergrenze).
 - **RISK-003**: **M15/M16 sind ohne Baseline-History nicht evaluierbar** — M15 braucht einen Vorher-Nachher-Vergleich. Ohne committed `baseline-latest.json` wird der Test übersprungen. Mitigation: Phase 1 committed den ersten Baseline.
 - **RISK-004**: **HTML-Report-Größe** — Bei 1.200+ Entries könnte eine vollständige Confusion-Matrix als HTML-Tabelle sehr groß werden. Mitigation: Nur Confusion-Paare mit Count ≥ 2 oder Top-20 anzeigen.
 - **RISK-005**: **CI-Runtime** — Fullcale Benchmark (7 Sets + Performance Scale) kann >60s dauern. Mitigation: PR-Gate filtert nur QualityGate+BenchmarkRegression+CoverageGate (schnell). Nightly führt Performance separat aus.
@@ -410,7 +410,7 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 - **ASSUMPTION-001**: Die bestehende `BenchmarkFixture` und `BenchmarkEvaluationRunner` Infrastruktur ist stabil und korrekt — kein Refactoring nötig.
 - **ASSUMPTION-002**: `ConsoleDetector.DetectWithConfidence()` ist die einzige Detection-Methode, die evaluiert wird — kein separater DAT-Matching-Evaluator nötig (DAT wird implizit über DetectionSource-Tags geprüft).
 - **ASSUMPTION-003**: GitHub Actions auf `windows-latest` hat .NET 10 SDK verfügbar oder kann es via `actions/setup-dotnet` installieren.
-- **ASSUMPTION-004**: Die aktuellen 1.152 Ground-Truth-Einträge sind inhaltlich korrekt — keine systematische Überprüfung der JSONL-Qualität nötig (über SchemaValidator hinaus).
+- **ASSUMPTION-004**: Die aktuellen 2.073 Ground-Truth-Einträge sind inhaltlich korrekt — keine systematische Überprüfung der JSONL-Qualität nötig (über SchemaValidator hinaus).
 - **ASSUMPTION-005**: `DatasetExpander.GenerateExpansion()` generiert valide Einträge, die `SchemaValidator` bestehen. Falls nicht, werden fehlerhafte Einträge in Phase 2 gefixt.
 
 ---
@@ -418,10 +418,10 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 ## 8. Related Specifications / Further Reading
 
 - [ADR-015: Recognition Quality Benchmark Framework](docs/architecture/ADR-015-recognition-quality-benchmark-framework.md)
-- [Evaluationsstrategie](docs/EVALUATION_STRATEGY.md)
-- [Recognition Quality Benchmark](docs/RECOGNITION_QUALITY_BENCHMARK.md)
-- [Ground Truth Schema](docs/GROUND_TRUTH_SCHEMA.md)
-- [Coverage Gap Audit](docs/COVERAGE_GAP_AUDIT.md)
+- [Evaluationsstrategie](docs/architecture/EVALUATION_STRATEGY.md)
+- [Recognition Quality Benchmark](docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md)
+- [Ground Truth Schema](docs/architecture/GROUND_TRUTH_SCHEMA.md)
+- [Coverage Gap Audit](docs/architecture/COVERAGE_GAP_AUDIT.md)
 - [Testset Design](docs/TESTSET_DESIGN.md)
 - [Benchmark Testset Plan](plan/feature-benchmark-testset-1.md)
 - [Coverage Expansion Plan](plan/feature-benchmark-coverage-expansion-1.md)

@@ -1,7 +1,7 @@
 # Ground-Truth & Manifest Schema — Definitive Spezifikation
 
-> **Version:** 1.0.0-draft  
-> **Status:** Design / Review  
+> **Version:** 1.0.0  
+> **Status:** Aktiv / Implementiert  
 > **Erstellt:** 2026-03-22  
 > **Bezug:** [TESTSET_DESIGN.md](TESTSET_DESIGN.md), [RECOGNITION_QUALITY_BENCHMARK.md](RECOGNITION_QUALITY_BENCHMARK.md), [plan/feature-benchmark-testset-1.md](../plan/feature-benchmark-testset-1.md)
 

@@ -10,7 +10,7 @@ Proposed
 
 RomCleanup trifft **destruktive Entscheidungen** (Move, Sort, Dedupe, Rename) auf Basis seiner Erkennungspipeline. Jede Fehlentscheidung ist ein potenzieller Datenverlust. Bisher existiert kein formal validiertes, durchgängig messbares Qualitätsmodell, das alle Erkennungsebenen isoliert bewertet und objektive Regressionserkennung ermöglicht.
 
-Die Infrastruktur (8-stufige Detection Cascade gemäß ADR-0014, HypothesisResolver, 1.152 Ground-Truth-Einträge, Stub-Generatoren, CoverageGateTests, MetricsAggregator) ist bereits vorhanden. Was fehlt, ist die **verbindliche architektonische Entscheidung**, wie diese Infrastruktur als Release-Gate, Regressions-Schutz und Qualitätsnachweis verbindlich eingesetzt wird.
+Die Infrastruktur (8-stufige Detection Cascade gemäß ADR-0014, HypothesisResolver, 2.073 Ground-Truth-Einträge, Stub-Generatoren, CoverageGateTests, MetricsAggregator) ist bereits vorhanden. Was fehlt, ist die **verbindliche architektonische Entscheidung**, wie diese Infrastruktur als Release-Gate, Regressions-Schutz und Qualitätsnachweis verbindlich eingesetzt wird.
 
 ### Treiber
 
@@ -100,13 +100,13 @@ M9 (Category Confusion), M10 (Console Confusion), M11 (DAT Exact Match), M12 (DA
 
 ### 5. Benchmark-Datensatz-Architektur
 
-**Ist-Stand:** 1.152 Ground-Truth-Einträge in 7 JSONL-Dateien + Schema + Gates.
+**Ist-Stand:** 2.073 Ground-Truth-Einträge in 8 JSONL-Dateien + Schema + Gates.
 
 **Bewertung:** Die Infrastruktur ist strukturell stark. Die Coverage-Gap-Audit identifiziert korrekt die Lücken:
 
 | Bereich | Ist | Soll (Minimum) | Bewertung |
 |---------|-----|----------------|-----------|
-| Gesamt-Einträge | 1.152 | 1.200 | ⚠️ Knapp unter Target |
+| Gesamt-Einträge | 2.073 | 1.200 | ✅ Deutlich über Target |
 | Systeme abgedeckt | ~65 | 69 | ⚠️ 4 fehlende Systeme |
 | BIOS-Fälle | ~15-20 | 60 | ❌ Kritisch unterdimensioniert |
 | Arcade gesamt | ~80-100 | 200 | ❌ Kritisch unterdimensioniert |
@@ -228,7 +228,7 @@ Verworfen: Referenz-Set prüft Happy Path. Real-World hat 30-50 % Chaos-Anteil. 
 | Datei | Zweck | Status |
 |-------|-------|--------|
 | `benchmark/gates.json` | Machine-readable Coverage Gates | ✅ Vorhanden |
-| `benchmark/ground-truth/*.jsonl` (7 Dateien) | 1.152 Ground-Truth-Einträge | ✅ Vorhanden |
+| `benchmark/ground-truth/*.jsonl` (8 Dateien) | 2.073 Ground-Truth-Einträge | ✅ Vorhanden |
 | `benchmark/ground-truth/ground-truth.schema.json` | JSON-Schema-Validierung | ✅ Vorhanden |
 | `benchmark/manifest.json` | Datensatz-Metadaten | ✅ Vorhanden |
 | `src/RomCleanup.Tests/Benchmark/BenchmarkEvaluationRunner.cs` | Evaluation Runner | ✅ Vorhanden |
@@ -241,10 +241,10 @@ Verworfen: Referenz-Set prüft Happy Path. Real-World hat 30-50 % Chaos-Anteil. 
 | Datei | Zweck | Priorität |
 |-------|-------|-----------|
 | `src/RomCleanup.Tests/Benchmark/QualityGateTests.cs` | M4/M6/M7/M9a Hard-Fail-Gates | P0 |
-| `src/RomCleanup.Tests/Benchmark/RegressionGateTests.cs` | Baseline-Vergleich M15 | P1 |
+| `src/RomCleanup.Tests/Benchmark/BaselineRegressionGateTests.cs` | Baseline-Vergleich M15 | P1 |
 | `src/RomCleanup.Tests/Benchmark/ConfidenceCalibrationTests.cs` | M16 Calibration Error | P2 |
 | `benchmark/baselines/baseline-metrics.json` | Gespeicherte Referenz-Metriken | P1 |
-| `src/RomCleanup.Tests/Benchmark/BenchmarkReportGenerator.cs` | HTML/JSON Report Output | P2 |
+| `src/RomCleanup.Tests/Benchmark/BenchmarkHtmlReportWriter.cs` | HTML/JSON Report Output | P2 |
 
 ## Konsequenzen
 

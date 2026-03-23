@@ -14,7 +14,7 @@
 
 RomCleanup trifft **destruktive, nicht-trivial-umkehrbare Entscheidungen**: Dateien werden verschoben, sortiert, dedupliziert, konvertiert und potenziell umbenannt. Die Erkennungspipeline durchläuft 8 Stufen (FolderName → UniqueExt → AmbiguousExt → DiscHeader → ArchiveContent → CartridgeHeader → SerialNumber → FilenameKeyword), und jede falsche Entscheidung auf einer dieser Stufen kann zu Datenverlust führen.
 
-**Das aktuelle Problem:** Das Projekt hat 3.100+ Unit-Tests und 1.152 Ground-Truth-Einträge – aber:
+**Das aktuelle Problem:** Das Projekt hat 5.200+ Unit-Tests (136 Dateien) und 2.073 Ground-Truth-Einträge – aber:
 
 | Lücke | Auswirkung |
 |-------|------------|
@@ -36,7 +36,7 @@ Das Testset-System muss fünf Eigenschaften gleichzeitig erfüllen:
 1. **Repräsentativ** – bildet die Verteilung und Probleme realer Sammlungen ab (nicht den Happy Path)
 2. **Deterministisch** – liefert reproduzierbare, maschinenauswertbare Ergebnisse bei jedem Build
 3. **Schützend** – verhindert Regressions-Blindheit und Benchmark-Overfitting
-4. **Skalierbar** – wächst kontrolliert von 1.152 auf 3.000+ Entries ohne Qualitätsverlust
+4. **Skalierbar** – ist bereits von 1.152 auf 2.073 Entries skaliert; Zielrichtung 3.000+ Entries
 5. **Honest** – macht Schwächen sichtbar statt sie zu verschleiern
 
 ---

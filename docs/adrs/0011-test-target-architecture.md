@@ -2,7 +2,7 @@
 
 **Status:** Proposed  
 **Datum:** 2026-03-19  
-**Kontext:** 92 Testdateien, 3437+ xUnit-Tests, ADR-0004/0005/0010, FINAL_CONSOLIDATED_AUDIT.md  
+**Kontext:** 136 Testdateien, 5.200+ xUnit-Tests, ADR-0004/0005/0010, FINAL_CONSOLIDATED_AUDIT.md  
 **Scope:** Test-Seams, Pflicht-Invarianten, Cross-Output-Parity, Replay/Audit-Tests, Isolierbarkeit  
 **Vorgänger:** ADR-0005 (Core Target), ADR-0010 (Safety/IO/Security Target)
 
@@ -12,7 +12,7 @@
 
 ### Problem
 
-Die aktuelle Testsuite (3437+ Tests, 92 Dateien) liefert eine breite Basis, hat aber **strukturelle Lücken**, die eine vollständige Regressionserkennung bei Kernlogik-Änderungen verhindern:
+Die aktuelle Testsuite (5.200+ Tests, 136 Dateien) liefert eine breite Basis, hat aber **strukturelle Lücken**, die eine vollständige Regressionserkennung bei Kernlogik-Änderungen verhindern:
 
 | # | Lücke | Risiko | Betrifft |
 |---|-------|--------|----------|

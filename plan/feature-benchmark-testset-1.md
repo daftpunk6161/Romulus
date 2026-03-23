@@ -14,15 +14,15 @@ tags:
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
-Dieser Plan setzt das in `docs/TESTSET_DESIGN.md` definierte Real-World-Testset-System in konkrete, sequenzielle Implementierungsschritte um. Ziel ist ein vollständig reproduzierbares Benchmark-System mit synthetischen Stub-Dateien, maschinenlesbarer Ground Truth (JSONL), automatischer Stub-Generierung, einem xUnit-basierten Evaluation-Runner und CI-integriertem Regressions-Gate.
+Dieser Plan setzt das in `docs/architecture/TESTSET_DESIGN.md` definierte Real-World-Testset-System in konkrete, sequenzielle Implementierungsschritte um. Ziel ist ein vollständig reproduzierbares Benchmark-System mit synthetischen Stub-Dateien, maschinenlesbarer Ground Truth (JSONL), automatischer Stub-Generierung, einem xUnit-basierten Evaluation-Runner und CI-integriertem Regressions-Gate.
 
 **Referenzdokumente:**
-- `docs/TESTSET_DESIGN.md` – Testset-Architektur, Dataset-Klassen, Ground-Truth-Schema
-- `docs/RECOGNITION_QUALITY_BENCHMARK.md` – Metriken M1–M16, Qualitätsmodell, Freigabe-Gates
+- `docs/architecture/TESTSET_DESIGN.md` – Testset-Architektur, Dataset-Klassen, Ground-Truth-Schema
+- `docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md` – Metriken M1–M16, Qualitätsmodell, Freigabe-Gates
 
-**Aktueller Stand:** Null Benchmark-/Evaluation-Infrastruktur vorhanden. 109 xUnit-Testdateien (3.385 Tests), 3 TestFixture-Hilfsklassen, 5 Golden Snapshots. Kein Ground-Truth-System, kein Stub-Generator, kein Benchmark-Runner.
+**Aktueller Stand:** Benchmark-/Evaluation-Infrastruktur ist zu ~90 % implementiert. 136 xUnit-Testdateien (5.200+ Tests), Ground-Truth-System mit 2.073 Einträgen, StubGenerator, EvaluationRunner, BaselineComparator, MetricsAggregator, HTML-Report und CI-integriertes Regressions-Gate vorhanden.
 
 ---
 
@@ -370,8 +370,8 @@ Dieser Plan setzt das in `docs/TESTSET_DESIGN.md` definierte Real-World-Testset-
 
 ## 8. Related Specifications / Further Reading
 
-- [docs/TESTSET_DESIGN.md](docs/TESTSET_DESIGN.md) – Vollständige Testset-Architektur mit 8 Dataset-Klassen, Ground-Truth-Schema, Pflichtfällen, Anti-Bias-Quoten
-- [docs/RECOGNITION_QUALITY_BENCHMARK.md](docs/RECOGNITION_QUALITY_BENCHMARK.md) – Metriken M1–M16, 7-Ebenen-Qualitätsmodell, Freigabe-Gates, Evaluations-Pipeline-Design
+- [docs/architecture/TESTSET_DESIGN.md](../docs/architecture/TESTSET_DESIGN.md) – Vollständige Testset-Architektur mit 8 Dataset-Klassen, Ground-Truth-Schema, Pflichtfällen, Anti-Bias-Quoten
+- [docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md) – Metriken M1–16, 7-Ebenen-Qualitätsmodell, Freigabe-Gates, Evaluations-Pipeline-Design
 - [src/RomCleanup.Core/Classification/ConsoleDetector.cs](src/RomCleanup.Core/Classification/ConsoleDetector.cs) – Zentrale Detection-Klasse
 - [src/RomCleanup.Core/Classification/CartridgeHeaderDetector.cs](src/RomCleanup.Core/Classification/CartridgeHeaderDetector.cs) – Cartridge-Header-Erkennung (10 Systeme)
 - [src/RomCleanup.Core/Classification/DiscHeaderDetector.cs](src/RomCleanup.Core/Classification/DiscHeaderDetector.cs) – Disc-Header-Erkennung (16+ Systeme)

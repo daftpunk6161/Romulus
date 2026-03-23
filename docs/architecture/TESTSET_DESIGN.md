@@ -1037,7 +1037,7 @@ Konsolen-Verteilung:
 
 ## Anhang D: Beziehung zum Metrik-Dokument
 
-Dieses Testset-Design ist die **Datengrundlage** für die in [docs/RECOGNITION_QUALITY_BENCHMARK.md](docs/RECOGNITION_QUALITY_BENCHMARK.md) definierten Metriken:
+Dieses Testset-Design ist die **Datengrundlage** für die in [RECOGNITION_QUALITY_BENCHMARK.md](RECOGNITION_QUALITY_BENCHMARK.md) definierten Metriken:
 
 | Metrik | Benötigtes Dataset |
 |--------|-------------------|

@@ -4,7 +4,7 @@
 **Date:** 2026-03-17  
 **Reviewer:** SE: Architect  
 **Scope:** Kernlogik, Determinismus, Entry-Point-Parity, Safety  
-**Basis:** 42 Contracts/Core-Dateien, 7 Pipeline-Phasen, 3 Entry Points, 68 Testdateien (3269 Tests)
+**Basis:** 42 Contracts/Core-Dateien, 7 Pipeline-Phasen, 3 Entry Points, 136 Testdateien (5.200+ Tests)
 
 ---
 
@@ -45,7 +45,7 @@
 
 ### 2.4 Tests
 
-- **3269 Tests grün,** davon 76+ dedizierte Regressions-/Invarianten-Tests
+- **5.200+ Tests grün,** davon 76+ dedizierte Regressions-/Invarianten-Tests
 - **Determinismus** explizit getestet (10× Wiederholung, Shuffle-Invarianz)
 - **Parity** CLI↔Orchestrator, API↔Orchestrator, GUI↔Orchestrator einzeln getestet
 - **Security:** Path-Traversal, Zip-Slip, CSV-Injection, Reparse-Point, Tool-Hash — alle getestet
@@ -179,5 +179,5 @@ Folgende Services sind vollständig implementiert und getestet, aber **nicht in 
 - CLI + WPF teilen exakt dieselbe Pipeline über RunOrchestrator
 - API ist als Thin Layer korrekt designed, aber hat Infrastructure-Bootstrap nie nachgezogen
 - Core ist frei von I/O-Dependencies — alle 18 Core-Dateien sind pure
-- 3269/3269 Tests grün
+- 5.200+/5.200+ Tests grün
 - Alle Security-Invarianten (OWASP) sind implementiert und getestet

@@ -220,4 +220,4 @@ src/
 
 5200+ xUnit-Tests in 136 Testdateien (`src/RomCleanup.Tests/`).
 
-Detaillierte Teststrategie: siehe `docs/TEST_STRATEGY.md`.
+Detaillierte Teststrategie: siehe `TEST_STRATEGY.md`.
