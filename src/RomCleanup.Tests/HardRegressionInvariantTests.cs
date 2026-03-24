@@ -657,8 +657,10 @@ public sealed class HardRegressionInvariantTests : IDisposable
         CreateFileAt(root, "Game (USA).sfc", 100);
 
         // ConsoleDetector braucht consoles.json
-        var dataDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "..", "data");
-        var consolesJsonPath = Path.Combine(dataDir, "consoles.json");
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null)
+            return; // Skip if data dir not available in test context
+        var consolesJsonPath = Path.Combine(resolvedDataDir, "consoles.json");
         if (!File.Exists(consolesJsonPath))
         {
             // Falls consoles.json nicht da, Test überspringen (CI)

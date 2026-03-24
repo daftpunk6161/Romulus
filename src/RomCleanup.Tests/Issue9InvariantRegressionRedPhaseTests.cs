@@ -611,7 +611,7 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
         Assert.Empty(boostFiles);
     }
 
-    private static string GetRepoRoot()
+    private static string GetRepoRoot([System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
@@ -619,6 +619,17 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
             if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
                 return dir.FullName;
             dir = dir.Parent;
+        }
+
+        if (callerPath is not null)
+        {
+            dir = new DirectoryInfo(Path.GetDirectoryName(callerPath)!);
+            while (dir is not null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
+                    return dir.FullName;
+                dir = dir.Parent;
+            }
         }
 
         throw new InvalidOperationException("Repository root not found.");

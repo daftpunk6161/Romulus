@@ -54,7 +54,7 @@ public sealed class V2MemH01StreamingRedPhaseTests
         Assert.DoesNotContain("var candidates = enrichmentPhase.Execute", content, StringComparison.Ordinal);
     }
 
-    private static string GetRepoRoot()
+    private static string GetRepoRoot([System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
@@ -62,6 +62,18 @@ public sealed class V2MemH01StreamingRedPhaseTests
             if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
                 return dir.FullName;
             dir = dir.Parent;
+        }
+
+        // Fallback: walk up from compile-time source path
+        if (callerPath is not null)
+        {
+            dir = new DirectoryInfo(Path.GetDirectoryName(callerPath)!);
+            while (dir is not null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
+                    return dir.FullName;
+                dir = dir.Parent;
+            }
         }
 
         throw new InvalidOperationException("Repository root not found.");

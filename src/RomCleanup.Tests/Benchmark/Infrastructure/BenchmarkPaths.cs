@@ -38,14 +38,27 @@ internal static class BenchmarkPaths
             ? Directory.GetFiles(GroundTruthDir, "*.jsonl")
             : [];
 
-    private static string ResolveRepoRoot()
+    private static string ResolveRepoRoot([System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
+        // Walk up from AppContext.BaseDirectory (works when running from bin/Debug)
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
             if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
                 return dir.FullName;
             dir = dir.Parent;
+        }
+
+        // Fallback: walk up from compile-time source path (works when running from temp dir)
+        if (callerPath is not null)
+        {
+            dir = new DirectoryInfo(Path.GetDirectoryName(callerPath)!);
+            while (dir is not null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "src", "RomCleanup.sln")))
+                    return dir.FullName;
+                dir = dir.Parent;
+            }
         }
 
         throw new InvalidOperationException(

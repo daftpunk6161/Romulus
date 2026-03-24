@@ -399,7 +399,10 @@ public class ConsoleDetectorTests
     public void DiscBasedConsoles_HaveAmbiguousDiscExtensions()
     {
         // Load from real consoles.json to verify data fix
-        var jsonPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data", "consoles.json");
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null)
+            return; // Skip if not available in test context
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
         if (!File.Exists(jsonPath))
             return; // Skip if not available in test context
 

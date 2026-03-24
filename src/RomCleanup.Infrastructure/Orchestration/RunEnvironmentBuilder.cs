@@ -25,22 +25,54 @@ public sealed class RunEnvironmentBuilder
     /// <summary>
     /// Try to resolve the data/ directory without throwing.
     /// Returns null when no candidate directory exists.
+    /// Walks up the directory tree from AppContext.BaseDirectory and
+    /// Directory.GetCurrentDirectory() looking for the application data folder
+    /// (identified by data/consoles.json marker file).
+    /// Honors ROMCLEANUP_DATA_DIR environment variable as highest-priority override.
     /// </summary>
     public static string? TryResolveDataDir()
     {
-        var candidates = new[]
+        // Highest priority: explicit environment override (useful for CI / isolated test runners)
+        var envOverride = Environment.GetEnvironmentVariable("ROMCLEANUP_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(envOverride))
         {
-            Path.Combine(AppContext.BaseDirectory, "data"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data"),
-            Path.Combine(Directory.GetCurrentDirectory(), "data")
-        };
-
-        foreach (var candidate in candidates)
-        {
-            var full = Path.GetFullPath(candidate);
+            var full = Path.GetFullPath(envOverride);
             if (Directory.Exists(full))
                 return full;
+        }
+
+        // Walk up parent chain from each search root
+        var searchRoots = new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in searchRoots)
+        {
+            var current = new DirectoryInfo(root);
+            while (current is not null)
+            {
+                var candidate = Path.Combine(current.FullName, "data");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, "consoles.json")))
+                    return candidate;
+                current = current.Parent;
+            }
+        }
+
+        // Fallback: locate via Assembly.Location (works when output dir differs from source)
+        var asmLocation = typeof(RunEnvironmentBuilder).Assembly.Location;
+        if (!string.IsNullOrWhiteSpace(asmLocation))
+        {
+            var current = new DirectoryInfo(Path.GetDirectoryName(asmLocation)!);
+            while (current is not null)
+            {
+                var candidate = Path.Combine(current.FullName, "data");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, "consoles.json")))
+                    return candidate;
+                current = current.Parent;
+            }
         }
 
         return null;
@@ -56,17 +88,10 @@ public sealed class RunEnvironmentBuilder
         if (resolved is not null)
             return resolved;
 
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "data"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data"),
-            Path.Combine(Directory.GetCurrentDirectory(), "data")
-        };
-
         throw new DirectoryNotFoundException(
-            "Could not locate required data directory. Checked: " +
-            string.Join(", ", candidates.Select(Path.GetFullPath)));
+            "Could not locate required data directory. Walked parent chain from: " +
+            $"AppContext.BaseDirectory={Path.GetFullPath(AppContext.BaseDirectory)}, " +
+            $"CurrentDirectory={Path.GetFullPath(Directory.GetCurrentDirectory())}");
     }
 
     /// <summary>Load settings from defaults.json → user settings.</summary>

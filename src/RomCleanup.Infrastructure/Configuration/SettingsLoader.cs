@@ -60,9 +60,19 @@ public sealed class SettingsLoader
 
     /// <summary>
     /// Resolve data/defaults.json from the current application or workspace layout.
+    /// Honors ROMCLEANUP_DATA_DIR environment variable as highest-priority override.
     /// </summary>
     public static string? ResolveDefaultsJsonPath()
     {
+        // Highest priority: explicit environment override
+        var envOverride = Environment.GetEnvironmentVariable("ROMCLEANUP_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(envOverride))
+        {
+            var envCandidate = Path.Combine(Path.GetFullPath(envOverride), "defaults.json");
+            if (File.Exists(envCandidate))
+                return envCandidate;
+        }
+
         var searchRoots = new[]
         {
             AppContext.BaseDirectory,
