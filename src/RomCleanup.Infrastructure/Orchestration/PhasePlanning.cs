@@ -11,9 +11,6 @@ public interface IPhaseStep
 public interface IPhasePlanBuilder
 {
     IReadOnlyList<IPhaseStep> Build(RunOptions options, StandardPhaseStepActions actions);
-
-    [Obsolete("Use Build(RunOptions, StandardPhaseStepActions) instead.")]
-    IReadOnlyList<IPhaseStep> BuildStandard(RunOptions options, StandardPhaseStepActions actions);
 }
 
 public sealed class PhaseStepResult
@@ -241,9 +238,6 @@ public sealed class PhasePlanBuilder : IPhasePlanBuilder
 
         return phases;
     }
-
-    public IReadOnlyList<IPhaseStep> BuildStandard(RunOptions options, StandardPhaseStepActions actions)
-        => Build(options, actions);
 }
 
 public sealed class DeferredAnalysisPhaseStep : IPhaseStep

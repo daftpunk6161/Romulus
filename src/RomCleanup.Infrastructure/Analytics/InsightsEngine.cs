@@ -79,7 +79,8 @@ public sealed class InsightsEngine
                 var verScore = (int)versionScorer.GetVersionScore(item.FileName);
                 long sizeBytes = 0;
                 if (File.Exists(item.Path))
-                    try { sizeBytes = new FileInfo(item.Path).Length; } catch { }
+                    try { sizeBytes = new FileInfo(item.Path).Length; }
+                    catch (Exception ex) { _log?.Invoke($"Cannot read file size: {item.Path}: {ex.Message}"); }
 
                 return new
                 {

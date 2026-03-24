@@ -93,7 +93,8 @@ public class RunProjectionFactoryTests
         Assert.Equal(2, projection.JunkFailCount);
         Assert.Equal(9, projection.ConsoleSortMoved);
         Assert.Equal(4, projection.ConsoleSortFailed);
-        Assert.Equal(2, projection.FailCount);
+        // FailCount aggregates ALL failure sources: Move(1) + JunkMove(2) + Convert(1) + ConsoleSort(4)
+        Assert.Equal(8, projection.FailCount);
         Assert.Equal(42, projection.SavedBytes);
         Assert.Equal(1234, projection.DurationMs);
     }

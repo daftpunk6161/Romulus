@@ -96,7 +96,8 @@ public sealed class HardlinkService
                 Status = "Pending"
             });
 
-            try { if (File.Exists(filePath)) totalSourceBytes += new FileInfo(filePath).Length; } catch { }
+            try { if (File.Exists(filePath)) totalSourceBytes += new FileInfo(filePath).Length; }
+            catch (IOException) { /* File locked or inaccessible — savings estimate will undercount */ }
         }
 
         // Hardlinks save 100%, symlinks save ~0%

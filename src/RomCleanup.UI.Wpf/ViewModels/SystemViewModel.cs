@@ -51,7 +51,7 @@ public sealed class SystemViewModel : ObservableObject
         get
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return System.IO.Path.Combine(appData, "RomCleanupRegionDedupe", "settings.json");
+            return System.IO.Path.Combine(appData, RomCleanup.Contracts.AppIdentity.AppFolderName, "settings.json");
         }
     }
 

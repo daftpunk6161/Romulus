@@ -249,7 +249,8 @@ public sealed class ArchiveHashService
         finally
         {
             if (Directory.Exists(tempDir))
-                try { Directory.Delete(tempDir, true); } catch { }
+                try { Directory.Delete(tempDir, true); }
+                catch (IOException) { /* Best-effort cleanup of temp extraction dir */ }
         }
     }
 

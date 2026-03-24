@@ -4,6 +4,7 @@ using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using RomCleanup.Core;
 using System.Xml;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
@@ -63,8 +64,12 @@ public static partial class FeatureService
 
     internal static bool TryRegexMatch(string input, string pattern)
     {
-        try { return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200)); }
-        catch { return false; }
+        try
+        {
+            var rx = new Regex(pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200));
+            return SafeRegex.IsMatch(rx, input);
+        }
+        catch (ArgumentException) { return false; } // invalid regex pattern
     }
 
 

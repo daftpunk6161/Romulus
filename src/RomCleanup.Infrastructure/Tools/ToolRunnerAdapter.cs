@@ -159,7 +159,8 @@ public sealed class ToolRunnerAdapter : IToolRunner
             if (!completed)
             {
                 if (!process.HasExited)
-                    try { process.Kill(entireProcessTree: true); } catch { }
+                    try { process.Kill(entireProcessTree: true); }
+                    catch (Exception ex) { _log?.Invoke($"{label}: failed to kill timed-out process: {ex.Message}"); }
                 return new ToolResult(-1, $"{label}: process timed out after {_timeoutMinutes} minutes", false);
             }
 

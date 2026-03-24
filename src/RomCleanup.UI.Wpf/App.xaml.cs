@@ -95,7 +95,7 @@ public partial class App : Application
         {
             var logDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "RomCleanupRegionDedupe");
+                RomCleanup.Contracts.AppIdentity.AppFolderName);
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "crash.log");
             File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] {ex}\n\n");

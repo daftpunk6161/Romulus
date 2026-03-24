@@ -701,7 +701,7 @@ public sealed partial class MainViewModel
     {
         var dirs = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomCleanupRegionDedupe", "reports"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName, "reports"),
             Path.Combine(Directory.GetCurrentDirectory(), "reports")
         };
 

@@ -56,15 +56,15 @@ public sealed class VersionScorer
         long score = 0;
 
         // Verified dump [!] = +500
-        if (IsMatchSafe(_rxVerified, baseName)) score += 500;
+        if (SafeRegex.IsMatch(_rxVerified, baseName)) score += 500;
 
         // Revision scoring
-        var revMatch = MatchSafe(_rxRevision, baseName);
+        var revMatch = SafeRegex.Match(_rxRevision, baseName);
         if (revMatch.Success)
         {
             var rev = revMatch.Groups[1].Value.ToLowerInvariant();
 
-            if (IsMatchSafe(RxPureLetters, rev))
+            if (SafeRegex.IsMatch(RxPureLetters, rev))
             {
                 // Pure letter revision: a=1, b=2, ..., z=26, aa=27 etc.
                 long letterScore = 0;
@@ -74,9 +74,9 @@ public sealed class VersionScorer
                 }
                 score += letterScore * 10;
             }
-            else if (IsMatchSafe(RxNumericSuffix, rev))
+            else if (SafeRegex.IsMatch(RxNumericSuffix, rev))
             {
-                var numericMatch = MatchSafe(RxNumericSuffix, rev);
+                var numericMatch = SafeRegex.Match(RxNumericSuffix, rev);
                 if (!numericMatch.Success)
                     return score;
 
@@ -94,9 +94,9 @@ public sealed class VersionScorer
                 // so numericMatch.Length == rev.Length, meaning remainder was always empty.
                 score += (numeric * 10L) + suffixScore;
             }
-            else if (IsMatchSafe(RxLeadingDigits, rev))
+            else if (SafeRegex.IsMatch(RxLeadingDigits, rev))
             {
-                var digitMatch = MatchSafe(RxLeadingDigits, rev);
+                var digitMatch = SafeRegex.Match(RxLeadingDigits, rev);
                 if (!digitMatch.Success)
                     return score;
 
@@ -105,7 +105,7 @@ public sealed class VersionScorer
         }
 
         // Version scoring (e.g. "(v1.2)")
-        var verMatch = MatchSafe(_rxVersion, baseName);
+        var verMatch = SafeRegex.Match(_rxVersion, baseName);
         if (verMatch.Success)
         {
             var segments = new List<int>();
@@ -135,7 +135,7 @@ public sealed class VersionScorer
         }
 
         // Language bonus: en = +50 + multi-lang bonus, de = +25
-        var langMatch = MatchSafe(_rxLang, baseName);
+        var langMatch = SafeRegex.Match(_rxLang, baseName);
         if (langMatch.Success)
         {
             var langs = langMatch.Value.ToLowerInvariant();
@@ -152,29 +152,5 @@ public sealed class VersionScorer
         }
 
         return score;
-    }
-
-    private static bool IsMatchSafe(Regex regex, string input)
-    {
-        try
-        {
-            return regex.IsMatch(input);
-        }
-        catch (RegexMatchTimeoutException)
-        {
-            return false;
-        }
-    }
-
-    private static Match MatchSafe(Regex regex, string input)
-    {
-        try
-        {
-            return regex.Match(input);
-        }
-        catch (RegexMatchTimeoutException)
-        {
-            return Match.Empty;
-        }
     }
 }

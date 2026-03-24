@@ -45,7 +45,7 @@ public static partial class FeatureService
 
     private static readonly string TrendFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "RomCleanupRegionDedupe", "trend-history.json");
+        RomCleanup.Contracts.AppIdentity.AppFolderName, "trend-history.json");
 
 
     public static void SaveTrendSnapshot(int totalFiles, long sizeBytes, int verified, int dupes, int junk)
@@ -98,7 +98,7 @@ public static partial class FeatureService
 
     private static readonly string BaselinePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "RomCleanupRegionDedupe", "integrity-baseline.json");
+        RomCleanup.Contracts.AppIdentity.AppFolderName, "integrity-baseline.json");
 
 
     public static async Task<Dictionary<string, IntegrityEntry>> CreateBaseline(
@@ -259,84 +259,6 @@ public static partial class FeatureService
         if (magic[0] == 'B' && magic[1] == 'P' && magic[2] == 'S' && magic[3] == '1') return "BPS";
         if (magic[0] == 'U' && magic[1] == 'P' && magic[2] == 'S' && magic[3] == '1') return "UPS";
         return null;
-    }
-
-
-    // ═══ NES HEADER REPAIR ═════════════════════════════════════════════
-    // Check if NES ROM has dirty bytes at offset 12-15. If so, zero them.
-
-    [Obsolete("Use IHeaderRepairService.RepairNesHeader via DI instead.")]
-    public static bool RepairNesHeader(string path)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return false;
-
-        try
-        {
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
-
-            if (fs.Length < 16)
-                return false;
-
-            var header = new byte[16];
-            var read = fs.Read(header, 0, header.Length);
-            if (read < 16)
-                return false;
-
-            // Verify iNES magic: 4E 45 53 1A
-            if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 || header[3] != 0x1A)
-                return false;
-
-            // Check if bytes 12-15 are dirty (non-zero)
-            bool dirty = false;
-            for (int i = 12; i <= 15; i++)
-            {
-                if (header[i] != 0x00)
-                { dirty = true; break; }
-            }
-
-            if (!dirty) return false;
-
-            // Create backup
-            File.Copy(path, path + ".bak", overwrite: true);
-
-            // Zero bytes 12-15 in place (streaming-safe for large files).
-            fs.Seek(12, SeekOrigin.Begin);
-            var zeroBytes = new byte[] { 0x00, 0x00, 0x00, 0x00 };
-            fs.Write(zeroBytes, 0, zeroBytes.Length);
-            fs.Flush();
-            return true;
-        }
-        catch { return false; }
-    }
-
-
-    // ═══ COPIER HEADER REMOVAL ═════════════════════════════════════════
-    // Check if SNES ROM has a 512-byte copier header and remove it.
-
-    [Obsolete("Use IHeaderRepairService.RemoveCopierHeader via DI instead.")]
-    public static bool RemoveCopierHeader(string path)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return false;
-
-        try
-        {
-            var fi = new FileInfo(path);
-            if (fi.Length < 512 || fi.Length % 1024 != 512)
-                return false;
-
-            // Create backup
-            File.Copy(path, path + ".bak", overwrite: true);
-
-            // Read file, skip first 512 bytes, write back
-            byte[] data = File.ReadAllBytes(path);
-            byte[] stripped = new byte[data.Length - 512];
-            Array.Copy(data, 512, stripped, 0, stripped.Length);
-            File.WriteAllBytes(path, stripped);
-            return true;
-        }
-        catch { return false; }
     }
 
 }

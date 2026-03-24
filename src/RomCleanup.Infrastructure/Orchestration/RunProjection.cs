@@ -60,13 +60,15 @@ public static class RunProjectionFactory
         var groupCount = result.GroupCount > 0 ? result.GroupCount : dedupeGroups.Count;
         var junk = candidates.Count(c => c.Category == FileCategory.Junk);
         var bios = candidates.Count(c => c.Category == FileCategory.Bios);
-        var games = dedupeGroups.Count;
-        var unknown = candidates.Count(c => c.Category == FileCategory.Unknown);
+        var games = groupCount;
+        var unknown = result.UnknownCount;
         var datMatches = candidates.Count(c => c.DatMatch);
-        var filteredNonGameCount = result.FilteredNonGameCount > 0
-            ? result.FilteredNonGameCount
-            : candidates.Count(c => c.Category == FileCategory.Bios);
-        var failCount = (result.MoveResult?.FailCount ?? 0) + result.ConvertErrorCount;
+        var filteredNonGameCount = result.FilteredNonGameCount;
+        var failCount = (result.MoveResult?.FailCount ?? 0)
+                      + (result.JunkMoveResult?.FailCount ?? 0)
+                      + result.ConvertErrorCount
+                      + result.DatRenameFailedCount
+                      + (result.ConsoleSortResult?.Failed ?? 0);
         var savedBytes = result.MoveResult?.SavedBytes ?? 0;
         var moveCount = result.MoveResult?.MoveCount ?? 0;
         var skipCount = result.MoveResult?.SkipCount ?? 0;

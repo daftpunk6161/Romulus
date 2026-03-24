@@ -1,3 +1,4 @@
+using System.IO;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
@@ -24,7 +25,7 @@ public sealed class HeaderSecurityService : IHeaderService
             _ = fs.Read(header, 0, header.Length);
             return HeaderAnalyzer.AnalyzeHeader(header, fs.Length);
         }
-        catch
+        catch (IOException)
         {
             return null;
         }

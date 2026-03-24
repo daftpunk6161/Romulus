@@ -387,7 +387,7 @@ public sealed partial class RunOrchestrator
                     if (sourceInfo.Exists && targetInfo.Exists)
                         savedBytes += sourceInfo.Length - targetInfo.Length;
                 }
-                catch { /* best-effort size calculation */ }
+                catch (IOException) { /* best-effort size delta — files may be locked or missing */ }
             }
         }
 
@@ -425,7 +425,7 @@ public sealed partial class RunOrchestrator
             {
                 var fallbackDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "RomCleanupRegionDedupe",
+                    Contracts.AppIdentity.AppFolderName,
                     "reports");
                 Directory.CreateDirectory(fallbackDir);
 

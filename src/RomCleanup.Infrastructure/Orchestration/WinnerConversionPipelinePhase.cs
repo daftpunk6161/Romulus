@@ -63,7 +63,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
 
             if (convResult.Outcome == ConversionOutcome.Success)
             {
-                var verificationOk = IsVerificationSuccessful(convResult, input.Converter, target);
+                var verificationOk = ConversionVerificationHelpers.IsVerificationSuccessful(convResult, input.Converter, target);
                 if (verificationOk)
                 {
                     var convertedPath = convResult.TargetPath;
@@ -79,7 +79,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                         input.Options,
                         winnerPath,
                         convertedPath,
-                        ResolveToolName(convResult, target));
+                        ConversionVerificationHelpers.ResolveToolName(convResult, target));
                     PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, winnerPath, convertedPath);
                 }
                 else
@@ -93,7 +93,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
                             input.Options,
                             winnerPath,
                             convResult.TargetPath,
-                            ResolveToolName(convResult, target));
+                            ConversionVerificationHelpers.ResolveToolName(convResult, target));
                         // SEC-CONV-04: Clean up failed output to prevent orphaned corrupt files
                         try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
                         catch { /* best-effort cleanup */ }
@@ -131,28 +131,6 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
         return new WinnerConversionPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked, conversionResults);
     }
 
-    private static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
-    {
-        if (convResult.TargetPath is null)
-            return false;
-
-        if (convResult.VerificationResult != VerificationStatus.NotAttempted)
-            return convResult.VerificationResult == VerificationStatus.Verified;
-
-        if (target is null)
-            return false;
-
-        return converter.Verify(convResult.TargetPath, target);
-    }
-
-    private static string ResolveToolName(ConversionResult convResult, ConversionTarget? fallbackTarget)
-    {
-        var plannedTool = convResult.Plan?.Steps.FirstOrDefault()?.Capability?.Tool?.ToolName;
-        if (!string.IsNullOrWhiteSpace(plannedTool))
-            return plannedTool;
-
-        return fallbackTarget?.ToolName ?? "unknown";
-    }
 
 
 }

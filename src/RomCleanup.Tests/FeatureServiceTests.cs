@@ -1,6 +1,9 @@
 using System.Text;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.FileSystem;
+using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.UI.Wpf.Services;
 using Xunit;
@@ -929,7 +932,8 @@ public sealed class FeatureServiceTests : IDisposable
             fs.Write(body);
         }
 
-        Assert.True(FeatureService.RepairNesHeader(path));
+        IHeaderRepairService sut = new HeaderRepairService(new FileSystemAdapter());
+        Assert.True(sut.RepairNesHeader(path));
         Assert.True(File.Exists(path + ".bak"));
 
         using var verify = File.OpenRead(path);
@@ -953,7 +957,8 @@ public sealed class FeatureServiceTests : IDisposable
             fs.Write(body);
         }
 
-        Assert.False(FeatureService.RepairNesHeader(path));
+        IHeaderRepairService sut = new HeaderRepairService(new FileSystemAdapter());
+        Assert.False(sut.RepairNesHeader(path));
     }
 
     // ═══ RemoveCopierHeader ═════════════════════════════════════════════
@@ -971,7 +976,8 @@ public sealed class FeatureServiceTests : IDisposable
             fs.Write(romData);
         }
 
-        var result = FeatureService.RemoveCopierHeader(path);
+        IHeaderRepairService sut = new HeaderRepairService(new FileSystemAdapter());
+        var result = sut.RemoveCopierHeader(path);
         Assert.True(result);
         Assert.True(File.Exists(path + ".bak"));
 

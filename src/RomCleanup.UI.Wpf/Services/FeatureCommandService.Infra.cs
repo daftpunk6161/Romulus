@@ -127,7 +127,7 @@ public sealed partial class FeatureCommandService
         if (isPortable) sb.AppendLine($"  Settings-Ordner: {Path.Combine(AppContext.BaseDirectory, ".romcleanup")}");
         else
         {
-            sb.AppendLine($"  Settings-Ordner: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomCleanupRegionDedupe")}");
+            sb.AppendLine($"  Settings-Ordner: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName)}");
             sb.AppendLine("\n  Tipp: Erstelle '.portable' im Programmverzeichnis für Portable-Modus.");
         }
         _dialog.ShowText("Portable-Modus", sb.ToString());
@@ -209,11 +209,13 @@ public sealed partial class FeatureCommandService
         if (locks.Count > 0 && _dialog.Confirm($"{locks.Count} Lock-Datei(en) gefunden.\n\nAbgelaufene Locks entfernen?", "Multi-Instanz"))
         {
             var removed = 0;
+            var failed = 0;
             foreach (var (path, _) in locks)
             {
-                try { File.Delete(path); removed++; } catch { }
+                try { File.Delete(path); removed++; }
+                catch (Exception ex) { failed++; _vm.AddLog($"Lock-Datei konnte nicht entfernt werden: {path} ({ex.Message})", "WARN"); }
             }
-            _vm.AddLog($"Multi-Instanz: {removed} Lock(s) entfernt", "INFO");
+            _vm.AddLog($"Multi-Instanz: {removed} Lock(s) entfernt{(failed > 0 ? $", {failed} fehlgeschlagen" : "")}", "INFO");
         }
     }
 

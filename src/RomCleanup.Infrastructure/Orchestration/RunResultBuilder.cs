@@ -47,7 +47,7 @@ public sealed class RunResultBuilder
     public PhaseMetricsResult? PhaseMetrics { get; set; }
 
     public RunResult Build() => new()
-    {
+        {
         Status = Status,
         ExitCode = ExitCode,
         Preflight = Preflight,
@@ -84,5 +84,5 @@ public sealed class RunResultBuilder
         AllCandidates = AllCandidates,
         DedupeGroups = DedupeGroups,
         PhaseMetrics = PhaseMetrics
-    };
+        };
 }

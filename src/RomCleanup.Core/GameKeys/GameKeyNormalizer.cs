@@ -247,15 +247,19 @@ public static class GameKeyNormalizer
         // Apply all tag patterns (region, version, junk)
         foreach (var rx in tagPatterns)
         {
-            s = SafeReplace(rx, s, " ");
+            s = SafeRegex.Replace(rx, s, " ");
         }
+
+        // Deterministic fallback: strip parenthesized ISO date tags without regex.
+        // This prevents behavior drift if a regex replacement path times out.
+        s = StripIsoDateTags(s);
 
         // Normalize common title variants so article/disc naming maps to one key.
         s = NormalizeTitleVariants(s);
 
         // Normalize and collapse whitespace
         var key = s.Trim().ToLowerInvariant();
-        key = SafeReplace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
+        key = SafeRegex.Replace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
 
         // Apply alias maps
         if (alwaysAliasMap.TryGetValue(key, out var aliased))
@@ -286,10 +290,57 @@ public static class GameKeyNormalizer
         if (string.IsNullOrWhiteSpace(value))
             return value;
 
-        var normalized = SafeReplace(TrailingArticleRegex, value, string.Empty);
-        normalized = SafeReplace(LeadingArticleRegex, normalized, string.Empty);
-        normalized = SafeReplace(DiscPaddingRegex, normalized, "($1 $2)");
+        var normalized = SafeRegex.Replace(TrailingArticleRegex, value, string.Empty);
+        normalized = SafeRegex.Replace(LeadingArticleRegex, normalized, string.Empty);
+        normalized = SafeRegex.Replace(DiscPaddingRegex, normalized, "($1 $2)");
         return normalized;
+    }
+
+    private static string StripIsoDateTags(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        var text = value;
+        var index = 0;
+        while (index < text.Length)
+        {
+            var open = text.IndexOf('(', index);
+            if (open < 0)
+                break;
+
+            var close = text.IndexOf(')', open + 1);
+            if (close < 0)
+                break;
+
+            var len = close - open - 1;
+            if (len == 10)
+            {
+                var token = text.Substring(open + 1, len);
+                if (IsIsoDateToken(token))
+                {
+                    text = text.Remove(open, (close - open) + 1);
+                    continue;
+                }
+            }
+
+            index = close + 1;
+        }
+
+        return text;
+    }
+
+    private static bool IsIsoDateToken(string token)
+    {
+        // Expected format: YYYY-MM-DD
+        if (token.Length != 10)
+            return false;
+
+        return char.IsDigit(token[0]) && char.IsDigit(token[1]) && char.IsDigit(token[2]) && char.IsDigit(token[3])
+            && token[4] == '-'
+            && char.IsDigit(token[5]) && char.IsDigit(token[6])
+            && token[7] == '-'
+            && char.IsDigit(token[8]) && char.IsDigit(token[9]);
     }
 
     /// <summary>
@@ -302,50 +353,14 @@ public static class GameKeyNormalizer
             return text;
 
         // Remove trailing bracket tags: [anything]
-        var value = SafeReplace(MsDosTrailingBracketRegex, text, " ");
+        var value = SafeRegex.Replace(MsDosTrailingBracketRegex, text, " ");
 
         // Remove trailing non-disc parenthesized tags (limit iterations to prevent infinite loop)
-        for (int i = 0; i < 20 && SafeIsMatch(MsDosTrailingParenRegex, value); i++)
+        for (int i = 0; i < 20 && SafeRegex.IsMatch(MsDosTrailingParenRegex, value); i++)
         {
-            value = SafeReplace(MsDosTrailingParenRegex, value, " ");
+            value = SafeRegex.Replace(MsDosTrailingParenRegex, value, " ");
         }
 
         return value;
-    }
-
-    private static bool SafeIsMatch(System.Text.RegularExpressions.Regex regex, string input)
-    {
-        try
-        {
-            return regex.IsMatch(input);
-        }
-        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
-        {
-            return false;
-        }
-    }
-
-    private static string SafeReplace(System.Text.RegularExpressions.Regex regex, string input, string replacement)
-    {
-        try
-        {
-            return regex.Replace(input, replacement);
-        }
-        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
-        {
-            return input;
-        }
-    }
-
-    private static string SafeReplace(string input, string pattern, string replacement, System.Text.RegularExpressions.RegexOptions options, TimeSpan timeout)
-    {
-        try
-        {
-            return System.Text.RegularExpressions.Regex.Replace(input, pattern, replacement, options, timeout);
-        }
-        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
-        {
-            return input;
-        }
     }
 }

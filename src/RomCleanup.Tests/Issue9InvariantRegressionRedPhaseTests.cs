@@ -127,6 +127,8 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
         var run = new RunResult
         {
             TotalFilesScanned = 5,
+            UnknownCount = 1,
+            FilteredNonGameCount = 1,
             DedupeGroups = new[]
             {
                 new DedupeResult

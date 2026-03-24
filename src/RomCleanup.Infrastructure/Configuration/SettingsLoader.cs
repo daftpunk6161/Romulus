@@ -24,7 +24,7 @@ public sealed class SettingsLoader
     public static string UserSettingsPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "RomCleanupRegionDedupe",
+            Contracts.AppIdentity.AppFolderName,
             "settings.json");
 
     /// <summary>

@@ -395,14 +395,15 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test014_RepairNesHeader_LargeFile_HandledGracefully()
     {
-        // We can't create a real >1GB file in tests, but verify edge cases:
-        // 1. Empty file → false
-        Assert.False(FeatureService.RepairNesHeader(Path.Combine(_tempDir, "nonexistent.nes")));
+        IHeaderRepairService sut = new HeaderRepairService(new FileSystemAdapter());
+
+        // 1. Missing file → false
+        Assert.False(sut.RepairNesHeader(Path.Combine(_tempDir, "nonexistent.nes")));
 
         // 2. Non-NES file → false
         var smallFile = Path.Combine(_tempDir, "small.nes");
         File.WriteAllBytes(smallFile, new byte[10]);
-        Assert.False(FeatureService.RepairNesHeader(smallFile));
+        Assert.False(sut.RepairNesHeader(smallFile));
 
         // 3. Valid NES with clean header → false (no repair needed)
         var validNes = Path.Combine(_tempDir, "valid.nes");
@@ -410,7 +411,7 @@ public sealed class AuditComplianceTests : IDisposable
         header[0] = 0x4E; header[1] = 0x45; header[2] = 0x53; header[3] = 0x1A; // NES magic
         // bytes 12-15 already zero → no repair needed
         File.WriteAllBytes(validNes, header);
-        Assert.False(FeatureService.RepairNesHeader(validNes));
+        Assert.False(sut.RepairNesHeader(validNes));
 
         // 4. Valid NES with dirty header → true (repair applied)
         var dirtyNes = Path.Combine(_tempDir, "dirty.nes");
@@ -418,7 +419,7 @@ public sealed class AuditComplianceTests : IDisposable
         dirtyHeader[0] = 0x4E; dirtyHeader[1] = 0x45; dirtyHeader[2] = 0x53; dirtyHeader[3] = 0x1A;
         dirtyHeader[12] = 0xFF; // dirty byte
         File.WriteAllBytes(dirtyNes, dirtyHeader);
-        Assert.True(FeatureService.RepairNesHeader(dirtyNes));
+        Assert.True(sut.RepairNesHeader(dirtyNes));
 
         // Verify bytes 12-15 were zeroed
         var repaired = File.ReadAllBytes(dirtyNes);

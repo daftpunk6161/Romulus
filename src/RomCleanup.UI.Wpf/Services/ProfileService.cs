@@ -10,7 +10,7 @@ namespace RomCleanup.UI.Wpf.Services;
 public sealed class ProfileService
 {
     private static readonly string SettingsDir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomCleanupRegionDedupe");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName);
 
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 

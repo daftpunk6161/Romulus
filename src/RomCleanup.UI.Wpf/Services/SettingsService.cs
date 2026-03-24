@@ -18,7 +18,7 @@ public sealed class SettingsService : ISettingsService
 
     private static readonly string SettingsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "RomCleanupRegionDedupe");
+            RomCleanup.Contracts.AppIdentity.AppFolderName);
 
     private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
     private static readonly object SettingsWriteLock = new();
