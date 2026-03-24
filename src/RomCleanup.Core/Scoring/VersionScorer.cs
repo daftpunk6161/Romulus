@@ -56,15 +56,15 @@ public sealed class VersionScorer
         long score = 0;
 
         // Verified dump [!] = +500
-        if (_rxVerified.IsMatch(baseName)) score += 500;
+        if (IsMatchSafe(_rxVerified, baseName)) score += 500;
 
         // Revision scoring
-        var revMatch = _rxRevision.Match(baseName);
+        var revMatch = MatchSafe(_rxRevision, baseName);
         if (revMatch.Success)
         {
             var rev = revMatch.Groups[1].Value.ToLowerInvariant();
 
-            if (RxPureLetters.IsMatch(rev))
+            if (IsMatchSafe(RxPureLetters, rev))
             {
                 // Pure letter revision: a=1, b=2, ..., z=26, aa=27 etc.
                 long letterScore = 0;
@@ -74,9 +74,12 @@ public sealed class VersionScorer
                 }
                 score += letterScore * 10;
             }
-            else if (RxNumericSuffix.IsMatch(rev))
+            else if (IsMatchSafe(RxNumericSuffix, rev))
             {
-                var numericMatch = RxNumericSuffix.Match(rev);
+                var numericMatch = MatchSafe(RxNumericSuffix, rev);
+                if (!numericMatch.Success)
+                    return score;
+
                 var numeric = int.Parse(numericMatch.Groups[1].Value);
                 var suffix = numericMatch.Groups[2].Value;
                 long suffixScore = 0;
@@ -91,22 +94,29 @@ public sealed class VersionScorer
                 // so numericMatch.Length == rev.Length, meaning remainder was always empty.
                 score += (numeric * 10L) + suffixScore;
             }
-            else if (RxLeadingDigits.IsMatch(rev))
+            else if (IsMatchSafe(RxLeadingDigits, rev))
             {
-                var digitMatch = RxLeadingDigits.Match(rev);
+                var digitMatch = MatchSafe(RxLeadingDigits, rev);
+                if (!digitMatch.Success)
+                    return score;
+
                 score += int.Parse(digitMatch.Value) * 10L;
             }
         }
 
         // Version scoring (e.g. "(v1.2)")
-        var verMatch = _rxVersion.Match(baseName);
+        var verMatch = MatchSafe(_rxVersion, baseName);
         if (verMatch.Success)
         {
             var segments = new List<int>();
-            foreach (Match seg in RxDigits.Matches(verMatch.Value))
+            try
             {
-                segments.Add(int.Parse(seg.Value));
+                foreach (Match seg in RxDigits.Matches(verMatch.Value))
+                {
+                    segments.Add(int.Parse(seg.Value));
+                }
             }
+            catch (RegexMatchTimeoutException) { }
 
             if (segments.Count > 0)
             {
@@ -125,7 +135,7 @@ public sealed class VersionScorer
         }
 
         // Language bonus: en = +50 + multi-lang bonus, de = +25
-        var langMatch = _rxLang.Match(baseName);
+        var langMatch = MatchSafe(_rxLang, baseName);
         if (langMatch.Success)
         {
             var langs = langMatch.Value.ToLowerInvariant();
@@ -142,5 +152,29 @@ public sealed class VersionScorer
         }
 
         return score;
+    }
+
+    private static bool IsMatchSafe(Regex regex, string input)
+    {
+        try
+        {
+            return regex.IsMatch(input);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private static Match MatchSafe(Regex regex, string input)
+    {
+        try
+        {
+            return regex.Match(input);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return Match.Empty;
+        }
     }
 }

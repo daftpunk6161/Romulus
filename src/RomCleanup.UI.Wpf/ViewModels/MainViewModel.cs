@@ -59,6 +59,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public SystemViewModel SystemArea { get; }
     /// <summary>Command Palette overlay (Ctrl+K): fuzzy search + execute.</summary>
     public CommandPaletteViewModel CommandPalette { get; }
+    /// <summary>DatAudit results: read-only audit table with filter/sort.</summary>
+    public DatAuditViewModel DatAudit { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -82,6 +84,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         Config = new ConfigViewModel(_loc);
         SystemArea = new SystemViewModel(_loc);
         CommandPalette = new CommandPaletteViewModel(_loc);
+        DatAudit = new DatAuditViewModel(_loc);
 
         // Wire child VM events
         Setup.StatusRefreshRequested += () => RefreshStatus();
@@ -308,7 +311,11 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
             ("JAG", "Atari Jaguar", "Andere"),
         };
         foreach (var (key, display, cat) in items)
-            ConsoleFilters.Add(new ConsoleFilterItem { Key = key, DisplayName = display, Category = cat });
+        {
+            var item = new ConsoleFilterItem { Key = key, DisplayName = display, Category = cat };
+            item.PropertyChanged += OnConsoleCheckedChanged;
+            ConsoleFilters.Add(item);
+        }
 
         ConsoleFiltersView = CollectionViewSource.GetDefaultView(ConsoleFilters);
         ConsoleFiltersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConsoleFilterItem.Category)));
@@ -334,6 +341,117 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         if (obj is not ConsoleFilterItem item) return false;
         return item.DisplayName.Contains(_consoleFilterText, StringComparison.OrdinalIgnoreCase)
             || item.Key.Contains(_consoleFilterText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Number of checked consoles for counter badge. 0 = all active (implicit).</summary>
+    public int SelectedConsoleCount => ConsoleFilters.Count(c => c.IsChecked);
+
+    /// <summary>Display text like "5 von 30 ausgewählt" or "Alle (keine Auswahl = alle)".</summary>
+    public string ConsoleCountDisplay
+    {
+        get
+        {
+            int sel = SelectedConsoleCount;
+            return sel == 0
+                ? $"Alle ({ConsoleFilters.Count}) — keine Auswahl = alle"
+                : $"{sel} von {ConsoleFilters.Count} ausgewählt";
+        }
+    }
+
+    private void OnConsoleCheckedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ConsoleFilterItem.IsChecked))
+        {
+            OnPropertyChanged(nameof(SelectedConsoleCount));
+            OnPropertyChanged(nameof(ConsoleCountDisplay));
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAllConsoles()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ClearAllConsoles()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = false;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void SelectConsoleGroup(string? category)
+    {
+        if (category is null) return;
+        foreach (var c in ConsoleFilters.Where(c => c.Category == category)) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void DeselectConsoleGroup(string? category)
+    {
+        if (category is null) return;
+        foreach (var c in ConsoleFilters.Where(c => c.Category == category)) c.IsChecked = false;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ConsolePresetTop10()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = false;
+        var top10 = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "PS1", "PS2", "SNES", "NES", "N64", "GC", "WII", "GBA", "MD", "DC" };
+        foreach (var c in ConsoleFilters.Where(c => top10.Contains(c.Key))) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ConsolePresetDiscBased()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = false;
+        var disc = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "PS1", "PS2", "PS3", "PSP", "GC", "WII", "WIIU", "SCD", "SAT", "DC", "3DO", "PCECD", "NEOCD" };
+        foreach (var c in ConsoleFilters.Where(c => disc.Contains(c.Key))) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ConsolePresetHandhelds()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = false;
+        var handhelds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "GB", "GBC", "GBA", "NDS", "3DS", "PSP", "GG", "SWITCH" };
+        foreach (var c in ConsoleFilters.Where(c => handhelds.Contains(c.Key))) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ConsolePresetRetro()
+    {
+        foreach (var c in ConsoleFilters) c.IsChecked = false;
+        var retro = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "NES", "SNES", "N64", "GB", "GBC", "GBA", "MD", "SMS", "GG", "SAT", "PCE", "NEOGEO" };
+        foreach (var c in ConsoleFilters.Where(c => retro.Contains(c.Key))) c.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
+    }
+
+    /// <summary>Remove a single console from selection (for chip dismiss).</summary>
+    [RelayCommand]
+    private void RemoveConsoleSelection(ConsoleFilterItem? item)
+    {
+        if (item is not null) item.IsChecked = false;
+        OnPropertyChanged(nameof(SelectedConsoleCount));
+        OnPropertyChanged(nameof(ConsoleCountDisplay));
     }
 
     // ═══ TOOL ITEMS (delegated to ToolsViewModel) ══════════════════════
@@ -417,6 +535,14 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     private void InitFeatureCommands()
     {
         // All feature commands are registered by FeatureCommandService.RegisterCommands()
+    }
+
+    /// <summary>Notify XAML bindings that FeatureCommands dictionary has been populated.
+    /// Must be called after FeatureCommandService.RegisterCommands() to refresh
+    /// deferred Binding expressions like {Binding FeatureCommands[AutoFindTools]}.</summary>
+    public void NotifyFeatureCommandsReady()
+    {
+        OnPropertyChanged(nameof(FeatureCommands));
     }
 
     // ═══ COLLECTIONS ════════════════════════════════════════════════════

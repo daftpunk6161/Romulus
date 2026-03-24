@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using RomCleanup.Api;
 using RomCleanup.CLI;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
@@ -257,5 +258,6 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
         public void ShowText(string title, string content) { }
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
+        public bool ConfirmDatRenamePreview(IReadOnlyList<DatAuditEntry> renameProposals) => true;
     }
 }

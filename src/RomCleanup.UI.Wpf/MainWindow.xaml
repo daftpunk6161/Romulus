@@ -7,7 +7,7 @@
     Title="omulus"
     Icon="pack://application:,,,/Assets/app.ico"
     Width="960" Height="720"
-    MinWidth="800" MinHeight="600"
+    MinWidth="800" MinHeight="640"
     WindowStartupLocation="CenterScreen"
     FontFamily="Segoe UI" FontSize="13"
     Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushTextPrimary}"
@@ -67,7 +67,7 @@
         <RowDefinition Height="48"/>   <!-- Row 0: CommandBar -->
         <RowDefinition Height="*"/>    <!-- Row 1: Main content -->
         <RowDefinition Height="Auto"/> <!-- Row 2: Detail Drawer (collapsible) -->
-        <RowDefinition Height="68"/>   <!-- Row 3: ActionRail -->
+        <RowDefinition Height="76"/>   <!-- Row 3: ActionRail -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="72"/>  <!-- Col 0: NavigationRail -->
@@ -116,15 +116,19 @@
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Safety}"/>
               <views:LibraryReportView
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Report}"/>
+              <views:DatAuditView DataContext="{Binding DatAudit}"
+                  Visibility="{Binding DataContext.Shell.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatAudit}"/>
             </Grid>
 
             <!-- ── Config (sub-tab-aware) ──────────────────────── -->
             <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}"
                   KeyboardNavigation.TabIndex="53">
-              <views:SortView
-                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Workflow}"/>
+              <views:ConfigRegionsView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Regions}"/>
               <views:ConfigFiltersView
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Filtering}"/>
+              <views:ConfigOptionsView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Options}"/>
               <views:ConfigProfilesView
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Profiles}"/>
               <views:ConfigAdvancedView

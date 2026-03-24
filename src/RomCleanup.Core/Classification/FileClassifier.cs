@@ -104,34 +104,46 @@ public static class FileClassifier
             return new ClassificationDecision(FileCategory.Unknown, 5, "empty-basename");
 
         // 1. BIOS — highest priority
-        if (RxBios.IsMatch(baseName))
+        if (IsMatchSafe(RxBios, baseName))
             return new ClassificationDecision(FileCategory.Bios, 98, "bios-tag");
 
         // 2. Standard junk tags (parenthesized/bracketed)
-        if (RxJunkTags.IsMatch(baseName))
+        if (IsMatchSafe(RxJunkTags, baseName))
             return new ClassificationDecision(FileCategory.Junk, 95, "junk-tag");
 
         // 3. Standard junk words (unparenthesized keywords)
-        if (RxJunkWords.IsMatch(baseName))
+        if (IsMatchSafe(RxJunkWords, baseName))
             return new ClassificationDecision(FileCategory.Junk, 90, "junk-word");
 
         // 3b. Explicit non-game software/content
-        if (RxNonGameTags.IsMatch(baseName))
+        if (IsMatchSafe(RxNonGameTags, baseName))
             return new ClassificationDecision(FileCategory.NonGame, 85, "non-game-tag");
 
-        if (RxNonGameWords.IsMatch(baseName))
+        if (IsMatchSafe(RxNonGameWords, baseName))
             return new ClassificationDecision(FileCategory.NonGame, 75, "non-game-word");
 
         // 4. Aggressive junk (only when enabled)
         if (aggressiveJunk)
         {
-            if (RxJunkTagsAggressive.IsMatch(baseName))
+            if (IsMatchSafe(RxJunkTagsAggressive, baseName))
                 return new ClassificationDecision(FileCategory.Junk, 88, "junk-aggressive-tag");
 
-            if (RxJunkWordsAggressive.IsMatch(baseName))
+            if (IsMatchSafe(RxJunkWordsAggressive, baseName))
                 return new ClassificationDecision(FileCategory.Junk, 82, "junk-aggressive-word");
         }
 
         return new ClassificationDecision(FileCategory.Game, 75, "game-default");
+    }
+
+    private static bool IsMatchSafe(Regex regex, string input)
+    {
+        try
+        {
+            return regex.IsMatch(input);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 }

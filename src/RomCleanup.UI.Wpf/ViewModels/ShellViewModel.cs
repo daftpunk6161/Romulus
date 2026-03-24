@@ -96,7 +96,7 @@ public sealed class ShellViewModel : ObservableObject
         {
             0 => "Dashboard",
             1 => "Results",
-            2 => "Workflow",
+            2 => "Regions",
             3 => "ExternalTools",
             4 => "ActivityLog",
             _ => "Dashboard"

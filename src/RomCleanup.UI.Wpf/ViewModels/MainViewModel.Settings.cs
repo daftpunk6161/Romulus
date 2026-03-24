@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -248,6 +249,192 @@ public sealed partial class MainViewModel
     private bool _preferSCAN;
     public bool PreferSCAN { get => _preferSCAN; set => SetProperty(ref _preferSCAN, value); }
 
+    // ═══ REGION PRIORITY RANKER (E2: ordered region list with priority) ══
+    public ObservableCollection<RegionPriorityItem> RegionPriorities { get; } = [];
+
+    private static readonly (string Code, string Display, string Group)[] AllRegionDefs =
+    [
+        ("EU", "Europa", "Primary"),
+        ("US", "USA", "Primary"),
+        ("WORLD", "World", "Primary"),
+        ("JP", "Japan", "Primary"),
+        ("DE", "Deutschland", "Secondary"),
+        ("FR", "Frankreich", "Secondary"),
+        ("IT", "Italien", "Secondary"),
+        ("ES", "Spanien", "Secondary"),
+        ("AU", "Australien", "Secondary"),
+        ("ASIA", "Asien", "Secondary"),
+        ("KR", "Südkorea", "Secondary"),
+        ("CN", "China", "Secondary"),
+        ("BR", "Brasilien", "Secondary"),
+        ("NL", "Niederlande", "Secondary"),
+        ("SE", "Schweden", "Secondary"),
+        ("SCAN", "Skandinavien", "Secondary"),
+    ];
+
+    /// <summary>Build RegionPriorities from current PreferXX boolean state. Called after settings load.</summary>
+    public void InitRegionPriorities()
+    {
+        RegionPriorities.Clear();
+        var enabled = new List<RegionPriorityItem>();
+        var disabled = new List<RegionPriorityItem>();
+        foreach (var (code, display, group) in AllRegionDefs)
+        {
+            var isOn = GetRegionBool(code);
+            var item = new RegionPriorityItem { Code = code, DisplayName = display, Group = group, IsEnabled = isOn };
+            if (isOn) enabled.Add(item);
+            else disabled.Add(item);
+        }
+        int pos = 1;
+        foreach (var r in enabled) { r.Position = pos++; RegionPriorities.Add(r); }
+        foreach (var r in disabled) { r.Position = 0; RegionPriorities.Add(r); }
+        OnPropertyChanged(nameof(EnabledRegionCount));
+    }
+
+    /// <summary>Number of enabled regions for counter badge.</summary>
+    public int EnabledRegionCount => RegionPriorities.Count(r => r.IsEnabled);
+
+    /// <summary>Sync PreferXX booleans from the current RegionPriorities state.</summary>
+    private void SyncRegionBooleans()
+    {
+        foreach (var item in RegionPriorities)
+            SetRegionBool(item.Code, item.IsEnabled);
+        OnPropertyChanged(nameof(EnabledRegionCount));
+        UpdateWizardRegionSummary();
+    }
+
+    private bool GetRegionBool(string code) => code switch
+    {
+        "EU" => PreferEU, "US" => PreferUS, "WORLD" => PreferWORLD, "JP" => PreferJP,
+        "DE" => PreferDE, "FR" => PreferFR, "IT" => PreferIT, "ES" => PreferES,
+        "AU" => PreferAU, "ASIA" => PreferASIA, "KR" => PreferKR, "CN" => PreferCN,
+        "BR" => PreferBR, "NL" => PreferNL, "SE" => PreferSE, "SCAN" => PreferSCAN,
+        _ => false,
+    };
+
+    private void SetRegionBool(string code, bool value)
+    {
+        switch (code)
+        {
+            case "EU": PreferEU = value; break;
+            case "US": PreferUS = value; break;
+            case "WORLD": PreferWORLD = value; break;
+            case "JP": PreferJP = value; break;
+            case "DE": PreferDE = value; break;
+            case "FR": PreferFR = value; break;
+            case "IT": PreferIT = value; break;
+            case "ES": PreferES = value; break;
+            case "AU": PreferAU = value; break;
+            case "ASIA": PreferASIA = value; break;
+            case "KR": PreferKR = value; break;
+            case "CN": PreferCN = value; break;
+            case "BR": PreferBR = value; break;
+            case "NL": PreferNL = value; break;
+            case "SE": PreferSE = value; break;
+            case "SCAN": PreferSCAN = value; break;
+        }
+    }
+
+    [RelayCommand]
+    private void MoveRegionUp(RegionPriorityItem? item)
+    {
+        if (item is null || !item.IsEnabled) return;
+        int idx = RegionPriorities.IndexOf(item);
+        if (idx <= 0) return;
+        var prev = RegionPriorities[idx - 1];
+        if (!prev.IsEnabled) return;
+        RegionPriorities.Move(idx, idx - 1);
+        RenumberRegions();
+        SyncRegionBooleans();
+    }
+
+    [RelayCommand]
+    private void MoveRegionDown(RegionPriorityItem? item)
+    {
+        if (item is null || !item.IsEnabled) return;
+        int idx = RegionPriorities.IndexOf(item);
+        int nextIdx = idx + 1;
+        if (nextIdx >= RegionPriorities.Count) return;
+        if (!RegionPriorities[nextIdx].IsEnabled) return;
+        RegionPriorities.Move(idx, nextIdx);
+        RenumberRegions();
+        SyncRegionBooleans();
+    }
+
+    [RelayCommand]
+    private void ToggleRegion(RegionPriorityItem? item)
+    {
+        if (item is null) return;
+        item.IsEnabled = !item.IsEnabled;
+        int idx = RegionPriorities.IndexOf(item);
+        RegionPriorities.RemoveAt(idx);
+
+        if (item.IsEnabled)
+        {
+            // Insert at end of enabled items
+            int insertAt = RegionPriorities.Count(r => r.IsEnabled);
+            RegionPriorities.Insert(insertAt, item);
+        }
+        else
+        {
+            // Move to disabled section
+            RegionPriorities.Add(item);
+        }
+        RenumberRegions();
+        SyncRegionBooleans();
+    }
+
+    [RelayCommand]
+    private void RegionPresetEuFocus()
+    {
+        ApplyRegionPreset(["EU", "DE", "FR", "IT", "ES", "NL", "SE", "SCAN", "WORLD"]);
+    }
+
+    [RelayCommand]
+    private void RegionPresetUsFocus()
+    {
+        ApplyRegionPreset(["US", "WORLD", "EU"]);
+    }
+
+    [RelayCommand]
+    private void RegionPresetMultiRegion()
+    {
+        ApplyRegionPreset(["EU", "US", "JP", "WORLD"]);
+    }
+
+    [RelayCommand]
+    private void RegionPresetAll()
+    {
+        ApplyRegionPreset(AllRegionDefs.Select(r => r.Code).ToArray());
+    }
+
+    private void ApplyRegionPreset(string[] enabledCodes)
+    {
+        RegionPriorities.Clear();
+        int pos = 1;
+        // Add enabled in preset order
+        foreach (var code in enabledCodes)
+        {
+            var def = AllRegionDefs.FirstOrDefault(r => r.Code == code);
+            if (def.Code is null) continue;
+            RegionPriorities.Add(new RegionPriorityItem { Code = def.Code, DisplayName = def.Display, Group = def.Group, IsEnabled = true, Position = pos++ });
+        }
+        // Add remaining disabled
+        foreach (var (code, display, group) in AllRegionDefs)
+        {
+            if (!enabledCodes.Contains(code))
+                RegionPriorities.Add(new RegionPriorityItem { Code = code, DisplayName = display, Group = group, IsEnabled = false, Position = 0 });
+        }
+        SyncRegionBooleans();
+    }
+
+    private void RenumberRegions()
+    {
+        int pos = 1;
+        foreach (var item in RegionPriorities)
+            item.Position = item.IsEnabled ? pos++ : 0;
+    }
+
     // ═══ UI MODE ════════════════════════════════════════════════════════
     private bool _isSimpleMode = true;
     public bool IsSimpleMode
@@ -441,6 +628,9 @@ public sealed partial class MainViewModel
             OnPropertyChanged(nameof(CurrentThemeName));
         }
 
+        // E2: Build region priorities from loaded boolean flags
+        InitRegionPriorities();
+
         // Enable auto-save AFTER initial load so property writes during load don't trigger saves
         _settingsLoaded = true;
 
@@ -495,9 +685,13 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>Build the preferred regions array from all boolean flags.</summary>
+    /// <summary>Build the preferred regions array from RegionPriorities collection (respects user order).</summary>
     public string[] GetPreferredRegions()
     {
+        if (RegionPriorities.Count > 0)
+            return RegionPriorities.Where(r => r.IsEnabled).Select(r => r.Code).ToArray();
+
+        // Fallback: legacy boolean-based approach
         var regions = new List<string>(16);
         if (PreferEU) regions.Add("EU");
         if (PreferUS) regions.Add("US");

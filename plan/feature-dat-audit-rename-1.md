@@ -315,10 +315,10 @@ Scope: Alles was nötig ist, um ROMs gegen DAT-Dateien zu klassifizieren und kor
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | TASK-050 | `DashboardProjection` erweitern: `DatHaveDisplay`, `DatMissDisplay`, `DatWrongNameDisplay`, `DatUnknownDisplay` | x | 2026-03-24 |
-| TASK-051 | `DatAuditViewModel` in `src/RomCleanup.UI.Wpf/ViewModels/`: Bindable Properties für DatAudit-Ergebnisse. Filter/Sort-Logik (nach Status, Konsole). Exportkommando | | |
-| TASK-052 | DatAudit-Tab (XAML): DataGrid mit DatAuditEntry-Zeilen. Status-Badge pro Zeile (farbcodiert). Filter-Kombobox. Summary-Leiste oben | | |
+| TASK-051 | `DatAuditViewModel` in `src/RomCleanup.UI.Wpf/ViewModels/`: Bindable Properties für DatAudit-Ergebnisse. Filter/Sort-Logik (nach Status, Konsole). Exportkommando | x | 2026-03-25 |
+| TASK-052 | DatAudit-Tab (XAML): DataGrid mit DatAuditEntry-Zeilen. Status-Badge pro Zeile (farbcodiert). Filter-Kombobox. Summary-Leiste oben | x | 2026-03-25 |
 | TASK-053 | DatRename-Aktion: Preview-Button → zeigt Rename-Proposals in Dialog → Confirm-Button → Execute → Ergebnis-Dialog mit Undo-Button | x | 2026-03-24 |
-| TASK-054 | Styles: Status-Farben in ResourceDictionary (Have=grün, Miss=rot, WrongName=orange, Unknown=grau, Ambiguous=gelb) | | |
+| TASK-054 | Styles: Status-Farben in ResourceDictionary (Have=grün, Miss=rot, WrongName=orange, Unknown=grau, Ambiguous=gelb) | x | 2026-03-25 |
 | TASK-055 | Smoke-Test: DatAudit-Tab zeigt Daten korrekt an, DatRename Preview/Execute-Flow komplett durchlaufen | x | 2026-03-24 |
 
 ---

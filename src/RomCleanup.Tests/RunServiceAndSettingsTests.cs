@@ -1,3 +1,4 @@
+using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Configuration;
 using RomCleanup.Infrastructure.Paths;
@@ -447,5 +448,6 @@ public sealed class RunServiceAndSettingsTests : IDisposable
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
         public void ShowText(string title, string content) { }
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
+        public bool ConfirmDatRenamePreview(IReadOnlyList<DatAuditEntry> renameProposals) => true;
     }
 }

@@ -17,7 +17,7 @@
     <Thickness x:Key="SpaceBottomMD">0 0 0 12</Thickness>
     <Thickness x:Key="SpaceBottomLG">0 0 0 16</Thickness>
     <Thickness x:Key="SpaceBottomXL">0 0 0 24</Thickness>
-    <Thickness x:Key="PaddingBar">12 8 12 8</Thickness>
+    <Thickness x:Key="PaddingBar">12 6 12 6</Thickness>
     <Thickness x:Key="PaddingSection">16 16 16 16</Thickness>
     <Thickness x:Key="PaddingCard">12 12 12 12</Thickness>
     <Thickness x:Key="SpaceRightSM">0 0 8 0</Thickness>
@@ -46,7 +46,7 @@
     <!-- ═══ SIZING ════════════════════════════════════════════════════ -->
     <sys:Double x:Key="NavRailWidth">72</sys:Double>
     <sys:Double x:Key="ContextWingWidth">280</sys:Double>
-    <sys:Double x:Key="ActionRailHeight">68</sys:Double>
+    <sys:Double x:Key="ActionRailHeight">76</sys:Double>
     <sys:Double x:Key="CommandBarHeight">48</sys:Double>
     <sys:Double x:Key="TabBarHeight">32</sys:Double>
     <sys:Double x:Key="MinTouchTarget">44</sys:Double>

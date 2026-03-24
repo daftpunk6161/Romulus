@@ -2477,6 +2477,11 @@ public class GuiViewModelTests
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => defaultValue;
         public void ShowText(string title, string content) { }
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => DangerConfirmResult;
+        public bool ConfirmDatRenamePreview(IReadOnlyList<DatAuditEntry> renameProposals)
+        {
+            ConfirmCallCount++;
+            return ConfirmReturnValue;
+        }
     }
 
     private sealed class RecordingRunService : IRunService

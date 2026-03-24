@@ -41,17 +41,23 @@
         <RadioButton GroupName="SubTab" Content="Report" Style="{StaticResource SidebarNavItem}"
                      IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Report}"
                      AutomationProperties.Name="Report Viewer"/>
+        <RadioButton GroupName="SubTab" Content="DatAudit" Style="{StaticResource SidebarNavItem}"
+                     IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=DatAudit}"
+                     AutomationProperties.Name="DAT Audit Ergebnisse"/>
       </StackPanel>
 
       <!-- ── Config tabs ──────────────────────────────────────────── -->
       <StackPanel Orientation="Horizontal"
                   Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}">
-        <RadioButton GroupName="SubTab" Content="Workflow" Style="{StaticResource SidebarNavItem}"
-                     IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Workflow}"
-                     AutomationProperties.Name="Workflow Configuration"/>
+        <RadioButton GroupName="SubTab" Content="Regions" Style="{StaticResource SidebarNavItem}"
+                     IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Regions}"
+                     AutomationProperties.Name="Region Priority Configuration"/>
         <RadioButton GroupName="SubTab" Content="Filtering" Style="{StaticResource SidebarNavItem}"
                      IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Filtering}"
                      AutomationProperties.Name="Filter Settings"/>
+        <RadioButton GroupName="SubTab" Content="Options" Style="{StaticResource SidebarNavItem}"
+                     IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Options}"
+                     AutomationProperties.Name="Run Options Configuration"/>
         <RadioButton GroupName="SubTab" Content="Profiles" Style="{StaticResource SidebarNavItem}"
                      IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Profiles}"
                      AutomationProperties.Name="Profile Management"/>

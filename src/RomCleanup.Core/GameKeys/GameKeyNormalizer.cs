@@ -247,7 +247,7 @@ public static class GameKeyNormalizer
         // Apply all tag patterns (region, version, junk)
         foreach (var rx in tagPatterns)
         {
-            s = rx.Replace(s, " ");
+            s = SafeReplace(rx, s, " ");
         }
 
         // Normalize common title variants so article/disc naming maps to one key.
@@ -255,7 +255,7 @@ public static class GameKeyNormalizer
 
         // Normalize and collapse whitespace
         var key = s.Trim().ToLowerInvariant();
-        key = System.Text.RegularExpressions.Regex.Replace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
+        key = SafeReplace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
 
         // Apply alias maps
         if (alwaysAliasMap.TryGetValue(key, out var aliased))
@@ -286,9 +286,9 @@ public static class GameKeyNormalizer
         if (string.IsNullOrWhiteSpace(value))
             return value;
 
-        var normalized = TrailingArticleRegex.Replace(value, string.Empty);
-        normalized = LeadingArticleRegex.Replace(normalized, string.Empty);
-        normalized = DiscPaddingRegex.Replace(normalized, "($1 $2)");
+        var normalized = SafeReplace(TrailingArticleRegex, value, string.Empty);
+        normalized = SafeReplace(LeadingArticleRegex, normalized, string.Empty);
+        normalized = SafeReplace(DiscPaddingRegex, normalized, "($1 $2)");
         return normalized;
     }
 
@@ -302,14 +302,50 @@ public static class GameKeyNormalizer
             return text;
 
         // Remove trailing bracket tags: [anything]
-        var value = MsDosTrailingBracketRegex.Replace(text, " ");
+        var value = SafeReplace(MsDosTrailingBracketRegex, text, " ");
 
         // Remove trailing non-disc parenthesized tags (limit iterations to prevent infinite loop)
-        for (int i = 0; i < 20 && MsDosTrailingParenRegex.IsMatch(value); i++)
+        for (int i = 0; i < 20 && SafeIsMatch(MsDosTrailingParenRegex, value); i++)
         {
-            value = MsDosTrailingParenRegex.Replace(value, " ");
+            value = SafeReplace(MsDosTrailingParenRegex, value, " ");
         }
 
         return value;
+    }
+
+    private static bool SafeIsMatch(System.Text.RegularExpressions.Regex regex, string input)
+    {
+        try
+        {
+            return regex.IsMatch(input);
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private static string SafeReplace(System.Text.RegularExpressions.Regex regex, string input, string replacement)
+    {
+        try
+        {
+            return regex.Replace(input, replacement);
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return input;
+        }
+    }
+
+    private static string SafeReplace(string input, string pattern, string replacement, System.Text.RegularExpressions.RegexOptions options, TimeSpan timeout)
+    {
+        try
+        {
+            return System.Text.RegularExpressions.Regex.Replace(input, pattern, replacement, options, timeout);
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return input;
+        }
     }
 }

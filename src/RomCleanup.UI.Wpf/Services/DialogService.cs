@@ -183,6 +183,38 @@ public static class DialogService
         });
     }
 
+    /// <summary>
+    /// A-22: Shows a modal DatRename preview/confirm dialog.
+    /// Returns true only when the user explicitly confirms the rename proposals.
+    /// </summary>
+    public static bool ConfirmDatRenamePreview(IReadOnlyList<RomCleanup.Contracts.Models.DatAuditEntry> renameProposals, Window? owner = null)
+    {
+        return InvokeOnUiThread(() =>
+        {
+            var previousFocus = Keyboard.FocusedElement;
+            var displayItems = renameProposals
+                .Select(e => new DatRenameDisplayItem(
+                    System.IO.Path.GetFileName(e.FilePath),
+                    e.DatRomFileName!,
+                    e.ConsoleKey,
+                    e.DatGameName,
+                    e.Confidence))
+                .ToList();
+
+            var dialog = new DatRenameReviewDialog
+            {
+                Owner = owner ?? GetMainWindow()
+            };
+
+            var vm = new DatRenameReviewViewModel(displayItems, result => dialog.DialogResult = result);
+            dialog.DataContext = vm;
+
+            var result = dialog.ShowDialog() == true;
+            (previousFocus as UIElement)?.Focus();
+            return result;
+        });
+    }
+
     /// <summary>Show a themed ResultDialog with text content (Copy/Export buttons).</summary>
     public static void ShowText(string title, string content)
     {

@@ -436,33 +436,15 @@ public sealed partial class MainViewModel
         if (auditEntries is null || auditEntries.Count == 0)
             return Task.FromResult(true);
 
-        var proposals = auditEntries
+        var renameProposals = auditEntries
             .Where(static e => e.Status == DatAuditStatus.HaveWrongName && !string.IsNullOrWhiteSpace(e.DatRomFileName))
             .Where(e => !string.Equals(Path.GetFileName(e.FilePath), e.DatRomFileName, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (proposals.Count == 0)
+        if (renameProposals.Count == 0)
             return Task.FromResult(true);
 
-        const int maxPreviewLines = 12;
-        var lines = proposals
-            .Take(maxPreviewLines)
-            .Select(e => $"- {Path.GetFileName(e.FilePath)} -> {e.DatRomFileName}")
-            .ToArray();
-
-        var summary = new StringBuilder()
-            .AppendLine($"DAT-Rename Vorschau: {proposals.Count} Datei(en) werden auf DAT-Kanonnamen umbenannt.")
-            .AppendLine()
-            .AppendLine("Geplante Umbenennungen:")
-            .AppendLine(string.Join(Environment.NewLine, lines));
-
-        if (proposals.Count > maxPreviewLines)
-            summary.AppendLine().Append($"... und {proposals.Count - maxPreviewLines} weitere.");
-
-        summary.AppendLine().AppendLine()
-            .Append("Fortfahren und DatRename im Move-Lauf ausführen?");
-
-        var confirmed = _dialog.Confirm(summary.ToString(), "DAT-Rename bestätigen");
+        var confirmed = _dialog.ConfirmDatRenamePreview(renameProposals);
         if (!confirmed)
             AddLog("DAT-Rename abgebrochen: Vorschau wurde nicht bestätigt.", "WARN");
 
@@ -1089,6 +1071,9 @@ public sealed partial class MainViewModel
 
         // GUI-021: Sync to MissionControl child VM
         MissionControl.UpdateLastRun(dashboard.Winners, dashboard.Dupes, dashboard.Junk, dashboard.Duration);
+
+        // A-21: Load DatAudit results into DatAuditViewModel
+        DatAudit.LoadResult(result.DatAuditResult);
 
         if (result.Status == "blocked")
         {
