@@ -65,8 +65,8 @@ public sealed partial class MainViewModel
 
     public bool HasRunData => Run.HasRunData;
 
-    private ObservableCollection<DedupeResult> _lastDedupeGroups = [];
-    public ObservableCollection<DedupeResult> LastDedupeGroups
+    private ObservableCollection<DedupeGroup> _lastDedupeGroups = [];
+    public ObservableCollection<DedupeGroup> LastDedupeGroups
     {
         get => _lastDedupeGroups;
         set { _lastDedupeGroups = value; OnPropertyChanged(); }
@@ -1045,7 +1045,7 @@ public sealed partial class MainViewModel
 
         LastRunResult = result;
         LastCandidates = new ObservableCollection<RomCandidate>(result.AllCandidates);
-        LastDedupeGroups = new ObservableCollection<DedupeResult>(result.DedupeGroups);
+        LastDedupeGroups = new ObservableCollection<DedupeGroup>(result.DedupeGroups);
         RefreshToolLockState();
         var projection = RunProjectionFactory.Create(result);
 

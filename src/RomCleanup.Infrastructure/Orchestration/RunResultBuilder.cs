@@ -28,6 +28,9 @@ public sealed class RunResultBuilder
     public int ConvertSkippedCount { get; set; }
     public int ConvertBlockedCount { get; set; }
     public int ConvertReviewCount { get; set; }
+    public int ConvertLossyWarningCount { get; set; }
+    public int ConvertVerifyPassedCount { get; set; }
+    public int ConvertVerifyFailedCount { get; set; }
     public long ConvertSavedBytes { get; set; }
     public ConversionReport? ConversionReport { get; set; }
     public DatAuditResult? DatAuditResult { get; set; }
@@ -43,7 +46,7 @@ public sealed class RunResultBuilder
     public long DurationMs { get; set; }
     public string? ReportPath { get; set; }
     public IReadOnlyList<RomCandidate> AllCandidates { get; set; } = Array.Empty<RomCandidate>();
-    public IReadOnlyList<DedupeResult> DedupeGroups { get; set; } = Array.Empty<DedupeResult>();
+    public IReadOnlyList<DedupeGroup> DedupeGroups { get; set; } = Array.Empty<DedupeGroup>();
     public PhaseMetricsResult? PhaseMetrics { get; set; }
 
     public RunResult Build() => new()
@@ -67,6 +70,9 @@ public sealed class RunResultBuilder
         ConvertSkippedCount = ConvertSkippedCount,
         ConvertBlockedCount = ConvertBlockedCount,
         ConvertReviewCount = ConvertReviewCount,
+        ConvertLossyWarningCount = ConvertLossyWarningCount,
+        ConvertVerifyPassedCount = ConvertVerifyPassedCount,
+        ConvertVerifyFailedCount = ConvertVerifyFailedCount,
         ConvertSavedBytes = ConvertSavedBytes,
         ConversionReport = ConversionReport,
         DatAuditResult = DatAuditResult,

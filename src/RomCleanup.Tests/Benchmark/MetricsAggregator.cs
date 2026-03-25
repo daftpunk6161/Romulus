@@ -1,3 +1,5 @@
+using RomCleanup.Contracts.Models;
+
 namespace RomCleanup.Tests.Benchmark;
 
 internal sealed record SystemMetrics(double Precision, double Recall, double F1, int TruePositive, int FalsePositive, int FalseNegative);
@@ -16,8 +18,8 @@ internal static class MetricsAggregator
 {
     private const int FalseConfidenceThreshold = 80;
 
-    private static bool IsSortingDecision(RomCleanup.Core.Classification.SortDecision decision) =>
-        decision is RomCleanup.Core.Classification.SortDecision.Sort or RomCleanup.Core.Classification.SortDecision.DatVerified;
+    private static bool IsSortingDecision(SortDecision decision) =>
+        decision is SortDecision.Sort or SortDecision.DatVerified;
 
     public static IReadOnlyDictionary<string, SystemMetrics> CalculatePerSystem(IReadOnlyList<BenchmarkSampleResult> results)
     {
@@ -82,9 +84,9 @@ internal static class MetricsAggregator
         int junkClassified = results.Count(r => r.Verdict == BenchmarkVerdict.JunkClassified);
 
         // TASK-030: SortDecision breakdown counts
-        int sortCount = results.Count(r => r.ActualSortDecision == RomCleanup.Core.Classification.SortDecision.Sort);
-        int reviewCount = results.Count(r => r.ActualSortDecision == RomCleanup.Core.Classification.SortDecision.Review);
-        int blockedCount = results.Count(r => r.ActualSortDecision == RomCleanup.Core.Classification.SortDecision.Blocked);
+        int sortCount = results.Count(r => r.ActualSortDecision == SortDecision.Sort);
+        int reviewCount = results.Count(r => r.ActualSortDecision == SortDecision.Review);
+        int blockedCount = results.Count(r => r.ActualSortDecision == SortDecision.Blocked);
 
         return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
@@ -241,7 +243,7 @@ internal static class MetricsAggregator
         int total = results.Count;
         if (total == 0) return 0;
         int datVerified = results.Count(r =>
-            r.ActualSortDecision == RomCleanup.Core.Classification.SortDecision.DatVerified);
+            r.ActualSortDecision == SortDecision.DatVerified);
         return (double)datVerified / total;
     }
 

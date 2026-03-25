@@ -4,10 +4,53 @@ using RomCleanup.Contracts.Models;
 namespace RomCleanup.Infrastructure.Orchestration;
 
 /// <summary>
-/// Shared normalization entry point for run options across CLI, API, and UI.
+/// Shared normalization and validation entry point for run options across CLI, API, and UI.
 /// </summary>
 public static class RunOptionsBuilder
 {
+    /// <summary>
+    /// Validate run options for semantic correctness.
+    /// Returns an empty list when all options are valid.
+    /// Centralises guards that previously lived only in the API (TASK-159).
+    /// </summary>
+    public static IReadOnlyList<string> Validate(RunOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var errors = new List<string>();
+
+        // TASK-159: OnlyGames guard — !OnlyGames && !KeepUnknownWhenOnlyGames is semantically invalid
+        if (!options.OnlyGames && !options.KeepUnknownWhenOnlyGames)
+            errors.Add("KeepUnknownWhenOnlyGames=false is only valid when OnlyGames=true.");
+
+        return errors;
+    }
+
+    /// <summary>
+    /// Returns warnings for features that are silently skipped in DryRun mode (TASK-163).
+    /// These features require Mode=Move to have any effect.
+    /// </summary>
+    public static IReadOnlyList<string> GetDryRunFeatureWarnings(RunOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!string.Equals(options.Mode, "DryRun", StringComparison.OrdinalIgnoreCase))
+            return Array.Empty<string>();
+
+        var warnings = new List<string>();
+
+        if (options.SortConsole)
+            warnings.Add("SortConsole is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.");
+
+        if (options.ConvertFormat is not null)
+            warnings.Add("ConvertFormat is set but will be skipped in DryRun mode. Use Mode=Move to apply.");
+
+        if (options.EnableDatRename)
+            warnings.Add("EnableDatRename is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.");
+
+        return warnings;
+    }
+
     public static RunOptions Normalize(RunOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

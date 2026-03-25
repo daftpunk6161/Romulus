@@ -134,6 +134,7 @@ public sealed class ArchiveHashService
                 return archive.Entries
                     .Where(e => !string.IsNullOrEmpty(e.Name))
                     .Select(e => e.FullName)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
             catch (InvalidDataException) { return Array.Empty<string>(); }
@@ -160,7 +161,12 @@ public sealed class ArchiveHashService
         var hashes = new List<string>();
         using var archive = ZipFile.OpenRead(zipPath);
 
-        foreach (var entry in archive.Entries)
+        // TASK-150: Sort entries alphabetically for deterministic hash order
+        var sortedEntries = archive.Entries
+            .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var entry in sortedEntries)
         {
             ct.ThrowIfCancellationRequested();
             if (entry.Length <= 0) continue;
@@ -225,6 +231,8 @@ public sealed class ArchiveHashService
 
             ct.ThrowIfCancellationRequested();
             var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
+            // TASK-150: Sort extracted files alphabetically for deterministic hash order
+            Array.Sort(extractedFiles, StringComparer.OrdinalIgnoreCase);
             var hashes = new List<string>();
 
             foreach (var file in extractedFiles)
@@ -291,6 +299,8 @@ public sealed class ArchiveHashService
             paths.Add(entryPath);
         }
 
+        // TASK-150: Sort entries alphabetically for deterministic order
+        paths.Sort(StringComparer.OrdinalIgnoreCase);
         return paths;
     }
 

@@ -131,7 +131,7 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "game",
             Winner = Candidate(Path.Combine(root, "winner.zip"), "game", "US", 1000, FileCategory.Game),
@@ -182,13 +182,13 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
 
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "junk-1",
                 Winner = Candidate(junkStandalone, "junk-1", "UNKNOWN", 100, FileCategory.Junk),
                 Losers = Array.Empty<RomCandidate>()
             },
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "junk-2",
                 Winner = Candidate(junkNotStandalone, "junk-2", "UNKNOWN", 100, FileCategory.Junk),
@@ -308,7 +308,7 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "winner",
             Winner = Candidate(winner, "winner", "US", 1000, FileCategory.Game),

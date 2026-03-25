@@ -59,6 +59,20 @@ public sealed class SettingsLoader
     }
 
     /// <summary>
+    /// Load settings with an explicit user settings path instead of %APPDATA% (TASK-161).
+    /// Used by the API to decouple from per-user desktop settings on server deployments.
+    /// </summary>
+    public static RomCleanupSettings LoadWithExplicitUserPath(string? defaultsJsonPath, string userSettingsPath)
+    {
+        var settings = LoadDefaultsOnly(defaultsJsonPath);
+
+        if (File.Exists(userSettingsPath))
+            MergeFromUserSettings(settings, userSettingsPath);
+
+        return settings;
+    }
+
+    /// <summary>
     /// Resolve data/defaults.json from the current application or workspace layout.
     /// Honors ROMCLEANUP_DATA_DIR environment variable as highest-priority override.
     /// </summary>

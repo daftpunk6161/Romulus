@@ -1,3 +1,4 @@
+using RomCleanup.Contracts.Models;
 using RomCleanup.Tests.Benchmark.Models;
 using RomCleanup.Tests.Benchmark.Infrastructure;
 using RomCleanup.Core.Classification;

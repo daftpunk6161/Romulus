@@ -27,7 +27,7 @@ public static partial class FeatureService
     // ═══ DUPLICATE HEATMAP ══════════════════════════════════════════════
     // Port of DuplicateHeatmap.ps1
 
-    public static List<HeatmapEntry> GetDuplicateHeatmap(IReadOnlyList<DedupeResult> groups)
+    public static List<HeatmapEntry> GetDuplicateHeatmap(IReadOnlyList<DedupeGroup> groups)
     {
         var consoleMap = new Dictionary<string, (int total, int dupes)>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in groups)
@@ -127,7 +127,7 @@ public static partial class FeatureService
     // ═══ HARDLINK ESTIMATE ══════════════════════════════════════════════
     // Port of HardlinkMode.ps1
 
-    public static string GetHardlinkEstimate(IReadOnlyList<DedupeResult> groups)
+    public static string GetHardlinkEstimate(IReadOnlyList<DedupeGroup> groups)
     {
         long savedBytes = 0;
         int linkCount = 0;
@@ -215,7 +215,7 @@ public static partial class FeatureService
     // ═══ CLONE LIST VIEWER ══════════════════════════════════════════════
     // Port of CloneListViewer.ps1
 
-    public static string BuildCloneTree(IReadOnlyList<DedupeResult> groups)
+    public static string BuildCloneTree(IReadOnlyList<DedupeGroup> groups)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Parent/Clone-Baum");
@@ -260,7 +260,7 @@ public static partial class FeatureService
     // ═══ SPLIT PANEL PREVIEW ════════════════════════════════════════════
     // Port of SplitPanelPreview.ps1
 
-    public static string BuildSplitPanelPreview(IReadOnlyList<DedupeResult> groups)
+    public static string BuildSplitPanelPreview(IReadOnlyList<DedupeGroup> groups)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Split-Panel (Norton Commander Style)");

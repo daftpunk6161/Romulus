@@ -105,6 +105,11 @@ public sealed class ConversionGraph(IReadOnlyList<ConversionCapability> capabili
             if (!conditionEvaluator(capability.Condition))
                 continue;
 
+            // TASK-056: Block Lossy→Lossy conversion paths — a lossy source must not be
+            // fed through another lossy conversion step (e.g. CSO→WBFS, NKit→GCZ).
+            if (sourceIntegrity == SourceIntegrity.Lossy && !capability.Lossless)
+                continue;
+
             yield return capability;
         }
     }

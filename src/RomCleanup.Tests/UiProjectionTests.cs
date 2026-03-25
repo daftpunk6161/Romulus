@@ -59,7 +59,7 @@ public sealed class UiProjectionTests
             DurationMs = 1000,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "g1",
                     Winner = new RomCandidate { MainPath = "winner.chd", Region = "EU", RegionScore = 10, FormatScore = 10, VersionScore = 10 },

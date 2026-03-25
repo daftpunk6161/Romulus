@@ -335,7 +335,7 @@ public sealed class ReportParityTests : IDisposable
         return rows.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    private static string[] BuildWpfIdentity(IReadOnlyList<RomCleanup.Contracts.Models.DedupeResult> groups)
+    private static string[] BuildWpfIdentity(IReadOnlyList<RomCleanup.Contracts.Models.DedupeGroup> groups)
     {
         return groups
             .Select(group =>

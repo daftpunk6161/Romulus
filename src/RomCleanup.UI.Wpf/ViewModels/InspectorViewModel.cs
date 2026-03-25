@@ -86,8 +86,8 @@ public sealed class InspectorViewModel : ObservableObject
     public string CrcDisplay => "–"; // CRC not stored on RomCandidate — requires DAT lookup
 
     // ═══ SELECTED DEDUPE GROUP ══════════════════════════════════════════
-    private DedupeResult? _selectedGroup;
-    public DedupeResult? SelectedGroup
+    private DedupeGroup? _selectedGroup;
+    public DedupeGroup? SelectedGroup
     {
         get => _selectedGroup;
         set

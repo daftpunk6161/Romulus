@@ -362,27 +362,47 @@ public class GuiViewModelTests
 
     private static string FindThemeFile(string fileName, [System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
-        // Walk up from test output dir to find the source tree
-        var dir = AppDomain.CurrentDomain.BaseDirectory;
-        while (dir is not null)
+        var repoRoot = FindRepoRoot(callerPath);
+        var candidate = Path.Combine(repoRoot, "src", "RomCleanup.UI.Wpf", "Themes", fileName);
+        if (File.Exists(candidate))
+            return candidate;
+
+        // Last resort: preserve previous behavior to keep tests resilient in odd runners.
+        return Path.Combine("src", "RomCleanup.UI.Wpf", "Themes", fileName);
+    }
+
+    private static string FindRepoRoot(string? callerPath)
+    {
+        // Prefer compile-time source location to avoid resolving archived duplicates.
+        if (!string.IsNullOrWhiteSpace(callerPath))
         {
-            var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", "Themes", fileName);
-            if (File.Exists(candidate)) return candidate;
-            dir = Path.GetDirectoryName(dir);
-        }
-        // Fallback: derive workspace root from compile-time source file path
-        if (callerPath is not null)
-        {
-            dir = Path.GetDirectoryName(callerPath);
+            var dir = Path.GetDirectoryName(callerPath);
             while (dir is not null)
             {
-                var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", "Themes", fileName);
-                if (File.Exists(candidate)) return candidate;
+                if (File.Exists(Path.Combine(dir, "src", "RomCleanup.sln")) ||
+                    File.Exists(Path.Combine(dir, "src", "RomCleanup.UI.Wpf", "RomCleanup.UI.Wpf.csproj")))
+                {
+                    return dir;
+                }
+
                 dir = Path.GetDirectoryName(dir);
             }
         }
-        // Last resort: relative from working directory
-        return Path.Combine("src", "RomCleanup.UI.Wpf", "Themes", fileName);
+
+        // Fallback for unusual test hosts that do not provide a caller path.
+        var probe = AppDomain.CurrentDomain.BaseDirectory;
+        while (probe is not null)
+        {
+            if (File.Exists(Path.Combine(probe, "src", "RomCleanup.sln")) ||
+                File.Exists(Path.Combine(probe, "src", "RomCleanup.UI.Wpf", "RomCleanup.UI.Wpf.csproj")))
+            {
+                return probe;
+            }
+
+            probe = Path.GetDirectoryName(probe);
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 
     private static HashSet<string> ExtractResourceKeys(string xamlPath)
@@ -1248,7 +1268,7 @@ public class GuiViewModelTests
             AllCandidates = new[] { winner, loser },
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -1301,7 +1321,7 @@ public class GuiViewModelTests
             AllCandidates = new[] { winner, loser },
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -1505,7 +1525,7 @@ public class GuiViewModelTests
                 Status = "ok",
                 ExitCode = 0,
                 AllCandidates = Array.Empty<RomCandidate>(),
-                DedupeGroups = Array.Empty<DedupeResult>()
+                DedupeGroups = Array.Empty<DedupeGroup>()
             });
 
             var vm = new MainViewModel(new ThemeService(), dialog, runService: runService);
@@ -1572,7 +1592,7 @@ public class GuiViewModelTests
                     [
                         new RomCandidate { MainPath = Path.Combine(root, "game.nes"), Category = FileCategory.Game }
                     ],
-                    DedupeGroups = Array.Empty<DedupeResult>()
+                    DedupeGroups = Array.Empty<DedupeGroup>()
                 },
                 auditPath: auditPath);
 
@@ -1860,7 +1880,7 @@ public class GuiViewModelTests
     [Fact]
     public void FeatureService_BuildCrossRootReport_NoGroups_ShowsEmpty()
     {
-        var groups = new List<DedupeResult>();
+        var groups = new List<DedupeGroup>();
         var result = FeatureService.BuildCrossRootReport(groups, new[] { @"C:\A", @"C:\B" });
         Assert.Contains("Cross-Root-Gruppen: 0", result);
         Assert.Contains("Keine Cross-Root-Duplikate", result);
@@ -2087,7 +2107,7 @@ public class GuiViewModelTests
     public void FeatureService_BuildPdfReportData_EmptyCandidates()
     {
         var (summary, entries) = FeatureService.BuildPdfReportData(
-            Array.Empty<RomCandidate>(), Array.Empty<DedupeResult>(), null, true);
+            Array.Empty<RomCandidate>(), Array.Empty<DedupeGroup>(), null, true);
         Assert.Equal("DryRun", summary.Mode);
         Assert.Equal(0, summary.TotalFiles);
         Assert.Empty(entries);
@@ -2101,7 +2121,7 @@ public class GuiViewModelTests
             new() { MainPath = @"C:\game.rom", GameKey = "game", Category = FileCategory.Game, Extension = ".rom", Region = "EU", SizeBytes = 100, RegionScore = 50, FormatScore = 500, VersionScore = 100, DatMatch = true },
             new() { MainPath = @"C:\junk.rom", GameKey = "junk", Category = FileCategory.Junk, Extension = ".rom", Region = "US", SizeBytes = 200 }
         };
-        var groups = new List<DedupeResult>
+        var groups = new List<DedupeGroup>
         {
             new() { GameKey = "game", Winner = candidates[0], Losers = [] }
         };
@@ -3092,24 +3112,11 @@ public class GuiViewModelTests
 
     private static string FindWpfFile(string fileName, [System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
-        var dir = AppDomain.CurrentDomain.BaseDirectory;
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", fileName);
-            if (File.Exists(candidate)) return candidate;
-            dir = Path.GetDirectoryName(dir);
-        }
-        // Fallback: derive workspace root from compile-time source file path
-        if (callerPath is not null)
-        {
-            dir = Path.GetDirectoryName(callerPath);
-            while (dir is not null)
-            {
-                var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", fileName);
-                if (File.Exists(candidate)) return candidate;
-                dir = Path.GetDirectoryName(dir);
-            }
-        }
+        var repoRoot = FindRepoRoot(callerPath);
+        var candidate = Path.Combine(repoRoot, "src", "RomCleanup.UI.Wpf", fileName);
+        if (File.Exists(candidate))
+            return candidate;
+
         return Path.Combine("src", "RomCleanup.UI.Wpf", fileName);
     }
 

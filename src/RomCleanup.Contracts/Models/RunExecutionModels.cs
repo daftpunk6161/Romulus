@@ -69,6 +69,9 @@ public sealed class RunResult
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
     public int ConvertReviewCount { get; init; }
+    public int ConvertLossyWarningCount { get; init; }
+    public int ConvertVerifyPassedCount { get; init; }
+    public int ConvertVerifyFailedCount { get; init; }
     public long ConvertSavedBytes { get; init; }
     public ConversionReport? ConversionReport { get; init; }
     public DatAuditResult? DatAuditResult { get; init; }
@@ -92,7 +95,7 @@ public sealed class RunResult
     /// <summary>
     /// Dedupe group results (for DryRun JSON output and reports).
     /// </summary>
-    public IReadOnlyList<DedupeResult> DedupeGroups { get; init; } = Array.Empty<DedupeResult>();
+    public IReadOnlyList<DedupeGroup> DedupeGroups { get; init; } = Array.Empty<DedupeGroup>();
 
     /// <summary>
     /// Structured phase timing metrics.

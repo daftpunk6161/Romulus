@@ -265,7 +265,7 @@ public sealed class FeatureServiceTests : IDisposable
     [Fact]
     public void GetDuplicateHeatmap_SingleGroup_CalculatesPercentage()
     {
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             Winner = new RomCandidate { MainPath = "D:/Roms/SNES/game1.sfc" },
             Losers = [new RomCandidate { MainPath = "D:/Roms/SNES/game1_dup.sfc" }],

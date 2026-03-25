@@ -82,7 +82,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         bool detectionConflict = false;
         bool hasHardEvidence = false;
         bool isSoftOnly = true;
-        var sortDecision = Core.Classification.SortDecision.Blocked;
+        var sortDecision = SortDecision.Blocked;
         if (consoleDetector is not null)
         {
             var result = consoleDetector.DetectWithConfidence(filePath, root);
@@ -211,8 +211,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             hasHardEvidence = true;
             isSoftOnly = false;
             sortDecision = detectionConflict
-                ? Core.Classification.SortDecision.Review
-                : Core.Classification.SortDecision.DatVerified;
+                ? SortDecision.Review
+                : SortDecision.DatVerified;
         }
 
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);

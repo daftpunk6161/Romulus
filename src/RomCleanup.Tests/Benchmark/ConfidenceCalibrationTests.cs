@@ -1,3 +1,4 @@
+using RomCleanup.Contracts.Models;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -57,7 +58,7 @@ public sealed class ConfidenceCalibrationTests : IClassFixture<BenchmarkFixture>
         // Low-confidence entries (< 50) that were sorted → unsafe
         var lowConfSorted = results.Where(r =>
             r.ActualConfidence < 50 &&
-            r.ActualSortDecision is Core.Classification.SortDecision.Sort or Core.Classification.SortDecision.DatVerified &&
+            r.ActualSortDecision is SortDecision.Sort or SortDecision.DatVerified &&
             r.Verdict is BenchmarkVerdict.Wrong).ToList();
 
         _output.WriteLine($"Low-confidence (<50) wrong-sorts: {lowConfSorted.Count}");

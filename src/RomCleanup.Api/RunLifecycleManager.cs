@@ -116,7 +116,7 @@ public sealed class RunLifecycleManager
                 OnlyGames = request.OnlyGames,
                 KeepUnknownWhenOnlyGames = request.KeepUnknownWhenOnlyGames,
                 HashType = normalizedHashType,
-                ConvertFormat = string.IsNullOrWhiteSpace(request.ConvertFormat) ? null : "auto",
+                ConvertFormat = string.IsNullOrWhiteSpace(request.ConvertFormat) ? null : request.ConvertFormat.Trim().ToLowerInvariant(),
                 ConvertOnly = request.ConvertOnly,
                 ConflictPolicy = normalizedConflictPolicy,
                 TrashRoot = string.IsNullOrWhiteSpace(request.TrashRoot) ? null : request.TrashRoot.Trim(),

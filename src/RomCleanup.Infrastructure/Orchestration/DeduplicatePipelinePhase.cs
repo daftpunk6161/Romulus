@@ -31,7 +31,7 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
         return new DedupePhaseOutput(groups, gameGroups, loserCount);
     }
 
-    private static List<DedupeResult> GetGameGroups(IReadOnlyList<DedupeResult> groups)
+    private static List<DedupeGroup> GetGameGroups(IReadOnlyList<DedupeGroup> groups)
     {
         return groups
             .Where(g => g.Winner.Category == FileCategory.Game || g.Losers.Any(l => l.Category == FileCategory.Game))
@@ -40,6 +40,6 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
 }
 
 public sealed record DedupePhaseOutput(
-    IReadOnlyList<DedupeResult> Groups,
-    List<DedupeResult> GameGroups,
+    IReadOnlyList<DedupeGroup> Groups,
+    List<DedupeGroup> GameGroups,
     int LoserCount);

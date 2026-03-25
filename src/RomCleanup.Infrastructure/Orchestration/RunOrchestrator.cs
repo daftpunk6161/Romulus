@@ -100,6 +100,9 @@ public sealed partial class RunOrchestrator
         if (options.Extensions.Count == 0)
             warnings.Add("No file extensions specified — scan will find nothing");
 
+        // TASK-163: DryRun + Move-only feature warnings
+        warnings.AddRange(RunOptionsBuilder.GetDryRunFeatureWarnings(options));
+
         var result = OperationResult.Ok("preflight-passed");
         result.Warnings.AddRange(warnings);
         result.Meta["RootCount"] = options.Roots.Count;
@@ -212,10 +215,12 @@ public sealed partial class RunOrchestrator
         }
 
         sw.Stop();
-        // Derive status based on actual errors
+        // TASK-151: Derive status based on ALL phase errors (incl. DatRename + ConsoleSort)
         var hasErrors = result.ConvertErrorCount > 0
                      || (result.MoveResult is { FailCount: > 0 })
-                     || (result.JunkMoveResult is { FailCount: > 0 });
+                     || (result.JunkMoveResult is { FailCount: > 0 })
+                     || result.DatRenameFailedCount > 0
+                     || (result.ConsoleSortResult is { Failed: > 0 });
         var runOutcome = hasErrors ? RunOutcome.CompletedWithErrors : RunOutcome.Ok;
         result.Status = runOutcome.ToStatusString();
         result.ExitCode = hasErrors ? 1 : 0;
@@ -252,6 +257,23 @@ public sealed partial class RunOrchestrator
             result.PhaseMetrics = metrics.GetMetrics();
 
             // Issue #19: Write partial audit sidecar so rollback is possible after cancel
+            WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
+
+            return result.Build();
+        }
+        // TASK-154: Catch non-cancel exceptions — write sidecar so rollback is possible,
+        // mark run as failed, and return a result instead of crashing the host process.
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            sw.Stop();
+            result.Status = RunOutcome.Failed.ToStatusString();
+            result.ExitCode = 4;
+            result.DurationMs = sw.ElapsedMilliseconds;
+            result.PhaseMetrics = metrics.GetMetrics();
+
+            _onProgress?.Invoke($"[FEHLER] Pipeline abgebrochen: {ex.GetType().Name}: {ex.Message}");
+
+            // Write partial audit sidecar so rollback is possible even after crash
             WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
 
             return result.Build();

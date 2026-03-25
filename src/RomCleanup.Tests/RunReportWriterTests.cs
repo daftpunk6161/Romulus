@@ -23,7 +23,7 @@ public class RunReportWriterTests
             GroupCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -62,7 +62,7 @@ public class RunReportWriterTests
             LoserCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -89,7 +89,7 @@ public class RunReportWriterTests
             LoserCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -118,7 +118,7 @@ public class RunReportWriterTests
             LoserCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,
@@ -147,7 +147,7 @@ public class RunReportWriterTests
             WinnerCount = 0,
             LoserCount = 0,
             GroupCount = 0,
-            DedupeGroups = Array.Empty<DedupeResult>(),
+            DedupeGroups = Array.Empty<DedupeGroup>(),
             AllCandidates = new[] { game },
             DurationMs = 100,
             ConvertedCount = 1
@@ -167,7 +167,7 @@ public class RunReportWriterTests
         var result = new RunResult
         {
             TotalFilesScanned = 2,
-            DedupeGroups = Array.Empty<DedupeResult>(),
+            DedupeGroups = Array.Empty<DedupeGroup>(),
             AllCandidates = new[] { game, junk }
         };
 
@@ -189,7 +189,7 @@ public class RunReportWriterTests
             TotalFilesScanned = 3,
             DedupeGroups = new[]
             {
-                new DedupeResult { GameKey = "game", Winner = winner, Losers = new[] { loser } }
+                new DedupeGroup { GameKey = "game", Winner = winner, Losers = new[] { loser } }
             },
             AllCandidates = new[] { winner, loser, extra }
         };

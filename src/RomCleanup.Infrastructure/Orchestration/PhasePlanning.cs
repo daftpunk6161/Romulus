@@ -31,8 +31,8 @@ public sealed class PipelineState
 {
     public IReadOnlyList<RomCandidate>? AllCandidates { get; private set; }
     public IReadOnlyList<RomCandidate>? ProcessingCandidates { get; private set; }
-    public IReadOnlyList<DedupeResult>? AllGroups { get; private set; }
-    public IReadOnlyList<DedupeResult>? GameGroups { get; private set; }
+    public IReadOnlyList<DedupeGroup>? AllGroups { get; private set; }
+    public IReadOnlyList<DedupeGroup>? GameGroups { get; private set; }
     public IReadOnlySet<string>? JunkRemovedPaths { get; private set; }
     public DatAuditResult? DatAuditResult { get; private set; }
     public DatRenameResult? DatRenameResult { get; private set; }
@@ -46,7 +46,7 @@ public sealed class PipelineState
         ProcessingCandidates = processingCandidates;
     }
 
-    public void SetDedupeOutput(IReadOnlyList<DedupeResult> allGroups, IReadOnlyList<DedupeResult> gameGroups)
+    public void SetDedupeOutput(IReadOnlyList<DedupeGroup> allGroups, IReadOnlyList<DedupeGroup> gameGroups)
     {
         if (AllGroups is not null || GameGroups is not null)
             throw new InvalidOperationException("Dedupe output was already assigned.");
@@ -88,8 +88,8 @@ public sealed record ScanPhaseResult(
     int FilteredNonGameCount);
 
 public sealed record DedupePhaseResult(
-    IReadOnlyList<DedupeResult> AllGroups,
-    IReadOnlyList<DedupeResult> GameGroups,
+    IReadOnlyList<DedupeGroup> AllGroups,
+    IReadOnlyList<DedupeGroup> GameGroups,
     int LoserCount);
 
 public sealed record JunkPhaseResult(
@@ -107,106 +107,21 @@ public sealed class StandardPhaseStepActions
     public required Func<PipelineState, CancellationToken, PhaseStepResult> WinnerConversion { get; init; }
 }
 
-public sealed class DatAuditPhaseStep : IPhaseStep
+/// <summary>
+/// Generic action-based phase step that eliminates boilerplate wrapper classes.
+/// Replaces the former per-phase classes (DatAuditPhaseStep, DeduplicatePhaseStep, etc.).
+/// </summary>
+public sealed class ActionPhaseStep : IPhaseStep
 {
     private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
 
-    public DatAuditPhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
+    public ActionPhaseStep(string name, Func<PipelineState, CancellationToken, PhaseStepResult> execute)
     {
+        Name = name;
         _execute = execute;
     }
 
-    public string Name => "DatAudit";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class DeduplicatePhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public DeduplicatePhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "Deduplicate";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class JunkRemovalPhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public JunkRemovalPhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "JunkRemoval";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class MovePhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public MovePhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "Move";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class DatRenamePhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public DatRenamePhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "DatRename";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class ConsoleSortPhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public ConsoleSortPhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "ConsoleSort";
-
-    public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
-        => _execute(state, cancellationToken);
-}
-
-public sealed class WinnerConversionPhaseStep : IPhaseStep
-{
-    private readonly Func<PipelineState, CancellationToken, PhaseStepResult> _execute;
-
-    public WinnerConversionPhaseStep(Func<PipelineState, CancellationToken, PhaseStepResult> execute)
-    {
-        _execute = execute;
-    }
-
-    public string Name => "WinnerConversion";
+    public string Name { get; }
 
     public PhaseStepResult Execute(PipelineState state, CancellationToken cancellationToken)
         => _execute(state, cancellationToken);
@@ -219,22 +134,22 @@ public sealed class PhasePlanBuilder : IPhasePlanBuilder
         var phases = new List<IPhaseStep>();
 
         if (options.EnableDatAudit && actions.DatAudit is not null)
-            phases.Add(new DatAuditPhaseStep(actions.DatAudit));
+            phases.Add(new ActionPhaseStep("DatAudit", actions.DatAudit));
 
-        phases.Add(new DeduplicatePhaseStep(actions.Deduplicate));
-        phases.Add(new JunkRemovalPhaseStep(actions.JunkRemoval));
+        phases.Add(new ActionPhaseStep("Deduplicate", actions.Deduplicate));
+        phases.Add(new ActionPhaseStep("JunkRemoval", actions.JunkRemoval));
 
         if (options.EnableDatRename && options.Mode == "Move" && actions.DatRename is not null)
-            phases.Add(new DatRenamePhaseStep(actions.DatRename));
+            phases.Add(new ActionPhaseStep("DatRename", actions.DatRename));
 
         if (options.Mode == "Move")
-            phases.Add(new MovePhaseStep(actions.Move));
+            phases.Add(new ActionPhaseStep("Move", actions.Move));
 
         if (options.SortConsole && options.Mode == "Move")
-            phases.Add(new ConsoleSortPhaseStep(actions.ConsoleSort));
+            phases.Add(new ActionPhaseStep("ConsoleSort", actions.ConsoleSort));
 
         if (options.ConvertFormat is not null && options.Mode == "Move")
-            phases.Add(new WinnerConversionPhaseStep(actions.WinnerConversion));
+            phases.Add(new ActionPhaseStep("WinnerConversion", actions.WinnerConversion));
 
         return phases;
     }

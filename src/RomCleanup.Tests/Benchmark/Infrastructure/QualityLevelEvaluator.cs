@@ -1,3 +1,5 @@
+using RomCleanup.Contracts.Models;
+
 namespace RomCleanup.Tests.Benchmark.Infrastructure;
 
 /// <summary>
@@ -98,7 +100,7 @@ internal static class QualityLevelEvaluator
                 or BenchmarkVerdict.TrueNegative or BenchmarkVerdict.JunkClassified);
         int correctBlock = results.Count(r =>
             r.Verdict == BenchmarkVerdict.Missed &&
-            r.ActualSortDecision == RomCleanup.Core.Classification.SortDecision.Blocked);
+            r.ActualSortDecision == SortDecision.Blocked);
         int total = results.Count;
         int correct = correctSort + correctBlock;
         double rate = total == 0 ? 0 : 100.0 * correct / total;

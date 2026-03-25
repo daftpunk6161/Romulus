@@ -59,13 +59,13 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
 
         _vm.LastDedupeGroups =
         [
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "Super Mario World",
                 Winner = _vm.LastCandidates[0],
                 Losers = [_vm.LastCandidates[3]]
             },
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "Zelda",
                 Winner = _vm.LastCandidates[1],

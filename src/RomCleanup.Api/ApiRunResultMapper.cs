@@ -28,6 +28,9 @@ internal static class ApiRunResultMapper
             ConvertSkippedCount = projection.ConvertSkippedCount,
             ConvertBlockedCount = projection.ConvertBlockedCount,
             ConvertReviewCount = projection.ConvertReviewCount,
+            ConvertLossyWarningCount = projection.ConvertLossyWarningCount,
+            ConvertVerifyPassedCount = projection.ConvertVerifyPassedCount,
+            ConvertVerifyFailedCount = projection.ConvertVerifyFailedCount,
             ConvertSavedBytes = projection.ConvertSavedBytes,
             DatHaveCount = projection.DatHaveCount,
             DatHaveWrongNameCount = projection.DatHaveWrongNameCount,
@@ -86,7 +89,7 @@ internal static class ApiRunResultMapper
         };
     }
 
-    private static ApiDedupeGroup[] BuildDedupeGroupsPayload(IReadOnlyList<DedupeResult> dedupeGroups)
+    private static ApiDedupeGroup[] BuildDedupeGroupsPayload(IReadOnlyList<DedupeGroup> dedupeGroups)
     {
         if (dedupeGroups.Count == 0)
             return Array.Empty<ApiDedupeGroup>();

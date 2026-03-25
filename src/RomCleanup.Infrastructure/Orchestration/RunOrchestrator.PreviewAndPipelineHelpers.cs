@@ -296,7 +296,7 @@ public sealed partial class RunOrchestrator
     }
 
     private JunkPhaseResult ExecuteJunkPhaseIfEnabled(
-        IReadOnlyList<DedupeResult> groups,
+        IReadOnlyList<DedupeGroup> groups,
         RunOptions options,
         RunResultBuilder result,
         PhaseMetricsCollector metrics,
@@ -348,7 +348,7 @@ public sealed partial class RunOrchestrator
     }
 
     private void ExecuteWinnerConversionPhase(
-        IReadOnlyList<DedupeResult> gameGroups,
+        IReadOnlyList<DedupeGroup> gameGroups,
         RunOptions options,
         IReadOnlySet<string> junkRemovedPaths,
         RunResultBuilder result,

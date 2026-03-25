@@ -23,7 +23,7 @@ internal static class CliOutputWriter
     /// ConversionReport is the exception: provides per-file conversion details.
     /// </summary>
     internal static string FormatDryRunJson(RunProjection projection,
-        IReadOnlyList<DedupeResult> groups,
+        IReadOnlyList<DedupeGroup> groups,
         ConversionReport? conversionReport = null)
     {
         var output = new CliDryRunOutput
@@ -50,6 +50,9 @@ internal static class CliOutputWriter
             ConvertSkippedCount = projection.ConvertSkippedCount,
             ConvertBlockedCount = projection.ConvertBlockedCount,
             ConvertReviewCount = projection.ConvertReviewCount,
+            ConvertLossyWarningCount = projection.ConvertLossyWarningCount,
+            ConvertVerifyPassedCount = projection.ConvertVerifyPassedCount,
+            ConvertVerifyFailedCount = projection.ConvertVerifyFailedCount,
             ConvertSavedBytes = projection.ConvertSavedBytes,
             DatHaveCount = projection.DatHaveCount,
             DatHaveWrongNameCount = projection.DatHaveWrongNameCount,
@@ -217,6 +220,9 @@ internal sealed class CliDryRunOutput
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
     public int ConvertReviewCount { get; init; }
+    public int ConvertLossyWarningCount { get; init; }
+    public int ConvertVerifyPassedCount { get; init; }
+    public int ConvertVerifyFailedCount { get; init; }
     public long ConvertSavedBytes { get; init; }
     public int DatHaveCount { get; init; }
     public int DatHaveWrongNameCount { get; init; }

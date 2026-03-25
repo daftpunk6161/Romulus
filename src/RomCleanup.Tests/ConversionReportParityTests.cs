@@ -70,7 +70,7 @@ public sealed class ConversionReportParityTests
             ConvertSavedBytes = 1024,
             ConversionReport = report,
             AllCandidates = Array.Empty<RomCandidate>(),
-            DedupeGroups = Array.Empty<DedupeResult>()
+            DedupeGroups = Array.Empty<DedupeGroup>()
         };
     }
 
@@ -166,7 +166,7 @@ public sealed class ConversionReportParityTests
             Status = "ok",
             TotalFilesScanned = 3,
             AllCandidates = Array.Empty<RomCandidate>(),
-            DedupeGroups = Array.Empty<DedupeResult>()
+            DedupeGroups = Array.Empty<DedupeGroup>()
         };
         var projection = RunProjectionFactory.Create(result);
 
@@ -200,7 +200,7 @@ public sealed class ConversionReportParityTests
             Status = "ok",
             TotalFilesScanned = 1,
             AllCandidates = Array.Empty<RomCandidate>(),
-            DedupeGroups = Array.Empty<DedupeResult>()
+            DedupeGroups = Array.Empty<DedupeGroup>()
         };
         var projection = RunProjectionFactory.Create(result);
 

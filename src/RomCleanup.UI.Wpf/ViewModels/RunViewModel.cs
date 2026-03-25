@@ -35,8 +35,8 @@ public sealed class RunViewModel : ObservableObject
         set { _lastCandidates = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRunData)); }
     }
 
-    private ObservableCollection<DedupeResult> _lastDedupeGroups = [];
-    public ObservableCollection<DedupeResult> LastDedupeGroups
+    private ObservableCollection<DedupeGroup> _lastDedupeGroups = [];
+    public ObservableCollection<DedupeGroup> LastDedupeGroups
     {
         get => _lastDedupeGroups;
         set { _lastDedupeGroups = value; OnPropertyChanged(); }

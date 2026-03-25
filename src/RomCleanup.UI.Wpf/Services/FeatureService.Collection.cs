@@ -124,7 +124,7 @@ public static partial class FeatureService
     /// <summary>
     /// Build a cross-root duplicate report showing groups spanning multiple roots.
     /// </summary>
-    public static string BuildCrossRootReport(IReadOnlyList<DedupeResult> dedupeGroups, IReadOnlyList<string> roots)
+    public static string BuildCrossRootReport(IReadOnlyList<DedupeGroup> dedupeGroups, IReadOnlyList<string> roots)
     {
         var normalizedRoots = roots
             .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
@@ -136,7 +136,7 @@ public static partial class FeatureService
             return normalizedRoots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
         }
 
-        var crossRootGroups = new List<DedupeResult>();
+        var crossRootGroups = new List<DedupeGroup>();
         foreach (var g in dedupeGroups)
         {
             var allPaths = new[] { g.Winner }.Concat(g.Losers);

@@ -75,7 +75,7 @@ public sealed class JunkRemovalPipelinePhase : IPipelinePhase<JunkRemovalPhaseIn
 }
 
 public sealed record JunkRemovalPhaseInput(
-    IReadOnlyList<DedupeResult> Groups,
+    IReadOnlyList<DedupeGroup> Groups,
     RunOptions Options);
 
 public sealed record JunkRemovalPhaseOutput(

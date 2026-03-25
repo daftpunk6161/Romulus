@@ -315,7 +315,7 @@ public static partial class FeatureService
 
     /// <summary>Build report data for PDF/HTML export.</summary>
     public static (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
-        IReadOnlyList<RomCandidate> candidates, IReadOnlyList<DedupeResult> groups,
+        IReadOnlyList<RomCandidate> candidates, IReadOnlyList<DedupeGroup> groups,
         RunResult? runResult, bool dryRun)
     {
         var summary = new ReportSummary

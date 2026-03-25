@@ -49,7 +49,7 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "g",
             Winner = Candidate(Path.Combine(root, "winner.zip")),
@@ -95,7 +95,7 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "flush",
             Winner = Candidate(Path.Combine(root, "winner.zip")),
@@ -138,7 +138,7 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit-prime.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "prime",
             Winner = Candidate(Path.Combine(root, "winner.zip")),
@@ -174,7 +174,7 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             AuditPath = null
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "g",
             Winner = Candidate(Path.Combine(root, "winner.zip")),

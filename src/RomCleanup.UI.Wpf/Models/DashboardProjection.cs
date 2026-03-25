@@ -131,7 +131,7 @@ public sealed record DashboardProjection(
         }).ToList();
     }
 
-    private static IReadOnlyList<DedupeGroupItem> BuildDedupeGroupItems(IReadOnlyList<RomCleanup.Contracts.Models.DedupeResult> groups)
+    private static IReadOnlyList<DedupeGroupItem> BuildDedupeGroupItems(IReadOnlyList<RomCleanup.Contracts.Models.DedupeGroup> groups)
     {
         return groups
             .Take(200)

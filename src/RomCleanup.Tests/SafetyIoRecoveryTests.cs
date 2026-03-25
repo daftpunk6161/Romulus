@@ -182,7 +182,7 @@ public sealed class SafetyIoRecoveryTests : IDisposable
             SizeBytes = 100
         };
 
-        var group = new DedupeResult { Winner = junkCandidate, Losers = new List<RomCandidate>(), GameKey = "junk" };
+        var group = new DedupeGroup { Winner = junkCandidate, Losers = new List<RomCandidate>(), GameKey = "junk" };
         var input = new JunkRemovalPhaseInput(
             new[] { group },
             new RunOptions
@@ -229,7 +229,7 @@ public sealed class SafetyIoRecoveryTests : IDisposable
             SizeBytes = 100
         };
 
-        var group = new DedupeResult { Winner = junkCandidate, Losers = new List<RomCandidate>(), GameKey = "junk" };
+        var group = new DedupeGroup { Winner = junkCandidate, Losers = new List<RomCandidate>(), GameKey = "junk" };
         var input = new JunkRemovalPhaseInput(
             new[] { group },
             new RunOptions
@@ -392,7 +392,7 @@ public sealed class SafetyIoRecoveryTests : IDisposable
             SizeBytes = 200
         };
 
-        var group = new DedupeResult { Winner = winner, Losers = new List<RomCandidate> { loser }, GameKey = "game" };
+        var group = new DedupeGroup { Winner = winner, Losers = new List<RomCandidate> { loser }, GameKey = "game" };
         var options = new RunOptions
         {
             Roots = new List<string> { root },

@@ -26,7 +26,7 @@ public sealed class ConversionMetricsPipelineTests
             ConvertReviewCount = reviewCount,
             ConvertSavedBytes = savedBytes,
             AllCandidates = Array.Empty<RomCandidate>(),
-            DedupeGroups = Array.Empty<DedupeResult>()
+            DedupeGroups = Array.Empty<DedupeGroup>()
         };
     }
 
@@ -85,7 +85,7 @@ public sealed class ConversionMetricsPipelineTests
         var result = MakeRunResult(reviewCount: 3, savedBytes: 99999);
         var projection = RunProjectionFactory.Create(result);
 
-        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -125,7 +125,7 @@ public sealed class ConversionMetricsPipelineTests
             ConvertReviewCount = expectedReview,
             ConvertSavedBytes = expectedSavedBytes,
             AllCandidates = Array.Empty<RomCandidate>(),
-            DedupeGroups = Array.Empty<DedupeResult>()
+            DedupeGroups = Array.Empty<DedupeGroup>()
         };
         var result = builder.Build();
 
@@ -133,7 +133,7 @@ public sealed class ConversionMetricsPipelineTests
         var projection = RunProjectionFactory.Create(result);
 
         // 3) CLI
-        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 

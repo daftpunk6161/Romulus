@@ -125,7 +125,7 @@ public sealed partial class FeatureCommandService
             return roots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
         }
 
-        var crossRootGroups = new List<DedupeResult>();
+        var crossRootGroups = new List<DedupeGroup>();
         foreach (var g in _vm.LastDedupeGroups)
         {
             var allPaths = new[] { g.Winner }.Concat(g.Losers);

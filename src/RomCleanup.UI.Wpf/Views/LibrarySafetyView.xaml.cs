@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using RomCleanup.Contracts.Models;
 using RomCleanup.UI.Wpf.ViewModels;
 
 namespace RomCleanup.UI.Wpf.Views;
@@ -62,14 +63,11 @@ public partial class LibrarySafetyView : UserControl
 
             switch (c.SortDecision)
             {
-                case "Blocked":
+                case SortDecision.Blocked:
                     blocked.Add(item);
                     break;
-                case "Review":
+                case SortDecision.Review:
                     review.Add(item);
-                    break;
-                case "Unknown":
-                    unknown.Add(item);
                     break;
             }
         }

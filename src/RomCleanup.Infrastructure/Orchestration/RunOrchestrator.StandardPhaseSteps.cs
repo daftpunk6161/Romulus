@@ -58,7 +58,7 @@ public sealed partial class RunOrchestrator
         PhaseMetricsCollector metrics,
         CancellationToken cancellationToken)
     {
-        var removed = ExecuteJunkPhaseIfEnabled(state.AllGroups ?? Array.Empty<DedupeResult>(), options, result, metrics, cancellationToken);
+        var removed = ExecuteJunkPhaseIfEnabled(state.AllGroups ?? Array.Empty<DedupeGroup>(), options, result, metrics, cancellationToken);
         state.SetJunkPaths(removed.RemovedPaths);
         return PhaseStepResult.Ok(removed.RemovedPaths.Count, removed);
     }
@@ -74,7 +74,7 @@ public sealed partial class RunOrchestrator
             return PhaseStepResult.Skipped();
 
         metrics.StartPhase("Move");
-        var groups = state.GameGroups ?? Array.Empty<DedupeResult>();
+        var groups = state.GameGroups ?? Array.Empty<DedupeGroup>();
         var totalLosers = groups.Sum(g => g.Losers.Count);
         _onProgress?.Invoke($"[Move] Verschiebe {totalLosers} Duplikate in Trash…");
 
@@ -164,12 +164,12 @@ public sealed partial class RunOrchestrator
 
                 // Pass through the actual console key for all decisions
                 enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
-                enrichedSortDecisions[c.MainPath] = c.SortDecision ?? "Blocked";
+                enrichedSortDecisions[c.MainPath] = c.SortDecision.ToString();
 
                 // Non-game categories are blocked
                 if (c.Category != FileCategory.Game)
                 {
-                    enrichedSortDecisions[c.MainPath] = "Blocked";
+                    enrichedSortDecisions[c.MainPath] = SortDecision.Blocked.ToString();
                 }
             }
         }
@@ -197,7 +197,7 @@ public sealed partial class RunOrchestrator
             return PhaseStepResult.Skipped();
 
         ExecuteWinnerConversionPhase(
-            state.GameGroups ?? Array.Empty<DedupeResult>(),
+            state.GameGroups ?? Array.Empty<DedupeGroup>(),
             options,
             state.JunkRemovedPaths ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             result,

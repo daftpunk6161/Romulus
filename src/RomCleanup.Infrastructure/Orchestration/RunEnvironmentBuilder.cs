@@ -102,6 +102,28 @@ public sealed class RunEnvironmentBuilder
     }
 
     /// <summary>
+    /// Load settings with an optional explicit override path (TASK-161).
+    /// When settingsOverridePath is provided and exists, it is used instead of %APPDATA% user settings.
+    /// When settingsOverridePath is provided but does not exist, only defaults are loaded (no %APPDATA% fallback).
+    /// This allows the API to decouple from per-user %APPDATA% settings on server deployments.
+    /// </summary>
+    public static RomCleanupSettings LoadSettings(string dataDir, string? settingsOverridePath)
+    {
+        if (settingsOverridePath is null)
+            return LoadSettings(dataDir);
+
+        var defaultsPath = Path.Combine(dataDir, "defaults.json");
+        var defaults = File.Exists(defaultsPath) ? defaultsPath : null;
+
+        // When an explicit override is given, skip %APPDATA% entirely
+        if (File.Exists(settingsOverridePath))
+            return SettingsLoader.LoadWithExplicitUserPath(defaults, settingsOverridePath);
+
+        // Override path given but file doesn't exist → defaults-only (no %APPDATA%)
+        return SettingsLoader.LoadDefaultsOnly(defaults);
+    }
+
+    /// <summary>
     /// Build complete environment for a run.
     /// </summary>
     public static RunEnvironment Build(RunOptions runOptions, RomCleanupSettings settings,
@@ -142,7 +164,8 @@ public sealed class RunEnvironmentBuilder
                     conversionPlanner = new ConversionPlanner(
                         conversionRegistry,
                         toolRunner.FindTool,
-                        path => new FileInfo(path).Length);
+                        path => new FileInfo(path).Length,
+                        PbpEncryptionDetector.IsEncrypted);
                 }
             }
             catch (Exception ex)

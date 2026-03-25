@@ -716,7 +716,7 @@ public class TddRedPhaseHardcoreTests : IDisposable
 
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 Winner = winner,
                 Losers = new[] { outsideLoser },
@@ -916,7 +916,7 @@ public class TddRedPhaseHardcoreTests : IDisposable
     /// INVARIANT: Wenn Core-Deduplication-Ergebnisse an GUI, CLI und API geliefert
     /// werden, müssen GroupCount, WinnerCount, LoserCount identisch sein.
     /// WARUM ROT: Reports werden in drei Entry Points unterschiedlich aufbereitet.
-    /// Wenn ein Entry Point die Counts aus DedupeResult anders zählt, divergieren sie.
+    /// Wenn ein Entry Point die Counts aus DedupeGroup anders zählt, divergieren sie.
     /// BETRIFFT: RunResult, RunProjectionFactory, CLI Output, API Response
     /// TESTABILITY-FINDING: GUI-ViewModel-Projektion müsste ohne Window testbar sein (~ist es via GuiViewModelTests).
     /// </summary>

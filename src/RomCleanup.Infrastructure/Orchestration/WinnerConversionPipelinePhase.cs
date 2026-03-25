@@ -136,7 +136,7 @@ public sealed class WinnerConversionPipelinePhase : IPipelinePhase<WinnerConvers
 }
 
 public sealed record WinnerConversionPhaseInput(
-    IReadOnlyList<DedupeResult> GameGroups,
+    IReadOnlyList<DedupeGroup> GameGroups,
     RunOptions Options,
     IReadOnlySet<string> JunkRemovedPaths,
     IFormatConverter Converter);

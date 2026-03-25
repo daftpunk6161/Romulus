@@ -1681,7 +1681,7 @@ public sealed class HardGuiInvariantTests
             AllCandidates = CreateDummyCandidates(3),
             DedupeGroups =
             [
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "g1",
                     Winner = CreateDummyCandidates(1)[0],

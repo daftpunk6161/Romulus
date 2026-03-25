@@ -131,7 +131,7 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
             FilteredNonGameCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "g",
                     Winner = Candidate("winner.zip", "g", "US", 1000, FileCategory.Game),
@@ -210,7 +210,7 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             GameKey = "g",
             Winner = Candidate(Path.Combine(root, "winner.zip"), "g", "US", 1000, FileCategory.Game),
@@ -305,7 +305,7 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
             EnableDat = true,
             DatRoot = root,
             HashType = "sha1",
-            ConvertFormat = "chd",
+            ConvertFormat = "auto",
             ConvertOnly = false,
             ConflictPolicy = "Rename",
             TrashRoot = Path.Combine(root, "trash")

@@ -18,4 +18,7 @@ public interface IConversionRegistry
 
     /// <summary>Returns optional alternative target extensions for a console key.</summary>
     IReadOnlyList<string> GetAlternativeTargets(string consoleKey);
+
+    /// <summary>Returns externalized compression ratio estimates keyed by "source_target" (e.g. "bin_chd").</summary>
+    IReadOnlyDictionary<string, double> GetCompressionEstimates() => new Dictionary<string, double>();
 }

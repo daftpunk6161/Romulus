@@ -1,4 +1,4 @@
-using RomCleanup.Core.Classification;
+using RomCleanup.Contracts.Models;
 
 namespace RomCleanup.Tests.Benchmark;
 

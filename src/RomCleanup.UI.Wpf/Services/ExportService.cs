@@ -27,7 +27,7 @@ public sealed class ExportService : IExportService
 
     public (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
         IReadOnlyList<RomCandidate> candidates,
-        IReadOnlyList<DedupeResult> groups,
+        IReadOnlyList<DedupeGroup> groups,
         RunResult? runResult, bool dryRun)
         => FeatureService.BuildPdfReportData(candidates, groups, runResult, dryRun);
 }

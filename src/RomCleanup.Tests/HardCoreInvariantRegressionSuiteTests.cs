@@ -557,7 +557,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             ConsoleKey = "PS2",
             Extension = ".iso"
         };
-        var group = new DedupeResult { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "game" };
+        var group = new DedupeGroup { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "game" };
         var options = new RunOptions { Roots = new[] { root }, Mode = "Move" };
 
         var phase = new WinnerConversionPipelinePhase();
@@ -588,7 +588,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             ConsoleKey = "PS2",
             Extension = ".iso"
         };
-        var group = new DedupeResult { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "game" };
+        var group = new DedupeGroup { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "game" };
         var options = new RunOptions { Roots = new[] { root }, Mode = "Move" };
 
         var phase = new WinnerConversionPipelinePhase();
@@ -643,7 +643,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             ConsoleKey = "PS2",
             Extension = ".iso"
         };
-        var group = new DedupeResult { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "broken" };
+        var group = new DedupeGroup { Winner = candidate, Losers = Array.Empty<RomCandidate>(), GameKey = "broken" };
         var options = new RunOptions { Roots = new[] { root }, Mode = "Move" };
 
         var phase = new WinnerConversionPipelinePhase();
@@ -671,7 +671,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
 
         var loser = new RomCandidate { MainPath = outside, Category = FileCategory.Game, GameKey = "g", SizeBytes = 5 };
         var winner = new RomCandidate { MainPath = CreateFileAt(insideRoot, "winner.zip", 6), Category = FileCategory.Game, GameKey = "g", SizeBytes = 6 };
-        var group = new DedupeResult { Winner = winner, Losers = new[] { loser }, GameKey = "g" };
+        var group = new DedupeGroup { Winner = winner, Losers = new[] { loser }, GameKey = "g" };
 
         var options = new RunOptions { Roots = new[] { insideRoot }, Mode = "Move" };
         var move = new MovePipelinePhase();
@@ -825,7 +825,7 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
             new MovePipelinePhase().Execute(
                 new MovePhaseInput(new[]
                 {
-                    new DedupeResult
+                    new DedupeGroup
                     {
                         Winner = new RomCandidate { MainPath = "winner.zip", GameKey = "g", Category = FileCategory.Game },
                         Losers = new[] { new RomCandidate { MainPath = "loser.zip", GameKey = "g", Category = FileCategory.Game } },

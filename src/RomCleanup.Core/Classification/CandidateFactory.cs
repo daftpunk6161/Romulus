@@ -61,7 +61,7 @@ public static class CandidateFactory
             DetectionConflict = detectionConflict,
             HasHardEvidence = hasHardEvidence,
             IsSoftOnly = isSoftOnly,
-            SortDecision = sortDecision.ToString()
+            SortDecision = sortDecision
         };
     }
 }

@@ -56,7 +56,7 @@ public static class DeduplicationEngine
     /// V2-H12: Uses dictionary-based grouping instead of LINQ GroupBy+OrderBy+ToList
     /// to reduce intermediate allocations for large candidate sets.
     /// </summary>
-    public static IReadOnlyList<DedupeResult> Deduplicate(
+    public static IReadOnlyList<DedupeGroup> Deduplicate(
         IReadOnlyList<RomCandidate> candidates)
     {
         // Build groups with a single pass over candidates
@@ -75,7 +75,7 @@ public static class DeduplicationEngine
         // Sort keys for deterministic output order
         var sortedKeys = groupDict.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
 
-        var results = new List<DedupeResult>(sortedKeys.Count);
+        var results = new List<DedupeGroup>(sortedKeys.Count);
         foreach (var key in sortedKeys)
         {
             var items = groupDict[key];
@@ -101,7 +101,7 @@ public static class DeduplicationEngine
                     .ToList();
             }
 
-            results.Add(new DedupeResult
+            results.Add(new DedupeGroup
             {
                 Winner = winner,
                 Losers = losers,
@@ -113,7 +113,7 @@ public static class DeduplicationEngine
             results.Select(r => r.Winner.MainPath),
             StringComparer.OrdinalIgnoreCase);
 
-        var sanitized = new List<DedupeResult>(results.Count);
+        var sanitized = new List<DedupeGroup>(results.Count);
         foreach (var result in results)
         {
             var filteredLosers = result.Losers
@@ -122,7 +122,7 @@ public static class DeduplicationEngine
                     || string.Equals(l.MainPath, result.Winner.MainPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            sanitized.Add(new DedupeResult
+            sanitized.Add(new DedupeGroup
             {
                 Winner = result.Winner,
                 Losers = filteredLosers,

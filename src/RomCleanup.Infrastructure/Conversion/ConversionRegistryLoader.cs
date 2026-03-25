@@ -13,6 +13,7 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
     private readonly IReadOnlyDictionary<string, ConversionPolicy> _policies;
     private readonly IReadOnlyDictionary<string, string?> _preferredTargets;
     private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _alternativeTargets;
+    private readonly IReadOnlyDictionary<string, double> _compressionEstimates;
 
     public ConversionRegistryLoader(string conversionRegistryPath, string consolesJsonPath)
     {
@@ -21,7 +22,9 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
         if (string.IsNullOrWhiteSpace(consolesJsonPath))
             throw new ArgumentException("Path must not be empty.", nameof(consolesJsonPath));
 
-        _capabilities = LoadCapabilities(conversionRegistryPath);
+        var (capabilities, compressionEstimates) = LoadCapabilities(conversionRegistryPath);
+        _capabilities = capabilities;
+        _compressionEstimates = compressionEstimates;
 
         var (policies, preferred, alternatives, knownKeys) = LoadConsolePolicies(consolesJsonPath);
         _policies = policies;
@@ -63,14 +66,16 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
             : Array.Empty<string>();
     }
 
-    private static IReadOnlyList<ConversionCapability> LoadCapabilities(string path)
+    public IReadOnlyDictionary<string, double> GetCompressionEstimates() => _compressionEstimates;
+
+    private static (IReadOnlyList<ConversionCapability>, IReadOnlyDictionary<string, double>) LoadCapabilities(string path)
     {
         using var stream = File.OpenRead(path);
         using var doc = JsonDocument.Parse(stream);
 
         ValidateAllowedProperties(
             doc.RootElement,
-            ["schemaVersion", "capabilities"],
+            ["schemaVersion", "capabilities", "compressionEstimates"],
             "conversion-registry root");
 
         _ = ReadRequiredString(doc.RootElement, "schemaVersion");
@@ -87,7 +92,19 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
             capabilities.Add(ParseCapability(item));
         }
 
-        return capabilities;
+        // TASK-055: Load externalized compression estimates
+        var estimates = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (doc.RootElement.TryGetProperty("compressionEstimates", out var estimatesElement)
+            && estimatesElement.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in estimatesElement.EnumerateObject())
+            {
+                if (prop.Value.ValueKind == JsonValueKind.Number)
+                    estimates[prop.Name] = prop.Value.GetDouble();
+            }
+        }
+
+        return (capabilities, estimates);
     }
 
     private static ConversionCapability ParseCapability(JsonElement item)

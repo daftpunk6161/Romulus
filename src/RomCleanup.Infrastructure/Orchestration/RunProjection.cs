@@ -24,6 +24,9 @@ public sealed record RunProjection(
     int ConvertSkippedCount,
     int ConvertBlockedCount,
     int ConvertReviewCount,
+    int ConvertLossyWarningCount,
+    int ConvertVerifyPassedCount,
+    int ConvertVerifyFailedCount,
     long ConvertSavedBytes,
     int DatHaveCount,
     int DatHaveWrongNameCount,
@@ -54,7 +57,7 @@ public static class RunProjectionFactory
     {
         var candidates = result.AllCandidates ?? Array.Empty<Contracts.Models.RomCandidate>();
         var total = result.TotalFilesScanned;
-        var dedupeGroups = result.DedupeGroups ?? Array.Empty<DedupeResult>();
+        var dedupeGroups = result.DedupeGroups ?? Array.Empty<DedupeGroup>();
         var winnerCount = result.WinnerCount > 0 ? result.WinnerCount : dedupeGroups.Count;
         var loserCount = result.LoserCount > 0
             ? result.LoserCount
@@ -100,6 +103,9 @@ public static class RunProjectionFactory
             ConvertSkippedCount: result.ConvertSkippedCount,
             ConvertBlockedCount: result.ConvertBlockedCount,
             ConvertReviewCount: result.ConvertReviewCount,
+            ConvertLossyWarningCount: result.ConvertLossyWarningCount,
+            ConvertVerifyPassedCount: result.ConvertVerifyPassedCount,
+            ConvertVerifyFailedCount: result.ConvertVerifyFailedCount,
             ConvertSavedBytes: result.ConvertSavedBytes,
             DatHaveCount: result.DatHaveCount,
             DatHaveWrongNameCount: result.DatHaveWrongNameCount,

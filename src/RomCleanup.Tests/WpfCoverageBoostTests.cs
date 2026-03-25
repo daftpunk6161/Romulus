@@ -140,7 +140,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "Game A",
                 Winner = new RomCandidate { MainPath = "a1.sfc", GameKey = "Game A", Region = "EU", Extension = ".sfc" },
@@ -190,7 +190,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "Game",
                 Winner = new RomCandidate { MainPath = "a.sfc", GameKey = "Game", Region = "EU", Extension = ".sfc", SizeBytes = 1024 },
@@ -210,7 +210,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "Game",
                 Winner = new RomCandidate { MainPath = "a.sfc", GameKey = "Game", Region = "EU", Extension = ".sfc", SizeBytes = 1_000_000 },
@@ -236,12 +236,12 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var groups = new[]
         {
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "A", Winner = new RomCandidate { MainPath = @"root\SNES\a.sfc", Region = "EU" },
                 Losers = [new RomCandidate { MainPath = @"root\SNES\b.sfc", Region = "US" }]
             },
-            new DedupeResult
+            new DedupeGroup
             {
                 GameKey = "B", Winner = new RomCandidate { MainPath = @"root\NES\c.nes", Region = "JP" },
                 Losers = []

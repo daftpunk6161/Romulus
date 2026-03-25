@@ -69,6 +69,21 @@ public sealed class DolphinToolInvoker(IToolRunner tools) : IToolInvoker
         if (!info.Exists || info.Length < 4)
             return VerificationStatus.VerifyFailed;
 
+        // TASK-053: Prefer structural verification via `dolphintool verify` when available.
+        var toolPath = _tools.FindTool("dolphintool");
+        if (!string.IsNullOrWhiteSpace(toolPath))
+        {
+            try
+            {
+                var result = _tools.InvokeProcess(toolPath, ["verify", "-i", targetPath], "dolphintool verify");
+                if (result.Success)
+                    return VerificationStatus.Verified;
+                return VerificationStatus.VerifyFailed;
+            }
+            catch (IOException) { /* fall through to magic byte check */ }
+        }
+
+        // Fallback: RVZ magic byte check when dolphintool is not available.
         try
         {
             using var fs = File.OpenRead(targetPath);

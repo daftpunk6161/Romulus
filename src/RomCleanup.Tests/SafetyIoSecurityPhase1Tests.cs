@@ -509,7 +509,7 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
             Category = FileCategory.Game,
             GameKey = "TestGame"
         };
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             Winner = loser,
             Losers = [loser],
@@ -571,7 +571,7 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
             Category = FileCategory.Game,
             GameKey = "TestGame"
         };
-        var group = new DedupeResult
+        var group = new DedupeGroup
         {
             Winner = loser,
             Losers = [loser],

@@ -1225,7 +1225,7 @@ public sealed class DetectionPipelineTests
 
         Assert.True(candidate.HasHardEvidence);
         Assert.False(candidate.IsSoftOnly);
-        Assert.Equal("Sort", candidate.SortDecision);
+        Assert.Equal(SortDecision.Sort, candidate.SortDecision);
     }
 
     [Fact]
@@ -1250,7 +1250,7 @@ public sealed class DetectionPipelineTests
         // Defaults
         Assert.False(candidate.HasHardEvidence);
         Assert.True(candidate.IsSoftOnly);
-        Assert.Equal("Blocked", candidate.SortDecision);
+        Assert.Equal(SortDecision.Blocked, candidate.SortDecision);
     }
 
     #endregion
@@ -1267,13 +1267,13 @@ public sealed class DetectionPipelineTests
         // Simulate the gate logic from RunOrchestrator.StandardPhaseSteps
         var candidates = new[]
         {
-            new RomCandidate { MainPath = "/a.nes", ConsoleKey = "NES", Category = FileCategory.Game, SortDecision = "Sort" },
-            new RomCandidate { MainPath = "/b.gba", ConsoleKey = "GBA", Category = FileCategory.Game, SortDecision = "DatVerified" },
-            new RomCandidate { MainPath = "/c.bin", ConsoleKey = "MD", Category = FileCategory.Game, SortDecision = "Review" },
-            new RomCandidate { MainPath = "/d.bin", ConsoleKey = "PS1", Category = FileCategory.Game, SortDecision = "Blocked" },
-            new RomCandidate { MainPath = "/e.bin", ConsoleKey = "UNKNOWN", Category = FileCategory.Game, SortDecision = "Blocked" },
-            new RomCandidate { MainPath = "/f.bin", ConsoleKey = "AMBIGUOUS", Category = FileCategory.Game, SortDecision = "Blocked" },
-            new RomCandidate { MainPath = "/g.bin", ConsoleKey = "NES", Category = FileCategory.Junk, SortDecision = "Sort" },
+            new RomCandidate { MainPath = "/a.nes", ConsoleKey = "NES", Category = FileCategory.Game, SortDecision = SortDecision.Sort },
+            new RomCandidate { MainPath = "/b.gba", ConsoleKey = "GBA", Category = FileCategory.Game, SortDecision = SortDecision.DatVerified },
+            new RomCandidate { MainPath = "/c.bin", ConsoleKey = "MD", Category = FileCategory.Game, SortDecision = SortDecision.Review },
+            new RomCandidate { MainPath = "/d.bin", ConsoleKey = "PS1", Category = FileCategory.Game, SortDecision = SortDecision.Blocked },
+            new RomCandidate { MainPath = "/e.bin", ConsoleKey = "UNKNOWN", Category = FileCategory.Game, SortDecision = SortDecision.Blocked },
+            new RomCandidate { MainPath = "/f.bin", ConsoleKey = "AMBIGUOUS", Category = FileCategory.Game, SortDecision = SortDecision.Blocked },
+            new RomCandidate { MainPath = "/g.bin", ConsoleKey = "NES", Category = FileCategory.Junk, SortDecision = SortDecision.Sort },
         };
 
         var sortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1289,7 +1289,7 @@ public sealed class DetectionPipelineTests
                 sortMap[c.MainPath] = "UNKNOWN";
                 continue;
             }
-            sortMap[c.MainPath] = c.SortDecision is "Sort" or "DatVerified" ? c.ConsoleKey : "UNKNOWN";
+            sortMap[c.MainPath] = c.SortDecision is SortDecision.Sort or SortDecision.DatVerified ? c.ConsoleKey : "UNKNOWN";
         }
 
         Assert.Equal("NES", sortMap["/a.nes"]);      // Sort → allowed

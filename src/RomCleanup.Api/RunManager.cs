@@ -324,6 +324,9 @@ public sealed class ApiRunResult
     public int ConvertSkippedCount { get; init; }
     public int ConvertBlockedCount { get; init; }
     public int ConvertReviewCount { get; init; }
+    public int ConvertLossyWarningCount { get; init; }
+    public int ConvertVerifyPassedCount { get; init; }
+    public int ConvertVerifyFailedCount { get; init; }
     public long ConvertSavedBytes { get; init; }
     public int DatHaveCount { get; init; }
     public int DatHaveWrongNameCount { get; init; }

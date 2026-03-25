@@ -44,7 +44,7 @@ public class RunProjectionFactoryTests
             LoserCount = 1,
             DedupeGroups = new[]
             {
-                new DedupeResult
+                new DedupeGroup
                 {
                     GameKey = "game",
                     Winner = winner,

@@ -29,6 +29,10 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
             sidecarPrimed = true;
         }
 
+        // TASK-168: Build set-membership map so descriptor moves include their members.
+        // This prevents orphaned BIN/TRACK files when their CUE/GDI/CCD is moved to trash.
+        var alreadyMovedAsSetMember = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         var totalLosers = input.Groups.Sum(g => g.Losers.Count);
         var processedLosers = 0;
 
@@ -91,6 +95,16 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     context.AuditStore.Flush(input.Options.AuditPath!);
                 }
 
+                // TASK-168: Resolve set members BEFORE moving the descriptor,
+                // because CueSetParser/GdiSetParser read the descriptor file to find members.
+                // After the move, the descriptor is gone from the original path and parsing would fail.
+                IReadOnlyList<string> setMembers = Array.Empty<string>();
+                var ext = Path.GetExtension(loser.MainPath);
+                if (!string.IsNullOrEmpty(ext))
+                {
+                    setMembers = PipelinePhaseHelpers.GetSetMembers(loser.MainPath, ext.ToLowerInvariant());
+                }
+
                 var actualDest = context.FileSystem.MoveItemSafely(loser.MainPath, destPath);
                 if (actualDest is not null)
                 {
@@ -103,6 +117,45 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                         context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, loser.MainPath, actualDest,
                             "Move", loser.Category.ToString().ToUpperInvariant(), "", "region-dedupe");
                     }
+
+                    // TASK-168: Co-move set members (BIN/TRACK files) when their descriptor (CUE/GDI/CCD/M3U) is moved.
+                    // This prevents orphaned members from being left behind in the source directory.
+                    foreach (var member in setMembers)
+                        {
+                            if (alreadyMovedAsSetMember.Contains(member) || !File.Exists(member))
+                                continue;
+
+                            var memberFileName = Path.GetFileName(member);
+                            var memberDest = context.FileSystem.ResolveChildPathWithinRoot(
+                                trashBase, Path.Combine("_TRASH_REGION_DEDUPE", memberFileName));
+
+                            if (memberDest is null) continue;
+
+                            if (hasAuditPath)
+                            {
+                                context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, member, memberDest,
+                                    "MOVE_PENDING", "SET_MEMBER", "", "region-dedupe:set-member:write-ahead");
+                                context.AuditStore.Flush(input.Options.AuditPath!);
+                            }
+
+                            var memberActual = context.FileSystem.MoveItemSafely(member, memberDest);
+                            if (memberActual is not null)
+                            {
+                                alreadyMovedAsSetMember.Add(member);
+                                moveCount++;
+
+                                if (hasAuditPath)
+                                {
+                                    context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, member, memberActual,
+                                        "Move", "SET_MEMBER", "", "region-dedupe:set-member");
+                                }
+                            }
+                            else if (hasAuditPath)
+                            {
+                                context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, member, memberDest,
+                                    "MOVE_FAILED", "SET_MEMBER", "", "region-dedupe:set-member:move-failed");
+                            }
+                        }
 
                     if (moveCount % 10 == 0 && hasAuditPath)
                     {
@@ -149,5 +202,5 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
 }
 
 public sealed record MovePhaseInput(
-    IReadOnlyList<DedupeResult> Groups,
+    IReadOnlyList<DedupeGroup> Groups,
     RunOptions Options);

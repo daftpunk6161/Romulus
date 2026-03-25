@@ -236,11 +236,11 @@ public sealed class AuditComplianceTests : IDisposable
             };
         }).ToList();
 
-        var dedupeResult = DeduplicationEngine.Deduplicate(candidates);
+        var DedupeGroup = DeduplicationEngine.Deduplicate(candidates);
 
         // Both should pick the same winner
-        Assert.Single(dedupeResult);
-        Assert.Equal(mergeAdvice.Keep.Path, dedupeResult[0].Winner.MainPath);
+        Assert.Single(DedupeGroup);
+        Assert.Equal(mergeAdvice.Keep.Path, DedupeGroup[0].Winner.MainPath);
     }
 
     /// <summary>
@@ -300,7 +300,7 @@ public sealed class AuditComplianceTests : IDisposable
         // Additional edge cases with heatmap detection:
         var shortResult = FeatureService.GetDuplicateHeatmap(
         [
-            new DedupeResult
+            new DedupeGroup
             {
                 Winner = new RomCandidate { MainPath = "game.zip" },
                 Losers = []
@@ -310,7 +310,7 @@ public sealed class AuditComplianceTests : IDisposable
 
         var longPathResult = FeatureService.GetDuplicateHeatmap(
         [
-            new DedupeResult
+            new DedupeGroup
             {
                 Winner = new RomCandidate { MainPath = @"a\b\c\d\e\f\g\h\i\j\game.zip" },
                 Losers = []
@@ -1595,25 +1595,45 @@ public sealed class AuditComplianceTests : IDisposable
     /// </summary>
     private static string FindUiProjectDir([System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
     {
-        // Try walking up from BaseDirectory (normal case: bin/Debug/net10.0-windows)
-        var dir = AppDomain.CurrentDomain.BaseDirectory;
-        while (dir is not null)
+        var repoRoot = FindRepoRoot(callerPath);
+        var candidate = Path.Combine(repoRoot, "src", "RomCleanup.UI.Wpf");
+        if (Directory.Exists(candidate))
+            return candidate;
+
+        return Path.Combine("src", "RomCleanup.UI.Wpf");
+    }
+
+    private static string FindRepoRoot(string? callerPath)
+    {
+        // Prefer compile-time source location to avoid archived/duplicate files.
+        if (!string.IsNullOrWhiteSpace(callerPath))
         {
-            var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf");
-            if (Directory.Exists(candidate)) return candidate;
-            dir = Path.GetDirectoryName(dir);
-        }
-        // Fallback: derive workspace root from compile-time source file path
-        if (callerPath is not null)
-        {
-            dir = Path.GetDirectoryName(callerPath);
+            var dir = Path.GetDirectoryName(callerPath);
             while (dir is not null)
             {
-                var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf");
-                if (Directory.Exists(candidate)) return candidate;
+                if (File.Exists(Path.Combine(dir, "src", "RomCleanup.sln")) ||
+                    File.Exists(Path.Combine(dir, "src", "RomCleanup.UI.Wpf", "RomCleanup.UI.Wpf.csproj")))
+                {
+                    return dir;
+                }
+
                 dir = Path.GetDirectoryName(dir);
             }
         }
-        return Path.Combine("src", "RomCleanup.UI.Wpf");
+
+        // Fallback for hosts that do not expose a stable caller path.
+        var probe = AppDomain.CurrentDomain.BaseDirectory;
+        while (probe is not null)
+        {
+            if (File.Exists(Path.Combine(probe, "src", "RomCleanup.sln")) ||
+                File.Exists(Path.Combine(probe, "src", "RomCleanup.UI.Wpf", "RomCleanup.UI.Wpf.csproj")))
+            {
+                return probe;
+            }
+
+            probe = Path.GetDirectoryName(probe);
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 }

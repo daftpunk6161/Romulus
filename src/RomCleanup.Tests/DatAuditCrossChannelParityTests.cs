@@ -39,7 +39,7 @@ public sealed class DatAuditCrossChannelParityTests
         var result = CreateRunResult();
         var projection = RunProjectionFactory.Create(result);
 
-        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -56,7 +56,7 @@ public sealed class DatAuditCrossChannelParityTests
         var result = CreateRunResult();
         var projection = RunProjectionFactory.Create(result);
 
-        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -73,7 +73,7 @@ public sealed class DatAuditCrossChannelParityTests
         var result = new RunResult();
         var projection = RunProjectionFactory.Create(result);
 
-        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var json = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -208,7 +208,7 @@ public sealed class DatAuditCrossChannelParityTests
         var projection = RunProjectionFactory.Create(result);
 
         // CLI
-        var cliJson = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeResult>());
+        var cliJson = CliOutputWriter.FormatDryRunJson(projection, Array.Empty<DedupeGroup>());
         using var cliDoc = JsonDocument.Parse(cliJson);
         var cli = cliDoc.RootElement;
 

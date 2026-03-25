@@ -4,7 +4,7 @@ namespace RomCleanup.Contracts.Models;
 /// Represents a candidate ROM item for deduplication scoring.
 /// Maps to the SetItem/FileItem hashtable contracts in Sets.ps1.
 /// </summary>
-public sealed class RomCandidate
+public sealed record RomCandidate
 {
     public string MainPath { get; init; } = "";
     public string GameKey { get; init; } = "";
@@ -40,13 +40,13 @@ public sealed class RomCandidate
     public bool IsSoftOnly { get; init; } = true;
 
     /// <summary>The computed sort gate decision from the detection pipeline.</summary>
-    public string SortDecision { get; init; } = "Blocked";
+    public SortDecision SortDecision { get; init; } = SortDecision.Blocked;
 }
 
 /// <summary>
 /// Result of a region deduplication run.
 /// </summary>
-public sealed class DedupeResult
+public sealed record DedupeGroup
 {
     public RomCandidate Winner { get; init; } = null!;
     public IReadOnlyList<RomCandidate> Losers { get; init; } = Array.Empty<RomCandidate>();

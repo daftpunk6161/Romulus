@@ -1,3 +1,5 @@
+using RomCleanup.Contracts.Models;
+
 namespace RomCleanup.Core.Classification;
 
 /// <summary>
