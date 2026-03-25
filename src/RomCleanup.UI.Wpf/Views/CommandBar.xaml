@@ -119,25 +119,45 @@
         <Rectangle Width="1" Height="20" Fill="{DynamicResource BrushBorder}"
                    VerticalAlignment="Center" Margin="10,0"/>
 
-        <!-- Phase Indicator (5-step pipeline dots) -->
+        <!-- Phase Indicator (5-step pipeline dots with labels) -->
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="Phase:" Foreground="{DynamicResource BrushTextMuted}"
                      FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-          <Ellipse Width="8" Height="8" Margin="0,0,4,0"
-                   Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=0}"
-                   ToolTip="Configure"/>
-          <Ellipse Width="8" Height="8" Margin="0,0,4,0"
-                   Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=1}"
-                   ToolTip="Preview"/>
-          <Ellipse Width="8" Height="8" Margin="0,0,4,0"
-                   Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=2}"
-                   ToolTip="Review"/>
-          <Ellipse Width="8" Height="8" Margin="0,0,4,0"
-                   Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=3}"
-                   ToolTip="Execute"/>
-          <Ellipse Width="8" Height="8"
-                   Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=4}"
-                   ToolTip="Report"/>
+          <StackPanel Margin="0,0,6,0">
+            <Ellipse Width="8" Height="8" HorizontalAlignment="Center"
+                     Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=0}"
+                     ToolTip="Configure"/>
+            <TextBlock Text="Config" FontSize="7" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextMuted}"/>
+          </StackPanel>
+          <StackPanel Margin="0,0,6,0">
+            <Ellipse Width="8" Height="8" HorizontalAlignment="Center"
+                     Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=1}"
+                     ToolTip="Preview"/>
+            <TextBlock Text="Preview" FontSize="7" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextMuted}"/>
+          </StackPanel>
+          <StackPanel Margin="0,0,6,0">
+            <Ellipse Width="8" Height="8" HorizontalAlignment="Center"
+                     Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=2}"
+                     ToolTip="Review"/>
+            <TextBlock Text="Review" FontSize="7" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextMuted}"/>
+          </StackPanel>
+          <StackPanel Margin="0,0,6,0">
+            <Ellipse Width="8" Height="8" HorizontalAlignment="Center"
+                     Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=3}"
+                     ToolTip="Execute"/>
+            <TextBlock Text="Execute" FontSize="7" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextMuted}"/>
+          </StackPanel>
+          <StackPanel>
+            <Ellipse Width="8" Height="8" HorizontalAlignment="Center"
+                     Fill="{Binding PipelinePhase, Converter={StaticResource PhaseBrush}, ConverterParameter=4}"
+                     ToolTip="Report"/>
+            <TextBlock Text="Report" FontSize="7" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextMuted}"/>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
     </DockPanel>

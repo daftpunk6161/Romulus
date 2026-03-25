@@ -35,7 +35,7 @@ internal sealed class ScaleDatasetGenerator
 
     private static readonly string[] Difficulties = ["easy", "easy", "easy", "medium", "medium", "hard"];
 
-    public string OutputPath => Path.Combine(BenchmarkPaths.BenchmarkDir, "generated", "performance-scale.jsonl");
+    public string OutputPath => Path.Combine(BenchmarkPaths.GroundTruthDir, "performance-scale.jsonl");
 
     /// <summary>
     /// Generates a specified number of synthetic entries for scale testing.
@@ -44,6 +44,7 @@ internal sealed class ScaleDatasetGenerator
     {
         var entries = new List<GroundTruthEntry>(count);
         var random = new Random(42); // Deterministic seed
+        var perSystemSeq = new Dictionary<string, int>(StringComparer.Ordinal);
 
         for (int i = 1; i <= count; i++)
         {
@@ -53,10 +54,14 @@ internal sealed class ScaleDatasetGenerator
             string ext = GetExtensionForSystem(system);
             string gameName = $"Scale Test Game {i:D5} ({region})";
 
+            perSystemSeq.TryGetValue(system, out int sysSeq);
+            sysSeq++;
+            perSystemSeq[system] = sysSeq;
+
             string? stubGen = GetStubForSystem(system);
             var entry = new GroundTruthEntry
             {
-                Id = $"ps-{system}-scale-{i:D5}",
+                Id = $"ps-{system}-scale-{sysSeq:D4}",
                 Source = new SourceInfo
                 {
                     FileName = $"{gameName}{ext}",
@@ -74,7 +79,7 @@ internal sealed class ScaleDatasetGenerator
                 },
                 DetectionExpectations = new DetectionExpectations
                 {
-                    PrimaryMethod = "Header"
+                    PrimaryMethod = GetPrimaryMethodForSystem(system)
                 },
                 Notes = $"Auto-generated scale entry #{i}"
             };
@@ -165,5 +170,22 @@ internal sealed class ScaleDatasetGenerator
         "LYNX" => "lynx-header",
         "A78" => "a7800-header",
         _ => "ext-only"
+    };
+
+    private static string GetPrimaryMethodForSystem(string system) => system switch
+    {
+        "NES" or "SNES" or "N64" or "GBA" or "GB" or "GBC" or "MD" or "32X"
+            or "SMS" or "GG" or "PCE" or "LYNX" or "A78" or "A26" or "NDS"
+            or "3DS" or "NGP" or "WS" or "WSC" or "COLECO" or "INTV" or "VB"
+            or "VECTREX" or "A52" or "SWITCH"
+            => "CartridgeHeader",
+        "PS1" or "PS2" or "SAT" or "DC" or "GC" or "WII" or "3DO"
+            or "NEOCD" or "SCD" or "PCECD" or "PCFX" or "PSP"
+            => "DiscHeader",
+        "ATARIST" or "C64" or "MSX" or "AMIGA" or "DOS" or "ZX"
+            => "UniqueExtension",
+        "ARCADE" or "NEOGEO"
+            => "FolderName",
+        _ => "Heuristic"
     };
 }

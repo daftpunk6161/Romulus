@@ -21,11 +21,13 @@ public sealed class HeaderRepairService : IHeaderRepairService
 
         try
         {
-            using var fs = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
             var header = new byte[16];
-            var read = fs.Read(header, 0, header.Length);
-            if (read < 16)
-                return false;
+            using (var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                var read = fs.Read(header, 0, header.Length);
+                if (read < 16)
+                    return false;
+            }
 
             if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 || header[3] != 0x1A)
                 return false;
@@ -43,12 +45,17 @@ public sealed class HeaderRepairService : IHeaderRepairService
             if (!dirty)
                 return false;
 
+            // Crash-safe: write repaired version to .tmp, then rename
             _fileSystem.CopyFile(path, path + ".bak", overwrite: true);
 
-            fs.Seek(12, SeekOrigin.Begin);
-            var zeroBytes = new byte[] { 0x00, 0x00, 0x00, 0x00 };
-            fs.Write(zeroBytes, 0, zeroBytes.Length);
-            fs.Flush();
+            var tmpPath = path + ".tmp";
+            var data = File.ReadAllBytes(path);
+            data[12] = 0x00;
+            data[13] = 0x00;
+            data[14] = 0x00;
+            data[15] = 0x00;
+            File.WriteAllBytes(tmpPath, data);
+            File.Move(tmpPath, path, overwrite: true);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -73,7 +80,11 @@ public sealed class HeaderRepairService : IHeaderRepairService
             var data = File.ReadAllBytes(path);
             var stripped = new byte[data.Length - 512];
             Array.Copy(data, 512, stripped, 0, stripped.Length);
-            File.WriteAllBytes(path, stripped);
+
+            // Crash-safe: write to .tmp, then rename
+            var tmpPath = path + ".tmp";
+            File.WriteAllBytes(tmpPath, stripped);
+            File.Move(tmpPath, path, overwrite: true);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

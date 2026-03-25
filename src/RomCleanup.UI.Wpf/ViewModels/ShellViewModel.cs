@@ -111,6 +111,14 @@ public sealed class ShellViewModel : ObservableObject
         set => SetProperty(ref _showContextWing, value);
     }
 
+    // ═══ NAV COMPACT MODE (TASK-113: responsive breakpoint) ═════════════
+    private bool _isCompactNav;
+    public bool IsCompactNav
+    {
+        get => _isCompactNav;
+        set => SetProperty(ref _isCompactNav, value);
+    }
+
     // ═══ GUI-063: NAVIGATION HISTORY ════════════════════════════════════
     private readonly Stack<int> _navBack = new();
     private readonly Stack<int> _navForward = new();

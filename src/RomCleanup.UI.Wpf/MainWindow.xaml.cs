@@ -15,6 +15,7 @@ public partial class MainWindow : Window, IWindowHost
 {
     private const double ContextPanelMinWindowWidth = 1200;
     private const double ContextPanelDefaultWidth = 280;
+    private const double NavCompactBreakpoint = 960;
 
     private readonly MainViewModel _vm;
     private readonly ISettingsService _settings;
@@ -94,6 +95,7 @@ public partial class MainWindow : Window, IWindowHost
     private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdateContextPanelWidth();
+        _vm.Shell.IsCompactNav = ActualWidth < NavCompactBreakpoint;
     }
 
     private void UpdateContextPanelWidth()

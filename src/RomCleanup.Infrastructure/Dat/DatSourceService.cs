@@ -149,8 +149,8 @@ public sealed class DatSourceService : IDisposable
             }
 
             // Find first .dat or .xml file in extracted contents
-            var datFile = Directory.GetFiles(tempExtract, "*.dat", SearchOption.AllDirectories).FirstOrDefault()
-                       ?? Directory.GetFiles(tempExtract, "*.xml", SearchOption.AllDirectories).FirstOrDefault();
+            var datFile = Directory.GetFiles(tempExtract, "*.dat", SearchOption.AllDirectories).Order(StringComparer.Ordinal).FirstOrDefault()
+                       ?? Directory.GetFiles(tempExtract, "*.xml", SearchOption.AllDirectories).Order(StringComparer.Ordinal).FirstOrDefault();
             if (datFile is null)
                 return null;
 
@@ -327,6 +327,7 @@ public sealed class DatSourceService : IDisposable
         var sourceFiles = Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories)
             .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
                      || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.Ordinal)
             .ToList();
 
         int imported = 0;

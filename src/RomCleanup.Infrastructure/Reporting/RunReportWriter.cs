@@ -9,8 +9,9 @@ namespace RomCleanup.Infrastructure.Reporting;
 /// </summary>
 public static class RunReportWriter
 {
-    public static IReadOnlyList<ReportEntry> BuildEntries(RunResult result)
+    public static IReadOnlyList<ReportEntry> BuildEntries(RunResult result, string mode = "Move")
     {
+        var isDryRun = string.Equals(mode, "DryRun", StringComparison.OrdinalIgnoreCase);
         var entries = new List<ReportEntry>();
         var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -39,7 +40,7 @@ public static class RunReportWriter
                 entries.Add(new ReportEntry
                 {
                     GameKey = group.GameKey,
-                        Action = loser.Category == FileCategory.Junk ? "JUNK" : "MOVE",
+                        Action = loser.Category == FileCategory.Junk ? "JUNK" : (isDryRun ? "DUPE" : "MOVE"),
                         Category = ToReportCategory(loser.Category),
                     Region = loser.Region,
                     FilePath = loser.MainPath,
@@ -96,7 +97,7 @@ public static class RunReportWriter
 
     public static ReportSummary BuildSummary(RunResult result, string mode)
     {
-        var entries = BuildEntries(result);
+        var entries = BuildEntries(result, mode);
         var projection = RunProjectionFactory.Create(result);
         var moveCount = string.Equals(mode, "DryRun", StringComparison.OrdinalIgnoreCase)
             ? projection.Dupes
@@ -165,7 +166,7 @@ public static class RunReportWriter
     public static string WriteReport(string reportPath, RunResult result, string mode)
     {
         var fullPath = Path.GetFullPath(reportPath);
-        var entries = BuildEntries(result);
+        var entries = BuildEntries(result, mode);
         var summary = BuildSummary(result, mode);
         var reportDir = Path.GetDirectoryName(fullPath)
             ?? throw new InvalidOperationException($"Report path has no directory: {reportPath}");

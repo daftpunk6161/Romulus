@@ -47,11 +47,11 @@ public sealed partial class MainViewModel
                     try
                     {
                         SaveSettings();
-                        AddLog("Einstellungen automatisch gespeichert.", "DEBUG");
+                        AddLog(_loc["Log.SettingsAutoSaved"], "DEBUG");
                     }
                     catch (Exception ex)
                     {
-                        AddLog($"Auto-Save fehlgeschlagen: {ex.Message}", "WARN");
+                        AddLog(_loc.Format("Log.AutoSaveFailed", ex.Message), "WARN");
                     }
                 });
             },
@@ -61,7 +61,7 @@ public sealed partial class MainViewModel
     }
     // ═══ PATH PROPERTIES (persisted) ════════════════════════════════════
     private string _trashRoot = "";
-    public string TrashRoot { get => _trashRoot; set { if (SetProperty(ref _trashRoot, value)) ValidateDirectoryPath(value, nameof(TrashRoot)); } }
+    public string TrashRoot { get => _trashRoot; set { if (SetProperty(ref _trashRoot, value)) { ValidateDirectoryPath(value, nameof(TrashRoot)); SyncToSetup(nameof(TrashRoot), value); } } }
 
     private string _datRoot = "";
     public string DatRoot
@@ -86,7 +86,7 @@ public sealed partial class MainViewModel
 
     // ═══ TOOL PATHS (persisted) ═════════════════════════════════════════
     private string _toolChdman = "";
-    public string ToolChdman { get => _toolChdman; set { if (SetProperty(ref _toolChdman, value)) { ValidateToolPath(value, nameof(ToolChdman)); RefreshStatus(); } } }
+    public string ToolChdman { get => _toolChdman; set { if (SetProperty(ref _toolChdman, value)) { ValidateToolPath(value, nameof(ToolChdman)); RefreshStatus(); SyncToSetup(nameof(ToolChdman), value); } } }
 
     private string _toolDolphin = "";
     public string ToolDolphin { get => _toolDolphin; set { if (SetProperty(ref _toolDolphin, value)) { ValidateToolPath(value, nameof(ToolDolphin)); RefreshStatus(); } } }
@@ -335,6 +335,23 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>TASK-117: Move a region from one index to another (Drag &amp; Drop reorder).
+    /// Only enabled items within the enabled section may be reordered.</summary>
+    public void MoveRegionTo(int fromIndex, int toIndex)
+    {
+        if (fromIndex == toIndex) return;
+        if (fromIndex < 0 || fromIndex >= RegionPriorities.Count) return;
+        if (toIndex < 0 || toIndex >= RegionPriorities.Count) return;
+
+        var item = RegionPriorities[fromIndex];
+        if (!item.IsEnabled) return;
+        if (!RegionPriorities[toIndex].IsEnabled) return;
+
+        RegionPriorities.Move(fromIndex, toIndex);
+        RenumberRegions();
+        SyncRegionBooleans();
+    }
+
     [RelayCommand]
     private void MoveRegionUp(RegionPriorityItem? item)
     {
@@ -545,7 +562,7 @@ public sealed partial class MainViewModel
 
     private void OnBrowseToolPath(string? parameter)
     {
-        var path = _dialog.BrowseFile("Executable auswählen", "Executables (*.exe)|*.exe|Alle (*.*)|*.*");
+        var path = _dialog.BrowseFile(_loc["Dialog.BrowseFile.ExeTitle"], "Executables (*.exe)|*.exe|Alle (*.*)|*.*");
         if (path is null) return;
         switch (parameter)
         {
@@ -560,7 +577,7 @@ public sealed partial class MainViewModel
 
     private void OnBrowseFolderPath(string? parameter)
     {
-        var path = _dialog.BrowseFolder("Ordner auswählen");
+        var path = _dialog.BrowseFolder(_loc["Dialog.BrowseFolder.FolderTitle"]);
         if (path is null) return;
         switch (parameter)
         {
@@ -602,16 +619,56 @@ public sealed partial class MainViewModel
     private void OnSaveSettings()
     {
         if (TrySaveSettings())
-            AddLog("Einstellungen gespeichert.", "INFO");
+            AddLog(_loc["Log.SettingsSaved"], "INFO");
         else
-            AddLog("Einstellungen konnten nicht gespeichert werden.", "ERROR");
+            AddLog(_loc["Log.SettingsSaveFailed"], "ERROR");
+    }
+
+    // ═══ SETTINGS SYNC (TASK-123) ═══════════════════════════════════════
+
+    private bool _syncingSettings;
+
+    /// <summary>Push a property value from MainViewModel to Setup (avoids infinite loop).</summary>
+    private void SyncToSetup(string propertyName, string value)
+    {
+        if (_syncingSettings) return;
+        _syncingSettings = true;
+        try
+        {
+            var prop = Setup.GetType().GetProperty(propertyName);
+            if (prop is not null && prop.PropertyType == typeof(string))
+            {
+                var current = (string?)prop.GetValue(Setup);
+                if (!string.Equals(current, value, StringComparison.Ordinal))
+                    prop.SetValue(Setup, value);
+            }
+        }
+        finally { _syncingSettings = false; }
+    }
+
+    /// <summary>Pull changed property from Setup back to MainViewModel.</summary>
+    private void OnSetupPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_syncingSettings || e.PropertyName is null) return;
+        var prop = GetType().GetProperty(e.PropertyName);
+        var setupProp = Setup.GetType().GetProperty(e.PropertyName);
+        if (prop is null || setupProp is null || prop.PropertyType != typeof(string)) return;
+
+        var setupValue = (string?)setupProp.GetValue(Setup) ?? "";
+        var localValue = (string?)prop.GetValue(this) ?? "";
+        if (!string.Equals(setupValue, localValue, StringComparison.Ordinal))
+        {
+            _syncingSettings = true;
+            try { prop.SetValue(this, setupValue); }
+            finally { _syncingSettings = false; }
+        }
     }
 
     private void OnLoadSettings()
     {
         _settings.LoadInto(this);
         RefreshStatus();
-        AddLog("Einstellungen geladen.", "INFO");
+        AddLog(_loc["Log.SettingsLoaded"], "INFO");
     }
 
     /// <summary>Load settings into VM on startup (called from code-behind OnLoaded).</summary>
@@ -784,7 +841,7 @@ public sealed partial class MainViewModel
     {
         if (string.IsNullOrWhiteSpace(DatRoot) || !Directory.Exists(DatRoot))
         {
-            AddLog("DAT-Ordner nicht gefunden. Bitte DAT-Ordner zuerst setzen.", "WARN");
+            AddLog(_loc["Log.DatDirNotFound"], "WARN");
             return;
         }
 
@@ -794,7 +851,7 @@ public sealed partial class MainViewModel
         var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
         if (!File.Exists(catalogPath))
         {
-            AddLog("dat-catalog.json nicht gefunden.", "WARN");
+            AddLog(_loc["Log.DatCatalogNotFound"], "WARN");
             return;
         }
 
@@ -823,7 +880,7 @@ public sealed partial class MainViewModel
 
             if (datFiles.Count == 0)
             {
-                AddLog("Keine DAT-Dateien im DAT-Ordner gefunden.", "WARN");
+                AddLog(_loc["Log.DatNoDatFiles"], "WARN");
                 return;
             }
 

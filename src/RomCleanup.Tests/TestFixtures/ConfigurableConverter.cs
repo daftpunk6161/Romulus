@@ -23,7 +23,7 @@ internal sealed class ConfigurableConverter : IFormatConverter
 
     public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
         => _results.TryGetValue(sourcePath, out var r) ? r
-            : new ConversionResult { Success = true, TargetPath = Path.ChangeExtension(sourcePath, target.TargetFormat) };
+            : new ConversionResult(sourcePath, Path.ChangeExtension(sourcePath, target.Extension), ConversionOutcome.Success);
 
     public bool Verify(string targetPath, ConversionTarget target) => VerifyAlwaysSucceeds;
 }

@@ -83,7 +83,7 @@ public static class RunProjectionFactory
         var consoleSortReviewed = result.ConsoleSortResult?.Reviewed ?? 0;
         var consoleSortBlocked = result.ConsoleSortResult?.Blocked ?? 0;
 
-        var health = HealthScorer.GetHealthScore(total, loserCount, junk, datMatches);
+        var health = HealthScorer.GetHealthScore(total, loserCount, junk, datMatches, errors: failCount);
 
         return new RunProjection(
             Status: result.Status,

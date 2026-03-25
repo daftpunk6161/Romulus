@@ -278,7 +278,7 @@ public sealed class InsightsEngine
                     GameKey = g.Key,
                     RootCount = distinctRoots.Count,
                     CandidateCount = g.Count(),
-                    WinnerPath = g.First().Path,
+                    WinnerPath = g.OrderBy(x => x.Path, StringComparer.Ordinal).First().Path,
                     Roots = distinctRoots,
                     RootsSummary = string.Join(", ", distinctRoots.Select(r => Path.GetFileName(r)))
                 };

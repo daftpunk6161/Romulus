@@ -101,51 +101,90 @@ public sealed partial class MainViewModel
     public bool CanStartMoveWithCurrentPreview =>
         !IsBusy &&
         Roots.Count > 0 &&
-        _runState == RunState.CompletedDryRun &&
+        Run.CurrentRunState == RunState.CompletedDryRun &&
         string.Equals(_lastSuccessfulPreviewFingerprint, BuildPreviewConfigurationFingerprint(), StringComparison.Ordinal);
 
     public string MoveApplyGateText => CanStartMoveWithCurrentPreview
-        ? "Änderungen anwenden ist freigeschaltet: Diese Konfiguration wurde bereits als Vorschau geprüft."
+        ? _loc["Run.MoveApplyGate.Unlocked"]
         : string.IsNullOrEmpty(_lastSuccessfulPreviewFingerprint)
-            ? "Änderungen anwenden ist gesperrt: Führe zuerst eine Vorschau für die aktuelle Konfiguration aus."
-            : "Änderungen anwenden ist gesperrt: Die Konfiguration wurde seit der letzten Vorschau geändert. Bitte Vorschau erneut ausführen.";
+            ? _loc["Run.MoveApplyGate.LockedNoPrev"]
+            : _loc["Run.MoveApplyGate.LockedChanged"];
+
+    /// <summary>
+    /// TASK-176: Visible banner when config changed after DryRun.
+    /// Shows when: preview fingerprint exists AND current config doesn't match.
+    /// </summary>
+    public bool ShowConfigChangedBanner =>
+        !string.IsNullOrEmpty(_lastSuccessfulPreviewFingerprint) &&
+        !string.Equals(_lastSuccessfulPreviewFingerprint, BuildPreviewConfigurationFingerprint(), StringComparison.Ordinal);
 
     public bool IsMovePhaseApplicable => !DryRun && !ConvertOnly;
     public bool IsConvertPhaseApplicable => ConvertOnly || (!DryRun && ConvertEnabled);
 
-    // ═══ RUN STATE (UX-002: explicit state machine) ════════════════════
-    private RunState _runState = RunState.Idle;
+    // ═══ RUN STATE — delegated to RunViewModel (TASK-122 / ADR-0006) ══
+    // RunState is owned exclusively by RunViewModel.
+    // MainViewModel exposes delegation properties for XAML binding compatibility.
+
     public RunState CurrentRunState
     {
-        get => _runState;
-        set
-        {
-            if (!IsValidTransition(_runState, value))
-                throw new InvalidOperationException(
-                    $"RF-007: Invalid RunState transition {_runState} → {value}");
-
-            if (SetProperty(ref _runState, value))
-            {
-                OnPropertyChanged(nameof(IsBusy));
-                OnPropertyChanged(nameof(IsIdle));
-                OnPropertyChanged(nameof(ShowStartMoveButton));
-                OnPropertyChanged(nameof(HasRunResult));
-                DeferCommandRequery();
-            }
-        }
+        get => Run.CurrentRunState;
+        set => Run.CurrentRunState = value;
     }
 
     /// <summary>RF-007: Checks whether the state transition is valid.</summary>
     internal static bool IsValidTransition(RunState from, RunState to)
         => RunStateMachine.IsValidTransition(from, to);
 
-    public bool IsBusy => _runState is RunState.Preflight or RunState.Scanning
-        or RunState.Deduplicating or RunState.Sorting or RunState.Moving or RunState.Converting;
-    public bool IsIdle => !IsBusy;
+    public bool IsBusy => Run.IsBusy;
+    public bool IsIdle => Run.IsIdle;
 
     public bool ShowStartMoveButton => CanStartMoveWithCurrentPreview;
 
-    public bool HasRunResult => _runState is RunState.Completed or RunState.CompletedDryRun;
+    public bool HasRunResult => Run.HasRunResult;
+
+    /// <summary>TASK-115: Localized display text for the current RunState (SmartActionBar status).</summary>
+    public string RunStateDisplayText => Run.CurrentRunState switch
+    {
+        RunState.Idle           => _loc["State.Idle"],
+        RunState.Preflight      => _loc["Phase.Preflight"],
+        RunState.Scanning       => _loc["Phase.Scan"],
+        RunState.Deduplicating  => _loc["Phase.Dedupe"],
+        RunState.Sorting        => _loc["Phase.Sort"],
+        RunState.Moving         => _loc["Phase.Move"],
+        RunState.Converting     => _loc["Phase.Convert"],
+        RunState.Completed      => _loc["State.Completed"],
+        RunState.CompletedDryRun => _loc["State.CompletedDryRun"],
+        RunState.Failed         => _loc["State.Failed"],
+        RunState.Cancelled      => _loc["State.Cancelled"],
+        _                       => Run.CurrentRunState.ToString(),
+    };
+
+    /// <summary>TASK-122: Forward RunViewModel property changes to MainViewModel for XAML bindings.</summary>
+    private static readonly HashSet<string> _forwardedRunProperties =
+    [
+        nameof(CurrentRunState), nameof(IsBusy), nameof(IsIdle),
+        nameof(HasRunResult), nameof(ShowStartMoveButton)
+    ];
+
+    private void OnRunPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is null) return;
+
+        if (_forwardedRunProperties.Contains(e.PropertyName))
+        {
+            OnPropertyChanged(e.PropertyName);
+        }
+
+        // RunState changes also affect derived MainViewModel-only properties
+        if (e.PropertyName == nameof(CurrentRunState))
+        {
+            OnPropertyChanged(nameof(RunStateDisplayText));
+            OnPropertyChanged(nameof(ShowStartMoveButton));
+            OnPropertyChanged(nameof(CanStartCurrentRun));
+            OnPropertyChanged(nameof(CanStartMoveWithCurrentPreview));
+            DeferCommandRequery();
+        }
+    }
 
     /// <summary>GUI-065: True when no roots are configured (for StartView hero drop-zone).</summary>
     public bool HasNoRoots => Roots.Count == 0;
@@ -211,10 +250,10 @@ public sealed partial class MainViewModel
     private string _progressText = "";
     public string ProgressText { get => _progressText; set => SetProperty(ref _progressText, value); }
 
-    private string _perfPhase = "Phase: –";
+    private string _perfPhase = "–";
     public string PerfPhase { get => _perfPhase; set => SetProperty(ref _perfPhase, value); }
 
-    private string _perfFile = "Datei: –";
+    private string _perfFile = "–";
     public string PerfFile { get => _perfFile; set => SetProperty(ref _perfFile, value); }
 
     private string _busyHint = "";
@@ -272,19 +311,19 @@ public sealed partial class MainViewModel
     public string RollbackActionHint => Run.RollbackActionHint;
 
     // ═══ STATUS INDICATORS ══════════════════════════════════════════════
-    private string _statusRoots = "Roots: –";
+    private string _statusRoots = "–";
     public string StatusRoots { get => _statusRoots; set => SetProperty(ref _statusRoots, value); }
 
-    private string _statusTools = "Tools: –";
+    private string _statusTools = "–";
     public string StatusTools { get => _statusTools; set => SetProperty(ref _statusTools, value); }
 
-    private string _statusDat = "DAT: –";
+    private string _statusDat = "–";
     public string StatusDat { get => _statusDat; set => SetProperty(ref _statusDat, value); }
 
-    private string _statusReady = "Status: –";
+    private string _statusReady = "–";
     public string StatusReady { get => _statusReady; set => SetProperty(ref _statusReady, value); }
 
-    private string _statusRuntime = "Laufzeit: –";
+    private string _statusRuntime = "–";
     public string StatusRuntime { get => _statusRuntime; set => SetProperty(ref _statusRuntime, value); }
 
     private StatusLevel _rootsStatusLevel = StatusLevel.Missing;
@@ -345,34 +384,34 @@ public sealed partial class MainViewModel
     public string GetPhaseDetail(int phase) => phase switch
     {
         1 => HasRunResult && LastRunResult is { } r
-            ? $"Preflight: {(r.Preflight?.ShouldReturn != true ? "✓ OK" : $"✗ Blockiert – {r.Preflight?.Reason}")}"
-            : "Preflight: Konfiguration und Pfade prüfen",
+            ? $"Preflight: {(r.Preflight?.ShouldReturn != true ? "✓ OK" : $"✗ {r.Preflight?.Reason}")}"
+            : _loc["Phase.Preflight.Desc"],
         2 => HasRunResult && LastRunResult is { } r2
-            ? $"Scan: {r2.TotalFilesScanned} Dateien gefunden"
-            : "Scan: ROM-Verzeichnisse durchsuchen",
+            ? $"Scan: {r2.TotalFilesScanned} {_loc["Step.Scanning"]}"
+            : _loc["Phase.Scan.Desc"],
         3 => HasRunResult && LastRunResult is { } r3
-            ? $"Dedupe: {r3.WinnerCount} behalten, {r3.LoserCount} Duplikate"
-            : "Dedupe: Duplikate erkennen und beste Version wählen",
-        4 => "Sort: Dateien nach Konsole gruppieren",
-        5 when !IsMovePhaseApplicable => "Move: In diesem Modus übersprungen",
+            ? $"Dedupe: {r3.WinnerCount} / {r3.LoserCount}"
+            : _loc["Phase.Dedupe.Desc"],
+        4 => _loc["Phase.Sort.Desc"],
+        5 when !IsMovePhaseApplicable => _loc["Phase.Move.Skipped"],
         5 => HasRunResult && LastRunResult?.MoveResult is { } mv
-            ? $"Move: {mv.MoveCount} verschoben, {mv.FailCount} Fehler"
-            : "Move: Duplikate in Papierkorb verschieben",
-        6 when !IsConvertPhaseApplicable => "Convert: In diesem Modus übersprungen",
+            ? $"Move: {mv.MoveCount} / {mv.FailCount}"
+            : _loc["Phase.Move.Desc"],
+        6 when !IsConvertPhaseApplicable => _loc["Phase.Convert.Skipped"],
         6 => HasRunResult && LastRunResult is { } r6 && r6.ConvertedCount > 0
-            ? $"Convert: {r6.ConvertedCount} Dateien konvertiert"
-            : "Convert: Formate optimieren (CHD/RVZ/ZIP)",
-        7 => HasRunResult ? $"Fertig – Dauer: {DashDuration}" : "Fertig: Ergebnis und Report",
+            ? $"Convert: {r6.ConvertedCount}"
+            : _loc["Phase.Convert.Desc"],
+        7 => HasRunResult ? $"{_loc["Step.Completed"]} – {DashDuration}" : _loc["Phase.Done.Desc"],
         _ => ""
     };
 
-    private string _stepLabel1 = "Keine Ordner";
+    private string _stepLabel1 = "";
     public string StepLabel1 { get => _stepLabel1; set => SetProperty(ref _stepLabel1, value); }
 
-    private string _stepLabel2 = "Bereit";
+    private string _stepLabel2 = "";
     public string StepLabel2 { get => _stepLabel2; set => SetProperty(ref _stepLabel2, value); }
 
-    private string _stepLabel3 = "F5 drücken";
+    private string _stepLabel3 = "";
     public string StepLabel3 { get => _stepLabel3; set => SetProperty(ref _stepLabel3, value); }
 
     // ═══ RUN COMMAND HANDLERS ═══════════════════════════════════════════
@@ -383,14 +422,14 @@ public sealed partial class MainViewModel
         var message =
             $"{MoveConsequenceText}\n\n"
             + $"Roots: {string.Join(", ", Roots)}\n"
-            + $"Gewinner: {DashWinners} | Duplikate: {DashDupes} | Junk: {DashJunk}\n\n"
-            + "Diese Aktion verschiebt Dateien in den Papierkorb-Ordner und ist nur über Rollback rückgängig zu machen.";
+            + $"{DashWinners} | {DashDupes} | {DashJunk}\n\n"
+            + _loc["Dialog.ConfirmMove.Warning"];
 
         return _dialog.DangerConfirm(
-            "Änderungen anwenden",
+            _loc["Dialog.ConfirmMove.Title"],
             message,
-            "VERSCHIEBEN",
-            "Jetzt verschieben");
+            _loc["Dialog.ConfirmMove.BtnLabel"],
+            _loc["Dialog.ConfirmMove.BtnConfirm"]);
     }
 
     private async Task<bool> ConfirmConversionReviewDialogAsync(RunOptions runOptions, CancellationToken cancellationToken)
@@ -411,16 +450,15 @@ public sealed partial class MainViewModel
         if (reviewEntries.Count == 0)
             return true;
 
-        var summary = "Mindestens ein Konvertierungspfad ist als ManualOnly/Risky/Lossy markiert. "
-                    + "Bitte die betroffenen Dateien vor dem Start prüfen und explizit bestätigen.";
+        var summary = _loc["Dialog.ConfirmConversion.Summary"];
 
         var confirmed = DialogService.ConfirmConversionReview(
-            "Konvertierung manuell prüfen",
+            _loc["Dialog.ConfirmConversion.Title"],
             summary,
             reviewEntries);
 
         if (!confirmed)
-            AddLog("Konvertierung abgebrochen: ManualOnly/Risky-Review nicht bestätigt.", "WARN");
+            AddLog(_loc["Log.ConversionCancelled"], "WARN");
 
         return confirmed;
     }
@@ -446,7 +484,7 @@ public sealed partial class MainViewModel
 
         var confirmed = _dialog.ConfirmDatRenamePreview(renameProposals);
         if (!confirmed)
-            AddLog("DAT-Rename abgebrochen: Vorschau wurde nicht bestätigt.", "WARN");
+            AddLog(_loc["Log.DatRenameCancelled"], "WARN");
 
         return Task.FromResult(confirmed);
     }
@@ -490,7 +528,7 @@ public sealed partial class MainViewModel
         return entries;
     }
 
-    private static string BuildConversionSafetyReason(ConversionPlan plan)
+    private string BuildConversionSafetyReason(ConversionPlan plan)
     {
         if (plan.Policy == ConversionPolicy.ManualOnly)
             return "Policy=ManualOnly";
@@ -498,7 +536,7 @@ public sealed partial class MainViewModel
             return "Safety=Risky";
         if (plan.SourceIntegrity == SourceIntegrity.Lossy)
             return "SourceIntegrity=Lossy";
-        return "Review erforderlich";
+        return _loc["Conversion.ReviewRequired"];
     }
 
     private void OnRun()
@@ -507,7 +545,7 @@ public sealed partial class MainViewModel
         {
             var blockingValidationMessage = GetBlockingValidationMessage();
             AddLog(blockingValidationMessage, "WARN");
-            _dialog.Info(blockingValidationMessage, "Start gesperrt");
+            _dialog.Info(blockingValidationMessage, _loc["Dialog.Info.StartBlocked"]);
             DeferCommandRequery();
             return;
         }
@@ -515,19 +553,19 @@ public sealed partial class MainViewModel
         if (!DryRun && !ConvertOnly && !CanStartMoveWithCurrentPreview)
         {
             AddLog(MoveApplyGateText, "WARN");
-            _dialog.Info(MoveApplyGateText, "Move gesperrt");
+            _dialog.Info(MoveApplyGateText, _loc["Dialog.Info.MoveBlocked"]);
             DeferCommandRequery();
             return;
         }
 
         CurrentRunState = RunState.Preflight;
         ResetDashboardForNewRun();
-        BusyHint = ConvertOnly ? "Konvertierung läuft…" : DryRun ? (IsSimpleMode ? "Vorschau läuft…" : "DryRun läuft…") : "Move läuft…";
-        DashMode = ConvertOnly ? "Convert" : DryRun ? (IsSimpleMode ? "Vorschau" : "DryRun") : "Move";
+        BusyHint = ConvertOnly ? _loc["Progress.BusyHint.Converting"] : DryRun ? (IsSimpleMode ? _loc["Progress.BusyHint.Preview"] : _loc["Progress.BusyHint.DryRun"]) : _loc["Progress.BusyHint.Move"];
+        DashMode = ConvertOnly ? "Convert" : DryRun ? (IsSimpleMode ? _loc["Progress.BusyHint.Preview"] : "DryRun") : "Move";
         Progress = 0;
         ProgressText = "0%";
-        PerfPhase = "Phase: –";
-        PerfFile = "Datei: –";
+        PerfPhase = "–";
+        PerfFile = "–";
         ShowMoveCompleteBanner = false;
         RunSummaryText = "";
         RunSummarySeverity = UiErrorSeverity.Info;
@@ -544,23 +582,21 @@ public sealed partial class MainViewModel
             try { _cts?.Cancel(); } catch (ObjectDisposedException) { }
         }
         CurrentRunState = RunState.Cancelled;
-        BusyHint = "Abbruch angefordert…";
+        BusyHint = _loc["Progress.BusyHint.CancelRequested"];
         ShowMoveCompleteBanner = false;
-        SetRunSummary("Abbruch angefordert. Bereits verarbeitete Teilergebnisse bleiben sichtbar.", UiErrorSeverity.Warning);
+        SetRunSummary(_loc["Result.Summary.Cancelled"], UiErrorSeverity.Warning);
     }
 
     private async Task OnRollbackAsync()
     {
-        var rollbackPreview = $"{MoveConsequenceText}\n\n"
-                              + $"Bisherige Kennzahlen: Gewinner {DashWinners}, Duplikate {DashDupes}, Junk {DashJunk}.\n"
-                              + "Letzten Lauf jetzt rückgängig machen?";
+        var rollbackPreview = _loc.Format("Dialog.Rollback.Preview", MoveConsequenceText, DashWinners, DashDupes, DashJunk);
 
-        if (!_dialog.Confirm(rollbackPreview, "Rollback bestätigen"))
+        if (!_dialog.Confirm(rollbackPreview, _loc["Dialog.Rollback.Title"]))
             return;
 
         if (string.IsNullOrEmpty(LastAuditPath) || !File.Exists(LastAuditPath))
         {
-            AddLog("Keine Audit-Datei gefunden — Rollback nicht möglich.", "WARN");
+            AddLog(_loc["Log.RollbackNoAudit"], "WARN");
             return;
         }
 
@@ -569,7 +605,7 @@ public sealed partial class MainViewModel
             var auditPathCopy = LastAuditPath;
             var roots = Roots.ToList();
             var restored = await Task.Run(() => RomCleanup.Infrastructure.Audit.RollbackService.Execute(auditPathCopy, roots));
-            AddLog($"Rollback: wiederhergestellt={restored.RolledBack}, fehlend={restored.SkippedMissingDest}, Kollisionen={restored.SkippedCollision}, Fehler={restored.Failed}.",
+            AddLog(_loc.Format("Log.RollbackDone", restored.RolledBack, restored.SkippedMissingDest, restored.SkippedCollision, restored.Failed),
                 restored.Failed > 0 ? "WARN" : "INFO");
             CanRollback = false;
             ShowMoveCompleteBanner = false;
@@ -578,19 +614,19 @@ public sealed partial class MainViewModel
             Shell.SelectedNavTag = "Analyse";
             SelectedResultSection = "Dashboard";
             SetRunSummary(
-                $"Rollback abgeschlossen: {restored.RolledBack} wiederhergestellt, {restored.SkippedMissingDest} fehlend, {restored.SkippedCollision} Kollisionen, {restored.Failed} Fehler.",
+                _loc.Format("Result.Summary.RollbackDone", restored.RolledBack, restored.SkippedMissingDest, restored.SkippedCollision, restored.Failed),
                 restored.Failed > 0 ? UiErrorSeverity.Warning : UiErrorSeverity.Info);
         }
         catch (Exception ex)
         {
-            AddLog($"Rollback-Fehler: {ex.Message}", "ERROR");
-            SetRunSummary($"Rollback fehlgeschlagen: {ex.Message}", UiErrorSeverity.Error);
+            AddLog(_loc.Format("Log.RollbackError", ex.Message), "ERROR");
+            SetRunSummary(_loc.Format("Log.RollbackFailed", ex.Message), UiErrorSeverity.Error);
         }
     }
 
     private void OnAddRoot()
     {
-        var folder = _dialog.BrowseFolder("ROM-Ordner auswählen");
+        var folder = _dialog.BrowseFolder(_loc["Dialog.BrowseFolder.RomTitle"]);
         if (folder is not null && !Roots.Contains(folder))
         {
             Roots.Add(folder);
@@ -607,7 +643,7 @@ public sealed partial class MainViewModel
     {
         if (string.IsNullOrWhiteSpace(LastReportPath) || !System.IO.File.Exists(LastReportPath))
         {
-            AddLog("Kein Report aus dem letzten Lauf vorhanden oder Datei wurde nicht erstellt.", "WARN");
+            AddLog(_loc["Log.ReportMissing"], "WARN");
             return;
         }
 
@@ -618,7 +654,7 @@ public sealed partial class MainViewModel
         }
         catch
         {
-            AddLog("Report-Öffnen blockiert: ungültiger Pfad.", "WARN");
+            AddLog(_loc["Log.ReportInvalidPath"], "WARN");
             return;
         }
 
@@ -631,7 +667,7 @@ public sealed partial class MainViewModel
             && !string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(extension, ".log", StringComparison.OrdinalIgnoreCase))
         {
-            AddLog($"Report-Öffnen blockiert: Dateityp '{extension}' nicht erlaubt.", "WARN");
+            AddLog(_loc.Format("Log.ReportTypeNotAllowed", extension!), "WARN");
             return;
         }
 
@@ -645,7 +681,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex)
         {
-            AddLog($"Report konnte nicht geöffnet werden: {ex.Message}", "WARN");
+            AddLog(_loc.Format("Log.ReportOpenFailed", ex.Message), "WARN");
         }
     }
 
@@ -666,7 +702,7 @@ public sealed partial class MainViewModel
             SelectedResultSection = "Dashboard";
             IsResultPerfDetailsExpanded = true;
             SetRunSummary(
-                $"Vorschau abgeschlossen: {DashDupes} Duplikate und {DashJunk} Junk-Dateien erkannt.",
+                _loc.Format("Result.Summary.PreviewDone", DashDupes, DashJunk),
                 UiErrorSeverity.Info);
         }
         else if (success && !DryRun)
@@ -677,21 +713,21 @@ public sealed partial class MainViewModel
             Shell.SelectedNavTag = "Analyse";
             SelectedResultSection = "Dashboard";
             IsResultPerfDetailsExpanded = true;
-            SetRunSummary($"Änderungen angewendet: {MoveConsequenceText}", UiErrorSeverity.Info);
+            SetRunSummary(_loc.Format("Result.Summary.ChangesApplied", MoveConsequenceText), UiErrorSeverity.Info);
         }
         else if (cancelled)
         {
             CurrentRunState = RunState.Cancelled;
             Shell.SelectedNavTag = "Analyse";
             SelectedResultSection = "Dashboard";
-            SetRunSummary("Lauf abgebrochen. Teilweise Ergebnisse können weiterhin sichtbar sein.", UiErrorSeverity.Warning);
+            SetRunSummary(_loc["Result.Summary.CancelledPartial"], UiErrorSeverity.Warning);
         }
         else
         {
             CurrentRunState = RunState.Failed;
             Shell.SelectedNavTag = "Analyse";
             SelectedResultSection = "Dashboard";
-            SetRunSummary("Lauf fehlgeschlagen. Prüfe Protokoll und Fehler-Summary für Details.", UiErrorSeverity.Error);
+            SetRunSummary(_loc["Result.Summary.Failed"], UiErrorSeverity.Error);
         }
         RefreshStatus();
         OnMovePreviewGateChanged();
@@ -762,8 +798,8 @@ public sealed partial class MainViewModel
         // Roots
         bool hasRoots = Roots.Count > 0;
         RootsStatusLevel = hasRoots ? StatusLevel.Ok : StatusLevel.Missing;
-        StatusRoots = hasRoots ? $"{Roots.Count} Ordner konfiguriert" : "Keine Ordner";
-        StepLabel1 = hasRoots ? $"{Roots.Count} Ordner" : "Keine Ordner";
+        StatusRoots = hasRoots ? _loc.Format("Status.RootsConfigured", Roots.Count) : _loc["Status.Roots.None"];
+        StepLabel1 = hasRoots ? _loc.Format("Step.Roots", Roots.Count) : _loc["Step.NoRoots"];
 
         // Tools
         bool hasChdman = !string.IsNullOrWhiteSpace(ToolChdman) && File.Exists(ToolChdman);
@@ -776,15 +812,15 @@ public sealed partial class MainViewModel
         ToolsStatusLevel = (hasChdman || has7z) ? StatusLevel.Ok
             : (anyToolSpecified || ConvertEnabled) ? StatusLevel.Warning
             : StatusLevel.Missing;
-        StatusTools = ToolsStatusLevel == StatusLevel.Ok ? $"{toolCount} Tools gefunden"
-            : ToolsStatusLevel == StatusLevel.Warning ? "Tools nicht gefunden" : "Keine Tools";
+        StatusTools = ToolsStatusLevel == StatusLevel.Ok ? _loc.Format("Status.ToolsFound", toolCount)
+            : ToolsStatusLevel == StatusLevel.Warning ? _loc["Status.ToolsNotFound"] : _loc["Status.Tools.None"];
 
         // P1-007: Update tool status labels
-        ChdmanStatusText = string.IsNullOrWhiteSpace(ToolChdman) ? "–" : hasChdman ? "✓ Gefunden" : "✗ Nicht gefunden";
-        DolphinStatusText = string.IsNullOrWhiteSpace(ToolDolphin) ? "–" : hasDolphin ? "✓ Gefunden" : "✗ Nicht gefunden";
-        SevenZipStatusText = string.IsNullOrWhiteSpace(Tool7z) ? "–" : has7z ? "✓ Gefunden" : "✗ Nicht gefunden";
-        PsxtractStatusText = string.IsNullOrWhiteSpace(ToolPsxtract) ? "–" : hasPsxtract ? "✓ Gefunden" : "✗ Nicht gefunden";
-        CisoStatusText = string.IsNullOrWhiteSpace(ToolCiso) ? "–" : hasCiso ? "✓ Gefunden" : "✗ Nicht gefunden";
+        ChdmanStatusText = string.IsNullOrWhiteSpace(ToolChdman) ? "–" : hasChdman ? _loc["Tool.Status.Found"] : _loc["Tool.Status.NotFound"];
+        DolphinStatusText = string.IsNullOrWhiteSpace(ToolDolphin) ? "–" : hasDolphin ? _loc["Tool.Status.Found"] : _loc["Tool.Status.NotFound"];
+        SevenZipStatusText = string.IsNullOrWhiteSpace(Tool7z) ? "–" : has7z ? _loc["Tool.Status.Found"] : _loc["Tool.Status.NotFound"];
+        PsxtractStatusText = string.IsNullOrWhiteSpace(ToolPsxtract) ? "–" : hasPsxtract ? _loc["Tool.Status.Found"] : _loc["Tool.Status.NotFound"];
+        CisoStatusText = string.IsNullOrWhiteSpace(ToolCiso) ? "–" : hasCiso ? _loc["Tool.Status.Found"] : _loc["Tool.Status.NotFound"];
 
         // DAT
         bool datRootValid = !string.IsNullOrWhiteSpace(DatRoot) && Directory.Exists(DatRoot);
@@ -792,8 +828,8 @@ public sealed partial class MainViewModel
             : datRootValid ? StatusLevel.Ok
             : !string.IsNullOrWhiteSpace(DatRoot) ? StatusLevel.Warning
             : StatusLevel.Warning;
-        StatusDat = DatStatusLevel == StatusLevel.Ok ? "DAT aktiv"
-            : DatStatusLevel == StatusLevel.Warning ? "DAT-Pfad ungültig" : "DAT deaktiviert";
+        StatusDat = DatStatusLevel == StatusLevel.Ok ? _loc["Status.DatActive"]
+            : DatStatusLevel == StatusLevel.Warning ? _loc["Status.DatPathInvalid"] : _loc["Status.DatDisabled"];
 
         // Overall readiness
         var validationSummary = GetValidationSummary();
@@ -802,36 +838,36 @@ public sealed partial class MainViewModel
             : StatusLevel.Ok;
         StatusReady = ReadyStatusLevel switch
         {
-            StatusLevel.Ok => "Startbereit ✓",
-            StatusLevel.Warning => "Startbereit (Warnung) ⚠",
-            StatusLevel.Blocked => "Nicht bereit ✗",
-            _ => "Status: –"
+            StatusLevel.Ok => _loc["Status.Ready.Ok"],
+            StatusLevel.Warning => _loc["Status.Ready.Warning"],
+            StatusLevel.Blocked => _loc["Status.Ready.Blocked"],
+            _ => _loc["Status.Default"]
         };
 
         // Step indicator with RunState-awareness
         if (IsBusy)
         {
             CurrentStep = 2;
-            StepLabel3 = _runState switch
+            StepLabel3 = Run.CurrentRunState switch
             {
-                RunState.Preflight => "Prüfe…",
-                RunState.Scanning => "Scanne…",
-                RunState.Deduplicating => "Dedupliziere…",
-                RunState.Sorting => "Sortiere…",
-                RunState.Moving => "Verschiebe…",
-                RunState.Converting => "Konvertiere…",
-                _ => "Läuft…"
+                RunState.Preflight => _loc["Step.Preflight"],
+                RunState.Scanning => _loc["Step.Scanning"],
+                RunState.Deduplicating => _loc["Step.Deduplicating"],
+                RunState.Sorting => _loc["Step.Sorting"],
+                RunState.Moving => _loc["Step.Moving"],
+                RunState.Converting => _loc["Step.Converting"],
+                _ => _loc["Step.Running"]
             };
         }
-        else if (_runState is RunState.Completed or RunState.CompletedDryRun)
+        else if (Run.CurrentRunState is RunState.Completed or RunState.CompletedDryRun)
         {
             CurrentStep = 3;
-            StepLabel3 = _runState == RunState.CompletedDryRun ? "Vorschau fertig" : "Abgeschlossen";
+            StepLabel3 = Run.CurrentRunState == RunState.CompletedDryRun ? _loc["Step.PreviewDone"] : _loc["Step.Done"];
         }
         else
         {
             CurrentStep = hasRoots ? 1 : 0;
-            StepLabel3 = "F5 drücken";
+            StepLabel3 = _loc["Step.PressF5"];
         }
     }
 
@@ -850,7 +886,7 @@ public sealed partial class MainViewModel
         try
         {
             _runLogStartIndex = LogEntries.Count;
-            AddLog("Initialisierung…", "INFO");
+            AddLog(_loc["Log.Initializing"], "INFO");
 
             var (orchestrator, runOptions, auditPath, reportPath) = await Task.Run(() =>
             {
@@ -899,9 +935,9 @@ public sealed partial class MainViewModel
 
             if (runWasCancelled)
             {
-                ApplyRunResult(svcResult.Result);
+                ApplyRunResult(svcResult.Result, force: true);
                 PopulateErrorSummary();
-                AddLog("Lauf abgebrochen.", "WARN");
+                AddLog(_loc["Log.RunCancelled"], "WARN");
                 CompleteRun(false, svcResult.ReportPath, cancelled: true);
                 return;
             }
@@ -912,23 +948,23 @@ public sealed partial class MainViewModel
                 PushRollbackUndo(auditPath);
 
             if (svcResult.ReportPath is not null)
-                AddLog($"Report: {svcResult.ReportPath}", "INFO");
+                AddLog(_loc.Format("Log.ReportPath", svcResult.ReportPath), "INFO");
 
             if (!ct.IsCancellationRequested)
             {
-                AddLog("Lauf abgeschlossen.", "INFO");
+                AddLog(_loc["Log.RunComplete"], "INFO");
                 CompleteRun(true, svcResult.ReportPath);
                 PopulateErrorSummary();
             }
             else
             {
-                AddLog("Lauf abgebrochen.", "WARN");
+                AddLog(_loc["Log.RunCancelled"], "WARN");
                 CompleteRun(false, cancelled: true);
             }
         }
         catch (OperationCanceledException)
         {
-            AddLog("Lauf abgebrochen.", "WARN");
+            AddLog(_loc["Log.RunCancelled"], "WARN");
             CompleteRun(false, cancelled: true);
         }
         catch (Exception ex)
@@ -963,20 +999,20 @@ public sealed partial class MainViewModel
             {
                 if (!IsBusy && Roots.Count > 0)
                 {
-                    AddLog($"Scheduler: Geplanter Lauf gestartet.", "INFO");
+                    AddLog(_loc["Log.ScheduledRunStarted"], "INFO");
                     DryRun = true;
                     RunCommand.Execute(null);
                 }
             }, null);
         }, null, interval, interval);
 
-        AddLog($"Scheduler: Alle {SchedulerIntervalDisplay} wird ein DryRun gestartet.", "INFO");
+        AddLog(_loc.Format("Log.SchedulerActive", SchedulerIntervalDisplay), "INFO");
     }
 
     private void ToggleWatchMode()
     {
         if (Roots.Count == 0)
-        { AddLog("Keine Root-Ordner für Watch-Mode.", "WARN"); return; }
+        { AddLog(_loc["Log.WatchModeNoRoots"], "WARN"); return; }
 
         _watchService.IsBusyCheck = () => IsBusy;
 
@@ -984,14 +1020,14 @@ public sealed partial class MainViewModel
         IsWatchModeActive = _watchService.IsActive;
         if (count == 0)
         {
-            AddLog("Watch-Mode deaktiviert.", "INFO");
-            _dialog.Info("Watch-Mode wurde deaktiviert.\n\nDateiüberwachung gestoppt.", "Watch-Mode");
+            AddLog(_loc["Log.WatchModeDeactivated"], "INFO");
+            _dialog.Info(_loc["Dialog.Watch.Deactivated"], _loc["Dialog.Watch.Title"]);
         }
         else
         {
-            AddLog($"Watch-Mode aktiviert für {count} Ordner. Änderungen werden überwacht.", "INFO");
-            _dialog.Info($"Watch-Mode ist aktiv!\n\nÜberwachte Ordner:\n{string.Join("\n", Roots)}\n\nBei Dateiänderungen wird automatisch ein DryRun gestartet.\n\nErneut klicken zum Deaktivieren.",
-                "Watch-Mode");
+            AddLog(_loc.Format("Log.WatchModeActivated", count), "INFO");
+            _dialog.Info(_loc.Format("Dialog.Watch.Activated", string.Join("\n", Roots)),
+                _loc["Dialog.Watch.Title"]);
         }
     }
 
@@ -999,7 +1035,7 @@ public sealed partial class MainViewModel
     {
         if (Roots.Count > 0)
         {
-            AddLog("Watch-Mode: Änderungen erkannt, starte DryRun…", "INFO");
+            AddLog(_loc["Log.WatchTriggered"], "INFO");
             DryRun = true;
             RunCommand.Execute(null);
         }
@@ -1035,11 +1071,11 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>Apply run results from orchestrator to all dashboard/state properties.</summary>
-    public void ApplyRunResult(RunResult result)
+    public void ApplyRunResult(RunResult result, bool force = false)
     {
-        if (CurrentRunState is RunState.Failed or RunState.Cancelled)
+        if (!force && CurrentRunState is RunState.Failed or RunState.Cancelled)
         {
-            AddLog("Ergebnis ignoriert: Lauf wurde bereits beendet/abgebrochen.", "WARN");
+            AddLog(_loc["Log.ResultIgnored"], "WARN");
             return;
         }
 
@@ -1077,7 +1113,7 @@ public sealed partial class MainViewModel
 
         if (result.Status == "blocked")
         {
-            AddLog($"Preflight blockiert: {result.Preflight?.Reason}", "ERROR");
+            AddLog(_loc.Format("Log.PreflightBlocked", result.Preflight?.Reason ?? ""), "ERROR");
         }
         else
         {
@@ -1085,24 +1121,24 @@ public sealed partial class MainViewModel
             if (result.Preflight?.Warnings is { Count: > 0 } warnings)
             {
                 foreach (var w in warnings)
-                    AddLog($"Preflight-Warnung: {w}", "WARN");
+                    AddLog(_loc.Format("Log.PreflightWarning", w), "WARN");
             }
 
-            AddLog($"Scan: {result.TotalFilesScanned} Dateien", "INFO");
-            AddLog($"Dedupe: Keep={projection.Keep}, Move={projection.Dupes}, Junk={projection.Junk}", "INFO");
+            AddLog(_loc.Format("Log.ScanCount", result.TotalFilesScanned), "INFO");
+            AddLog(_loc.Format("Log.DedupeCount", projection.Keep, projection.Dupes, projection.Junk), "INFO");
             if (result.MoveResult is { } mv)
-                AddLog($"Verschoben: {mv.MoveCount}, Fehler: {mv.FailCount}", mv.FailCount > 0 ? "WARN" : "INFO");
+                AddLog(_loc.Format("Log.MoveCount", mv.MoveCount, mv.FailCount), mv.FailCount > 0 ? "WARN" : "INFO");
             if (result.ConsoleSortResult is { } sort)
             {
                 var sortFailures = GetConsoleSortFailureCount(sort);
-                AddLog($"Konsolen-Sortierung: {sort.Moved} verschoben, {sortFailures} Fehler, {sort.Unknown} unbekannt", sortFailures > 0 ? "WARN" : "INFO");
+                AddLog(_loc.Format("Log.SortCount", sort.Moved, sortFailures, sort.Unknown), sortFailures > 0 ? "WARN" : "INFO");
             }
             if (result.ConvertedCount > 0)
-                AddLog($"Konvertiert: {result.ConvertedCount}", "INFO");
+                AddLog(_loc.Format("Log.ConvertCount", result.ConvertedCount), "INFO");
             if (result.ConvertErrorCount > 0)
-                AddLog($"Konvertierung fehlgeschlagen: {result.ConvertErrorCount}", "WARN");
+                AddLog(_loc.Format("Log.ConvertErrorCount", result.ConvertErrorCount), "WARN");
             if (result.ConvertBlockedCount > 0)
-                AddLog($"Konvertierung blockiert: {result.ConvertBlockedCount}", "WARN");
+                AddLog(_loc.Format("Log.ConvertBlockedCount", result.ConvertBlockedCount), "WARN");
 
             // F-P1-03: Per-file conversion details in GUI log (parity with CLI/API)
             if (result.ConversionReport is { Results.Count: > 0 })
@@ -1111,8 +1147,8 @@ public sealed partial class MainViewModel
                 {
                     var detail = cr.Outcome switch
                     {
-                        ConversionOutcome.Error => $"Konvertierung Fehler: {Path.GetFileName(cr.SourcePath)} → {cr.Reason}",
-                        ConversionOutcome.Blocked => $"Konvertierung blockiert: {Path.GetFileName(cr.SourcePath)} → {cr.Reason}",
+                        ConversionOutcome.Error => _loc.Format("Log.ConvertDetailError", Path.GetFileName(cr.SourcePath) ?? "", cr.Reason ?? ""),
+                        ConversionOutcome.Blocked => _loc.Format("Log.ConvertDetailBlocked", Path.GetFileName(cr.SourcePath) ?? "", cr.Reason ?? ""),
                         _ => null
                     };
                     if (detail is not null)
@@ -1221,11 +1257,12 @@ public sealed partial class MainViewModel
     private void OnMovePreviewGateChanged()
     {
         if (!CanStartMoveWithCurrentPreview && !DryRun && !ConvertOnly && !string.IsNullOrEmpty(_lastSuccessfulPreviewFingerprint))
-            MoveConsequenceText = "Konfiguration seit der letzten Vorschau geändert. Bitte Vorschau erneut ausführen, bevor Änderungen angewendet werden.";
+            MoveConsequenceText = _loc["Config.Changed.MoveGate"];
 
         OnPropertyChanged(nameof(CanStartMoveWithCurrentPreview));
         OnPropertyChanged(nameof(ShowStartMoveButton));
         OnPropertyChanged(nameof(MoveApplyGateText));
+        OnPropertyChanged(nameof(ShowConfigChangedBanner));
         OnPropertyChanged(nameof(RollbackActionHint));
         DeferCommandRequery();
     }

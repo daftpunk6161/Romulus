@@ -24,6 +24,12 @@ internal sealed record BenchmarkReport(
 
 internal static class BenchmarkReportWriter
 {
+    /// <summary>
+    /// Central ground-truth schema version. Must match the schemaVersion
+    /// used in ground-truth JSONL entries (currently "2.0.0").
+    /// </summary>
+    public const string GroundTruthVersion = "2.0.0";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,

@@ -120,12 +120,18 @@ public sealed class VersionScorer
 
             if (segments.Count > 0)
             {
+                // Clamp to max 6 segments to prevent long overflow (1000^5 ≈ 10^15 fits in long)
+                const int maxSegments = 6;
+                var effectiveSegments = segments.Count > maxSegments
+                    ? segments.GetRange(0, maxSegments)
+                    : segments;
+
                 long weight = 1;
-                for (var i = 1; i < segments.Count; i++)
+                for (var i = 1; i < effectiveSegments.Count; i++)
                     weight *= 1000;
 
                 long versionScore = 0;
-                foreach (var seg in segments)
+                foreach (var seg in effectiveSegments)
                 {
                     versionScore += seg * weight;
                     if (weight > 1) weight /= 1000;

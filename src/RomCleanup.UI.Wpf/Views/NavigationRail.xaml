@@ -24,7 +24,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE80F;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="Mission" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
 
@@ -37,7 +38,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="Library" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
 
@@ -50,7 +52,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="Config" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
 
@@ -63,7 +66,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE90F;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="Tools" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
 
@@ -76,7 +80,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE770;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="System" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
       </StackPanel>
@@ -91,7 +96,8 @@
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE897;" FontSize="18" HorizontalAlignment="Center"/>
             <TextBlock Text="Hilfe" FontSize="9" HorizontalAlignment="Center"
-                       Foreground="{DynamicResource BrushTextMuted}"/>
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </RadioButton>
       </StackPanel>

@@ -18,7 +18,9 @@
       </Style>
     </Border.Style>
     <DockPanel>
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+      <!-- TASK-115: ProgressPanel — visible only during busy RunStates -->
+      <StackPanel x:Name="ProgressPanel" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
         <ProgressBar MinWidth="120" Width="200" Height="8" Maximum="100"
                      Value="{Binding Progress}" Margin="{DynamicResource SpaceLeftSM}" VerticalAlignment="Center"
                      AutomationProperties.Name="Fortschritt" AutomationProperties.LiveSetting="Polite"/>
@@ -28,20 +30,27 @@
       </StackPanel>
 
       <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <!-- TASK-115: Run button — hidden when pipeline is busy -->
         <Button Command="{Binding RunCommand}" Style="{StaticResource PrimaryButton}"
                 Width="140" Height="44" Margin="{DynamicResource SpaceRightXS}"
                 ToolTip="{Binding Loc[Start.RunTip]}" AutomationProperties.Name="{Binding Loc[Start.RunButton]}"
-                AutomationProperties.AcceleratorKey="F5" TabIndex="1">
+                AutomationProperties.AcceleratorKey="F5" TabIndex="1"
+                Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}">
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="20" HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding Loc[Start.RunButton]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
           </StackPanel>
         </Button>
 
-        <Button Command="{Binding CancelCommand}" Style="{StaticResource DangerButton}"
+        <!-- TASK-115: Cancel button — visible only when pipeline is running -->
+        <Button x:Name="CancelButton" Command="{Binding CancelCommand}"
                 Width="60" Height="44" Margin="{DynamicResource SpaceRightXS}"
                 AutomationProperties.AcceleratorKey="Esc"
-                ToolTip="{Binding Loc[Start.CancelTip]}" AutomationProperties.Name="{Binding Loc[Start.CancelButton]}" TabIndex="2">
+                ToolTip="{Binding Loc[Start.CancelTip]}" AutomationProperties.Name="{Binding Loc[Start.CancelButton]}" TabIndex="2"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+          <Button.Style>
+            <Style TargetType="Button" BasedOn="{StaticResource DangerButton}"/>
+          </Button.Style>
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" FontSize="20" HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding Loc[Start.CancelButton]}" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
@@ -55,7 +64,7 @@
                 BorderBrush="{DynamicResource BrushSuccess}" Foreground="{DynamicResource BrushSuccess}"
                 Background="{DynamicResource BrushSuccessBg}" BorderThickness="2"
                 ToolTip="{Binding Loc[Start.ConvertOnlyTip]}" AutomationProperties.Name="{Binding Loc[Start.ConvertOnlyButton]}" TabIndex="3"
-                Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}">
+                Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}">
           <StackPanel HorizontalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8AB;" FontSize="20" HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding Loc[Start.ConvertOnlyButton]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
@@ -111,6 +120,24 @@
         </Button>
 
         <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
+
+        <!-- TASK-176: Config changed banner after DryRun -->
+        <Border Visibility="{Binding ShowConfigChangedBanner, Converter={StaticResource BoolToVis}}"
+                Background="{DynamicResource BrushDangerBg}" BorderBrush="{DynamicResource BrushDanger}"
+                BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="4,0"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{Binding Loc[Config.Changed.BannerLabel]}"
+                AutomationProperties.LiveSetting="Assertive">
+          <TextBlock Text="{Binding Loc[Config.Changed.MoveGate]}" Foreground="{DynamicResource BrushDanger}"
+                     FontSize="11" TextWrapping="Wrap" MaxWidth="340" VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- TASK-115: RunState status label -->
+        <TextBlock Text="{Binding RunStateDisplayText}" Foreground="{DynamicResource BrushTextMuted}"
+                   FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0"
+                   AutomationProperties.Name="RunState" AutomationProperties.LiveSetting="Polite"
+                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+
         <TextBlock Text="{Binding BusyHint}" Style="{StaticResource CaptionText}"
                    VerticalAlignment="Center" Margin="4,0"/>
       </WrapPanel>

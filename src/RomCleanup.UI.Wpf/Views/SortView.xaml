@@ -242,6 +242,49 @@
               <CheckBox Content="SCAN" Margin="0,0,12,4" IsChecked="{Binding PreferSCAN}" ToolTip="Skandinavien" AutomationProperties.Name="Region Skandinavien bevorzugen"/>
             </WrapPanel>
           </Expander>
+
+          <!-- TASK-117: Region Priority Ranker with Drag & Drop reordering -->
+          <TextBlock Text="Prioritätsreihenfolge (Drag &amp; Drop)" Style="{StaticResource CaptionText}"
+                     Margin="0,8,0,4" FontWeight="SemiBold"/>
+          <ListBox x:Name="regionRankerList" ItemsSource="{Binding RegionPriorities}"
+                   AllowDrop="True" MaxHeight="300"
+                   HorizontalContentAlignment="Stretch"
+                   PreviewMouseLeftButtonDown="OnRegionDragStart"
+                   Drop="OnRegionDrop" DragOver="OnRegionDragOver"
+                   AutomationProperties.Name="Region Priority Ranker">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                             Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" Cursor="SizeAll"
+                             ToolTip="Ziehen zum Umsortieren"/>
+                  <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="{DynamicResource BrushTextMuted}"
+                             FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center">
+                    <Run Text="{Binding Code, Mode=OneWay}" FontWeight="SemiBold"/>
+                    <Run Text=" — "/>
+                    <Run Text="{Binding DisplayName, Mode=OneWay}"/>
+                  </TextBlock>
+                  <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <Button Command="{Binding DataContext.MoveRegionUpCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            CommandParameter="{Binding}" Content="&#xE70E;" FontFamily="Segoe MDL2 Assets"
+                            Width="24" Height="24" Padding="0" FontSize="10" ToolTip="Nach oben"
+                            AutomationProperties.Name="Region nach oben"/>
+                    <Button Command="{Binding DataContext.MoveRegionDownCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            CommandParameter="{Binding}" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                            Width="24" Height="24" Padding="0" FontSize="10" ToolTip="Nach unten"
+                            AutomationProperties.Name="Region nach unten"/>
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
         </StackPanel>
       </Border>
 

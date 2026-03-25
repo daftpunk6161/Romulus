@@ -28,10 +28,54 @@ public sealed class TrendAnalyzerTests
         Assert.Contains(trend.TrendDirection, new[] { "stable", "improving" });
     }
 
+    [Fact]
+    public void Analyze_DegradingDirection_WhenWrongRateRises()
+    {
+        // Simulate a report with high wrong rate — direction depends on baselines,
+        // but the high rate itself should not crash or return invalid values
+        var report = CreateReport(totalSamples: 100, wrong: 20, wrongRate: 0.20, unsafeRate: 0.10);
+
+        var trend = TrendAnalyzer.Analyze(report);
+
+        Assert.NotNull(trend.Current);
+        Assert.Equal(0.20, trend.Current.WrongMatchRate);
+        Assert.Equal(0.10, trend.Current.UnsafeSortRate);
+        Assert.Contains(trend.TrendDirection, new[] { "stable", "improving", "degrading" });
+    }
+
+    [Fact]
+    public void WriteTrendReport_ProducesValidJson()
+    {
+        var report = CreateReport(totalSamples: 50, wrong: 1, wrongRate: 0.02, unsafeRate: 0.01);
+        var trend = TrendAnalyzer.Analyze(report);
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"trend-test-{Guid.NewGuid():N}.json");
+        try
+        {
+            TrendAnalyzer.WriteTrendReport(trend, tempPath);
+            Assert.True(File.Exists(tempPath));
+
+            var json = File.ReadAllText(tempPath);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            Assert.Equal(System.Text.Json.JsonValueKind.Object, doc.RootElement.GetProperty("Current").ValueKind);
+            Assert.Equal(System.Text.Json.JsonValueKind.String, doc.RootElement.GetProperty("TrendDirection").ValueKind);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public void GroundTruthVersion_IsCentralized()
+    {
+        Assert.Equal("2.0.0", BenchmarkReportWriter.GroundTruthVersion);
+    }
+
     private static BenchmarkReport CreateReport(int totalSamples, int wrong, double wrongRate, double unsafeRate)
     {
         return new BenchmarkReport(
-            DateTimeOffset.UtcNow, "1.0.0", totalSamples,
+            DateTimeOffset.UtcNow, BenchmarkReportWriter.GroundTruthVersion, totalSamples,
             Correct: totalSamples - wrong, Acceptable: 0, Wrong: wrong,
             Missed: 0, TrueNegative: 0, JunkClassified: 0, FalsePositive: 0,
             WrongMatchRate: wrongRate, UnsafeSortRate: unsafeRate,

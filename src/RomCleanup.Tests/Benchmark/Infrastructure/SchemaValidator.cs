@@ -81,7 +81,7 @@ internal sealed class SchemaValidator
         if (string.IsNullOrWhiteSpace(entry.Id))
             errors.Add("id is required");
         else if (!IdPattern.IsMatch(entry.Id))
-            errors.Add($"id '{entry.Id}' does not match pattern ^[a-z]{{2,3}}-[A-Z0-9]{{1,10}}-[a-z0-9-]+-\\d{{3,4}}$");
+            errors.Add($"id '{entry.Id}' does not match pattern ^[a-z]{{2,3}}-[A-Z0-9]{{1,12}}-[a-z0-9-]+-\\d{{3,4}}$");
 
         // Source
         if (entry.Source is null)

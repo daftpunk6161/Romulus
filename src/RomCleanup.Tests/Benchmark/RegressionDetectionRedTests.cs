@@ -11,7 +11,7 @@ public sealed class RegressionDetectionRedTests
         // Arrange
         var baseline = new BenchmarkReport(
             Timestamp: DateTimeOffset.UtcNow.AddDays(-1),
-            GroundTruthVersion: "1.0.0",
+            GroundTruthVersion: BenchmarkReportWriter.GroundTruthVersion,
             TotalSamples: 100,
             Correct: 99,
             Acceptable: 0,

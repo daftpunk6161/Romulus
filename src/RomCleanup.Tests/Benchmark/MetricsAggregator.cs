@@ -14,6 +14,52 @@ internal sealed record CategoryConfusionEntry(string ExpectedCategory, string Ac
 
 internal sealed record ConsoleConfusionPair(string SystemA, string SystemB, double Rate, int Count);
 
+/// <summary>
+/// Typed record for all extended metrics M4-M16.
+/// Provides compile-time safety over the dictionary-based approach.
+/// </summary>
+internal sealed record ExtendedMetrics(
+    double WrongMatchRate,
+    double UnknownRate,
+    double FalseConfidenceRate,
+    double UnsafeSortRate,
+    double SafeSortCoverage,
+    double CategoryConfusionRate,
+    double GameAsJunkRate,
+    double BiosAsGameRate,
+    double MaxConsoleConfusionRate,
+    double DatExactMatchRate,
+    double AmbiguousMatchRate,
+    double RepairSafeRate,
+    double CategoryRecognitionRate,
+    double JunkClassifiedRate)
+{
+    /// <summary>
+    /// Creates an ExtendedMetrics from the dictionary-based aggregate.
+    /// </summary>
+    public static ExtendedMetrics FromDictionary(IReadOnlyDictionary<string, double> dict)
+    {
+        return new ExtendedMetrics(
+            WrongMatchRate: G(dict, "wrongMatchRate"),
+            UnknownRate: G(dict, "unknownRate"),
+            FalseConfidenceRate: G(dict, "falseConfidenceRate"),
+            UnsafeSortRate: G(dict, "unsafeSortRate"),
+            SafeSortCoverage: G(dict, "safeSortCoverage"),
+            CategoryConfusionRate: G(dict, "categoryConfusionRate"),
+            GameAsJunkRate: G(dict, "gameAsJunkRate"),
+            BiosAsGameRate: G(dict, "biosAsGameRate"),
+            MaxConsoleConfusionRate: G(dict, "maxConsoleConfusionRate"),
+            DatExactMatchRate: G(dict, "datExactMatchRate"),
+            AmbiguousMatchRate: G(dict, "ambiguousMatchRate"),
+            RepairSafeRate: G(dict, "repairSafeRate"),
+            CategoryRecognitionRate: G(dict, "categoryRecognitionRate"),
+            JunkClassifiedRate: G(dict, "junkClassifiedRate"));
+    }
+
+    private static double G(IReadOnlyDictionary<string, double> d, string key)
+        => d.TryGetValue(key, out var v) ? v : 0;
+}
+
 internal static class MetricsAggregator
 {
     private const int FalseConfidenceThreshold = 80;

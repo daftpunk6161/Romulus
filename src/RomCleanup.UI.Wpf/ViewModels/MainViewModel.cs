@@ -61,6 +61,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public CommandPaletteViewModel CommandPalette { get; }
     /// <summary>DatAudit results: read-only audit table with filter/sort.</summary>
     public DatAuditViewModel DatAudit { get; }
+    /// <summary>TASK-125: Conversion preview before execution.</summary>
+    public ConversionPreviewViewModel ConversionPreview { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -85,11 +87,14 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         SystemArea = new SystemViewModel(_loc);
         CommandPalette = new CommandPaletteViewModel(_loc);
         DatAudit = new DatAuditViewModel(_loc);
+        ConversionPreview = new ConversionPreviewViewModel(_loc);
 
         // Wire child VM events
         Setup.StatusRefreshRequested += () => RefreshStatus();
+        Setup.PropertyChanged += OnSetupPropertyChanged;
         Run.CommandRequeryRequested += DeferCommandRequery;
         Run.RunRequested += (_, _) => OnRun();
+        Run.PropertyChanged += OnRunPropertyChanged;
 
         // Wire collection changes to status refresh
         Roots.CollectionChanged += OnRootsChanged;
@@ -259,10 +264,68 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
             (".rvz", "Cartridge / Modern", "RVZ (GC/Wii, Dolphin)"),
         };
         foreach (var (ext, cat, tip) in items)
-            ExtensionFilters.Add(new ExtensionFilterItem { Extension = ext, Category = cat, ToolTip = tip });
+        {
+            var item = new ExtensionFilterItem { Extension = ext, Category = cat, ToolTip = tip };
+            item.PropertyChanged += OnExtensionCheckedChanged;
+            ExtensionFilters.Add(item);
+        }
 
         ExtensionFiltersView = CollectionViewSource.GetDefaultView(ExtensionFilters);
         ExtensionFiltersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ExtensionFilterItem.Category)));
+    }
+
+    private void OnExtensionCheckedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ExtensionFilterItem.IsChecked))
+        {
+            OnPropertyChanged(nameof(SelectedExtensionCount));
+            OnPropertyChanged(nameof(ExtensionCountDisplay));
+        }
+    }
+
+    public int SelectedExtensionCount => ExtensionFilters.Count(e => e.IsChecked);
+
+    public string ExtensionCountDisplay
+    {
+        get
+        {
+            int sel = SelectedExtensionCount;
+            return sel == 0 ? $"0 / {ExtensionFilters.Count}" : $"{sel} / {ExtensionFilters.Count}";
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAllExtensions()
+    {
+        foreach (var e in ExtensionFilters) e.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedExtensionCount));
+        OnPropertyChanged(nameof(ExtensionCountDisplay));
+    }
+
+    [RelayCommand]
+    private void ClearAllExtensions()
+    {
+        foreach (var e in ExtensionFilters) e.IsChecked = false;
+        OnPropertyChanged(nameof(SelectedExtensionCount));
+        OnPropertyChanged(nameof(ExtensionCountDisplay));
+    }
+
+    [RelayCommand]
+    private void SelectExtensionGroup(string? category)
+    {
+        if (category is null) return;
+        foreach (var e in ExtensionFilters.Where(e => e.Category == category)) e.IsChecked = true;
+        OnPropertyChanged(nameof(SelectedExtensionCount));
+        OnPropertyChanged(nameof(ExtensionCountDisplay));
+    }
+
+    [RelayCommand]
+    private void DeselectExtensionGroup(string? category)
+    {
+        if (category is null) return;
+        foreach (var e in ExtensionFilters.Where(e => e.Category == category)) e.IsChecked = false;
+        OnPropertyChanged(nameof(SelectedExtensionCount));
+        OnPropertyChanged(nameof(ExtensionCountDisplay));
     }
 
     // ═══ CONSOLE FILTERS (VM-bound, replaces code-behind x:Name checkboxes) ═══
@@ -497,6 +560,21 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     // ═══ LOCALIZATION (GUI-047) ═════════════════════════════════════════
     /// <summary>XAML-bindable localization: {Binding Loc[Key]}.</summary>
     public ILocalizationService Loc => _loc;
+
+    /// <summary>Add dropped folder paths (from drag-drop). Duplicates are skipped.</summary>
+    public int AddDroppedFolders(IEnumerable<string> paths)
+    {
+        int added = 0;
+        foreach (var path in paths)
+        {
+            if (System.IO.Directory.Exists(path) && !Roots.Contains(path))
+            {
+                Roots.Add(path);
+                added++;
+            }
+        }
+        return added;
+    }
 
     // ═══ COMMANDS ═══════════════════════════════════════════════════════
     public IRelayCommand RunCommand { get; }

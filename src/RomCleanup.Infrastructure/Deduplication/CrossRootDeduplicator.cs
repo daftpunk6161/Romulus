@@ -68,6 +68,7 @@ public sealed class CrossRootDeduplicator
             .ThenByDescending(x => x.FormatScore)
             .ThenByDescending(x => x.VersionScore)
             .ThenByDescending(x => x.Size)
+            .ThenBy(x => x.File.Path, StringComparer.Ordinal)
             .ToList();
 
         var keep = scored[0].File;

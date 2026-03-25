@@ -102,4 +102,54 @@ public sealed class QualityGateTests : IClassFixture<BenchmarkFixture>
         }
         return results;
     }
+
+    /// <summary>
+    /// TASK-091: Hard-fail quality gates that always assert regardless of environment variable.
+    /// These thresholds represent the minimum quality bar for any release.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "QualityGate")]
+    public void QualityGates_HardFail_AlwaysEnforced()
+    {
+        var results = EvaluateAllSets();
+        var dict = MetricsAggregator.CalculateExtendedAggregate(results);
+        var metrics = ExtendedMetrics.FromDictionary(dict);
+
+        _output.WriteLine($"M4  wrongMatchRate        = {metrics.WrongMatchRate:P4}");
+        _output.WriteLine($"M6  falseConfidenceRate   = {metrics.FalseConfidenceRate:P4}");
+        _output.WriteLine($"M7  unsafeSortRate        = {metrics.UnsafeSortRate:P4}");
+        _output.WriteLine($"M9a gameAsJunkRate        = {metrics.GameAsJunkRate:P4}");
+        _output.WriteLine($"M13 ambiguousMatchRate    = {metrics.AmbiguousMatchRate:P4}");
+
+        Assert.True(metrics.WrongMatchRate <= 0.005, $"M4 hard-fail: {metrics.WrongMatchRate:P4} > 0.5%");
+        Assert.True(metrics.FalseConfidenceRate <= 0.05, $"M6 hard-fail: {metrics.FalseConfidenceRate:P4} > 5.0%");
+        Assert.True(metrics.UnsafeSortRate <= 0.003, $"M7 hard-fail: {metrics.UnsafeSortRate:P4} > 0.3%");
+        Assert.True(metrics.GameAsJunkRate <= 0.001, $"M9a hard-fail: {metrics.GameAsJunkRate:P4} > 0.1%");
+        Assert.True(metrics.AmbiguousMatchRate <= 0.08, $"M13 hard-fail: {metrics.AmbiguousMatchRate:P4} > 8.0%");
+    }
+
+    /// <summary>
+    /// TASK-090: Validates that ExtendedMetrics record correctly maps all keys from the aggregate dictionary.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "QualityGate")]
+    public void ExtendedMetrics_FromDictionary_MapsAllFields()
+    {
+        var results = EvaluateAllSets();
+        var dict = MetricsAggregator.CalculateExtendedAggregate(results);
+        var metrics = ExtendedMetrics.FromDictionary(dict);
+
+        Assert.Equal(dict["wrongMatchRate"], metrics.WrongMatchRate);
+        Assert.Equal(dict["unknownRate"], metrics.UnknownRate);
+        Assert.Equal(dict["falseConfidenceRate"], metrics.FalseConfidenceRate);
+        Assert.Equal(dict["unsafeSortRate"], metrics.UnsafeSortRate);
+        Assert.Equal(dict["safeSortCoverage"], metrics.SafeSortCoverage);
+        Assert.Equal(dict["categoryConfusionRate"], metrics.CategoryConfusionRate);
+        Assert.Equal(dict["gameAsJunkRate"], metrics.GameAsJunkRate);
+        Assert.Equal(dict["biosAsGameRate"], metrics.BiosAsGameRate);
+        Assert.Equal(dict["maxConsoleConfusionRate"], metrics.MaxConsoleConfusionRate);
+        Assert.Equal(dict["datExactMatchRate"], metrics.DatExactMatchRate);
+        Assert.Equal(dict["ambiguousMatchRate"], metrics.AmbiguousMatchRate);
+        Assert.Equal(dict["repairSafeRate"], metrics.RepairSafeRate);
+    }
 }

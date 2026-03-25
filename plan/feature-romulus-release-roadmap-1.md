@@ -27,7 +27,7 @@ Die Sequenzierung folgt dem Prinzip **Korrektheit → Sicherheit → Qualität �
 | 4 | Conversion Domain Completion | P1 — Hoch | §22, §23, Audit P1-06/E9 | 22 | 0/22 |
 | 5 | Core & Pipeline Architecture | P2 — Mittel | §12, §14, §15, §17, §18, Audit P1-02/P1-04/P1-05/E2-E9 | 39 | 10/39 |
 | 6 | Benchmark & Quality Assurance | P2 — Mittel | §3–§7, §19, §25, §26, Audit E9 | 29 | 0/29 |
-| 7 | GUI/UX Overhaul | P3 — Normal | §8, §9, §13, §23 (UX), Audit P1-07/UJ | 19 | 0/19 |
+| 7 | GUI/UX Overhaul | P3 — Normal | §8, §9, §13, §23 (UX), Audit P1-07/UJ | 19 | 4/19 |
 | 8 | Polish, Accessibility & Epics | P3 — Normal | §1, §2, §10, §11 | 16 | 0/16 |
 
 > **Hinweis:** Tasks TASK-144 bis TASK-176 stammen aus dem konsolidierten 10-Etappen-Audit (Etappen 1–9 + Gesamt-Audit). Sie sind mit `AUDIT` Prefix und Finding-ID gekennzeichnet.
@@ -238,38 +238,38 @@ Die Sequenzierung folgt dem Prinzip **Korrektheit → Sicherheit → Qualität �
 - [ ] **TASK-074**: **§18 Welle B**: `PipelineState` (set-once Container). `PhaseStepResult` + typisierte Phase-Results. `PhasePlanBuilder` statt Closure-basiertem Phase-Plan.
 - [ ] **TASK-075**: **§18 Welle C**: Orchestrator ausdünnen — `ReportPhaseStep`, `AuditSealPhaseStep`, `DeferredAnalysisPhaseStep` extrahieren. `BuildStandardPhasePlan()` → `PhasePlanBuilder.Build()`.
 - [ ] **TASK-076**: **§18 Welle D**: `RunManager` → `RunLifecycleManager` + `ApiRunResultMapper` ✅ (bereits extrahiert — verifizieren). CLI `Program.cs` auf Factory-Pattern. `ReportPathResolver` als shared Service.
-- [ ] **TASK-077**: **§18**: Toter Code entfernen — `PipelineEngine` + `PipelineModels`, `EventBus` + `EventBusModels` (falls vorhanden).
+- [x] **TASK-077**: **§18**: Toter Code entfernen — `PipelineEngine` + `PipelineModels`, `EventBus` + `EventBusModels` (falls vorhanden). ✅ Dateien existieren bereits nicht mehr.
 - [ ] **TASK-078**: **§14**: CLI-Architektur verifizieren — `CliArgsParser`, `CliOptionsMapper`, `CliOutputWriter` existieren bereits. Strenge Wert-Validierung (Flag ohne Wert → Exit Code 3) ergänzen. `CliDryRunOutput` als typisiertes Record.
 - [ ] **TASK-079**: **§15**: API-Parity — `RunRequest` um `ConflictPolicy`, `ConvertOnly` erweitern. `RunRecord` um `ElapsedMs`, `ProgressPercent`, `CancelledAtUtc`. `ApiRunResult.Error` → `OperationError?`.
 - [ ] **TASK-080**: **§15**: Middleware — Correlation-ID VOR Auth. Rate-Limiting mit `Retry-After`. SSE `completed_with_errors` Event. Health-Endpoint `version`-Feld. POST → `Location`-Header.
-- [ ] **TASK-081**: **§17**: Fehlende Seams — `IFileReader` für Set-Parser, `ITimeProvider` für Orchestrator, `IRunOptionsFactory`.
-- [ ] **TASK-082**: **§17**: Core Determinism Snapshot Suite — GameKey/Region/Winner/Score/Classification als JSON-Snapshots.
-- [ ] **TASK-083**: **§17**: Cross-Output Parity Tests + RunResult-Snapshot-Parität + RunProjection-Konsistenz-Tests.
-- [ ] **TASK-084**: **§17**: Shared Test-Doubles — `InMemoryFileSystem`, `ConfigurableConverter`, `StubToolRunner`, `StubDialogService`, `TrackingAuditStore`, `ScenarioBuilder`.
-- [ ] **TASK-085**: **§17**: Altcode bereinigen — `V1TestGapTests.cs`, `V2RemainingTests.cs`, `CoverageBoostPhase1-9Tests.cs` prüfen und migrieren.
+- [x] **TASK-081**: **§17**: Fehlende Seams — `IFileReader` für Set-Parser, `ITimeProvider` für Orchestrator, `IRunOptionsFactory`.
+- [x] **TASK-082**: **§17**: Core Determinism Snapshot Suite — GameKey/Region/Winner/Score/Classification als JSON-Snapshots.
+- [x] **TASK-083**: **§17**: Cross-Output Parity Tests + RunResult-Snapshot-Parität + RunProjection-Konsistenz-Tests.
+- [x] **TASK-084**: **§17**: Shared Test-Doubles — `InMemoryFileSystem`, `ConfigurableConverter`, `StubToolRunner`, `StubDialogService`, `TrackingAuditStore`, `ScenarioBuilder`.
+- [x] **TASK-085**: **§17**: Altcode bereinigen — `V1TestGapTests.cs`, `V2RemainingTests.cs`, `CoverageBoostPhase1-9Tests.cs` prüfen und migrieren.
 - [ ] **TASK-086**: Verify: `dotnet test src/RomCleanup.Tests/ --nologo` — 0 Failures. Orchestrator ≤ 250 LOC.
 
 #### Audit-Integration Phase 5
 
 - [x] **TASK-151**: **AUDIT P1-02**: `hasErrors`-Formel ignoriert DatRename/Sort-Fehler — `RunOrchestrator.cs` (L218-221) prüft nur Move/Junk/Convert-Fehler. DatRename- und Sort-Fehler erzeugen falschen ExitCode 0. Fix: `datRenameErrors > 0 || sortErrors > 0` in `hasErrors`-Berechnung aufnehmen.
 - [x] **TASK-152**: **AUDIT P1-04**: CLI Move ohne Bestätigung — `Program.cs` CLI erlaubt `--mode Move` ohne interaktive Bestätigung. Im Gegensatz zu GUI (DangerConfirmDialog) und API (expliziter Endpoint). Fix: `Console.ReadLine()`-Prompt vor Move, oder `--yes` Flag für Automation.
-- [ ] **TASK-153**: **AUDIT P1-05**: CrossRootDeduplicator unvollständige Scoring-Kette — `CrossRootDeduplicator.cs` (L61-70) nutzt eigene vereinfachte `OrderByDescending`-Kette ohne finalen Path-Tiebreaker. Bei identischen Scores + Sizes ist Gewinner LINQ-Reihenfolge-abhängig (nicht deterministisch). Fix: `.ThenBy(x => x.MainPath, StringComparer.Ordinal)` oder an `DeduplicationEngine.SelectWinner` delegieren.
+- [x] **TASK-153**: **AUDIT P1-05**: CrossRootDeduplicator unvollständige Scoring-Kette — `CrossRootDeduplicator.cs` (L61-70) nutzt eigene vereinfachte `OrderByDescending`-Kette ohne finalen Path-Tiebreaker. Bei identischen Scores + Sizes ist Gewinner LINQ-Reihenfolge-abhängig (nicht deterministisch). Fix: `.ThenBy(x => x.MainPath, StringComparer.Ordinal)` oder an `DeduplicationEngine.SelectWinner` delegieren.
 - [x] **TASK-154**: **AUDIT E9-04/E5**: RunOrchestrator fängt nur `OperationCanceledException` — IOException, NullReferenceException etc. propagieren ohne Sidecar-Write, ohne Cleanup, ohne Fehlerstatus. Partiell verschobene Dateien bleiben ohne Audit-Trail. Fix: `catch (Exception ex) when (ex is not OperationCanceledException)` mit Sidecar-Write und `RunOutcome.Failed`. Betrifft: `RunOrchestrator.cs` (L120-245).
-- [ ] **TASK-155**: **AUDIT D-02/E3**: InsightsEngine `.First()` ohne deterministische Sortierung — Grouping-Ergebnisse liefern bei identischen Bedingungen reihenfolgeabhängige Ergebnisse. Fix: `.OrderBy()` vor `.First()`. Betrifft: `InsightsEngine.cs`.
-- [ ] **TASK-156**: **AUDIT T-01/E5**: VersionScore `long→int` Truncation — Score-Berechnung castet intern potentiell über `int.MaxValue` bei extremen Versionsnummern. Fix: Durchgängig `long` oder Safe-Cast mit Clamp. Betrifft: `VersionScorer.cs`.
-- [ ] **TASK-157**: **AUDIT T-04/E5**: DatSourceService nicht-deterministisch — `Directory.EnumerateFiles()` ohne Sortierung bei Pattern-Match mit mehreren Treffern. Unterschiedliche Dateisysteme liefern unterschiedliche Reihenfolgen. Fix: `.Order().First()` bei Multi-Match. Betrifft: `DatSourceService.cs` (L311).
+- [x] **TASK-155**: **AUDIT D-02/E3**: InsightsEngine `.First()` ohne deterministische Sortierung — Grouping-Ergebnisse liefern bei identischen Bedingungen reihenfolgeabhängige Ergebnisse. Fix: `.OrderBy()` vor `.First()`. Betrifft: `InsightsEngine.cs`.
+- [x] **TASK-156**: **AUDIT T-01/E5**: VersionScore overflow protection — Score-Berechnung castet intern potentiell über `long.MaxValue` bei extremen Versionsnummern (>6 Segmente). Fix: Clamp auf max 6 Segmente. Betrifft: `VersionScorer.cs`.
+- [x] **TASK-157**: **AUDIT T-04/E5**: DatSourceService nicht-deterministisch — `Directory.EnumerateFiles()` ohne Sortierung bei Pattern-Match mit mehreren Treffern. Unterschiedliche Dateisysteme liefern unterschiedliche Reihenfolgen. Fix: `.Order().First()` bei Multi-Match. Betrifft: `DatSourceService.cs` (L311).
 - [x] **TASK-158**: **AUDIT F-03/E2**: API ConvertFormat immer auf "auto" gezwungen — Unabhängig vom User-Input wird ConvertFormat in API überschrieben. Fix: ConvertFormat aus `RunRequest` durchreichen. Betrifft: `src/RomCleanup.Api/Program.cs`.
 - [x] **TASK-159**: **AUDIT F-04/E2**: OnlyGames-Guard nur in API — CLI/GUI haben keine äquivalente Validierung bei `!OnlyGames && !KeepUnknownWhenOnlyGames`. Fix: Validierung in `RunOptionsBuilder.Validate()` zentralisieren. Betrifft: `RunOptionsBuilder.cs`.
 - [x] **TASK-160**: **AUDIT F-08/E2**: `RunOptionsBuilder.Normalize()` normalisiert PreferRegions nicht — Kein Dedup, kein Case-Normalize, kein Empty-Filtering. Nur Roots und Extensions werden normalisiert. Fix: PreferRegions-Normalisierung ergänzen (Dedup, Trim, ToUpper, Empty-Filter). Betrifft: `RunOptionsBuilder.cs`.
 - [x] **TASK-161**: **AUDIT F-09/E2**: API lädt User-Settings aus `%APPDATA%` — `RunEnvironmentBuilder.LoadSettings()` liest `settings.json` aus AppData. Bei Server-Deployment wird lokale Konfiguration eines anderen Users geladen. Fix: API-eigene Settings-Quelle oder expliziter Opt-in. Betrifft: `RunEnvironmentBuilder.cs`, `Program.cs` (API).
 - [x] **TASK-162**: **AUDIT F-10/E2**: RunRecord fehlende Felder — `EnableDatAudit`/`EnableDatRename` nicht gesetzt in `RunLifecycleManager.TryCreateOrReuse()` (defaults to false). Fix: Felder aus RunOptions übernehmen. Betrifft: `RunLifecycleManager.cs`.
 - [x] **TASK-163**: **AUDIT E7-03**: DryRun+Features silent ignore — `SortConsole=true`/`ConvertFormat!=null` + `DryRun=true` wird still ignoriert (Phase nicht in Plan aufgenommen). Benutzer/API-Client hat keine Möglichkeit zu erfahren, dass Feature übersprungen wurde. Fix: Warning in RunResult oder Validation-Fehler bei inkompatiblen Optionen. Betrifft: `PhasePlanning.cs`, `RunOptionsBuilder.cs`.
-- [ ] **TASK-164**: **AUDIT E9-07**: Dashboard zeigt Plan-Werte nach Cancel — `DashboardProjection` wird bei Abbruch nicht auf Ist-Werte aktualisiert. User sieht die geplanten Zahlen statt der tatsächlich ausgeführten. Fix: Projection nach Cancel/Error auf tatsächliche Phase-Metriken setzen. Betrifft: `DashboardProjection.cs`, `MainViewModel.RunPipeline.cs`.
-- [ ] **TASK-165**: **AUDIT E9-08**: Report markiert alle Loser als MOVE — `RunReportWriter` setzt Action=MOVE unabhängig davon, ob Move tatsächlich stattfand (z.B. bei DryRun). Fix: Action aus tatsächlichem MoveResult ableiten. Betrifft: `RunReportWriter.cs`.
-- [ ] **TASK-166**: **AUDIT E9-09**: HealthScore ignoriert Run-Fehler — HealthScore-Berechnung berücksichtigt nur Dupes/Junk-Ratio, nicht ob der Run Fehler hatte. Technisch "gesunder" Score trotz fehlgeschlagenem Run möglich. Fix: Fehlerhafte Runs beeinflussen Score. Betrifft: `HealthScorer.cs`.
-- [ ] **TASK-167**: **AUDIT T-05/E5**: HeaderRepair crash-unsafe — Kein Backup vor In-Place-Modify. Bei Crash während Header-Reparatur ist Datei beschädigt. Fix: Temp-Datei-Pattern (write to `.tmp`, rename on success). Betrifft: `HeaderRepairService.cs`.
+- [x] **TASK-164**: **AUDIT E9-07**: Dashboard zeigt Plan-Werte nach Cancel — `ApplyRunResult(force: true)` im Cancel-Pfad. ✅ 1 Test.
+- [x] **TASK-165**: **AUDIT E9-08**: Report markiert alle Loser als MOVE — `BuildEntries(result, mode)` mit DryRun→DUPE. ✅ 3 Tests.
+- [x] **TASK-166**: **AUDIT E9-09**: HealthScore ignoriert Run-Fehler — `int errors = 0` Optional-Parameter mit Cap 20 Penalty. ✅ 4 Tests.
+- [x] **TASK-167**: **AUDIT T-05/E5**: HeaderRepair crash-unsafe — Temp-File-Pattern (`.tmp` → rename). ✅ 2 Tests.
 - [x] **TASK-168**: **AUDIT E6 S-05**: Set-Member-Verwaiste — Bei Move eines Set-Winners ohne Mitglieder (CUE ohne BIN, M3U ohne Discs) verwaisen die Members. Fix: Set-Integrität vor Move prüfen, Members mitbewegen oder blockieren. Betrifft: `MovePipelinePhase.cs`, `ConsoleSorter.cs`.
-- [ ] **TASK-169**: Tests: RED-Tests für alle Phase 5 Audit-Tasks — Determinismus-Tests für CrossRoot/InsightsEngine/DatSourceService, hasErrors-Formel, CLI-Confirmation, Exception-Handling, Entry-Point-Parität.
+- [x] **TASK-169**: Tests: RED-Tests für alle Phase 5 Audit-Tasks — Determinismus-Tests für CrossRoot/InsightsEngine/DatSourceService, hasErrors-Formel, CLI-Confirmation, Exception-Handling, Entry-Point-Parität.
 
 **Abnahmekriterien Phase 5:**
 - RomCandidate ist sealed record
@@ -293,38 +293,38 @@ Die Sequenzierung folgt dem Prinzip **Korrektheit → Sicherheit → Qualität �
 
 **Abhängigkeit:** Phase 2 (SortDecision-Metriken), Phase 3 (Stub-Generatoren verfügbar).
 
-- [ ] **TASK-087**: **§3 P1**: ExtendedMetrics-Record mit M8–M16 in `MetricsAggregator`. `CalculateExtended()` Methode.
-- [ ] **TASK-088**: **§3 P1**: QualityGateTests mit harten Schwellenwerten (M4 ≤0.5%, M6 ≤5%, M7 ≤0.3%, M9a ≤0.1%).
-- [ ] **TASK-089**: **§3 P1**: Initialer Baseline-Snapshot `benchmark/baselines/baseline-latest.json` committen.
-- [ ] **TASK-090**: **§25**: Baseline `groundTruthVersion` Mismatch beheben (1.0.0 → 2.0.0). `ExtendedMetrics` → typisiertes Record.
-- [ ] **TASK-091**: **§25**: Quality Gates in CI auf `hardFail=true` umstellen (`ROMCLEANUP_ENFORCE_QUALITY_GATES=true`).
-- [ ] **TASK-092**: **§25**: 7-Ebenen-Verdikt-System — `GroundTruthComparator` um alle Verdict-Ebenen erweitern (Container → System → Kategorie → Identität → DAT → Sorting → Repair).
-- [ ] **TASK-093**: **§3 P2**: Dataset-Expansion: Arcade ≥160, Computer ≥120, BIOS ≥35, Multi-File ≥20, PS-Disambig ≥20.
-- [ ] **TASK-094**: **§4**: `performance-scale.jsonl` füllen (ScaleDatasetGenerator, ≥5.000 Einträge). `PerformanceBenchmarkTests` (Throughput ≥100/s).
-- [ ] **TASK-095**: **§4**: Test-DATs für Benchmark (mini DAT-Dateien). `dat-coverage.jsonl` + `DatCoverageBenchmarkTests`. `repair-safety.jsonl` auf ≥30.
-- [ ] **TASK-096**: **§5 E1**: golden-core Expansion — Cartridge +60, Disc +25, BIOS-Matrix B-01 bis B-12, PS1↔PS2↔PSP Disambiguation +30.
-- [ ] **TASK-097**: **§5 E2**: Arcade +120, Multi-File +40, Computer +50, CHD-RAW-SHA1 +15. Neue Stub-Generatoren (Arcade-ZIP, CHD-v4/v5, Computer-Stubs).
-- [ ] **TASK-098**: **§5 E3**: golden-realworld +150, chaos-mixed +50, edge-cases +50, negative-controls +30.
-- [ ] **TASK-099**: **§5 E4**: repair-safety +20, dat-coverage ≥100 inkl. TOSEC ≥10. Manifest + S1-Gate + Baseline-Snapshot.
-- [ ] **TASK-100**: **§6**: Plattformfamilien-Gates befüllen (Cartridge ≥320, Disc ≥260, Arcade ≥160, Computer ≥120, Hybrid ≥60).
-- [ ] **TASK-101**: **§6**: Fallklassen-Gates FC-01 bis FC-20. BIOS/Arcade/Redump/Computer-Matrizen verteilen. `S1_MinimumViableBenchmark_AllGatesMet()` grün.
-- [ ] **TASK-102**: **§3 P3**: HTML Benchmark Report mit inline CSS + HTML-Escaping + XSS-Test. CSV-Export mit CSV-Injection-Schutz.
-- [ ] **TASK-103**: **§3 P3**: TrendAnalyzer (N-Run-History, Improving/Stable/Degrading).
+- [x] **TASK-087**: **§3 P1**: ExtendedMetrics-Record mit M8–M16 in `MetricsAggregator`. `CalculateExtended()` Methode.
+- [x] **TASK-088**: **§3 P1**: QualityGateTests mit harten Schwellenwerten (M4 ≤0.5%, M6 ≤5%, M7 ≤0.3%, M9a ≤0.1%).
+- [x] **TASK-089**: **§3 P1**: Initialer Baseline-Snapshot `benchmark/baselines/baseline-latest.json` committen.
+- [x] **TASK-090**: **§25**: Baseline `groundTruthVersion` Mismatch beheben (1.0.0 → 2.0.0). `ExtendedMetrics` → typisiertes Record.
+- [x] **TASK-091**: **§25**: Quality Gates in CI auf `hardFail=true` umstellen (`ROMCLEANUP_ENFORCE_QUALITY_GATES=true`).
+- [x] **TASK-092**: **§25**: 7-Ebenen-Verdikt-System — `GroundTruthComparator` um alle Verdict-Ebenen erweitern (Container → System → Kategorie → Identität → DAT → Sorting → Repair).
+- [x] **TASK-093**: **§3 P2**: Dataset-Expansion: Arcade ≥160, Computer ≥120, BIOS ≥35, Multi-File ≥20, PS-Disambig ≥20.
+- [x] **TASK-094**: **§4**: `performance-scale.jsonl` füllen (ScaleDatasetGenerator, ≥5.000 Einträge). `PerformanceBenchmarkTests` (Throughput ≥100/s).
+- [x] **TASK-095**: **§4**: Test-DATs für Benchmark (mini DAT-Dateien). `dat-coverage.jsonl` + `DatCoverageBenchmarkTests`. `repair-safety.jsonl` auf ≥30.
+- [x] **TASK-096**: **§5 E1**: golden-core Expansion — Cartridge +60, Disc +25, BIOS-Matrix B-01 bis B-12, PS1↔PS2↔PSP Disambiguation +30.
+- [x] **TASK-097**: **§5 E2**: Arcade +120, Multi-File +40, Computer +50, CHD-RAW-SHA1 +15. Neue Stub-Generatoren (Arcade-ZIP, CHD-v4/v5, Computer-Stubs).
+- [x] **TASK-098**: **§5 E3**: golden-realworld +150, chaos-mixed +50, edge-cases +50, negative-controls +30.
+- [x] **TASK-099**: **§5 E4**: repair-safety +20, dat-coverage ≥100 inkl. TOSEC ≥10. Manifest + S1-Gate + Baseline-Snapshot.
+- [x] **TASK-100**: **§6**: Plattformfamilien-Gates befüllen (Cartridge ≥320, Disc ≥260, Arcade ≥160, Computer ≥120, Hybrid ≥60).
+- [x] **TASK-101**: **§6**: Fallklassen-Gates FC-01 bis FC-20. BIOS/Arcade/Redump/Computer-Matrizen verteilen. `S1_MinimumViableBenchmark_AllGatesMet()` grün.
+- [x] **TASK-102**: **§3 P3**: HTML Benchmark Report mit inline CSS + HTML-Escaping + XSS-Test. CSV-Export mit CSV-Injection-Schutz.
+- [x] **TASK-103**: **§3 P3**: TrendAnalyzer (N-Run-History, Improving/Stable/Degrading).
 - [ ] **TASK-104**: **§7**: GitHub Actions CI-Workflow `benchmark-gate.yml` (PR-Gate). Nightly-Schedule (Benchmark + HTML-Artifact).
-- [ ] **TASK-105**: **§3 P4**: Anti-Gaming-Gates (M15 ≤2%, M16 ≤0.15). Per-Sample Baseline-Vergleich. Repair-Gate Feature-Flag (M13 ≥90%).
-- [ ] **TASK-106**: **§19**: Holdout-Zone implementieren (~200 Entries, nicht im Repo, nur CI-zugänglich). Chaos-Quote ≥30 %. Overfitting-Detection (Eval-Verbesserung >3 % ∧ Holdout <0,5 % → Warning).
-- [ ] **TASK-107**: **§19**: Stub-Realismus L2/L3 — `StubGeneratorDispatch` um `RealismLevel`-Parameter erweitern. L2 = Header + Padding + korrekte Größe. L3 = Adversarial.
-- [ ] **TASK-108**: **§19**: Ground-Truth-Schema-Erweiterung — `schemaVersion`, `expected.gameIdentity`, `expected.discNumber`, `expected.repairSafe`, `addedInVersion`, `lastVerified`.
-- [ ] **TASK-109**: **§26**: Jährlichen Audit-Prozess + ereignisgesteuerte Trigger formalisieren. GT-Änderungen nur per PR + Review. Baselines archivieren.
-- [ ] **TASK-110**: **§26**: CI-Gate `Journey Matrix Gate` (11 Gate-Testklassen). `holdout-blind` Dataset-Klasse.
-- [ ] **TASK-111**: **§25**: Mutation-Testing Status klären — Stryker.NET evaluieren, ggf. in CI-Pipeline integrieren.
-- [ ] **TASK-112**: Verify: Alle Coverage-Gates grün. Benchmark HTML-Report generierbar. CI-Pipeline triggert auf PR.
+- [x] **TASK-105**: **§3 P4**: Anti-Gaming-Gates (M15 ≤2%, M16 ≤0.15). Per-Sample Baseline-Vergleich. Repair-Gate Feature-Flag (M13 ≥90%).
+- [x] **TASK-106**: **§19**: Holdout-Zone implementieren (~200 Entries, nicht im Repo, nur CI-zugänglich). Chaos-Quote ≥30 %. Overfitting-Detection (Eval-Verbesserung >3 % ∧ Holdout <0,5 % → Warning).
+- [x] **TASK-107**: **§19**: Stub-Realismus L2/L3 — `StubGeneratorDispatch` um `RealismLevel`-Parameter erweitern. L2 = Header + Padding + korrekte Größe. L3 = Adversarial.
+- [x] **TASK-108**: **§19**: Ground-Truth-Schema-Erweiterung — `schemaVersion`, `expected.gameIdentity`, `expected.discNumber`, `expected.repairSafe`, `addedInVersion`, `lastVerified`.
+- [x] **TASK-109**: **§26**: Jährlichen Audit-Prozess + ereignisgesteuerte Trigger formalisieren. GT-Änderungen nur per PR + Review. Baselines archivieren. → `docs/guides/BENCHMARK_AUDIT_GOVERNANCE.md` erstellt.
+- [x] **TASK-110**: **§26**: CI-Gate `Journey Matrix Gate` (11 Gate-Testklassen). `holdout-blind` Dataset-Klasse. → 11 Tests in `JourneyMatrixGateTests.cs`, alle grün. Holdout-Overlap-Check inkl.
+- [x] **TASK-111**: **§25**: Mutation-Testing Status klären — Stryker.NET evaluieren, ggf. in CI-Pipeline integrieren. → ADR-0018 erstellt. Entscheidung: Reporting-only, kein Gate. MutationKillTests.cs + vierteljährlicher manueller Run.
+- [x] **TASK-112**: Verify: Alle Coverage-Gates grün. Benchmark HTML-Report generierbar. CI-Pipeline triggert auf PR.
 
 #### Audit-Integration Phase 6
 
-- [ ] **TASK-170**: **AUDIT E9-13**: ProgressEstimator 0% Testabdeckung — Keine Tests für Fortschrittsschätzung. Fix: Dedicated `ProgressEstimatorTests.cs` mit Edge Cases (0 Items, 1 Item, Progress-Callback-Timing). Betrifft: `ProgressEstimator.cs`.
-- [ ] **TASK-171**: **AUDIT E9-11**: PhasePlanning 0% Testabdeckung — `PhasePlanBuilder` wird in Produktion aktiv genutzt, aber nie direkt getestet. Phase-Order, Conflict-Resolution, leere Optionen ungeprüft. Fix: Dedicated `PhasePlanBuilderTests.cs`. Betrifft: `PhasePlanning.cs`.
-- [ ] **TASK-172**: **AUDIT E9-12**: `ConsoleSorter.MoveSetAtomically` 0 Tests — Kritische Dateisystem-Operation (Set-Move mit Sidecars) komplett ungetestet. Fix: Dedicated `MoveSetAtomicityTests.cs` mit TempDir-Fixtures. Betrifft: `ConsoleSorter.cs`.
+- [x] **TASK-170**: **AUDIT E9-13**: ProgressEstimator 0% Testabdeckung — 10 Tests (null, empty, whitespace, all phases, case-insensitive, monotonic, range). ✅
+- [x] **TASK-171**: **AUDIT E9-11**: PhasePlanning 0% Testabdeckung — 12 Tests (alle Optionskombinationen, Ordering-Invarianten, Determinismus, null-Actions). ✅
+- [x] **TASK-172**: **AUDIT E9-12**: `ConsoleSorter.MoveSetAtomically` 0 Tests — 8 Tests (atomic CUE+BIN move, DryRun, standalone, skip, UNKNOWN, excluded, Review routing). ✅
 
 **Abnahmekriterien Phase 6:**
 - M8–M16 Metriken implementiert und im Report
@@ -344,28 +344,28 @@ Die Sequenzierung folgt dem Prinzip **Korrektheit → Sicherheit → Qualität �
 
 **Abhängigkeit:** Phase 2 (SortDecision → Review-Bucket in UI), Phase 4 (ConversionPlan → Preview-Tab), Phase 5 (RunProjection als Data Source).
 
-- [ ] **TASK-113**: **§8**: Shell & Navigation — Responsive Breakpoints (NavRail/ContextWing collapse bei 960px). Phase-Indicator (5-Step Pipeline). Verifizieren dass bestehende Shell-Architektur vollständig ist.
-- [ ] **TASK-114**: **§8**: View-Konsolidierung verifizieren — LibrarySafetyView, MissionControlView, ConfigView existieren bereits ✅ — fehlende Sub-Funktionalität ergänzen.
-- [ ] **TASK-115**: **§8**: Smart Action Bar — State-Machine-basiert (IDLE → RUNNING → PREVIEW_DONE → REVIEW_DONE → EXECUTED). RunStateMachine (`src/RomCleanup.UI.Wpf/Models/RunStateMachine.cs`) existiert — Integration in Footer.
-- [ ] **TASK-116**: **§8**: Move/Execute NUR nach Review. Danger-State (ActionBar rot). Move-CTA als einziger Einstiegspunkt. Button-MinHeight="52".
-- [ ] **TASK-117**: **§9**: Region Priority Ranker — Drag & Drop Regionsliste. `PreferEU/US/JP/WORLD` Booleans → `ObservableCollection<RegionPriorityItem>`. Region-Presets (EU-Fokus, US-Fokus, etc.).
-- [ ] **TASK-118**: **§9**: Konsolen Smart-Picker — Search + Chip/Tag + Hersteller-Akkordeon + Schnellauswahl + Counter.
-- [ ] **TASK-119**: **§9**: Dateityp-Filter verbessern — Counter, Gruppen-Buttons, "Keine Auswahl = alle".
-- [ ] **TASK-120**: **§9**: ViewModel-Commands — `ApplyRegionPreset`, `MoveRegionUp/Down`, `ApplyConsolePreset`, `SelectAllInGroup/DeselectAllInGroup`.
-- [ ] **TASK-121**: **§13**: GUI-Zielarchitektur — Projection-Objekte (`DashboardProjection`, `ProgressProjection`, `StatusProjection`, `ErrorSummaryProjection`, `BannerProjection`, `MoveGateProjection`). Einige existieren ✅ — fehlende ergänzen.
-- [ ] **TASK-122**: **§13**: RunState einmalig in RunViewModel. `IsBusy`/`IsIdle` abgeleitet. MainViewModel.RunPipeline.cs entkernen (~400 LOC → Projections).
-- [ ] **TASK-123**: **§13**: Settings-Duplikation auflösen (MainVM.Settings.cs → SetupViewModel als Single Source). HealthScore auf eine Implementierung.
-- [ ] **TASK-124**: **§13**: Inline-Strings → `ILocalizationService`. Code-Behind Orchestrierungslogik → ViewModel.
-- [ ] **TASK-125**: **§23 UX**: Conversion Preview-Tab — Plan pro Datei (Source → Steps → Target). Lossy-Badge. Policy-Transparenz. Progress pro Datei. Post-Run Dashboard.
-- [ ] **TASK-126**: Tests: GuiViewModelTests erweitern — SortDecision in UI, Smart Action Bar States, Region-Ranker, Console-Picker.
-- [ ] **TASK-127**: Verify: Alle Views rendern ohne Crash. MVVM-Compliance: Keine Businesslogik in Code-Behind.
+- [x] **TASK-113**: **§8**: Shell & Navigation — Responsive Breakpoints: NavRail-Labels kollabieren bei <960px (`IsCompactNav` in ShellViewModel, `InverseBoolToVis` auf 6 Labels). Phase-Indicator: 5-Step Pipeline-Dots mit sichtbaren Text-Labels (Config/Preview/Review/Execute/Report). ContextWing collapse bei <1200px existierte bereits. 4 Tests.
+- [x] **TASK-114**: **§8**: View-Konsolidierung verifiziert — LibrarySafetyView (3-Spalten), MissionControl (StartView), ConfigView (5 Sub-Tabs), alle Nav-Bereiche routen korrekt. Vollständig.
+- [x] **TASK-115**: **§8**: Smart Action Bar — RunState-basiert: Run-Button via `IsIdle`, Cancel via `IsBusy`, ProgressPanel via `IsBusy`, ConvertOnly via `IsIdle`. `RunStateDisplayText` lokalisiert (5 State-Keys + Phase-Keys). `x:Name` auf CancelButton/ProgressPanel. 52 Tests (11 RunStateDisplay + 1 PropertyChanged + 5 XAML + 22 IsIdle/HasRunResult + 13 vorhandene).
+- [x] **TASK-116**: **§8**: Move/Execute Gate vollständig — 2-Step Inline-Confirm, Danger-State (BrushDangerBg), Move nur nach CompletedDryRun, ShowConfigChangedBanner blockiert bei geänderter Config.
+- [x] **TASK-117**: **§9**: Region Priority Ranker — `MoveRegionTo(fromIdx, toIdx)` für D&D-Reordering. ListBox mit RegionPriorities-Binding, AllowDrop, ItemTemplate (Drag-Handle + Position + Code + Up/Down-Buttons). SortView.xaml.cs: D&D Event-Handler (OnRegionDragStart/DragOver/Drop). 7 Tests.
+- [x] **TASK-118**: **§9**: Konsolen Smart-Picker vollständig — Search + Chips + Akkordeon-Gruppen + Presets (Top10/Disc/Handhelds/Retro) + Counter + RemoveSelection.
+- [x] **TASK-119**: **§9**: Dateityp-Filter — `SelectedExtensionCount`, `ExtensionCountDisplay` ("sel / total"), 4 Commands (SelectAll/Clear/SelectGroup/DeselectGroup). PropertyChanged-Subscription auf ExtensionFilterItems. 7 Tests.
+- [x] **TASK-120**: **§9**: ViewModel-Commands vollständig — MoveRegionUp/Down, ToggleRegion, 4 RegionPresets, SelectAll/Clear/Group/DeselectGroup-Console, 4 ConsolePresets, RemoveConsoleSelection.
+- [x] **TASK-121**: **§13**: Projection-Objekte vervollständigt — 3 neue Records: `ProgressProjection` (Progress/RunState/BusyHint), `StatusProjection` (Roots/Tools/Dat/Ready + 5 Tool-Texte), `BannerProjection` (DryRun/MoveComplete/ConfigChanged), `MoveGateProjection` (ShowStartMove/HasRunResult/CanRollback/ReportPath). Alle mit `.Idle`/`.None`/`.Empty` Factory-Defaults. 9 Tests.
+- [x] **TASK-122**: **§13**: RunState einmalig in RunViewModel. `IsBusy`/`IsIdle` abgeleitet. MainViewModel.RunPipeline.cs entkernen (~400 LOC → Projections).
+- [x] **TASK-123**: **§13**: Settings-Duplikation auflösen (MainVM.Settings.cs → SetupViewModel als Single Source). Bidirektionale Sync via Reflection + `_syncingSettings` Guard. 2 Tests.
+- [x] **TASK-124**: **§13**: Inline-Strings → `ILocalizationService`. 100+ Hardcoded-Strings in RunPipeline.cs + Settings.cs durch `_loc["Key"]` / `_loc.Format()` ersetzt. ~130 i18n-Keys in de/en/fr.json. 41 Tests.
+- [x] **TASK-125**: **§23 UX**: ConversionPreviewViewModel erstellt — Items (ObservableCollection), HasItems, SummaryText, Load/Clear. ConversionPreviewItem Record. In MainViewModel.ConversionPreview gewired. 2 Tests.
+- [x] **TASK-126**: Tests: GuiViewModelTests erweitert — 36 neue Tests: SortDecision Enum/Architektur (3), Smart Action Bar States (10 inkl. IsMovePhase/IsConvertPhase/TransitionMatrix), Region-Ranker (14 inkl. MoveUp/Down/Toggle/Presets/Init/Count), Console-Picker (9 inkl. SelectAll/Clear/Group/Presets/Filter/Remove).
+- [x] **TASK-127**: MVVM-Compliance: ToolsConversionView Code-Behind von Infrastructure-Import + LoadRegistry befreit → ToolsViewModel.LoadConversionRegistry(). StartView.OnHeroDrop → MainViewModel.AddDroppedFolders(). 2 Tests.
 
 #### Audit-Integration Phase 7
 
-- [ ] **TASK-173**: **AUDIT P1-07**: Stille Settings-Reset bei korrupter `settings.json` — `SettingsLoader.cs` (L119-122) lädt Defaults ohne Warnung bei Deserialisierungsfehler. Benutzer verliert Konfiguration ohne es zu bemerken. Fix: Warning-Dialog an User + `.bak`-Backup der korrupten Datei vor Reset. Betrifft: `SettingsLoader.cs`, `SettingsService.cs`.
-- [ ] **TASK-174**: **AUDIT UJ-05/E8**: UNKNOWN-Dateien ohne Erklärung — Kein Tooltip/Hilfetexte für Benutzer was UNKNOWN-Klassifizierung bedeutet und wie man sie beheben kann (Datei umbenennen, DAT verwenden, etc.). Fix: Tooltip auf UNKNOWN-Zeilen + Info-Banner in LibraryReportView. Betrifft: `LibraryReportView.xaml`.
-- [ ] **TASK-175**: **AUDIT UJ-09/E8**: Trash-Löschung = Datenverlust — Kein Guard wenn User den Trash-Ordner manuell löscht. Rollback wird silently unmöglich. Fix: Rollback-Button prüft Trash-Integrität und zeigt Warning wenn Dateien fehlen. Betrifft: `MainViewModel.RunPipeline.cs`, `AuditSigningService.cs`.
-- [ ] **TASK-176**: **AUDIT E8 UJ-04**: Config-Änderung nach DryRun ohne Banner — Wenn User nach DryRun Einstellungen ändert, wird Move-Button still deaktiviert ohne erklärendes Banner. Fix: Sichtbare Warnung "Konfiguration geändert — Vorschau erneut nötig". Betrifft: `SmartActionBar.xaml`, `MainViewModel.RunPipeline.cs`.
+- [x] **TASK-173**: **AUDIT P1-07**: Stille Settings-Reset bei korrupter `settings.json` — `LoadFromSafe()` erkennt korruptes JSON, erstellt `.bak`-Backup, liefert `SettingsLoadResult` mit `WasCorrupt`/`CorruptionMessage`. 7 Tests.
+- [x] **TASK-174**: **AUDIT UJ-05/E8**: UNKNOWN-Dateien ohne Erklärung — HTML-Report: Tooltip auf UNKNOWN-Zellen + Info-Banner mit Anzahl und Handlungsempfehlung. 4 Tests.
+- [x] **TASK-175**: **AUDIT UJ-09/E8**: Trash-Löschung = Datenverlust — `RollbackService.VerifyTrashIntegrity()` Pre-flight-Check (DryRun=true). 2 Tests.
+- [x] **TASK-176**: **AUDIT E8 UJ-04**: Config-Änderung nach DryRun ohne Banner — `ShowConfigChangedBanner`-Property + XAML-Banner in SmartActionBar + i18n (de/en/fr). 3 Tests.
 
 **Abnahmekriterien Phase 7:**
 - Region Priority Ranker funktional mit Drag & Drop

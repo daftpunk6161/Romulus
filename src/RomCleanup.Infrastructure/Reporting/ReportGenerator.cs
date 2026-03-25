@@ -287,6 +287,18 @@ tr:hover { background: rgba(137,180,250,0.05); }
 
     private static void AppendTable(StringBuilder sb, IReadOnlyList<ReportEntry> entries, string nonce)
     {
+        // TASK-174: Info banner for UNKNOWN files
+        var unknownCount = entries.Count(e => string.Equals(e.Category, "UNKNOWN", StringComparison.OrdinalIgnoreCase));
+        if (unknownCount > 0)
+        {
+            sb.AppendLine($"<div class=\"unknown-info\" style=\"background:var(--surface-1);border-left:4px solid var(--yellow);padding:12px 16px;margin:0 0 16px 0;border-radius:6px\">");
+            sb.AppendLine($"<strong>&#9432; {unknownCount} Datei(en) mit Klassifizierung UNKNOWN</strong><br>");
+            sb.AppendLine("UNKNOWN bedeutet, dass die Datei keiner bekannten Konsole oder Kategorie zugeordnet werden konnte. ");
+            sb.AppendLine("M\u00f6gliche Ursachen: nicht standardkonformer Dateiname, unbekanntes Format oder fehlende DAT-Abdeckung. ");
+            sb.AppendLine("Empfehlung: Dateiname pr\u00fcfen, DAT-Verzeichnis aktualisieren oder Datei manuell zuordnen.");
+            sb.AppendLine("</div>");
+        }
+
         sb.AppendLine("<h2>Details</h2>");
         sb.AppendLine("<table id=\"reportTable\">");
         sb.AppendLine("<thead><tr>");
@@ -308,7 +320,11 @@ tr:hover { background: rgba(137,180,250,0.05); }
             sb.Append("<tr>");
             sb.Append($"<td>{Enc(e.GameKey)}</td>");
             sb.Append($"<td class=\"{actionClass}\">{Enc(e.Action)}</td>");
-            sb.Append($"<td>{Enc(e.Category)}</td>");
+            // TASK-174: Tooltip on UNKNOWN category cells
+            if (string.Equals(e.Category, "UNKNOWN", StringComparison.OrdinalIgnoreCase))
+                sb.Append($"<td title=\"Keine Konsole/Kategorie erkannt. Dateiname pr\u00fcfen, DAT aktualisieren oder manuell zuordnen.\">{Enc(e.Category)}</td>");
+            else
+                sb.Append($"<td>{Enc(e.Category)}</td>");
             sb.Append($"<td>{Enc(e.Region)}</td>");
             sb.Append($"<td title=\"{Enc(e.FilePath)}\">{Enc(e.FileName)}</td>");
             sb.Append($"<td>{Enc(e.Extension)}</td>");

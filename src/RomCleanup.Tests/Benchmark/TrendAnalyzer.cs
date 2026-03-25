@@ -99,7 +99,11 @@ internal static class TrendAnalyzer
                 report.Wrong,
                 report.FalsePositive);
         }
-        catch
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (IOException)
         {
             return null;
         }

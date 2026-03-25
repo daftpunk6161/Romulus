@@ -43,7 +43,7 @@ public sealed class BaselineRegressionGateTests : IClassFixture<BenchmarkFixture
         var confusionPairs = MetricsAggregator.CalculateConsoleConfusionPairs(results);
         var categoryConfusion = MetricsAggregator.BuildCategoryConfusionMatrix(results);
         var calibration = MetricsAggregator.CalculateConfidenceCalibration(results);
-        var report = BenchmarkReportWriter.CreateReport(results, "1.0.0", aggregate, confusion);
+        var report = BenchmarkReportWriter.CreateReport(results, BenchmarkReportWriter.GroundTruthVersion, aggregate, confusion);
 
         BenchmarkReportWriter.Write(report, BenchmarkPaths.CurrentBenchmarkReportPath);
 
@@ -57,6 +57,12 @@ public sealed class BaselineRegressionGateTests : IClassFixture<BenchmarkFixture
         BenchmarkArtifactWriter.WriteTrendComparison(regression, BenchmarkPaths.CurrentTrendComparisonPath);
         BenchmarkHtmlReportWriter.Write(report, BenchmarkPaths.CurrentHtmlDashboardPath,
             perSystem, confusionPairs, categoryConfusion, calibration, regression);
+
+        // TASK-103: TrendAnalyzer integration — write D4 trend report
+        var trend = TrendAnalyzer.Analyze(report);
+        var trendReportPath = Path.Combine(BenchmarkPaths.ReportsDir, "trend-report.json");
+        TrendAnalyzer.WriteTrendReport(trend, trendReportPath);
+        _output.WriteLine($"Trend direction: {trend.TrendDirection} (WrongSlope={trend.WrongMatchRateTrend:F6}, UnsafeSlope={trend.UnsafeSortRateTrend:F6})");
 
         var updateBaseline = string.Equals(
             Environment.GetEnvironmentVariable("ROMCLEANUP_UPDATE_BASELINE"),
