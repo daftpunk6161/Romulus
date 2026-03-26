@@ -23,7 +23,7 @@
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE790;" FontSize="14"
                        Foreground="{DynamicResource BrushAccentPurple}" Margin="0,0,6,0"/>
-            <TextBlock Text="{Binding ThemeToggleText}" FontSize="11"
+            <TextBlock Text="{Binding CurrentThemeLabel}" FontSize="11"
                        Foreground="{DynamicResource BrushTextMuted}"/>
           </StackPanel>
         </Button>

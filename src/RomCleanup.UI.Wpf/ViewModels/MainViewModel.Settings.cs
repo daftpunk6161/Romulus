@@ -21,7 +21,7 @@ public sealed partial class MainViewModel
         nameof(TrashRoot), nameof(DatRoot), nameof(AuditRoot), nameof(Ps3DupesRoot),
         nameof(ToolChdman), nameof(ToolDolphin), nameof(Tool7z), nameof(ToolPsxtract), nameof(ToolCiso),
         nameof(UseDat), nameof(DatHashType), nameof(DatFallback),
-        nameof(EnableDatRename),
+        nameof(EnableDatRename), nameof(EnableDatAudit),
         nameof(SortConsole), nameof(RemoveJunk), nameof(OnlyGames), nameof(KeepUnknownWhenOnlyGames), nameof(AliasKeying), nameof(AggressiveJunk),
         nameof(DryRun), nameof(ConvertEnabled), nameof(ConfirmMove), nameof(ConflictPolicy),
         nameof(PreferEU), nameof(PreferUS), nameof(PreferJP), nameof(PreferWORLD),
@@ -118,6 +118,9 @@ public sealed partial class MainViewModel
 
     private bool _useDat;
     public bool UseDat { get => _useDat; set { if (SetProperty(ref _useDat, value)) RefreshStatus(); } }
+
+    private bool _enableDatAudit = true;
+    public bool EnableDatAudit { get => _enableDatAudit; set => SetProperty(ref _enableDatAudit, value); }
 
     [ObservableProperty]
     private bool _enableDatRename;
@@ -547,6 +550,17 @@ public sealed partial class MainViewModel
     // Theme
     public string CurrentThemeName => _theme.Current.ToString();
 
+    public string CurrentThemeLabel => _theme.Current switch
+    {
+        AppTheme.Dark         => "Synthwave",
+        AppTheme.CleanDarkPro => "Clean Dark",
+        AppTheme.RetroCRT     => "Retro CRT",
+        AppTheme.ArcadeNeon   => "Arcade Neon",
+        AppTheme.Light        => "Hell",
+        AppTheme.HighContrast  => "Kontrast",
+        _                     => _theme.Current.ToString(),
+    };
+
     /// <summary>TASK-129: All available themes for the theme-switcher dropdown.</summary>
     public IReadOnlyList<AppTheme> AvailableThemes => _theme.AvailableThemes;
 
@@ -561,6 +575,7 @@ public sealed partial class MainViewModel
             OnPropertyChanged();
             OnPropertyChanged(nameof(ThemeToggleText));
             OnPropertyChanged(nameof(CurrentThemeName));
+            OnPropertyChanged(nameof(CurrentThemeLabel));
         }
     }
 
@@ -700,6 +715,7 @@ public sealed partial class MainViewModel
             _theme.ApplyTheme(savedTheme);
             OnPropertyChanged(nameof(ThemeToggleText));
             OnPropertyChanged(nameof(CurrentThemeName));
+            OnPropertyChanged(nameof(CurrentThemeLabel));
         }
 
         // E2: Build region priorities from loaded boolean flags
@@ -740,6 +756,7 @@ public sealed partial class MainViewModel
         _theme.Toggle();
         OnPropertyChanged(nameof(ThemeToggleText));
         OnPropertyChanged(nameof(CurrentThemeName));
+        OnPropertyChanged(nameof(CurrentThemeLabel));
         OnPropertyChanged(nameof(SelectedTheme));
     }
 

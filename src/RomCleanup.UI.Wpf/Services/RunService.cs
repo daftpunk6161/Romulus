@@ -167,7 +167,7 @@ public sealed class RunService : IRunService
         public bool AggressiveJunk { get; }
         public bool SortConsole { get; }
         public bool EnableDat { get; }
-        public bool EnableDatAudit => EnableDat;
+        public bool EnableDatAudit => EnableDat && _vm.EnableDatAudit;
         public bool EnableDatRename => EnableDat && _vm.EnableDatRename;
         public string? DatRoot { get; }
         public string HashType { get; }

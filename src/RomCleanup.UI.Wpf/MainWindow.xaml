@@ -67,7 +67,7 @@
         <RowDefinition Height="48"/>   <!-- Row 0: CommandBar -->
         <RowDefinition Height="*"/>    <!-- Row 1: Main content -->
         <RowDefinition Height="Auto"/> <!-- Row 2: Detail Drawer (collapsible) -->
-        <RowDefinition Height="76"/>   <!-- Row 3: ActionRail -->
+        <RowDefinition Height="84"/>   <!-- Row 3: ActionRail -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="72"/>  <!-- Col 0: NavigationRail -->

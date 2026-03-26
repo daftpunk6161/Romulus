@@ -98,6 +98,7 @@ public sealed class SettingsService : ISettingsService
                 dto = dto with
                 {
                     UseDat = GetBool(dat, "useDat"),
+                    EnableDatAudit = GetBool(dat, "enableDatAudit", true),
                     EnableDatRename = GetBool(dat, "enableDatRename"),
                     DatRoot = GetString(dat, "datRoot"),
                     DatHashType = GetString(dat, "hashType", "SHA1"),
@@ -258,6 +259,7 @@ public sealed class SettingsService : ISettingsService
 
         // DAT
         vm.UseDat = dto.UseDat;
+        vm.EnableDatAudit = dto.EnableDatAudit;
         vm.EnableDatRename = dto.EnableDatRename;
         vm.DatRoot = dto.DatRoot;
         vm.DatHashType = dto.DatHashType;
@@ -319,6 +321,7 @@ public sealed class SettingsService : ISettingsService
                     dat = new
                     {
                         useDat = vm.UseDat,
+                        enableDatAudit = vm.EnableDatAudit,
                         enableDatRename = vm.EnableDatRename,
                         datRoot = vm.DatRoot,
                         hashType = vm.DatHashType,

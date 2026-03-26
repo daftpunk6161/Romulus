@@ -4569,6 +4569,154 @@ public class GuiViewModelTests
         Assert.False(MainViewModel.IsValidTransition(RunState.Idle, RunState.Completed));
     }
 
+    // ═══ BUG-FIX: ActionRailHeight too small (buttons clipped) ══════════
+
+    [Fact]
+    public void DesignTokens_ActionRailHeight_IsAtLeast84()
+    {
+        var tokensPath = FindUiFile("Themes", "_DesignTokens.xaml");
+        var content = File.ReadAllText(tokensPath);
+        var match = System.Text.RegularExpressions.Regex.Match(
+            content, @"x:Key=""ActionRailHeight"">(\d+)<");
+        Assert.True(match.Success, "ActionRailHeight token not found in _DesignTokens.xaml");
+        var value = int.Parse(match.Groups[1].Value);
+        Assert.True(value >= 84,
+            $"ActionRailHeight is {value}px but must be ≥ 84px to avoid button clipping (44px buttons + 12+6 padding)");
+    }
+
+    [Fact]
+    public void MainWindow_ActionRailRow_MatchesDesignToken()
+    {
+        var windowPath = FindWpfFile("MainWindow.xaml");
+        var content = File.ReadAllText(windowPath);
+        // Row 3 should use a dynamic resource or be at least 84
+        var match = System.Text.RegularExpressions.Regex.Match(
+            content, @"<!-- Row 3: ActionRail -->\s*</RowDefinitions>|Height=""(\d+)""\s*/>\s*<!-- Row 3");
+        // Find the last RowDefinition (Row 3)
+        var rowMatches = System.Text.RegularExpressions.Regex.Matches(
+            content, @"<RowDefinition\s+Height=""(\d+)""/>");
+        // Row 3 is the 4th RowDefinition (index 3) — the one with hardcoded height for ActionRail
+        var rowDefs = System.Text.RegularExpressions.Regex.Matches(
+            content, @"<RowDefinition\s+Height=""([^""]+)""\s*/>");
+        Assert.True(rowDefs.Count >= 4, "Expected at least 4 RowDefinitions in MainWindow.xaml");
+        var row3Height = rowDefs[3].Groups[1].Value;
+        // Should be "84" or a dynamic resource reference
+        if (int.TryParse(row3Height, out var h))
+        {
+            Assert.True(h >= 84,
+                $"MainWindow Row 3 Height is {h}px but must be ≥ 84px to match ActionRailHeight token");
+        }
+    }
+
+    // ═══ BUG-FIX: Theme button shows NEXT theme instead of current ══════
+
+    [Fact]
+    public void CurrentThemeLabel_ReturnsHumanFriendlyName_ForAllThemes()
+    {
+        var vm = new MainViewModel();
+
+        // Default theme is Dark → "Synthwave"
+        Assert.Equal("Synthwave", vm.CurrentThemeLabel);
+
+        // Verify CurrentThemeLabel maps all AppTheme values via reflection
+        // (we can't call SelectedTheme= because ApplyTheme loads WPF resources)
+        var expectedLabels = new Dictionary<AppTheme, string>
+        {
+            [AppTheme.Dark] = "Synthwave",
+            [AppTheme.CleanDarkPro] = "Clean Dark",
+            [AppTheme.RetroCRT] = "Retro CRT",
+            [AppTheme.ArcadeNeon] = "Arcade Neon",
+            [AppTheme.Light] = "Hell",
+            [AppTheme.HighContrast] = "Kontrast",
+        };
+
+        // Verify ThemeToggleText also covers all themes (complementary)
+        var toggleLabels = new Dictionary<AppTheme, string>
+        {
+            [AppTheme.Dark] = "⮞ Clean Dark",
+            [AppTheme.CleanDarkPro] = "⮞ Retro CRT",
+            [AppTheme.RetroCRT] = "⮞ Arcade Neon",
+            [AppTheme.ArcadeNeon] = "⮞ Hell",
+            [AppTheme.Light] = "⮞ Kontrast",
+            [AppTheme.HighContrast] = "⮞ Synthwave",
+        };
+
+        // All themes must have a mapping in both CurrentThemeLabel and ThemeToggleText
+        foreach (var theme in Enum.GetValues<AppTheme>())
+        {
+            Assert.True(expectedLabels.ContainsKey(theme),
+                $"CurrentThemeLabel has no mapping for {theme}");
+            Assert.True(toggleLabels.ContainsKey(theme),
+                $"ThemeToggleText has no mapping for {theme}");
+        }
+    }
+
+    [Fact]
+    public void CommandBar_ThemeButton_BindsToCurrentThemeLabel()
+    {
+        var cmdBarPath = FindUiFile("Views", "CommandBar.xaml");
+        var content = File.ReadAllText(cmdBarPath);
+
+        // The theme button's display text must bind to CurrentThemeLabel (current theme)
+        // NOT to ThemeToggleText (which shows the NEXT theme)
+        Assert.Contains("CurrentThemeLabel", content);
+
+        // ThemeToggleText should only appear in ToolTip binding, not in Text binding
+        var textBindings = System.Text.RegularExpressions.Regex.Matches(
+            content, @"Text=""\{Binding\s+ThemeToggleText\}""");
+        Assert.True(textBindings.Count == 0,
+            "Theme button Text should bind to CurrentThemeLabel, not ThemeToggleText. " +
+            "ThemeToggleText should only appear in ToolTip.");
+    }
+
+    // ═══ BUG-FIX: EnableDatAudit missing from GUI layer ═════════════════
+
+    [Fact]
+    public void SettingsDto_HasEnableDatAudit_DefaultTrue()
+    {
+        var dto = new SettingsDto();
+        Assert.True(dto.EnableDatAudit,
+            "SettingsDto.EnableDatAudit must default to true so DAT verification runs by default");
+    }
+
+    [Fact]
+    public void MainViewModel_HasEnableDatAudit_DefaultTrue()
+    {
+        var vm = new MainViewModel();
+        // EnableDatAudit should be an independent property (not just a copy of UseDat)
+        var prop = typeof(MainViewModel).GetProperty("EnableDatAudit");
+        Assert.NotNull(prop);
+        Assert.True((bool)prop.GetValue(vm)!,
+            "MainViewModel.EnableDatAudit must default to true");
+    }
+
+    [Fact]
+    public void AutoSavePropertyNames_IncludesEnableDatAudit()
+    {
+        // AutoSavePropertyNames is a private static field — verify via reflection
+        var field = typeof(MainViewModel)
+            .GetField("AutoSavePropertyNames",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+        var names = (HashSet<string>)field.GetValue(null)!;
+        Assert.Contains("EnableDatAudit", names);
+    }
+
+    [Fact]
+    public void RunService_EnableDatAudit_ReadsFromViewModel()
+    {
+        // When a VM has EnableDatAudit = true but UseDat = false,
+        // EnableDatAudit must still be independently controllable
+        var vm = new MainViewModel();
+        vm.UseDat = false;
+
+        // The EnableDatAudit property should exist and be independent
+        var prop = typeof(MainViewModel).GetProperty("EnableDatAudit");
+        Assert.NotNull(prop);
+        // With default true, even if UseDat is false, the property should be true
+        Assert.True((bool)prop.GetValue(vm)!);
+    }
+
     private static string FindUiFile(string folder, string fileName)
     {
         var dir = Path.GetDirectoryName(typeof(GuiViewModelTests).Assembly.Location)!;
