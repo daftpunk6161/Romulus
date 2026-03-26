@@ -159,6 +159,7 @@ public sealed partial class FeatureCommandService
         cmds["ExportCollection"] = new RelayCommand(ExportCollection);
         var rollbackHistoryBack = new RelayCommand(RollbackHistoryBack);
         var rollbackHistoryForward = new RelayCommand(RollbackHistoryForward);
+        cmds["RollbackQuick"] = _vm.RollbackCommand;
         cmds["RollbackHistoryBack"] = rollbackHistoryBack;
         cmds["RollbackHistoryForward"] = rollbackHistoryForward;
         cmds["RollbackUndo"] = rollbackHistoryBack;
@@ -178,7 +179,6 @@ public sealed partial class FeatureCommandService
 
         // ── Konvertierung & Hashing ─────────────────────────────────────
         cmds["ConversionPipeline"] = new RelayCommand(ConversionPipeline);
-        cmds["NKitConvert"] = new RelayCommand(NKitConvert);
         cmds["ConversionVerify"] = new RelayCommand(ConversionVerify);
         cmds["FormatPriority"] = new RelayCommand(FormatPriority);
 
@@ -198,7 +198,6 @@ public sealed partial class FeatureCommandService
         cmds["BackupManager"] = new RelayCommand(BackupManager);
         cmds["Quarantine"] = new RelayCommand(Quarantine);
         cmds["RuleEngine"] = new RelayCommand(RuleEngine);
-        cmds["PatchEngine"] = new RelayCommand(PatchEngine);
         cmds["HeaderRepair"] = new RelayCommand(HeaderRepair);
 
         // ── Workflow & Automatisierung ───────────────────────────────────
@@ -206,7 +205,6 @@ public sealed partial class FeatureCommandService
         cmds["FilterBuilder"] = new RelayCommand(FilterBuilder);
         cmds["SortTemplates"] = new RelayCommand(SortTemplates);
         cmds["PipelineEngine"] = new RelayCommand(PipelineEngine);
-        cmds["CronTester"] = new RelayCommand(CronTester);
         cmds["SchedulerApply"] = new RelayCommand(() => _vm.ApplyScheduler());
         cmds["RulePackSharing"] = new RelayCommand(RulePackSharing);
         cmds["ArcadeMergeSplit"] = new RelayCommand(ArcadeMergeSplit);
@@ -221,7 +219,6 @@ public sealed partial class FeatureCommandService
         cmds["NasOptimization"] = new RelayCommand(NasOptimization);
         cmds["PortableMode"] = new RelayCommand(PortableMode);
         cmds["HardlinkMode"] = new RelayCommand(HardlinkMode);
-        cmds["MultiInstanceSync"] = new RelayCommand(MultiInstanceSync);
 
         // ── Window-level commands (need IWindowHost) ────────────────────
         if (_windowHost is not null)

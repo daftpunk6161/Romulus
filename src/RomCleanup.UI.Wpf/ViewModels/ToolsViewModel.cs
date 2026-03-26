@@ -55,7 +55,7 @@ public sealed class ToolsViewModel : ObservableObject
     // Default pinned tool keys
     private static readonly HashSet<string> DefaultPinnedKeys =
     [
-        "HealthScore", "DuplicateAnalysis", "RollbackQuick", "ExportCollection", "DatAutoUpdate", "ConversionPipeline"
+        "HealthScore", "DuplicateAnalysis", "RollbackQuick", "ExportCollection", "DatAutoUpdate", "IntegrityMonitor"
     ];
 
     // Category icon mapping
@@ -145,9 +145,9 @@ public sealed class ToolsViewModel : ObservableObject
 
             // Conversion
             ("ConversionPipeline", "Conversion",     "\xE8AB", false),
-            ("NKitConvert",        "Conversion",     "\xE8AB", false),
             ("ConversionVerify",   "Conversion",     "\xE73E", false),
-            ("FormatPriority",     "Conversion",     "\xE8CB", false),            ("HeaderRepair",       "Conversion",    "\xE90F", false),
+            ("FormatPriority",     "Conversion",     "\xE9D9", false),
+            ("HeaderRepair",       "Conversion",     "\xE90F", false),
 
             // DatVerify
             ("DatAutoUpdate",      "DatVerify",      "\xE895", false),
@@ -165,19 +165,15 @@ public sealed class ToolsViewModel : ObservableObject
             ("BackupManager",      "Security",       "\xE8F1", true),
             ("Quarantine",         "Security",       "\xE7BA", true),
             ("RuleEngine",         "Security",       "\xE713", false),
-            ("PatchEngine",        "Security",       "\xE70F", false),
             ("RollbackQuick",      "Security",       "\xE777", false),
-            ("RollbackHistoryBack",    "Security",       "\xE7A7", false),
-            ("RollbackHistoryForward", "Security",       "\xE7A6", false),
 
             // Workflow
             ("CommandPalette",     "Workflow",       "\xE721", false),
             ("FilterBuilder",      "Workflow",       "\xE71C", true),
-            ("SortTemplates",      "Workflow",       "\xE8CB", false),
-            ("PipelineEngine",     "Workflow",       "\xE8CB", false),
-            ("CronTester",         "Workflow",       "\xE787", false),
+            ("SortTemplates",      "Workflow",       "\xE762", false),
+            ("PipelineEngine",     "Workflow",       "\xE9F5", false),
             ("RulePackSharing",    "Workflow",       "\xE72D", false),
-            ("ArcadeMergeSplit",   "Workflow",       "\xE8CB", false),
+            ("ArcadeMergeSplit",   "Workflow",       "\xE71D", false),
             ("AutoProfile",        "Workflow",       "\xE713", false),
 
             // Export
@@ -187,20 +183,17 @@ public sealed class ToolsViewModel : ObservableObject
             ("ExportCollection",   "Export",         "\xE792", true),
 
             // Infrastructure
-            ("StorageTiering",     "Infra",          "\xE8CB", true),
-            ("NasOptimization",    "Infra",          "\xE8CB", false),
-
-            ("PortableMode",       "Infra",          "\xE8CB", false),
+            ("StorageTiering",     "Infra",          "\xE7F8", true),
+            ("NasOptimization",    "Infra",          "\xE839", false),
+            ("PortableMode",       "Infra",          "\xE8B7", false),
             ("ApiServer",          "Infra",          "\xE774", false),
-            ("HardlinkMode",       "Infra",          "\xE8CB", true),
-            ("MultiInstanceSync",  "Infra",          "\xE8CB", false),
+            ("HardlinkMode",       "Infra",          "\xE71B", true),
 
             ("Accessibility",      "Infra",          "\xE7F8", false),
         };
         foreach (var (key, catKey, icon, needsResult) in items)
         {
-            var isPlanned = key is "MultiInstanceSync"
-                or "PatchEngine" or "NKitConvert";
+            var isPlanned = false;
             var item = new ToolItem
             {
                 Key = key, DisplayName = _loc[$"Tool.{key}"], Category = _loc[$"Tool.Cat.{catKey}"], Description = _loc[$"Tool.{key}.Desc"],

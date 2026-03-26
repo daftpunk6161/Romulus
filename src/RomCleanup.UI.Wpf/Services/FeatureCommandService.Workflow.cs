@@ -106,18 +106,6 @@ public sealed partial class FeatureCommandService
         }
     }
 
-    private void CronTester()
-    {
-        var input = _dialog.ShowInputBox(
-            "Cron-Expression eingeben (5 Felder: Min Std Tag Mon Wochentag):\n\nBeispiele:\n0 3 * * * → Täglich um 3:00\n0 */6 * * * → Alle 6 Stunden\n0 0 * * 0 → Sonntags um Mitternacht",
-            "Cron-Tester", "0 3 * * *");
-        if (string.IsNullOrWhiteSpace(input)) return;
-        var now = DateTime.Now;
-        var matches = FeatureService.TestCronMatch(input, now);
-        _vm.AddLog($"Cron-Tester: '{input}' → aktuell {(matches ? "aktiv" : "nicht aktiv")}", "INFO");
-        _dialog.Info($"Cron-Expression: {input}\n\nAktuelle Zeit: {now:HH:mm}\nMatch: {(matches ? "JA" : "Nein")}\n\nHinweis: Dies ist ein Cron-Tester. Automatische Ausführung ist nicht implementiert.", "Cron-Tester");
-    }
-
     private void RulePackSharing()
     {
         var doExport = _dialog.Confirm("Regel-Pakete\n\nJA = Exportieren (rules.json speichern)\nNEIN = Importieren (rules.json laden)", "Regel-Pakete");

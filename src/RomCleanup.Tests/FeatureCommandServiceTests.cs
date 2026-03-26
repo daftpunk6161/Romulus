@@ -74,7 +74,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("Completeness")]
     [InlineData("DryRunCompare")]
     [InlineData("ConversionPipeline")]
-    [InlineData("NKitConvert")]
     [InlineData("ConversionVerify")]
     [InlineData("FormatPriority")]
     [InlineData("DatAutoUpdate")]
@@ -88,12 +87,10 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("BackupManager")]
     [InlineData("Quarantine")]
     [InlineData("RuleEngine")]
-    [InlineData("PatchEngine")]
     [InlineData("HeaderRepair")]
     [InlineData("FilterBuilder")]
     [InlineData("SortTemplates")]
     [InlineData("PipelineEngine")]
-    [InlineData("CronTester")]
     [InlineData("RulePackSharing")]
     [InlineData("ArcadeMergeSplit")]
     [InlineData("HtmlReport")]
@@ -103,7 +100,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("NasOptimization")]
     [InlineData("PortableMode")]
     [InlineData("HardlinkMode")]
-    [InlineData("MultiInstanceSync")]
     public void RegisterCommands_ContainsExpectedCommand(string commandKey)
     {
         _sut.RegisterCommands();
@@ -143,11 +139,11 @@ public sealed class FeatureCommandServiceTests : IDisposable
     }
 
     [Fact]
-    public void RegisterCommands_CountIsAtLeast60()
+    public void RegisterCommands_CountIsAtLeast56()
     {
         _sut.RegisterCommands();
-        Assert.True(_vm.FeatureCommands.Count >= 60,
-            $"Expected at least 60 commands, got {_vm.FeatureCommands.Count}");
+        Assert.True(_vm.FeatureCommands.Count >= 56,
+            $"Expected at least 56 commands, got {_vm.FeatureCommands.Count}");
     }
 
     // ═══ EXPORT LOG ═════════════════════════════════════════════════════
@@ -404,16 +400,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ MULTI INSTANCE SYNC ════════════════════════════════════════════
-
-    [Fact]
-    public void MultiInstanceSync_ShowsSyncInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["MultiInstanceSync"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
     // ═══ WITH CANDIDATES ════════════════════════════════════════════════
 
     [Fact]
@@ -529,15 +515,14 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ CRON TESTER ═════════════════════════════════════════════════════════
+    // ═══ ROLLBACK QUICK ═════════════════════════════════════════════════
 
     [Fact]
-    public void CronTester_ShowsSchedulerInfo()
+    public void RollbackQuick_IsRegistered()
     {
         _sut.RegisterCommands();
-        _dialog.ShowInputBoxResult = "* * * * *";
-        _vm.FeatureCommands["CronTester"].Execute(null);
-        Assert.True(HasOutput());
+        Assert.True(_vm.FeatureCommands.ContainsKey("RollbackQuick"),
+            "RollbackQuick must be registered as a feature command");
     }
 
     // ═══ ROLLBACK UNDO / REDO ═══════════════════════════════════════════
@@ -753,7 +738,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.Contains("RollbackQuick", pinnedKeys);
         Assert.Contains("ExportCollection", pinnedKeys);
         Assert.Contains("DatAutoUpdate", pinnedKeys);
-        Assert.Contains("ConversionPipeline", pinnedKeys);
+        Assert.Contains("IntegrityMonitor", pinnedKeys);
     }
 
     [Fact]

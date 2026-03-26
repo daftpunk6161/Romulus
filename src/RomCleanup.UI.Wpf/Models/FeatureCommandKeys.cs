@@ -18,7 +18,6 @@ public static class FeatureCommandKeys
 
     // ── Konvertierung & Hashing ──
     public const string ConversionPipeline = "ConversionPipeline";
-    public const string NKitConvert = "NKitConvert";
     public const string ConversionVerify = "ConversionVerify";
     public const string FormatPriority = "FormatPriority";
 
@@ -38,7 +37,6 @@ public static class FeatureCommandKeys
     public const string BackupManager = "BackupManager";
     public const string Quarantine = "Quarantine";
     public const string RuleEngine = "RuleEngine";
-    public const string PatchEngine = "PatchEngine";
     public const string HeaderRepair = "HeaderRepair";
     public const string RollbackQuick = "RollbackQuick";
     public const string RollbackHistoryBack = "RollbackHistoryBack";
@@ -51,7 +49,6 @@ public static class FeatureCommandKeys
     public const string FilterBuilder = "FilterBuilder";
     public const string SortTemplates = "SortTemplates";
     public const string PipelineEngine = "PipelineEngine";
-    public const string CronTester = "CronTester";
     public const string RulePackSharing = "RulePackSharing";
     public const string ArcadeMergeSplit = "ArcadeMergeSplit";
     public const string AutoProfile = "AutoProfile";
@@ -68,7 +65,6 @@ public static class FeatureCommandKeys
     public const string PortableMode = "PortableMode";
     public const string ApiServer = "ApiServer";
     public const string HardlinkMode = "HardlinkMode";
-    public const string MultiInstanceSync = "MultiInstanceSync";
 
     // ── UI & Erscheinungsbild ──
     public const string Accessibility = "Accessibility";

@@ -177,13 +177,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void MultiInstanceSync_ShowsLockStatus()
-    {
-        ExecCommand("MultiInstanceSync");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
     public void NasOptimization_ShowsNasInfo()
     {
         ExecCommand("NasOptimization");
@@ -399,13 +392,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    [Fact]
-    public void NKitConvert_ExecutesWithoutError()
-    {
-        ExecCommand("NKitConvert");
-        // NKit conversion is placeholder/future feature
-    }
-
     // ═══ PROFILE COMMANDS ═══════════════════════════════════════════════
 
     [Fact]
@@ -435,14 +421,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         _dialog.NextBrowseFile = romFile;
         ExecCommand("HeaderAnalysis");
         Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void PatchEngine_WithNoBrowse_Aborts()
-    {
-        _dialog.NextBrowseFile = null;
-        ExecCommand("PatchEngine");
-        Assert.True(HasOutput() || _vm.LogEntries.Count == 0);
     }
 
 

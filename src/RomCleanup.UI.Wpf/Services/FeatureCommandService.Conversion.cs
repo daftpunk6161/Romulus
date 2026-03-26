@@ -26,28 +26,6 @@ public sealed partial class FeatureCommandService
             "Aktiviere 'Konvertierung' und starte einen Move-Lauf.", "Konvertierungs-Pipeline");
     }
 
-    private void NKitConvert()
-    {
-        var path = _dialog.BrowseFile("NKit-Image wählen", "NKit (*.nkit.iso;*.nkit.gcz;*.nkit)|*.nkit.iso;*.nkit.gcz;*.nkit|Alle (*.*)|*.*");
-        if (path is null) return;
-        var isNkit = path.Contains(".nkit", StringComparison.OrdinalIgnoreCase);
-        _vm.AddLog($"NKit erkannt: {isNkit}, Datei: {Path.GetFileName(path)}", isNkit ? "INFO" : "WARN");
-        try
-        {
-            var runner = new ToolRunnerAdapter(null);
-            var nkitPath = runner.FindTool("nkit");
-            if (nkitPath is not null)
-                _dialog.Info($"NKit-Tool gefunden: {nkitPath}\n\nImage: {Path.GetFileName(path)}\nNKit-Format: {(isNkit ? "Ja" : "Nein")}\n\nKonvertierungs-Anleitung:\n  NKit → ISO: NKit.exe recover <Datei>\n  NKit → RVZ: Erst recover, dann dolphintool convert\n\nEmpfohlenes Zielformat: RVZ (GameCube/Wii)", "NKit-Konvertierung");
-            else
-                _dialog.Info($"NKit-Tool nicht gefunden.\n\nImage: {Path.GetFileName(path)}\n\nDownload: https://vimm.net/vault/nkit\n\nNach dem Download das Tool in den PATH aufnehmen\noder im Programmverzeichnis ablegen.", "NKit-Konvertierung");
-        }
-        catch (Exception ex)
-        {
-            LogWarning("GUI-NKIT", $"NKit-Tool-Suche fehlgeschlagen: {ex.Message}");
-            _dialog.Info($"NKit-Image: {Path.GetFileName(path)}\n\nKonvertierung nach ISO/RVZ erfordert das Tool 'NKit'.\nDownload: https://vimm.net/vault/nkit", "NKit-Konvertierung");
-        }
-    }
-
     private void ConversionVerify()
     {
         var dir = _dialog.BrowseFolder("Konvertierte Dateien prüfen");

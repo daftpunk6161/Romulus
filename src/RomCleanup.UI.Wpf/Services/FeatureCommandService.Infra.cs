@@ -65,44 +65,6 @@ public sealed partial class FeatureCommandService
         _dialog.ShowText("Hardlink-Modus", $"Hardlink-Modus\n\n{estimate}\n\nNTFS-Unterstützung: {(isNtfs ? "Verfügbar" : "Nicht verfügbar")}\n\nHardlinks teilen den Speicherplatz auf Dateisystemebene.\nBeide Pfade zeigen auf dieselben Daten – kein zusätzlicher Speicher.");
     }
 
-    private void MultiInstanceSync()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Multi-Instanz-Synchronisation");
-        sb.AppendLine(new string('═', 50));
-        var locks = new List<(string path, string content)>();
-        foreach (var root in _vm.Roots)
-        {
-            var lockFile = Path.Combine(root, ".romcleanup.lock");
-            if (File.Exists(lockFile))
-            {
-                try { locks.Add((lockFile, File.ReadAllText(lockFile))); }
-                catch { locks.Add((lockFile, "(nicht lesbar)")); }
-            }
-        }
-        sb.AppendLine($"\n  Konfigurierte Roots: {_vm.Roots.Count}");
-        sb.AppendLine($"  Aktive Locks:       {locks.Count}");
-        if (locks.Count > 0)
-        {
-            sb.AppendLine("\n  Gefundene Lock-Dateien:");
-            foreach (var (path, content) in locks) { sb.AppendLine($"    {path}"); sb.AppendLine($"      {content}"); }
-        }
-        else sb.AppendLine("\n  Keine aktiven Locks gefunden.");
-        sb.AppendLine($"\n  Diese Instanz:\n    PID:      {Environment.ProcessId}\n    Hostname: {Environment.MachineName}\n    Status:   {(_vm.IsBusy ? "LÄUFT" : "Bereit")}");
-        _dialog.ShowText("Multi-Instanz", sb.ToString());
-        if (locks.Count > 0 && _dialog.Confirm($"{locks.Count} Lock-Datei(en) gefunden.\n\nAbgelaufene Locks entfernen?", "Multi-Instanz"))
-        {
-            var removed = 0;
-            var failed = 0;
-            foreach (var (path, _) in locks)
-            {
-                try { File.Delete(path); removed++; }
-                catch (Exception ex) { failed++; _vm.AddLog($"Lock-Datei konnte nicht entfernt werden: {path} ({ex.Message})", "WARN"); }
-            }
-            _vm.AddLog($"Multi-Instanz: {removed} Lock(s) entfernt{(failed > 0 ? $", {failed} fehlgeschlagen" : "")}", "INFO");
-        }
-    }
-
     // ═══ WINDOW-LEVEL COMMANDS (require IWindowHost) ════════════════════
 
     private void CommandPalette()

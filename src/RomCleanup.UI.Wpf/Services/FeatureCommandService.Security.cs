@@ -85,17 +85,6 @@ public sealed partial class FeatureCommandService
         catch (Exception ex) { LogError("SEC-RULES", $"Fehler beim Laden der Regeln: {ex.Message}"); }
     }
 
-    private void PatchEngine()
-    {
-        var patchPath = _dialog.BrowseFile("Patch-Datei wählen", "Patches (*.ips;*.bps;*.ups)|*.ips;*.bps;*.ups|Alle (*.*)|*.*");
-        if (patchPath is null) return;
-        var format = FeatureService.DetectPatchFormat(patchPath);
-        if (format is null)
-        { _vm.AddLog($"Unbekanntes Patch-Format: {Path.GetFileName(patchPath)}", "WARN"); return; }
-        _vm.AddLog($"Patch erkannt: {format} – {Path.GetFileName(patchPath)}", "INFO");
-        _dialog.Info($"Patch-Datei: {Path.GetFileName(patchPath)}\nFormat: {format}\n\nUm den Patch anzuwenden, wähle die Ziel-ROM aus.", "Patch-Engine");
-    }
-
     private void HeaderRepair()
     {
         var path = _dialog.BrowseFile("ROM für Header-Reparatur wählen",
