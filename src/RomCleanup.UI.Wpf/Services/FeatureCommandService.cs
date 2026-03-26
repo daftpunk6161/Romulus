@@ -189,8 +189,8 @@ public sealed partial class FeatureCommandService
         cmds["ConvertQueue"] = new RelayCommand(ConvertQueue);
         cmds["ConversionVerify"] = new RelayCommand(ConversionVerify);
         cmds["FormatPriority"] = new RelayCommand(FormatPriority);
-        cmds["ParallelHashing"] = new RelayCommand(ParallelHashing);
-        cmds["GpuHashing"] = new RelayCommand(GpuHashing);
+        cmds["ParallelHashing"] = new RelayCommand(ParallelHashing, () => false);
+        cmds["GpuHashing"] = new RelayCommand(GpuHashing, () => false);
 
         // ── DAT & Verifizierung ─────────────────────────────────────────
         cmds["DatAutoUpdate"] = new AsyncRelayCommand(DatAutoUpdateAsync);
@@ -221,7 +221,7 @@ public sealed partial class FeatureCommandService
         cmds["FilterBuilder"] = new RelayCommand(FilterBuilder);
         cmds["SortTemplates"] = new RelayCommand(SortTemplates);
         cmds["PipelineStatus"] = new RelayCommand(PipelineStatus);
-        cmds["SchedulerAdvanced"] = new RelayCommand(SchedulerAdvanced);
+        cmds["SchedulerAdvanced"] = new RelayCommand(SchedulerAdvanced, () => false);
         cmds["SchedulerApply"] = new RelayCommand(() => _vm.ApplyScheduler());
         cmds["RulePackSharing"] = new RelayCommand(RulePackSharing);
         cmds["ArcadeMergeSplit"] = new RelayCommand(ArcadeMergeSplit);
@@ -234,9 +234,9 @@ public sealed partial class FeatureCommandService
         // ── Infrastruktur & Deployment ──────────────────────────────────
         cmds["StorageTiering"] = new RelayCommand(StorageTiering);
         cmds["NasOptimization"] = new RelayCommand(NasOptimization);
-        cmds["FtpSource"] = new RelayCommand(FtpSource);
-        cmds["CloudSync"] = new RelayCommand(CloudSync);
-        cmds["PluginMarketplaceFeature"] = new RelayCommand(PluginMarketplace);
+        cmds["FtpSource"] = new RelayCommand(FtpSource, () => false);
+        cmds["CloudSync"] = new RelayCommand(CloudSync, () => false);
+        cmds["PluginMarketplaceFeature"] = new RelayCommand(PluginMarketplace, () => false);
         cmds["PortableMode"] = new RelayCommand(PortableMode);
         cmds["DockerContainer"] = new RelayCommand(DockerContainer);
         cmds["WindowsContextMenu"] = new RelayCommand(WindowsContextMenu);

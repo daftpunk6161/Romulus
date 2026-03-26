@@ -267,7 +267,7 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(1, output.Converted);
-        Assert.Equal(2, output.ConvertSkipped);
+        Assert.Equal(0, output.ConvertSkipped); // no-target and same-ext are pre-filtered, not converter-reported skips
         Assert.Equal(1, output.ConvertErrors);
         Assert.Contains(audit.Rows, r => r.Action == "CONVERT");
         Assert.Contains(audit.Rows, r => r.Action == "CONVERT_ERROR");

@@ -194,6 +194,16 @@ internal static class CliArgsParser
                     opts.Yes = true;
                     break;
 
+                case "-rollback" or "--rollback":
+                    if (!TryConsumeValue(args, ref i, "--rollback", errors, out var rollbackPath))
+                        break;
+                    opts.RollbackAuditPath = rollbackPath;
+                    break;
+
+                case "-rollback-dry-run" or "--rollback-dry-run":
+                    opts.RollbackDryRun = true;
+                    break;
+
                 case "-help" or "--help" or "-h" or "-?":
                     return CliParseResult.Help();
 
@@ -216,6 +226,14 @@ internal static class CliArgsParser
 
         if (errors.Count > 0)
             return CliParseResult.ValidationError(errors);
+
+        // --rollback mode: requires audit path, no roots needed
+        if (!string.IsNullOrWhiteSpace(opts.RollbackAuditPath))
+        {
+            if (!File.Exists(opts.RollbackAuditPath))
+                return CliParseResult.ValidationError([$"[Error] Audit file not found: {opts.RollbackAuditPath}"]);
+            return CliParseResult.Rollback(opts);
+        }
 
         if (opts.Roots.Length == 0)
         {
@@ -240,6 +258,22 @@ internal static class CliArgsParser
 
             if (!Directory.Exists(fullRoot))
                 return CliParseResult.ValidationError([$"[Error] Root directory not found: {fullRoot}"]);
+
+            // SEC-CLI-02: Block reparse points (symlinks/junctions) as root paths — parity with API
+            try
+            {
+                var dirInfo = new DirectoryInfo(fullRoot);
+                if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    return CliParseResult.ValidationError([$"[Error] Root directory is a reparse point (symlink/junction): {fullRoot}"]);
+            }
+            catch (IOException ex)
+            {
+                return CliParseResult.ValidationError([$"[Error] Cannot verify root directory attributes: {fullRoot} ({ex.Message})"]);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return CliParseResult.ValidationError([$"[Error] Cannot verify root directory attributes: {fullRoot} ({ex.Message})"]);
+            }
         }
 
         var protectedPathError = ValidateOptionalPath(opts.TrashRoot, "trash root", allowUnc: false)
@@ -373,6 +407,8 @@ internal sealed class CliParseResult
 
     public static CliParseResult Help() => new() { Command = CliCommand.Help, ExitCode = 0 };
     public static CliParseResult Version() => new() { Command = CliCommand.Version, ExitCode = 0 };
+    public static CliParseResult Rollback(CliRunOptions options) =>
+        new() { Command = CliCommand.Rollback, ExitCode = 0, Options = options };
 
     public static CliParseResult ValidationError(IReadOnlyList<string> errors) =>
         new() { Command = CliCommand.Run, ExitCode = 3, Errors = errors };
@@ -381,7 +417,7 @@ internal sealed class CliParseResult
         new() { Command = CliCommand.Run, ExitCode = 0, Options = options };
 }
 
-internal enum CliCommand { Run, Help, Version }
+internal enum CliCommand { Run, Help, Version, Rollback }
 
 /// <summary>
 /// Raw parsed CLI options — before settings merge.
@@ -412,4 +448,6 @@ internal sealed class CliRunOptions
     public string? AuditPath { get; set; }
     public string? LogPath { get; set; }
     public string LogLevel { get; set; } = "Info";
+    public string? RollbackAuditPath { get; set; }
+    public bool RollbackDryRun { get; set; } = true;
 }

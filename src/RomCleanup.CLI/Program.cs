@@ -1,4 +1,6 @@
 using RomCleanup.Contracts.Errors;
+using RomCleanup.Infrastructure.Audit;
+using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Logging;
 using RomCleanup.Infrastructure.Orchestration;
 
@@ -44,6 +46,9 @@ internal static class Program
 
                 case CliCommand.Run:
                     return Run(result.Options!);
+
+                case CliCommand.Rollback:
+                    return Rollback(result.Options!);
 
                 default:
                     return result.ExitCode;
@@ -167,6 +172,98 @@ internal static class Program
     }
 
     // --- Backward-compatible delegates for tests ---
+
+    private static int Rollback(CliRunOptions cliOpts)
+    {
+        var auditPath = cliOpts.RollbackAuditPath!;
+        var dryRun = cliOpts.RollbackDryRun;
+
+        SafeErrorWriteLine($"[Rollback] {(dryRun ? "DryRun" : "Execute")} — Audit: {auditPath}");
+
+        if (!dryRun && !cliOpts.Yes)
+        {
+            if (IsNonInteractiveExecution())
+            {
+                SafeErrorWriteLine("[Error] Non-interactive rollback execute requires --yes confirmation.");
+                return 3;
+            }
+
+            SafeErrorWriteLine("[Rollback] Execute mode will restore files. Continue? (y/N)");
+            var response = Console.ReadLine();
+            if (!string.Equals(response?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+            {
+                SafeErrorWriteLine("[Rollback] Aborted by user.");
+                return 2;
+            }
+        }
+
+        var fs = new FileSystemAdapter();
+        var keyPath = AuditSecurityPaths.GetDefaultSigningKeyPath();
+        var signing = new AuditSigningService(fs, keyFilePath: keyPath);
+
+        // Derive allowed roots from audit CSV — same roots that were used in the original run
+        var roots = DeriveRootsFromAudit(auditPath);
+        if (roots.Length == 0)
+        {
+            SafeErrorWriteLine("[Error] Could not determine root paths from audit file.");
+            return 1;
+        }
+
+        // Current roots: original roots + trash paths (files may be in trash now)
+        var currentRoots = roots.ToList();
+        if (!string.IsNullOrWhiteSpace(cliOpts.TrashRoot))
+            currentRoots.Add(cliOpts.TrashRoot);
+        // Also add default trash folders within each root
+        foreach (var root in roots)
+        {
+            var trashDir = Path.Combine(root, "_TRASH");
+            if (Directory.Exists(trashDir))
+                currentRoots.Add(trashDir);
+            var trashConv = Path.Combine(root, "_TRASH_CONVERTED");
+            if (Directory.Exists(trashConv))
+                currentRoots.Add(trashConv);
+        }
+
+        var result = signing.Rollback(auditPath, roots, currentRoots.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), dryRun);
+
+        SafeErrorWriteLine($"[Rollback] Total rows: {result.TotalRows}");
+        SafeErrorWriteLine($"[Rollback] Eligible: {result.EligibleRows}");
+        if (dryRun)
+            SafeErrorWriteLine($"[Rollback] Planned: {result.DryRunPlanned}");
+        else
+            SafeErrorWriteLine($"[Rollback] Restored: {result.RolledBack}");
+        SafeErrorWriteLine($"[Rollback] Skipped (unsafe): {result.SkippedUnsafe}");
+        SafeErrorWriteLine($"[Rollback] Skipped (collision): {result.SkippedCollision}");
+        SafeErrorWriteLine($"[Rollback] Skipped (missing): {result.SkippedMissingDest}");
+        SafeErrorWriteLine($"[Rollback] Failed: {result.Failed}");
+
+        if (!string.IsNullOrWhiteSpace(result.RollbackAuditPath))
+            SafeErrorWriteLine($"[Rollback] Trail: {result.RollbackAuditPath}");
+
+        return result.Failed > 0 ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Extract unique root paths from the first column of an audit CSV.
+    /// </summary>
+    private static string[] DeriveRootsFromAudit(string auditCsvPath)
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var line in File.ReadLines(auditCsvPath).Skip(1)) // skip header
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var firstComma = line.IndexOf(',');
+                if (firstComma <= 0) continue;
+                var rootField = line[..firstComma].Trim().Trim('"');
+                if (!string.IsNullOrWhiteSpace(rootField) && Directory.Exists(rootField))
+                    roots.Add(rootField);
+            }
+        }
+        catch (IOException) { /* best-effort */ }
+        return roots.ToArray();
+    }
 
     internal static int RunForTests(CliRunOptions opts)
     {

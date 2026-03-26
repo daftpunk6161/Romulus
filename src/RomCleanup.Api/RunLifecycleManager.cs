@@ -372,6 +372,8 @@ public sealed class RunLifecycleManager
             request.AggressiveJunk ? "1" : "0",
             request.SortConsole ? "1" : "0",
             request.EnableDat ? "1" : "0",
+            request.EnableDatAudit ? "1" : "0",
+            request.EnableDatRename ? "1" : "0",
             request.OnlyGames ? "1" : "0",
             request.KeepUnknownWhenOnlyGames ? "1" : "0",
             string.IsNullOrWhiteSpace(request.DatRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.DatRoot),

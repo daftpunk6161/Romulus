@@ -6,6 +6,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 
 /// <summary>
 /// Pipeline phase for ConvertOnly mode (no dedupe/move/sort).
+/// Uses shared ConversionPhaseHelper for conversion logic with set-member tracking.
 /// </summary>
 public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseInput, ConvertOnlyPhaseOutput>
 {
@@ -16,10 +17,7 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
         context.Metrics.StartPhase(Name);
         context.OnProgress?.Invoke($"[Convert] Nur-Konvertierung: {input.Candidates.Count} Dateien…");
 
-        int converted = 0;
-        int convertErrors = 0;
-        int convertSkipped = 0;
-        int convertBlocked = 0;
+        var counters = new ConversionPhaseHelper.ConversionCounters();
         var conversionResults = new List<ConversionResult>();
         var totalCandidates = input.Candidates.Count;
         var processedCandidates = 0;
@@ -32,111 +30,37 @@ public sealed class ConvertOnlyPipelinePhase : IPipelinePhase<ConvertOnlyPhaseIn
             var path = candidate.MainPath;
             if (!File.Exists(path))
             {
-                if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                    context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
+                ReportProgress(context, processedCandidates, totalCandidates, counters);
                 continue;
             }
 
-            var ext = Path.GetExtension(path).ToLowerInvariant();
-            var consoleKey = candidate.ConsoleKey ?? "";
-            ConversionTarget? target = null;
-            ConversionResult convResult;
+            var convResult = ConversionPhaseHelper.ConvertSingleFile(
+                path,
+                candidate.ConsoleKey ?? "",
+                input.Converter,
+                input.Options,
+                context,
+                counters,
+                trackSetMembers: true,
+                cancellationToken);
 
-            if (input.Converter is FormatConverterAdapter advancedConverter)
-            {
-                convResult = advancedConverter.ConvertForConsole(path, consoleKey, cancellationToken);
-            }
-            else
-            {
-                target = input.Converter.GetTargetFormat(consoleKey, ext);
-                if (target is null)
-                {
-                    convertSkipped++;
-                    if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
-                    continue;
-                }
+            if (convResult is not null)
+                conversionResults.Add(convResult);
 
-                if (string.Equals(ext, target.Extension, StringComparison.OrdinalIgnoreCase))
-                {
-                    convertSkipped++;
-                    if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                        context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
-                    continue;
-                }
-
-                context.OnProgress?.Invoke($"[Convert] {Path.GetFileName(path)} → {target.Extension}");
-                convResult = input.Converter.Convert(path, target, cancellationToken);
-            }
-
-            conversionResults.Add(convResult);
-
-            if (convResult.Outcome == ConversionOutcome.Success)
-            {
-                var verificationOk = ConversionVerificationHelpers.IsVerificationSuccessful(convResult, input.Converter, target);
-                if (verificationOk)
-                {
-                    var convertedPath = convResult.TargetPath;
-                    if (convertedPath is null)
-                    {
-                        convertErrors++;
-                        continue;
-                    }
-
-                    converted++;
-                    PipelinePhaseHelpers.AppendConversionAudit(
-                        context,
-                        input.Options,
-                        path,
-                        convertedPath,
-                        ConversionVerificationHelpers.ResolveToolName(convResult, target));
-                    PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, input.Options, path, convertedPath);
-                }
-                else
-                {
-                    convertErrors++;
-                    if (convResult.TargetPath is not null)
-                    {
-                        context.OnProgress?.Invoke($"WARNING: Verification failed for {convResult.TargetPath}");
-                        PipelinePhaseHelpers.AppendConversionFailedAudit(
-                            context,
-                            input.Options,
-                            path,
-                            convResult.TargetPath,
-                            ConversionVerificationHelpers.ResolveToolName(convResult, target));
-                        // SEC-CONV-04: Clean up failed output to prevent orphaned corrupt files
-                        try { if (File.Exists(convResult.TargetPath)) File.Delete(convResult.TargetPath); }
-                        catch (IOException) { /* best-effort cleanup — file may be locked */ }
-                    }
-                }
-            }
-            else if (convResult.Outcome == ConversionOutcome.Skipped)
-            {
-                convertSkipped++;
-            }
-            else if (convResult.Outcome == ConversionOutcome.Blocked)
-            {
-                convertBlocked++;
-            }
-            else
-            {
-                convertErrors++;
-                context.OnProgress?.Invoke($"WARNING: Conversion failed for {path}: {convResult.Reason}");
-                PipelinePhaseHelpers.AppendConversionErrorAudit(context, input.Options, path, convResult.Reason);
-            }
-
-            if (processedCandidates % 25 == 0 || processedCandidates == totalCandidates)
-                context.OnProgress?.Invoke($"[Convert] Fortschritt: {processedCandidates}/{totalCandidates} Dateien (ok={converted}, skip={convertSkipped}, blocked={convertBlocked}, err={convertErrors})");
+            ReportProgress(context, processedCandidates, totalCandidates, counters);
         }
 
-        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {converted} konvertiert, {convertSkipped} übersprungen, {convertBlocked} blockiert, {convertErrors} Fehler");
-        context.Metrics.CompletePhase(converted);
+        context.OnProgress?.Invoke($"[Convert] Abgeschlossen: {counters.Converted} konvertiert, {counters.Skipped} übersprungen, {counters.Blocked} blockiert, {counters.Errors} Fehler");
+        context.Metrics.CompletePhase(counters.Converted);
 
-        return new ConvertOnlyPhaseOutput(converted, convertErrors, convertSkipped, convertBlocked, conversionResults);
+        return new ConvertOnlyPhaseOutput(counters.Converted, counters.Errors, counters.Skipped, counters.Blocked, conversionResults);
     }
 
-
-
+    private static void ReportProgress(PipelineContext context, int processed, int total, ConversionPhaseHelper.ConversionCounters c)
+    {
+        if (processed % 25 == 0 || processed == total)
+            context.OnProgress?.Invoke($"[Convert] Fortschritt: {processed}/{total} Dateien (ok={c.Converted}, skip={c.Skipped}, blocked={c.Blocked}, err={c.Errors})");
+    }
 }
 
 public sealed record ConvertOnlyPhaseInput(
