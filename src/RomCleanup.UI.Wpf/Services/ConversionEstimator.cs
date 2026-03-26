@@ -16,16 +16,4 @@ public sealed class ConversionEstimator : IConversionEstimator
 
     public string FormatFormatPriority()
         => FeatureService.FormatFormatPriority();
-
-    public string FormatEmulatorCompat()
-        => FeatureService.FormatEmulatorCompat();
-
-    public string BuildConvertQueueReport(ConversionEstimateResult est)
-        => FeatureService.BuildConvertQueueReport(est);
-
-    public string BuildNKitConvertReport(string filePath)
-        => FeatureService.BuildNKitConvertReport(filePath);
-
-    public string BuildConversionEstimateReport(IReadOnlyList<RomCandidate> candidates)
-        => FeatureService.BuildConversionEstimateReport(candidates);
 }

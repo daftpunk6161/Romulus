@@ -704,38 +704,6 @@ public sealed class FeatureServiceTests : IDisposable
         Assert.False(FeatureService.TestCronMatch("invalid", DateTime.Now));
     }
 
-    // ═══ CompareDryRuns ═════════════════════════════════════════════════
-
-    [Fact]
-    public void CompareDryRuns_IdenticalReports_AllIdentical()
-    {
-        var entries = new List<ReportEntry>
-        {
-            new() { FilePath = "game.sfc", Action = "KEEP", GameKey = "game" }
-        };
-        var result = FeatureService.CompareDryRuns(entries, entries);
-        Assert.Equal(1, result.Identical);
-        Assert.Empty(result.OnlyInA);
-        Assert.Empty(result.OnlyInB);
-    }
-
-    [Fact]
-    public void CompareDryRuns_EmptyReports_ZeroIdentical()
-    {
-        var result = FeatureService.CompareDryRuns([], []);
-        Assert.Equal(0, result.Identical);
-    }
-
-    [Fact]
-    public void CompareDryRuns_DifferentReports_ReportsOnlyInAB()
-    {
-        var a = new List<ReportEntry> { new() { FilePath = "game1.sfc", Action = "KEEP", GameKey = "g1" } };
-        var b = new List<ReportEntry> { new() { FilePath = "game2.sfc", Action = "KEEP", GameKey = "g2" } };
-        var result = FeatureService.CompareDryRuns(a, b);
-        Assert.Single(result.OnlyInA);
-        Assert.Single(result.OnlyInB);
-    }
-
     // ═══ GetSortTemplates ═══════════════════════════════════════════════
 
     [Fact]
@@ -822,34 +790,6 @@ public sealed class FeatureServiceTests : IDisposable
         };
         var report = FeatureService.BuildJunkReport(candidates, false);
         Assert.NotNull(report);
-    }
-
-    // ═══ ClassifyGenre ══════════════════════════════════════════════════
-
-    [Theory]
-    [InlineData("Final Fantasy VII", "RPG")]
-    [InlineData("Need for Speed", "Racing")]
-    [InlineData("Street Fighter II", "Fighting")]
-    [InlineData("Tetris", "Puzzle")]
-    public void ClassifyGenre_KnownGenres_ClassifiesCorrectly(string gameName, string expectedGenre)
-    {
-        Assert.Equal(expectedGenre, FeatureService.ClassifyGenre(gameName));
-    }
-
-    [Fact]
-    public void ClassifyGenre_UnknownGame_ReturnsOther()
-    {
-        var genre = FeatureService.ClassifyGenre("My Random Game XYZ 12345");
-        Assert.Equal("Other", genre);
-    }
-
-    // ═══ FormatEmulatorCompat ═══════════════════════════════════════════
-
-    [Fact]
-    public void FormatEmulatorCompat_ReturnsNonEmptyReport()
-    {
-        var report = FeatureService.FormatEmulatorCompat();
-        Assert.Contains("Emulator", report);
     }
 
     // ═══ IsValidHexHash ═════════════════════════════════════════════════

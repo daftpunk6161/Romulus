@@ -146,7 +146,49 @@ Die Deduplizierung wählt das beste Format pro Spiel. Die Auswahl ist **determin
 4. Versions-Score (Verified `[!]` = +500; Revision a-z = 10×Ordinalwert)
 5. Größen-Tiebreak (Disc → größer; Cartridge → kleiner)
 
-## 9. Erkennungs-Pipeline
+## 9. Emulator-Kompatibilitätsmatrix
+
+Übersicht empfohlener Emulatoren pro Konsole mit Kompatibilitätsbewertung:
+
+| Konsole | Emulator | Bewertung |
+|---------|----------|-----------|
+| NES | Mesen | Perfect |
+| NES | FCEUX | Great |
+| SNES | bsnes | Perfect |
+| SNES | Snes9x | Great |
+| Game Boy | SameBoy | Perfect |
+| Game Boy | mGBA | Great |
+| GBA | mGBA | Perfect |
+| GBA | VBA-M | Great |
+| N64 | Ares | Great |
+| N64 | Mupen64Plus | Great |
+| NDS | melonDS | Great |
+| GameCube | Dolphin | Perfect |
+| Wii | Dolphin | Perfect |
+| PS1 | DuckStation | Perfect |
+| PS1 | Mednafen | Perfect |
+| PS2 | PCSX2 | Great |
+| PS3 | RPCS3 | Good |
+| PSP | PPSSPP | Perfect |
+| Saturn | Mednafen | Great |
+| Dreamcast | Flycast | Great |
+| Genesis | BlastEm | Perfect |
+| Genesis | Kega Fusion | Great |
+| Master System | Mesen | Perfect |
+| Arcade | FBNeo | Great |
+| Neo Geo | FBNeo | Great |
+| Atari 2600 | Stella | Perfect |
+| Atari 7800 | ProSystem | Great |
+| PC Engine | Mednafen | Perfect |
+| 3DO | Opera | Good |
+| Jaguar | BigPEmu | Good |
+
+**Bewertungsstufen:**
+- **Perfect** — Nahezu 100 % Kompatibilität, empfohlen für alle Spiele
+- **Great** — Hohe Kompatibilität (>90 %), selten Probleme
+- **Good** — Solide Kompatibilität, manche Titel haben Einschränkungen
+
+## 10. Erkennungs-Pipeline
 
 | Stufe | Methode | Konfidenz |
 |-------|---------|-----------|
@@ -161,7 +203,7 @@ Die Deduplizierung wählt das beste Format pro Spiel. Die Auswahl ist **determin
 
 Weitere Details: siehe `docs/UNKNOWN_FAQ.md`
 
-## 10. Konvertierungs-Pipeline
+## 11. Konvertierungs-Pipeline
 
 | Konsole | Zielformat | Tool |
 |---------|-----------|------|
@@ -171,7 +213,7 @@ Weitere Details: siehe `docs/UNKNOWN_FAQ.md`
 | PSP (PBP) | CHD | `psxtract` |
 | NES, SNES etc. | ZIP | `7z` |
 
-## 11. Reporting
+## 12. Reporting
 
 | Format | Beschreibung |
 |--------|-------------|
@@ -180,7 +222,7 @@ Weitere Details: siehe `docs/UNKNOWN_FAQ.md`
 | **JSON-Summary** | `{ Status, ExitCode, Preflight, ReportPath, AuditPath }` |
 | **JSONL-Logs** | Strukturierte Logs mit Correlation-ID und Phase-Metriken |
 
-## 12. CLI-Nutzung
+## 13. CLI-Nutzung
 
 ```bash
 # DryRun
@@ -192,7 +234,7 @@ dotnet run --project src/RomCleanup.CLI -- --roots "D:\ROMs" --mode Move --regio
 
 Exit-Codes: `0` = Erfolg, `1` = Fehler, `2` = Abgebrochen, `3` = Preflight fehlgeschlagen.
 
-## 13. REST API
+## 14. REST API
 
 ```bash
 # Starten (API-Key via Umgebungsvariable)
@@ -221,7 +263,7 @@ dotnet run --project src/RomCleanup.Api
 
 **Authentifizierung:** `X-Api-Key`-Header mit dem Wert aus `ROM_CLEANUP_API_KEY`.
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 | Problem | Lösung |
 |---------|--------|

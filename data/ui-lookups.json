@@ -24,22 +24,6 @@
     "genesis": ["zip", "7z", "md", "gen"],
     "arcade": ["zip", "7z"]
   },
-  "emulatorMatrix": {
-    "nes": { "Mesen": "Perfect", "FCEUX": "Great", "Nestopia": "Great" },
-    "snes": { "bsnes": "Perfect", "Snes9x": "Great", "ZSNES": "Good" },
-    "n64": { "Mupen64Plus": "Great", "Project64": "Great", "Ares": "Good" },
-    "gba": { "mGBA": "Perfect", "VBA-M": "Great" },
-    "gb": { "SameBoy": "Perfect", "Gambatte": "Perfect", "mGBA": "Great" },
-    "ps1": { "DuckStation": "Perfect", "Mednafen": "Perfect", "PCSX-R": "Great" },
-    "ps2": { "PCSX2": "Great", "AetherSX2": "Good" },
-    "psp": { "PPSSPP": "Great" },
-    "gc": { "Dolphin": "Great" },
-    "wii": { "Dolphin": "Great" },
-    "dreamcast": { "Flycast": "Great", "Redream": "Great" },
-    "saturn": { "Mednafen": "Great", "Kronos": "Good" },
-    "genesis": { "BlastEm": "Perfect", "Genesis Plus GX": "Perfect" },
-    "arcade": { "MAME": "Great", "FBNeo": "Great" }
-  },
   "genreKeywords": [
     { "keyword": "rpg", "genre": "RPG" },
     { "keyword": "quest", "genre": "RPG" },

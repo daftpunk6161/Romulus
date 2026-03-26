@@ -61,42 +61,28 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("ConfigImport")]
     [InlineData("AutoFindTools")]
     [InlineData("HealthScore")]
-    [InlineData("CollectionDiff")]
-    [InlineData("DuplicateInspector")]
-    [InlineData("DuplicateExport")]
-    [InlineData("ExportCsv")]
-    [InlineData("ExportExcel")]
+    [InlineData("DuplicateAnalysis")]
+    [InlineData("ExportCollection")]
     [InlineData("RollbackHistoryBack")]
     [InlineData("RollbackHistoryForward")]
     [InlineData("ApplyLocale")]
     [InlineData("AutoProfile")]
-    [InlineData("ConversionEstimate")]
     [InlineData("JunkReport")]
     [InlineData("RomFilter")]
-    [InlineData("DuplicateHeatmap")]
     [InlineData("MissingRom")]
-    [InlineData("CrossRootDupe")]
     [InlineData("HeaderAnalysis")]
     [InlineData("Completeness")]
     [InlineData("DryRunCompare")]
-    [InlineData("TrendAnalysis")]
-    [InlineData("EmulatorCompat")]
     [InlineData("ConversionPipeline")]
     [InlineData("NKitConvert")]
-    [InlineData("ConvertQueue")]
     [InlineData("ConversionVerify")]
     [InlineData("FormatPriority")]
     [InlineData("DatAutoUpdate")]
     [InlineData("DatDiffViewer")]
-    [InlineData("TosecDat")]
     [InlineData("CustomDatEditor")]
     [InlineData("HashDatabaseExport")]
     [InlineData("CollectionManager")]
     [InlineData("CloneListViewer")]
-    [InlineData("CoverScraper")]
-    [InlineData("GenreClassification")]
-    [InlineData("PlaytimeTracker")]
-    [InlineData("CollectionSharing")]
     [InlineData("VirtualFolderPreview")]
     [InlineData("IntegrityMonitor")]
     [InlineData("BackupManager")]
@@ -104,21 +90,18 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("RuleEngine")]
     [InlineData("PatchEngine")]
     [InlineData("HeaderRepair")]
-    [InlineData("SplitPanelPreview")]
     [InlineData("FilterBuilder")]
     [InlineData("SortTemplates")]
     [InlineData("PipelineEngine")]
-    [InlineData("SchedulerAdvanced")]
+    [InlineData("CronTester")]
     [InlineData("RulePackSharing")]
     [InlineData("ArcadeMergeSplit")]
-    [InlineData("PdfReport")]
+    [InlineData("HtmlReport")]
     [InlineData("LauncherIntegration")]
-    [InlineData("ToolImport")]
+    [InlineData("DatImport")]
     [InlineData("StorageTiering")]
     [InlineData("NasOptimization")]
     [InlineData("PortableMode")]
-    [InlineData("DockerContainer")]
-    [InlineData("WindowsContextMenu")]
     [InlineData("HardlinkMode")]
     [InlineData("MultiInstanceSync")]
     public void RegisterCommands_ContainsExpectedCommand(string commandKey)
@@ -131,7 +114,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [Theory]
     [InlineData("CommandPalette")]
     [InlineData("SystemTray")]
-    [InlineData("MobileWebUI")]
+    [InlineData("ApiServer")]
     [InlineData("Accessibility")]
     public void RegisterCommands_WithWindowHost_ContainsWindowCommands(string commandKey)
     {
@@ -147,7 +130,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         sut.RegisterCommands();
         Assert.False(_vm.FeatureCommands.ContainsKey("CommandPalette"));
         Assert.False(_vm.FeatureCommands.ContainsKey("SystemTray"));
-        Assert.False(_vm.FeatureCommands.ContainsKey("MobileWebUI"));
+        Assert.False(_vm.FeatureCommands.ContainsKey("ApiServer"));
         Assert.False(_vm.FeatureCommands.ContainsKey("Accessibility"));
     }
 
@@ -228,16 +211,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ CONVERSION ESTIMATE ════════════════════════════════════════════
-
-    [Fact]
-    public void ConversionEstimate_NoCandidates_LogsOrShowsInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["ConversionEstimate"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
     // ═══ FORMAT PRIORITY ════════════════════════════════════════════════
 
     [Fact]
@@ -258,23 +231,13 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ DUPLICATE HEATMAP ══════════════════════════════════════════════
+    // ═══ DUPLICATE ANALYSIS ════════════════════════════════════════════
 
     [Fact]
-    public void DuplicateHeatmap_NoCandidates_LogsOrShowsResult()
+    public void DuplicateAnalysis_NoCandidates_LogsOrShowsResult()
     {
         _sut.RegisterCommands();
-        _vm.FeatureCommands["DuplicateHeatmap"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ EMULATOR COMPAT ════════════════════════════════════════════════
-
-    [Fact]
-    public void EmulatorCompat_NoCandidates_LogsOrShowsResult()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["EmulatorCompat"].Execute(null);
+        _vm.FeatureCommands["DuplicateAnalysis"].Execute(null);
         Assert.True(HasOutput());
     }
 
@@ -361,26 +324,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ DOCKER CONTAINER ═══════════════════════════════════════════════
-
-    [Fact]
-    public void DockerContainer_ShowsDockerInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["DockerContainer"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ SPLIT PANEL PREVIEW ════════════════════════════════════════════
-
-    [Fact]
-    public void SplitPanelPreview_NoCandidates_LogsOrShowsPreview()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["SplitPanelPreview"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
     // ═══ MISSING ROM ════════════════════════════════════════════════════
 
     [Fact]
@@ -388,16 +331,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     {
         _sut.RegisterCommands();
         _vm.FeatureCommands["MissingRom"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ CROSS ROOT DUPE ════════════════════════════════════════════════
-
-    [Fact]
-    public void CrossRootDupe_NoCandidates_LogsOrShowsResult()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["CrossRootDupe"].Execute(null);
         Assert.True(HasOutput());
     }
 
@@ -418,16 +351,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     {
         _sut.RegisterCommands();
         _vm.FeatureCommands["CollectionManager"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ GENRE CLASSIFICATION ═══════════════════════════════════════════
-
-    [Fact]
-    public void GenreClassification_NoCandidates_LogsOrShowsInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["GenreClassification"].Execute(null);
         Assert.True(HasOutput());
     }
 
@@ -458,16 +381,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     {
         _sut.RegisterCommands();
         _vm.FeatureCommands["ConversionPipeline"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ CONVERT QUEUE ══════════════════════════════════════════════════
-
-    [Fact]
-    public void ConvertQueue_NoCandidates_LogsOrShowsInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["ConvertQueue"].Execute(null);
         Assert.True(HasOutput());
     }
 
@@ -532,7 +445,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
     }
 
     [Fact]
-    public void DuplicateHeatmap_WithCandidates_ShowsHeatmap()
+    public void DuplicateAnalysis_WithCandidates_ShowsDialog()
     {
         _sut.RegisterCommands();
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
@@ -542,80 +455,41 @@ public sealed class FeatureCommandServiceTests : IDisposable
             new RomCandidate { MainPath = "b.sfc", GameKey = "Game", Region = "US",
                 Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
         };
-        _vm.FeatureCommands["DuplicateHeatmap"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void ConversionEstimate_WithCandidates_ShowsEstimate()
-    {
-        _sut.RegisterCommands();
-        _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
-        {
-            new RomCandidate { MainPath = "game.iso", GameKey = "Game", Region = "EU",
-                Extension = ".iso", SizeBytes = 700_000_000, Category = "GAME" }
-        };
-        _vm.FeatureCommands["ConversionEstimate"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void GenreClassification_WithCandidates_ShowsGenres()
-    {
-        _sut.RegisterCommands();
-        _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
-        {
-            new RomCandidate { MainPath = "Super Mario World.sfc", GameKey = "Super Mario World",
-                Region = "US", Extension = ".sfc", SizeBytes = 2048, Category = "GAME" },
-            new RomCandidate { MainPath = "Zelda.sfc", GameKey = "The Legend of Zelda",
-                Region = "EU", Extension = ".sfc", SizeBytes = 2048, Category = "GAME" }
-        };
-        _vm.FeatureCommands["GenreClassification"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void EmulatorCompat_WithCandidates_ShowsCompat()
-    {
-        _sut.RegisterCommands();
-        _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
-        {
-            new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU", ConsoleKey = "SNES",
-                Extension = ".sfc", SizeBytes = 1024, Category = "GAME" }
-        };
-        _vm.FeatureCommands["EmulatorCompat"].Execute(null);
+        _vm.FeatureCommands["DuplicateAnalysis"].Execute(null);
         Assert.True(HasOutput());
     }
 
     // ═══ EXPORT COMMANDS WITH CANDIDATES ════════════════════════════════
 
     [Fact]
-    public void ExportCsv_WithCandidatesAndSavePath_CreatesCsvFile()
+    public void ExportCollection_CsvFormat_CreatesCsvFile()
     {
         _sut.RegisterCommands();
         var csvPath = Path.Combine(_tempDir, "export.csv");
+        _dialog.ShowInputBoxResult = "1";
         _dialog.SaveFileResult = csvPath;
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
                 Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
         };
-        _vm.FeatureCommands["ExportCsv"].Execute(null);
+        _vm.FeatureCommands["ExportCollection"].Execute(null);
         Assert.True(File.Exists(csvPath));
     }
 
     [Fact]
-    public void ExportExcel_WithCandidatesAndSavePath_CreatesXmlFile()
+    public void ExportCollection_ExcelFormat_CreatesXmlFile()
     {
         _sut.RegisterCommands();
         var xmlPath = Path.Combine(_tempDir, "export.xml");
+        _dialog.ShowInputBoxResult = "2";
         _dialog.SaveFileResult = xmlPath;
         _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCleanup.Contracts.Models.RomCandidate>
         {
             new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
                 Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }
         };
-        _vm.FeatureCommands["ExportExcel"].Execute(null);
+        _vm.FeatureCommands["ExportCollection"].Execute(null);
         Assert.True(File.Exists(xmlPath));
     }
 
@@ -655,27 +529,15 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ SCHEDULER ADVANCED ═════════════════════════════════════════════
+    // ═══ CRON TESTER ═════════════════════════════════════════════════════════
 
     [Fact]
-    public void SchedulerAdvanced_ShowsSchedulerInfo()
+    public void CronTester_ShowsSchedulerInfo()
     {
         _sut.RegisterCommands();
         _dialog.ShowInputBoxResult = "* * * * *";
-        _vm.FeatureCommands["SchedulerAdvanced"].Execute(null);
+        _vm.FeatureCommands["CronTester"].Execute(null);
         Assert.True(HasOutput());
-    }
-
-    // ═══ WINDOWS CONTEXT MENU ═══════════════════════════════════════════
-
-    [Fact]
-    public void WindowsContextMenu_WithSavePath_CreatesFile()
-    {
-        _sut.RegisterCommands();
-        var regPath = Path.Combine(_tempDir, "context-menu.reg");
-        _dialog.SaveFileResult = regPath;
-        _vm.FeatureCommands["WindowsContextMenu"].Execute(null);
-        Assert.True(File.Exists(regPath));
     }
 
     // ═══ ROLLBACK UNDO / REDO ═══════════════════════════════════════════
@@ -734,6 +596,392 @@ public sealed class FeatureCommandServiceTests : IDisposable
         var firstCount = _vm.FeatureCommands.Count;
         _sut.RegisterCommands();
         Assert.Equal(firstCount, _vm.FeatureCommands.Count);
+    }
+
+    // ═══ TASK-052: DuplicateAnalysis — 3 Sections ═══════════════════════
+
+    [Fact]
+    public void DuplicateAnalysis_NoCandidates_ShowsAllThreeSections()
+    {
+        _sut.RegisterCommands();
+        _vm.FeatureCommands["DuplicateAnalysis"].Execute(null);
+        var shown = _dialog.ShowTextCalls;
+        Assert.Single(shown);
+        var content = shown[0].Content;
+        Assert.Contains("Verzeichnis-Analyse", content);
+        Assert.Contains("Konsolen-Heatmap", content);
+        Assert.Contains("Cross-Root-Duplikate", content);
+    }
+
+    [Fact]
+    public void DuplicateAnalysis_WithDedupeGroups_ShowsHeatmapData()
+    {
+        _sut.RegisterCommands();
+        _vm.LastDedupeGroups.Add(new DedupeResult
+        {
+            GameKey = "TestGame",
+            Winner = new RomCandidate { MainPath = "SNES/a.sfc", GameKey = "TestGame", Region = "EU", Extension = ".sfc", SizeBytes = 1024, ConsoleKey = "SNES" },
+            Losers = [new RomCandidate { MainPath = "SNES/b.sfc", GameKey = "TestGame", Region = "US", Extension = ".sfc", SizeBytes = 1024, ConsoleKey = "SNES" }]
+        });
+        _vm.FeatureCommands["DuplicateAnalysis"].Execute(null);
+        var content = _dialog.ShowTextCalls[0].Content;
+        Assert.Contains("Konsolen-Heatmap", content);
+        Assert.Contains("SNES", content);
+    }
+
+    [Fact]
+    public void DuplicateAnalysis_SingleRoot_CrossRootSaysNeedsTwo()
+    {
+        _sut.RegisterCommands();
+        _vm.Roots.Clear();
+        _vm.Roots.Add(@"C:\Roms");
+        _vm.FeatureCommands["DuplicateAnalysis"].Execute(null);
+        var content = _dialog.ShowTextCalls[0].Content;
+        Assert.Contains("Cross-Root-Duplikate", content);
+        Assert.Contains("2 Root-Ordner", content);
+    }
+
+    // ═══ TASK-053: ExportCollection — 3 Formats ═════════════════════════
+
+    [Fact]
+    public void ExportCollection_DuplicateCsvFormat_CreatesDuplicateCsvFile()
+    {
+        _sut.RegisterCommands();
+        var csvPath = Path.Combine(_tempDir, "dupes.csv");
+        _dialog.ShowInputBoxResult = "3";
+        _dialog.SaveFileResult = csvPath;
+        _vm.LastDedupeGroups.Add(new DedupeResult
+        {
+            GameKey = "DupeGame",
+            Winner = new RomCandidate { MainPath = "w.sfc", GameKey = "DupeGame", Region = "EU", Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" },
+            Losers = [new RomCandidate { MainPath = "l.sfc", GameKey = "DupeGame", Region = "US", Extension = ".sfc", SizeBytes = 1024, Category = "GAME", ConsoleKey = "SNES" }]
+        });
+        _vm.FeatureCommands["ExportCollection"].Execute(null);
+        Assert.True(File.Exists(csvPath));
+        var content = File.ReadAllText(csvPath);
+        Assert.Contains("l.sfc", content);
+    }
+
+    [Fact]
+    public void ExportCollection_InvalidChoice_LogsWarning()
+    {
+        _sut.RegisterCommands();
+        _dialog.ShowInputBoxResult = "99";
+        _vm.FeatureCommands["ExportCollection"].Execute(null);
+        Assert.Contains(_vm.LogEntries, e => e.Level == "WARN");
+    }
+
+    [Fact]
+    public void ExportCollection_EmptyInput_DoesNothing()
+    {
+        _sut.RegisterCommands();
+        _dialog.ShowInputBoxResult = "";
+        _vm.FeatureCommands["ExportCollection"].Execute(null);
+        Assert.Empty(_vm.LogEntries);
+        Assert.Empty(_dialog.ShowTextCalls);
+    }
+
+    // ═══ TASK-054: CommandPalette — FeatureCommands coverage ═════════════
+
+    [Fact]
+    public void CommandPalette_SearchFindsRegisteredToolKey()
+    {
+        _sut.RegisterCommands();
+        // Verify SearchCommands finds keys from the full FeatureCommands dictionary
+        var results = FeatureService.SearchCommands("HealthScore", _vm.FeatureCommands);
+        Assert.True(results.Count > 0, "SearchCommands should find 'HealthScore' in FeatureCommands");
+        Assert.Equal("HealthScore", results[0].key);
+        Assert.Equal(0, results[0].score); // exact match
+    }
+
+    [Fact]
+    public void CommandPalette_FuzzySearchFindsCloseMatch()
+    {
+        _sut.RegisterCommands();
+        // "HelthScore" is Levenshtein distance 1 from "HealthScore"
+        var results = FeatureService.SearchCommands("HelthScore", _vm.FeatureCommands);
+        Assert.True(results.Count > 0, "Fuzzy search should find close match");
+        Assert.Contains(results, r => r.key == "HealthScore");
+    }
+
+    [Fact]
+    public void CommandPalette_SearchCoversAllFeatureCommandKeys()
+    {
+        _sut.RegisterCommands();
+        // All FeatureCommand keys must be findable via CommandPalette search
+        foreach (var key in _vm.FeatureCommands.Keys)
+        {
+            var results = FeatureService.SearchCommands(key, _vm.FeatureCommands);
+            Assert.True(results.Count > 0, $"CommandPalette should find command key '{key}'");
+            Assert.Equal(key, results[0].key);
+        }
+    }
+
+    [Fact]
+    public void CommandPalette_FeatureCommandsCountExceedsOldHardcodedLimit()
+    {
+        _sut.RegisterCommands();
+        // Phase 7 expanded CommandPalette from 8 hardcoded to all FeatureCommands
+        // Verify we have significantly more than the old 8-entry limit
+        var results = FeatureService.SearchCommands("e", _vm.FeatureCommands);
+        Assert.True(results.Count > 8,
+            $"CommandPalette should return more than 8 results (old hardcoded limit), got {results.Count}");
+    }
+
+    // ═══ TASK-055: DefaultPinnedKeys — no removed keys ══════════════════
+
+    [Fact]
+    public void DefaultPinnedKeys_AllKeysExistInToolItems()
+    {
+        // DefaultPinnedKeys should only reference keys that exist in the ToolItems collection
+        var vm = new ToolsViewModel(new LocalizationService());
+        var pinnedKeys = vm.ToolItems.Where(t => t.IsPinned).Select(t => t.Key).ToHashSet();
+        var allToolKeys = vm.ToolItems.Select(t => t.Key).ToHashSet();
+
+        Assert.True(pinnedKeys.Count > 0, "At least one tool should be pinned by default");
+        foreach (var key in pinnedKeys)
+            Assert.Contains(key, allToolKeys);
+    }
+
+    [Fact]
+    public void DefaultPinnedKeys_ContainsExpectedKeys()
+    {
+        var vm = new ToolsViewModel(new LocalizationService());
+        var pinnedKeys = vm.ToolItems.Where(t => t.IsPinned).Select(t => t.Key).ToHashSet();
+        Assert.Contains("HealthScore", pinnedKeys);
+        Assert.Contains("DuplicateAnalysis", pinnedKeys);
+        Assert.Contains("RollbackQuick", pinnedKeys);
+        Assert.Contains("ExportCollection", pinnedKeys);
+        Assert.Contains("DatAutoUpdate", pinnedKeys);
+        Assert.Contains("ConversionPipeline", pinnedKeys);
+    }
+
+    [Fact]
+    public void DefaultPinnedKeys_DoNotContainRemovedKeys()
+    {
+        var vm = new ToolsViewModel(new LocalizationService());
+        var pinnedKeys = vm.ToolItems.Where(t => t.IsPinned).Select(t => t.Key).ToHashSet();
+        var removedKeys = new[]
+        {
+            "FtpSource", "CloudSync", "PluginMarketplaceFeature", "PluginManager",
+            "GpuHashing", "ParallelHashing", "QuickPreview", "CollectionDiff",
+            "ConvertQueue", "ConversionEstimate", "TosecDat", "SplitPanelPreview",
+            "PlaytimeTracker", "GenreClassification", "EmulatorCompat",
+            "CoverScraper", "CollectionSharing", "TrendAnalysis",
+            "WindowsContextMenu", "DockerContainer", "SystemTray",
+            "DuplicateInspector", "DuplicateHeatmap", "CrossRootDupe",
+            "ExportCsv", "ExportExcel", "DuplicateExport",
+            "PdfReport", "MobileWebUI", "SchedulerAdvanced", "ToolImport"
+        };
+        foreach (var key in removedKeys)
+            Assert.DoesNotContain(key, pinnedKeys);
+    }
+
+    // ═══ TASK-056: Removed keys — not in FeatureCommands ═════════════════
+
+    [Theory]
+    [InlineData("FtpSource")]
+    [InlineData("CloudSync")]
+    [InlineData("PluginMarketplaceFeature")]
+    [InlineData("PluginManager")]
+    [InlineData("GpuHashing")]
+    [InlineData("ParallelHashing")]
+    [InlineData("QuickPreview")]
+    [InlineData("CollectionDiff")]
+    [InlineData("ConvertQueue")]
+    [InlineData("ConversionEstimate")]
+    [InlineData("TosecDat")]
+    [InlineData("SplitPanelPreview")]
+    [InlineData("PlaytimeTracker")]
+    [InlineData("GenreClassification")]
+    [InlineData("EmulatorCompat")]
+    [InlineData("CoverScraper")]
+    [InlineData("CollectionSharing")]
+    [InlineData("TrendAnalysis")]
+    [InlineData("WindowsContextMenu")]
+    [InlineData("DockerContainer")]
+    [InlineData("DuplicateInspector")]
+    [InlineData("DuplicateHeatmap")]
+    [InlineData("CrossRootDupe")]
+    [InlineData("ExportCsv")]
+    [InlineData("ExportExcel")]
+    [InlineData("DuplicateExport")]
+    [InlineData("PdfReport")]
+    [InlineData("MobileWebUI")]
+    [InlineData("SchedulerAdvanced")]
+    [InlineData("ToolImport")]
+    public void RemovedToolKeys_MustNotExistInFeatureCommands(string removedKey)
+    {
+        _sut.RegisterCommands();
+        Assert.False(_vm.FeatureCommands.ContainsKey(removedKey),
+            $"Removed tool key '{removedKey}' should not be registered in FeatureCommands");
+    }
+
+    [Fact]
+    public void RemovedToolKeys_MustNotExistInToolItems()
+    {
+        var vm = new ToolsViewModel(new LocalizationService());
+        var removedKeys = new[]
+        {
+            "FtpSource", "CloudSync", "PluginMarketplaceFeature", "PluginManager",
+            "GpuHashing", "ParallelHashing", "QuickPreview", "CollectionDiff",
+            "ConvertQueue", "ConversionEstimate", "TosecDat", "SplitPanelPreview",
+            "PlaytimeTracker", "GenreClassification", "EmulatorCompat",
+            "CoverScraper", "CollectionSharing", "TrendAnalysis",
+            "WindowsContextMenu", "DockerContainer", "SystemTray",
+            "DuplicateInspector", "DuplicateHeatmap", "CrossRootDupe",
+            "ExportCsv", "ExportExcel", "DuplicateExport",
+            "PdfReport", "MobileWebUI", "SchedulerAdvanced", "ToolImport"
+        };
+        var toolKeys = vm.ToolItems.Select(t => t.Key).ToHashSet();
+        foreach (var key in removedKeys)
+            Assert.DoesNotContain(key, toolKeys);
+    }
+
+    // ═══ TASK-057: i18n consistency — all ToolItems have i18n entries ════
+
+    [Fact]
+    public void I18n_AllToolItems_HaveLocalizedDisplayNameAndDescription()
+    {
+        // Verify that all registered ToolItems have non-empty DisplayName and Description
+        // (which are loaded from i18n via Tool.{Key} and Tool.{Key}.Desc)
+        var vm = new ToolsViewModel(new LocalizationService());
+        foreach (var item in vm.ToolItems)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(item.DisplayName),
+                $"ToolItem '{item.Key}' has empty DisplayName (missing i18n key 'Tool.{item.Key}')");
+            Assert.False(string.IsNullOrWhiteSpace(item.Description),
+                $"ToolItem '{item.Key}' has empty Description (missing i18n key 'Tool.{item.Key}.Desc')");
+        }
+    }
+
+    [Fact]
+    public void I18n_DeAndEn_HaveMatchingToolKeys()
+    {
+        var dataDir = FeatureService.ResolveDataDirectory();
+        if (dataDir is null) return; // skip if data dir unavailable
+
+        var deJson = Path.Combine(dataDir, "i18n", "de.json");
+        var enJson = Path.Combine(dataDir, "i18n", "en.json");
+        if (!File.Exists(deJson) || !File.Exists(enJson)) return;
+
+        var de = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(deJson))!;
+        var en = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(enJson))!;
+
+        var deToolKeys = de.Keys.Where(k => k.StartsWith("Tool.")).OrderBy(k => k).ToList();
+        var enToolKeys = en.Keys.Where(k => k.StartsWith("Tool.")).OrderBy(k => k).ToList();
+
+        Assert.Equal(deToolKeys, enToolKeys);
+    }
+
+    [Fact]
+    public void I18n_NoRemovedToolKeys_InAnyLocale()
+    {
+        var dataDir = FeatureService.ResolveDataDirectory();
+        if (dataDir is null) return;
+
+        var removedKeys = new[]
+        {
+            "Tool.FtpSource", "Tool.CloudSync", "Tool.PluginMarketplaceFeature",
+            "Tool.PluginManager", "Tool.GpuHashing", "Tool.ParallelHashing",
+            "Tool.QuickPreview", "Tool.CollectionDiff", "Tool.ConvertQueue",
+            "Tool.ConversionEstimate", "Tool.TosecDat", "Tool.SplitPanelPreview",
+            "Tool.PlaytimeTracker", "Tool.GenreClassification", "Tool.EmulatorCompat",
+            "Tool.CoverScraper", "Tool.CollectionSharing", "Tool.TrendAnalysis",
+            "Tool.WindowsContextMenu", "Tool.DockerContainer",
+            "Tool.DuplicateInspector", "Tool.DuplicateHeatmap", "Tool.CrossRootDupe",
+            "Tool.ExportCsv", "Tool.ExportExcel", "Tool.DuplicateExport",
+            "Tool.PdfReport", "Tool.MobileWebUI", "Tool.SchedulerAdvanced", "Tool.ToolImport",
+            "Tool.Cat.UI"
+        };
+
+        foreach (var locale in new[] { "de.json", "en.json", "fr.json" })
+        {
+            var path = Path.Combine(dataDir, "i18n", locale);
+            if (!File.Exists(path)) continue;
+            var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path))!;
+            foreach (var removed in removedKeys)
+            {
+                Assert.False(dict.ContainsKey(removed), $"Removed i18n key '{removed}' found in {locale}");
+                Assert.False(dict.ContainsKey(removed + ".Desc"), $"Removed i18n key '{removed}.Desc' found in {locale}");
+            }
+        }
+    }
+
+    // ═══ LOCALIZATION FALLBACK ══════════════════════════════════════════
+
+    [Fact]
+    public void LocalizationService_PerKeyFallback_FrMissingKeysResolveFromDe()
+    {
+        var dataDir = FeatureService.ResolveDataDirectory();
+        if (dataDir is null) return;
+
+        var deJson = Path.Combine(dataDir, "i18n", "de.json");
+        var frJson = Path.Combine(dataDir, "i18n", "fr.json");
+        if (!File.Exists(deJson) || !File.Exists(frJson)) return;
+
+        var de = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(File.ReadAllText(deJson))!
+            .Where(kv => kv.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            .ToDictionary(kv => kv.Key, kv => kv.Value.GetString()!);
+        var fr = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(File.ReadAllText(frJson))!
+            .Where(kv => kv.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            .ToDictionary(kv => kv.Key, kv => kv.Value.GetString()!);
+
+        // Per-key fallback: merge DE base with FR overlay (simulates LocalizationService logic)
+        var merged = new Dictionary<string, string>(de);
+        foreach (var kv in fr)
+            merged[kv.Key] = kv.Value;
+
+        // Every DE key must be present in the merged result
+        foreach (var key in de.Keys)
+            Assert.True(merged.ContainsKey(key), $"Key '{key}' missing after FR merge");
+    }
+
+    [Fact]
+    public void LocalizationService_LoadLocale_DeReturnsNonEmpty()
+    {
+        var dict = FeatureService.LoadLocale("de");
+        // If data dir is available, DE must have keys
+        if (dict.Count == 0) return; // skip if data dir unavailable
+        Assert.True(dict.Count > 100, $"DE locale has only {dict.Count} keys, expected >100");
+        Assert.True(dict.ContainsKey("App.Title"));
+    }
+
+    [Fact]
+    public void LocalizationService_LoadLocale_EnReturnsAllDeKeys()
+    {
+        var de = FeatureService.LoadLocale("de");
+        var en = FeatureService.LoadLocale("en");
+        if (de.Count == 0 || en.Count == 0) return;
+
+        var missingInEn = de.Keys.Where(k => !en.ContainsKey(k)).ToList();
+        Assert.Empty(missingInEn);
+    }
+
+    [Fact]
+    public void LocalizationService_LoadLocale_FrReturnsAllDeKeys()
+    {
+        var de = FeatureService.LoadLocale("de");
+        var fr = FeatureService.LoadLocale("fr");
+        if (de.Count == 0 || fr.Count == 0) return;
+
+        var missingInFr = de.Keys.Where(k => !fr.ContainsKey(k)).ToList();
+        Assert.Empty(missingInFr);
+    }
+
+    [Fact]
+    public void LocalizationService_FrMetadata_HasCorrectLocale()
+    {
+        var dataDir = FeatureService.ResolveDataDirectory();
+        if (dataDir is null) return;
+        var frJson = Path.Combine(dataDir, "i18n", "fr.json");
+        if (!File.Exists(frJson)) return;
+
+        var doc = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(File.ReadAllText(frJson))!;
+        Assert.True(doc.ContainsKey("_meta"));
+        var meta = doc["_meta"];
+        Assert.Equal("fr", meta.GetProperty("locale").GetString());
+        Assert.Equal("Français", meta.GetProperty("language").GetString());
     }
 
     // ═══ STUBS ══════════════════════════════════════════════════════════

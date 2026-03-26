@@ -68,11 +68,8 @@ public sealed partial class FeatureCommandService
 
         // ── Konfiguration tab misc ──────────────────────────────────────
         cmds["HealthScore"] = new RelayCommand(HealthScore);
-        cmds["CollectionDiff"] = new RelayCommand(CollectionDiff);
-        cmds["DuplicateInspector"] = new RelayCommand(DuplicateInspector);
-        cmds["DuplicateExport"] = new RelayCommand(DuplicateExport);
-        cmds["ExportCsv"] = new RelayCommand(ExportCsv);
-        cmds["ExportExcel"] = new RelayCommand(ExportExcel);
+        cmds["DuplicateAnalysis"] = new RelayCommand(DuplicateAnalysis);
+        cmds["ExportCollection"] = new RelayCommand(ExportCollection);
         var rollbackHistoryBack = new RelayCommand(RollbackHistoryBack);
         var rollbackHistoryForward = new RelayCommand(RollbackHistoryForward);
         cmds["RollbackHistoryBack"] = rollbackHistoryBack;
@@ -83,39 +80,30 @@ public sealed partial class FeatureCommandService
         cmds["AutoProfile"] = new RelayCommand(AutoProfile);
 
         // ── Analyse & Berichte ──────────────────────────────────────────
-        cmds["ConversionEstimate"] = new RelayCommand(ConversionEstimate);
+
         cmds["JunkReport"] = new RelayCommand(JunkReport);
         cmds["RomFilter"] = new RelayCommand(RomFilter);
-        cmds["DuplicateHeatmap"] = new RelayCommand(DuplicateHeatmap);
         cmds["MissingRom"] = new RelayCommand(MissingRom);
-        cmds["CrossRootDupe"] = new RelayCommand(CrossRootDupe);
         cmds["HeaderAnalysis"] = new RelayCommand(HeaderAnalysis);
         cmds["Completeness"] = new RelayCommand(Completeness);
         cmds["DryRunCompare"] = new RelayCommand(DryRunCompare);
-        cmds["TrendAnalysis"] = new RelayCommand(TrendAnalysis);
-        cmds["EmulatorCompat"] = new RelayCommand(EmulatorCompat);
+
 
         // ── Konvertierung & Hashing ─────────────────────────────────────
         cmds["ConversionPipeline"] = new RelayCommand(ConversionPipeline);
         cmds["NKitConvert"] = new RelayCommand(NKitConvert);
-        cmds["ConvertQueue"] = new RelayCommand(ConvertQueue);
         cmds["ConversionVerify"] = new RelayCommand(ConversionVerify);
         cmds["FormatPriority"] = new RelayCommand(FormatPriority);
 
         // ── DAT & Verifizierung ─────────────────────────────────────────
         cmds["DatAutoUpdate"] = new AsyncRelayCommand(DatAutoUpdateAsync);
         cmds["DatDiffViewer"] = new RelayCommand(DatDiffViewer);
-        cmds["TosecDat"] = new RelayCommand(TosecDat);
         cmds["CustomDatEditor"] = new RelayCommand(CustomDatEditor);
         cmds["HashDatabaseExport"] = new RelayCommand(HashDatabaseExport);
 
         // ── Sammlungsverwaltung ─────────────────────────────────────────
         cmds["CollectionManager"] = new RelayCommand(CollectionManager);
         cmds["CloneListViewer"] = new RelayCommand(CloneListViewer);
-        cmds["CoverScraper"] = new RelayCommand(CoverScraper);
-        cmds["GenreClassification"] = new RelayCommand(GenreClassification);
-        cmds["PlaytimeTracker"] = new RelayCommand(PlaytimeTracker);
-        cmds["CollectionSharing"] = new RelayCommand(CollectionSharing);
         cmds["VirtualFolderPreview"] = new RelayCommand(VirtualFolderPreview);
 
         // ── Sicherheit & Integrität ─────────────────────────────────────
@@ -127,26 +115,24 @@ public sealed partial class FeatureCommandService
         cmds["HeaderRepair"] = new RelayCommand(HeaderRepair);
 
         // ── Workflow & Automatisierung ───────────────────────────────────
-        cmds["SplitPanelPreview"] = new RelayCommand(SplitPanelPreview);
+
         cmds["FilterBuilder"] = new RelayCommand(FilterBuilder);
         cmds["SortTemplates"] = new RelayCommand(SortTemplates);
         cmds["PipelineEngine"] = new RelayCommand(PipelineEngine);
-        cmds["SchedulerAdvanced"] = new RelayCommand(SchedulerAdvanced);
+        cmds["CronTester"] = new RelayCommand(CronTester);
         cmds["SchedulerApply"] = new RelayCommand(() => _vm.ApplyScheduler());
         cmds["RulePackSharing"] = new RelayCommand(RulePackSharing);
         cmds["ArcadeMergeSplit"] = new RelayCommand(ArcadeMergeSplit);
 
         // ── Export & Integration ────────────────────────────────────────
-        cmds["PdfReport"] = new RelayCommand(PdfReport);
+        cmds["HtmlReport"] = new RelayCommand(HtmlReport);
         cmds["LauncherIntegration"] = new RelayCommand(LauncherIntegration);
-        cmds["ToolImport"] = new RelayCommand(ToolImport);
+        cmds["DatImport"] = new RelayCommand(DatImport);
 
         // ── Infrastruktur & Deployment ──────────────────────────────────
         cmds["StorageTiering"] = new RelayCommand(StorageTiering);
         cmds["NasOptimization"] = new RelayCommand(NasOptimization);
         cmds["PortableMode"] = new RelayCommand(PortableMode);
-        cmds["DockerContainer"] = new RelayCommand(DockerContainer);
-        cmds["WindowsContextMenu"] = new RelayCommand(WindowsContextMenu);
         cmds["HardlinkMode"] = new RelayCommand(HardlinkMode);
         cmds["MultiInstanceSync"] = new RelayCommand(MultiInstanceSync);
 
@@ -155,7 +141,7 @@ public sealed partial class FeatureCommandService
         {
             cmds["CommandPalette"] = new RelayCommand(CommandPalette);
             cmds["SystemTray"] = new RelayCommand(() => _windowHost.ToggleSystemTray());
-            cmds["MobileWebUI"] = new RelayCommand(MobileWebUI);
+            cmds["ApiServer"] = new RelayCommand(ApiServer);
             cmds["Accessibility"] = new RelayCommand(Accessibility);
         }
     }
@@ -325,104 +311,122 @@ public sealed partial class FeatureCommandService
         _dialog.ShowText(_vm.Loc["Cmd.HealthScoreTitle"], _vm.Loc.Format("Cmd.HealthScoreBody", score, total, dupes, 100.0 * dupes / total, junk, 100.0 * junk / total, verified, 100.0 * verified / total));
     }
 
-    private void CollectionDiff()
+    private void DuplicateAnalysis()
     {
-        var fileA = _dialog.BrowseFile(_vm.Loc["Cmd.DiffSelectFirst"], _vm.Loc["Cmd.FilterReport"]);
-        if (fileA is null) return;
-        var fileB = _dialog.BrowseFile(_vm.Loc["Cmd.DiffSelectSecond"], _vm.Loc["Cmd.FilterReport"]);
-        if (fileB is null) return;
-        _vm.AddLog($"Collection-Diff: {Path.GetFileName(fileA)} vs. {Path.GetFileName(fileB)}", "INFO");
+        // Consolidated handler: Inspector + Heatmap + CrossRoot in one dialog
+        var sb = new StringBuilder();
 
-        if (fileA.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) &&
-            fileB.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var setA = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var setB = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var line in File.ReadLines(fileA).Skip(1))
-                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setA.Add(mainPath); }
-                foreach (var line in File.ReadLines(fileB).Skip(1))
-                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setB.Add(mainPath); }
-
-                var added = setB.Except(setA).ToList();
-                var removed = setA.Except(setB).ToList();
-                var same = setA.Intersect(setB).Count();
-
-                var sb = new StringBuilder();
-                sb.AppendLine(_vm.Loc["Cmd.DiffCsvHeader"]);
-                sb.AppendLine(new string('═', 50));
-                sb.AppendLine($"\n  {_vm.Loc.Format("Cmd.DiffEntryA", Path.GetFileName(fileA), setA.Count)}");
-                sb.AppendLine($"  {_vm.Loc.Format("Cmd.DiffEntryB", Path.GetFileName(fileB), setB.Count)}");
-                sb.AppendLine($"\n  {_vm.Loc.Format("Cmd.DiffSame", same)}");
-                sb.AppendLine($"  {_vm.Loc.Format("Cmd.DiffAdded", added.Count)}");
-                sb.AppendLine($"  {_vm.Loc.Format("Cmd.DiffRemoved", removed.Count)}");
-                if (added.Count > 0)
-                {
-                    sb.AppendLine($"\n  {_vm.Loc.Format("Cmd.DiffAddedHeader", Math.Min(30, added.Count))}");
-                    foreach (var entry in added.Take(30)) sb.AppendLine($"    + {Path.GetFileName(entry)}");
-                    if (added.Count > 30) sb.AppendLine($"    {_vm.Loc.Format("Cmd.DiffMore", added.Count - 30)}");
-                }
-                if (removed.Count > 0)
-                {
-                    sb.AppendLine($"\n  {_vm.Loc.Format("Cmd.DiffRemovedHeader", Math.Min(30, removed.Count))}");
-                    foreach (var entry in removed.Take(30)) sb.AppendLine($"    - {Path.GetFileName(entry)}");
-                    if (removed.Count > 30) sb.AppendLine($"    {_vm.Loc.Format("Cmd.DiffMore", removed.Count - 30)}");
-                }
-                _dialog.ShowText("Collection-Diff", sb.ToString());
-            }
-            catch (Exception ex) { LogError("GUI-DIFF", _vm.Loc.Format("Cmd.DiffError", ex.Message)); }
-        }
-        else
-        {
-            _dialog.ShowText("Collection-Diff", _vm.Loc.Format("Cmd.DiffNonCsv", fileA, fileB));
-        }
-    }
-
-    private void DuplicateInspector()
-    {
+        // Section 1: Verzeichnis-Analyse (Inspector)
+        sb.AppendLine("═══ Verzeichnis-Analyse ═══\n");
         var sources = FeatureService.GetDuplicateInspector(_vm.LastAuditPath);
         if (sources.Count == 0)
-        { _vm.AddLog(_vm.Loc["Cmd.DupeNoData"], "WARN"); return; }
-        var sb = new StringBuilder();
-        sb.AppendLine(_vm.Loc["Cmd.DupeTopDirs"]);
-        foreach (var s in sources)
-            sb.AppendLine($"  {s.Count,4}× │ {s.Directory}");
+            sb.AppendLine("  Keine Audit-Daten vorhanden.\n");
+        else
+        {
+            sb.AppendLine(_vm.Loc["Cmd.DupeTopDirs"]);
+            foreach (var s in sources)
+                sb.AppendLine($"  {s.Count,4}× │ {s.Directory}");
+            sb.AppendLine();
+        }
+
+        // Section 2: Konsolen-Heatmap
+        sb.AppendLine("═══ Konsolen-Heatmap ═══\n");
+        if (_vm.LastDedupeGroups.Count == 0)
+            sb.AppendLine("  Keine Deduplizierungs-Daten vorhanden.\n");
+        else
+        {
+            var heatmap = FeatureService.GetDuplicateHeatmap(_vm.LastDedupeGroups);
+            foreach (var h in heatmap)
+            {
+                var bar = new string('█', (int)(h.DuplicatePercent / 5));
+                sb.AppendLine($"  {h.Console,-25} {h.Duplicates,4} Dupes ({h.DuplicatePercent:F1}%) {bar}");
+            }
+            sb.AppendLine();
+        }
+
+        // Section 3: Cross-Root-Duplikate
+        sb.AppendLine("═══ Cross-Root-Duplikate ═══\n");
+        if (_vm.Roots.Count < 2)
+            sb.AppendLine("  Mindestens 2 Root-Ordner erforderlich.\n");
+        else if (_vm.LastDedupeGroups.Count == 0)
+            sb.AppendLine("  Keine Deduplizierungs-Daten vorhanden.\n");
+        else
+        {
+            var roots = _vm.Roots.Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
+            string? GetRoot(string filePath)
+            {
+                var full = Path.GetFullPath(filePath);
+                return roots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
+            }
+
+            var crossRootGroups = new List<DedupeResult>();
+            foreach (var g in _vm.LastDedupeGroups)
+            {
+                var allPaths = new[] { g.Winner }.Concat(g.Losers);
+                var distinctRoots = allPaths.Select(c => GetRoot(c.MainPath)).Where(r => r is not null).Distinct().Count();
+                if (distinctRoots > 1) crossRootGroups.Add(g);
+            }
+
+            sb.AppendLine($"  Roots: {_vm.Roots.Count}");
+            sb.AppendLine($"  Dedupe-Gruppen gesamt: {_vm.LastDedupeGroups.Count}");
+            sb.AppendLine($"  Cross-Root-Gruppen: {crossRootGroups.Count}\n");
+            foreach (var g in crossRootGroups.Take(30))
+            {
+                sb.AppendLine($"  [{g.GameKey}]");
+                sb.AppendLine($"    Winner: {g.Winner.MainPath}");
+                foreach (var l in g.Losers) sb.AppendLine($"    Loser:  {l.MainPath}");
+            }
+            if (crossRootGroups.Count > 30) sb.AppendLine($"\n  … und {crossRootGroups.Count - 30} weitere Gruppen");
+            if (crossRootGroups.Count == 0) sb.AppendLine("  Keine Cross-Root-Duplikate gefunden.");
+        }
+
         _dialog.ShowText(_vm.Loc["Cmd.DupeInspectorTitle"], sb.ToString());
     }
 
-    private void DuplicateExport()
+    private void ExportCollection()
     {
-        if (_vm.LastDedupeGroups.Count == 0)
-        { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-        var path = _dialog.SaveFile(_vm.Loc["Cmd.DupeExportTitle"], _vm.Loc["Cmd.FilterCsv"], "duplikate.csv");
-        if (path is null) return;
-        var losers = _vm.LastDedupeGroups.SelectMany(g => g.Losers).ToList();
-        var csv = FeatureService.ExportCollectionCsv(losers);
-        File.WriteAllText(path, csv, Encoding.UTF8);
-        _vm.AddLog(_vm.Loc.Format("Cmd.DupeExported", path, losers.Count), "INFO");
-    }
+        // Consolidated handler: CSV / Excel XML / Duplikate-CSV via format selection
+        var choices = new List<string> { "CSV (Sammlung)", "Excel-XML (Sammlung)", "CSV (nur Duplikate)" };
+        var choice = _dialog.ShowInputBox("Export-Format wählen:\n\n  1 — CSV (Sammlung)\n  2 — Excel-XML (Sammlung)\n  3 — CSV (nur Duplikate)\n\nNummer eingeben:", "Sammlung exportieren");
+        if (string.IsNullOrWhiteSpace(choice)) return;
 
-    private void ExportCsv()
-    {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-        var path = _dialog.SaveFile(_vm.Loc["Cmd.CsvExportTitle"], _vm.Loc["Cmd.FilterCsv"], "sammlung.csv");
-        if (path is null) return;
-        var csv = FeatureService.ExportCollectionCsv(_vm.LastCandidates);
-        File.WriteAllText(path, "\uFEFF" + csv, Encoding.UTF8);
-        _vm.AddLog(_vm.Loc.Format("Cmd.CsvExported", path, _vm.LastCandidates.Count), "INFO");
-    }
+        switch (choice.Trim())
+        {
+            case "1":
+                if (_vm.LastCandidates.Count == 0)
+                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
+                var csvPath = _dialog.SaveFile(_vm.Loc["Cmd.CsvExportTitle"], _vm.Loc["Cmd.FilterCsv"], "sammlung.csv");
+                if (csvPath is null) return;
+                var csv = FeatureService.ExportCollectionCsv(_vm.LastCandidates);
+                File.WriteAllText(csvPath, "\uFEFF" + csv, Encoding.UTF8);
+                _vm.AddLog(_vm.Loc.Format("Cmd.CsvExported", csvPath, _vm.LastCandidates.Count), "INFO");
+                break;
 
-    private void ExportExcel()
-    {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-        var path = _dialog.SaveFile(_vm.Loc["Cmd.ExcelExportTitle"], _vm.Loc["Cmd.FilterExcel"], "sammlung.xml");
-        if (path is null) return;
-        var xml = FeatureService.ExportExcelXml(_vm.LastCandidates);
-        File.WriteAllText(path, xml, Encoding.UTF8);
-        _vm.AddLog(_vm.Loc.Format("Cmd.ExcelExported", path), "INFO");
+            case "2":
+                if (_vm.LastCandidates.Count == 0)
+                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
+                var xlPath = _dialog.SaveFile(_vm.Loc["Cmd.ExcelExportTitle"], _vm.Loc["Cmd.FilterExcel"], "sammlung.xml");
+                if (xlPath is null) return;
+                var xml = FeatureService.ExportExcelXml(_vm.LastCandidates);
+                File.WriteAllText(xlPath, xml, Encoding.UTF8);
+                _vm.AddLog(_vm.Loc.Format("Cmd.ExcelExported", xlPath), "INFO");
+                break;
+
+            case "3":
+                if (_vm.LastDedupeGroups.Count == 0)
+                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
+                var dupePath = _dialog.SaveFile(_vm.Loc["Cmd.DupeExportTitle"], _vm.Loc["Cmd.FilterCsv"], "duplikate.csv");
+                if (dupePath is null) return;
+                var losers = _vm.LastDedupeGroups.SelectMany(g => g.Losers).ToList();
+                var dupeCsv = FeatureService.ExportCollectionCsv(losers);
+                File.WriteAllText(dupePath, dupeCsv, Encoding.UTF8);
+                _vm.AddLog(_vm.Loc.Format("Cmd.DupeExported", dupePath, losers.Count), "INFO");
+                break;
+
+            default:
+                _vm.AddLog("Ungültige Auswahl. Bitte 1, 2 oder 3 eingeben.", "WARN");
+                break;
+        }
     }
 
     private void RollbackHistoryBack()

@@ -15,11 +15,11 @@ public sealed partial class FeatureCommandService
 {
     // ═══ EXPORT & INTEGRATION ═══════════════════════════════════════════
 
-    private void PdfReport()
+    private void HtmlReport()
     {
         if (_vm.LastCandidates.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
-        var path = _dialog.SaveFile("PDF-Report speichern", "HTML (*.html)|*.html", "report.html");
+        var path = _dialog.SaveFile("HTML-Report speichern", "HTML (*.html)|*.html", "report.html");
         if (path is null) return;
         var summary = new ReportSummary
         {
@@ -64,14 +64,14 @@ public sealed partial class FeatureCommandService
         _vm.AddLog($"Playlist exportiert: {path} ({winners.Count} Einträge)", "INFO");
     }
 
-    private void ToolImport()
+    private void DatImport()
     {
         var path = _dialog.BrowseFile("DAT-Datei importieren (ClrMamePro, RomVault, Logiqx)",
             "DAT (*.dat;*.xml)|*.dat;*.xml|Alle (*.*)|*.*");
         if (path is null) return;
-        _vm.AddLog($"Tool-Import: {Path.GetFileName(path)}", "INFO");
+        _vm.AddLog($"DAT-Import: {Path.GetFileName(path)}", "INFO");
         if (string.IsNullOrWhiteSpace(_vm.DatRoot))
-        { _dialog.Error("DAT-Root ist nicht konfiguriert. Bitte zuerst den DAT-Root-Ordner setzen.", "Tool-Import"); return; }
+        { _dialog.Error("DAT-Root ist nicht konfiguriert. Bitte zuerst den DAT-Root-Ordner setzen.", "DAT-Import"); return; }
         try
         {
             var safeName = Path.GetFileName(path);
@@ -80,7 +80,7 @@ public sealed partial class FeatureCommandService
             { _vm.AddLog("DAT-Import blockiert: Pfad außerhalb des DatRoot.", "ERROR"); return; }
             File.Copy(path, targetPath, overwrite: true);
             _vm.AddLog($"DAT importiert nach: {targetPath}", "INFO");
-            _dialog.Info($"DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "Tool-Import");
+            _dialog.Info($"DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "DAT-Import");
         }
         catch (Exception ex) { LogError("DAT-IMPORT", $"DAT-Import fehlgeschlagen: {ex.Message}"); }
     }

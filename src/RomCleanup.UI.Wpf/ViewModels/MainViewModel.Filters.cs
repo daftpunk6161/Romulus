@@ -158,7 +158,7 @@ public sealed partial class MainViewModel
     // Default pinned tool keys (sensible defaults for first-time users)
     private static readonly HashSet<string> DefaultPinnedKeys =
     [
-        "QuickPreview", "HealthScore", "RollbackQuick", "ExportCsv", "DatAutoUpdate", "DuplicateInspector"
+        "HealthScore", "DuplicateAnalysis", "RollbackQuick", "ExportCollection", "DatAutoUpdate", "ConversionPipeline"
     ];
 
     // Category icon mapping
@@ -172,7 +172,6 @@ public sealed partial class MainViewModel
         ["Workflow & Automatisierung"] = "\xE713",
         ["Export & Integration"] = "\xE792",
         ["Infrastruktur"] = "\xE8CB",
-        ["UI & Erscheinungsbild"] = "\xE771",
     };
 
     private void InitToolItems()
@@ -180,44 +179,32 @@ public sealed partial class MainViewModel
         var items = new (string key, string display, string cat, string desc, string icon, bool needsResult)[]
         {
             // Analyse & Berichte
-            ("QuickPreview",       "Quick-Preview",              "Analyse & Berichte",        "Schnelle ROM-Vorschau (DryRun)",               "\xE8A7", false),
             ("HealthScore",        "Health-Score",               "Analyse & Berichte",        "Sammlungsqualität prüfen",                     "\xE8CB", true),
-            ("CollectionDiff",     "Collection-Diff",            "Analyse & Berichte",        "Sammlungen vergleichen",                       "\xE8F1", false),
-            ("DuplicateInspector", "Duplikat-Inspektor",         "Analyse & Berichte",        "Duplikate untersuchen",                        "\xE71D", true),
-            ("ConversionEstimate", "Konvertierungs-Schätzung",   "Analyse & Berichte",        "Speicherersparnis berechnen",                  "\xE8EF", true),
+            ("DuplicateAnalysis",  "Duplikat-Analyse",           "Analyse & Berichte",        "Duplikate analysieren und vergleichen",        "\xE71D", true),
             ("JunkReport",         "Junk-Bericht",               "Analyse & Berichte",        "Detaillierter Junk-Bericht",                   "\xE74D", true),
             ("RomFilter",          "ROM-Filter",                 "Analyse & Berichte",        "ROM-Sammlung durchsuchen",                     "\xE721", true),
-            ("DuplicateHeatmap",   "Duplikat-Heatmap",           "Analyse & Berichte",        "Duplikatverteilung visualisieren",             "\xEB05", true),
             ("MissingRom",         "Fehlende ROMs",              "Analyse & Berichte",        "Fehlende ROMs ermitteln",                      "\xE783", true),
-            ("CrossRootDupe",      "Cross-Root-Duplikate",       "Analyse & Berichte",        "Duplikate über mehrere Roots finden",          "\xE8B9", true),
             ("HeaderAnalysis",     "Header-Analyse",             "Analyse & Berichte",        "ROM-Header analysieren",                       "\xE9D9", true),
             ("Completeness",       "Vollständigkeit",            "Analyse & Berichte",        "Vollständigkeitsbericht",                      "\xE73E", true),
             ("DryRunCompare",      "DryRun-Vergleich",           "Analyse & Berichte",        "Zwei DryRun-Ergebnisse vergleichen",           "\xE8F1", false),
-            ("TrendAnalysis",      "Trend-Analyse",              "Analyse & Berichte",        "Historische Trends",                           "\xE9D2", false),
-            ("EmulatorCompat",     "Emulator-Kompatibilität",    "Analyse & Berichte",        "Kompatibilitätsmatrix",                        "\xE7FC", false),
 
             // Konvertierung & Hashing
             ("ConversionPipeline", "Konvertierungs-Pipeline",    "Konvertierung & Hashing",   "Konvertierungspipeline starten",               "\xE8AB", false),
             ("NKitConvert",        "NKit-Konvertierung",         "Konvertierung & Hashing",   "NKit-Images konvertieren",                     "\xE8AB", false),
-            ("ConvertQueue",       "Konvert-Warteschlange",      "Konvertierung & Hashing",   "Warteschlange anzeigen",                       "\xE8CB", false),
             ("ConversionVerify",   "Konvertierung verifizieren", "Konvertierung & Hashing",   "Konvertierte Dateien prüfen",                  "\xE73E", false),
             ("FormatPriority",     "Format-Priorität",           "Konvertierung & Hashing",   "Format-Prioritätsliste anzeigen",              "\xE8CB", false),
+            ("HeaderRepair",       "Header-Reparatur",           "Konvertierung & Hashing",   "ROM-Header reparieren",                        "\xE90F", false),
 
 
             // DAT & Verifizierung
             ("DatAutoUpdate",      "DAT Auto-Update",            "DAT & Verifizierung",       "Lokale DAT-Dateien prüfen",                    "\xE895", false),
             ("DatDiffViewer",      "DAT-Diff-Viewer",            "DAT & Verifizierung",       "DAT-Versionen vergleichen",                    "\xE8F1", false),
-            ("TosecDat",           "TOSEC-DAT",                  "DAT & Verifizierung",       "TOSEC-DAT importieren",                        "\xE8B5", false),
             ("CustomDatEditor",    "Custom-DAT-Editor",          "DAT & Verifizierung",       "Eigene DAT-Einträge erstellen",                "\xE70F", false),
             ("HashDatabaseExport", "Hash-Datenbank",             "DAT & Verifizierung",       "Hash-Datenbank exportieren",                   "\xE792", true),
 
             // Sammlungsverwaltung
             ("CollectionManager",  "Smart Collection",           "Sammlungsverwaltung",       "Sammlung intelligent verwalten",               "\xE8F1", true),
             ("CloneListViewer",    "Clone-Liste",                "Sammlungsverwaltung",       "Clone-/Parent-Beziehungen",                    "\xE8B9", true),
-            ("CoverScraper",       "Cover-Scraper",              "Sammlungsverwaltung",       "Cover-Bilder zuordnen",                        "\xE8B9", true),
-            ("GenreClassification","Genre-Klassifikation",       "Sammlungsverwaltung",       "ROMs nach Genre einordnen",                    "\xE8CB", true),
-            ("PlaytimeTracker",    "Spielzeit-Tracker",          "Sammlungsverwaltung",       "RetroArch-Spielzeiten auslesen",               "\xE916", false),
-            ("CollectionSharing",  "Sammlung teilen",            "Sammlungsverwaltung",       "Sammlungsliste exportieren",                   "\xE72D", true),
             ("VirtualFolderPreview","Virtuelle Ordner",          "Sammlungsverwaltung",       "Virtuelle Ordnerstruktur planen",              "\xE8B7", true),
 
             // Sicherheit & Integrität
@@ -226,51 +213,41 @@ public sealed partial class MainViewModel
             ("Quarantine",         "Quarantäne",                 "Sicherheit & Integrität",   "Verdächtige Dateien isolieren",                "\xE7BA", true),
             ("RuleEngine",         "Regel-Engine",               "Sicherheit & Integrität",   "Aktive Regeln anzeigen",                       "\xE713", false),
             ("PatchEngine",        "Patch-Engine",               "Sicherheit & Integrität",   "ROM-Patches anwenden",                         "\xE70F", false),
-            ("HeaderRepair",       "Header-Reparatur",           "Sicherheit & Integrität",   "ROM-Header reparieren",                        "\xE90F", false),
             ("RollbackQuick",      "Schnell-Rollback",           "Sicherheit & Integrität",   "Letzten Lauf rückgängig machen",               "\xE777", false),
             ("RollbackHistoryBack",   "Rollback-Verlauf zurück",    "Sicherheit & Integrität",   "Vorherigen Rollback-Verlaufseintrag auswählen", "\xE7A7", false),
             ("RollbackHistoryForward","Rollback-Verlauf vor",       "Sicherheit & Integrität",   "Nächsten Rollback-Verlaufseintrag auswählen",   "\xE7A6", false),
 
             // Workflow & Automatisierung
             ("CommandPalette",     "Command-Palette",            "Workflow & Automatisierung", "Befehle suchen und ausführen",                 "\xE721", false),
-            ("SplitPanelPreview",  "Split-Panel",                "Workflow & Automatisierung", "Winner/Loser-Vergleich",                       "\xE8A0", true),
             ("FilterBuilder",      "Filter-Builder",             "Workflow & Automatisierung", "Erweiterte Filter erstellen",                  "\xE71C", true),
             ("SortTemplates",      "Sort-Templates",             "Workflow & Automatisierung", "Sortierungs-Vorlagen",                         "\xE8CB", false),
             ("PipelineEngine",     "Pipeline-Engine",            "Workflow & Automatisierung", "Pipeline-Status anzeigen",                     "\xE8CB", false),
-            ("SystemTray",         "System-Tray",                "Workflow & Automatisierung", "System-Tray ein-/ausschalten",                 "\xE8CB", false),
-            ("SchedulerAdvanced",  "Cron-Tester",                "Workflow & Automatisierung", "Cron-Expressions testen",                     "\xE787", false),
+            ("CronTester",         "Cron-Tester",                "Workflow & Automatisierung", "Cron-Ausdrücke testen und validieren",         "\xE787", false),
             ("RulePackSharing",    "Regel-Pakete",               "Workflow & Automatisierung", "Regeln importieren/exportieren",               "\xE72D", false),
             ("ArcadeMergeSplit",   "Arcade Merge/Split",         "Workflow & Automatisierung", "Arcade-Sets analysieren",                     "\xE8CB", false),
             ("AutoProfile",        "Auto-Profil",                "Workflow & Automatisierung", "Profil automatisch erkennen",                  "\xE713", false),
 
             // Export & Integration
-            ("PdfReport",          "PDF-Report",                 "Export & Integration",       "HTML-Report für PDF-Druck",                    "\xE8A5", true),
+            ("HtmlReport",         "HTML-Report",                "Export & Integration",       "HTML-Report generieren",                       "\xE774", true),
             ("LauncherIntegration","Launcher-Integration",       "Export & Integration",       "RetroArch-Playlist exportieren",               "\xE768", true),
-            ("ToolImport",         "Tool-Import",                "Export & Integration",       "DAT-Dateien importieren",                      "\xE8B5", false),
-            ("DuplicateExport",    "Duplikate exportieren",      "Export & Integration",       "Duplikatliste als CSV speichern",              "\xE792", true),
-            ("ExportCsv",          "CSV Export",                 "Export & Integration",       "Sammlung als CSV exportieren",                 "\xE792", true),
-            ("ExportExcel",        "Excel Export",               "Export & Integration",       "Sammlung als Excel-XML exportieren",           "\xE792", true),
+            ("DatImport",          "DAT-Import",                 "Export & Integration",       "DAT-Dateien importieren",                      "\xE8B5", false),
+            ("ExportCollection",   "Sammlung exportieren",       "Export & Integration",       "CSV, Excel-XML oder Duplikate exportieren",    "\xE792", true),
 
             // Infrastruktur & Deployment
             ("StorageTiering",     "Storage-Tiering",            "Infrastruktur",              "Speicher-Analyse",                             "\xE8CB", true),
             ("NasOptimization",    "NAS-Optimierung",            "Infrastruktur",              "NAS-Pfad-Infos anzeigen",                     "\xE8CB", false),
 
             ("PortableMode",       "Portable Modus",             "Infrastruktur",              "Portable-Modus Status",                        "\xE8CB", false),
-            ("DockerContainer",    "Docker",                     "Infrastruktur",              "Docker-Dateien generieren",                    "\xE8CB", false),
-            ("MobileWebUI",        "Mobile Web UI",              "Infrastruktur",              "REST API starten",                             "\xE774", false),
-            ("WindowsContextMenu", "Kontextmenü",                "Infrastruktur",              "Windows-Kontextmenü registrieren",             "\xE8CB", false),
-            ("HardlinkMode",       "Hardlink-Modus",             "Infrastruktur",              "Hardlink-Schätzung berechnen",                 "\xE8CB", true),
+            ("ApiServer",          "API-Server starten",          "Infrastruktur",              "REST API starten",                             "\xE774", false),
+            ("HardlinkMode",       "Hardlink-Modus",             "Infrastruktur",              "Speicher-Einsparung durch Hardlinks schätzen", "\xE8CB", true),
             ("MultiInstanceSync",  "Multi-Instanz",              "Infrastruktur",              "Lock-Dateien verwalten",                       "\xE8CB", false),
 
-            // UI & Erscheinungsbild
-            ("Accessibility",      "Barrierefreiheit",           "UI & Erscheinungsbild",      "Schriftgröße/Kontrast anpassen",               "\xE7F8", false),
+            ("Accessibility",      "Barrierefreiheit",           "Infrastruktur",             "Schriftgröße/Kontrast anpassen",               "\xE7F8", false),
         };
         foreach (var (key, display, cat, desc, icon, needsResult) in items)
         {
-            var isPlanned = key is "DockerContainer" or "MultiInstanceSync"
-                or "TosecDat" or "PatchEngine" or "NKitConvert" or "WindowsContextMenu"
-                or "EmulatorCompat" or "TrendAnalysis" or "GenreClassification" or "PlaytimeTracker"
-                or "CoverScraper" or "CollectionSharing";
+            var isPlanned = key is "MultiInstanceSync"
+                or "PatchEngine" or "NKitConvert";
             var item = new ToolItem
             {
                 Key = key, DisplayName = display, Category = cat, Description = desc,

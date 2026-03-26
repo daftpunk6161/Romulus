@@ -315,17 +315,17 @@ public class FeatureServiceExportTests
         finally { File.Delete(tmpFile); }
     }
 
-    // ── BuildPdfReportData ────────────────────────────────────────
+    // ── BuildHtmlReportData ───────────────────────────────────────
 
     [Fact]
-    public void BuildPdfReportData_DryRun_SetsModeCorrectly()
+    public void BuildHtmlReportData_DryRun_SetsModeCorrectly()
     {
         var candidates = new List<RomCandidate> { MakeCandidate("Game1") };
         var groups = new List<DedupeResult>
         {
             new() { Winner = candidates[0], Losers = new List<RomCandidate>(), GameKey = "Game1" }
         };
-        var (summary, entries) = FeatureService.BuildPdfReportData(candidates, groups, null, dryRun: true);
+        var (summary, entries) = FeatureService.BuildHtmlReportData(candidates, groups, null, dryRun: true);
         Assert.Equal("DryRun", summary.Mode);
         Assert.Equal(1, summary.TotalFiles);
         Assert.Equal(1, summary.KeepCount);
@@ -334,7 +334,7 @@ public class FeatureServiceExportTests
     }
 
     [Fact]
-    public void BuildPdfReportData_MoveMode_SetsCorrectCounts()
+    public void BuildHtmlReportData_MoveMode_SetsCorrectCounts()
     {
         var winner = MakeCandidate("Winner", region: "EU");
         var loser = MakeCandidate("Loser", region: "JP");
@@ -344,7 +344,7 @@ public class FeatureServiceExportTests
         {
             new() { Winner = winner, Losers = new List<RomCandidate> { loser }, GameKey = "Game" }
         };
-        var (summary, entries) = FeatureService.BuildPdfReportData(candidates, groups, null, dryRun: false);
+        var (summary, entries) = FeatureService.BuildHtmlReportData(candidates, groups, null, dryRun: false);
         Assert.Equal("Move", summary.Mode);
         Assert.Equal(3, summary.TotalFiles);
         Assert.Equal(1, summary.MoveCount);
@@ -353,10 +353,10 @@ public class FeatureServiceExportTests
     }
 
     [Fact]
-    public void BuildPdfReportData_JunkCandidates_ActionIsJUNK()
+    public void BuildHtmlReportData_JunkCandidates_ActionIsJUNK()
     {
         var junk = MakeCandidate("Bad (Beta)", category: "JUNK");
-        var (_, entries) = FeatureService.BuildPdfReportData(
+        var (_, entries) = FeatureService.BuildHtmlReportData(
             new List<RomCandidate> { junk },
             new List<DedupeResult>(), null, true);
         Assert.Equal("JUNK", entries[0].Action);
@@ -1642,22 +1642,6 @@ public class FcsCommandDeepTests
         finally { File.Delete(tmpA); File.Delete(tmpB); }
     }
 
-    // ── TosecDat Command ─────────────────────────────────────────
-
-    [Fact]
-    public void FCS_TosecDat_NoDatRoot_ShowsError()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        dialog.NextBrowseFile = Path.GetTempFileName();
-        try
-        {
-            vm.DatRoot = "";
-            ExecCommand(vm, "TosecDat");
-            Assert.True(dialog.ErrorCalls.Count > 0 || dialog.InfoCalls.Count > 0);
-        }
-        finally { if (dialog.NextBrowseFile != null) File.Delete(dialog.NextBrowseFile); }
-    }
-
     // ── CustomDatEditor Command ──────────────────────────────────
 
     [Fact]
@@ -1887,21 +1871,6 @@ public class FcsCommandDeepTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── ConversionEstimate with candidates ───────────────────────
-
-    [Fact]
-    public void FCS_ConversionEstimate_WithCandidates_ShowsReport()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("Game1", ext: ".iso", size: 700 * 1024 * 1024, consoleKey: "psx"),
-            MakeCandidate("Game2", ext: ".zip", size: 1024 * 1024, consoleKey: "nes"),
-        };
-        ExecCommand(vm, "ConversionEstimate");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
     // ── JunkReport with candidates ───────────────────────────────
 
     [Fact]
@@ -1918,10 +1887,10 @@ public class FcsCommandDeepTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── DuplicateHeatmap with candidates ─────────────────────────
+    // ── DuplicateAnalysis with candidates ──────────────────────────
 
     [Fact]
-    public void FCS_DuplicateHeatmap_WithGroups_ShowsReport()
+    public void FCS_DuplicateAnalysis_WithGroups_ShowsReport()
     {
         var (fcs, vm, dialog) = SetupFcs();
         var winner = MakeCandidate("Winner", consoleKey: "nes");
@@ -1931,17 +1900,7 @@ public class FcsCommandDeepTests
             new() { Winner = winner, Losers = new List<RomCandidate> { loser }, GameKey = "key1" }
         };
         vm.LastCandidates = new ObservableCollection<RomCandidate> { winner, loser };
-        ExecCommand(vm, "DuplicateHeatmap");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    // ── TrendAnalysis ────────────────────────────────────────────
-
-    [Fact]
-    public void FCS_TrendAnalysis_ShowsReport()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        ExecCommand(vm, "TrendAnalysis");
+        ExecCommand(vm, "DuplicateAnalysis");
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
@@ -1976,21 +1935,6 @@ public class FcsCommandDeepTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── GenreClassification with candidates ──────────────────────
-
-    [Fact]
-    public void FCS_GenreClassification_WithCandidates_ShowsReport()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("Mario Bros", gameKey: "Mario Bros"),
-            MakeCandidate("Tetris Attack", gameKey: "Tetris Attack"),
-        };
-        ExecCommand(vm, "GenreClassification");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
     // ── VirtualFolderPreview with candidates ─────────────────────
 
     [Fact]
@@ -2005,49 +1949,6 @@ public class FcsCommandDeepTests
         };
         ExecCommand(vm, "VirtualFolderPreview");
         Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    // ── CollectionSharing ────────────────────────────────────────
-
-    [Fact]
-    public void FCS_CollectionSharing_NoCandidates_Warns()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>();
-        ExecCommand(vm, "CollectionSharing");
-    }
-
-    [Fact]
-    public void FCS_CollectionSharing_WithCandidates_ShowsOptions()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("G1"), MakeCandidate("G2"),
-        };
-        dialog.NextYesNoCancel = ConfirmResult.Cancel;
-        ExecCommand(vm, "CollectionSharing");
-    }
-
-    // ── CoverScraper ─────────────────────────────────────────────
-
-    [Fact]
-    public void FCS_CoverScraper_NoCandidates_Warns()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>();
-        ExecCommand(vm, "CoverScraper");
-    }
-
-    // ── PlaytimeTracker ──────────────────────────────────────────
-
-    [Fact]
-    public void FCS_PlaytimeTracker_NoBrowse_NoAction()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        dialog.NextBrowseFolder = null;
-        ExecCommand(vm, "PlaytimeTracker");
-        Assert.Empty(dialog.ShowTextCalls);
     }
 
     // ── LauncherIntegration ──────────────────────────────────────
@@ -2072,24 +1973,24 @@ public class FcsCommandDeepTests
         ExecCommand(vm, "ToolImport");
     }
 
-    // ── PdfReport ────────────────────────────────────────────────
+    // ── HtmlReport ───────────────────────────────────────────────
 
     [Fact]
-    public void FCS_PdfReport_NoCandidates_LogsWarning()
+    public void FCS_HtmlReport_NoCandidates_LogsWarning()
     {
         var (fcs, vm, dialog) = SetupFcs();
         vm.LastCandidates = new ObservableCollection<RomCandidate>();
-        ExecCommand(vm, "PdfReport");
+        ExecCommand(vm, "HtmlReport");
         // No candidates → early exit log
         Assert.Empty(dialog.ShowTextCalls);
     }
 
     [Fact]
-    public void FCS_PdfReport_NoCandidates_Warns()
+    public void FCS_HtmlReport_NoCandidates_Warns()
     {
         var (fcs, vm, dialog) = SetupFcs();
         vm.LastCandidates = new ObservableCollection<RomCandidate>();
-        ExecCommand(vm, "PdfReport");
+        ExecCommand(vm, "HtmlReport");
     }
 
     // ── DatAutoUpdate with candidates ────────────────────────────
@@ -2203,14 +2104,14 @@ public class FcsCommandDeepTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── SchedulerAdvanced ────────────────────────────────────────
+    // ── CronTester ────────────────────────────────────────────────
 
     [Fact]
-    public void FCS_SchedulerAdvanced_ShowsReport()
+    public void FCS_CronTester_ShowsReport()
     {
         var (fcs, vm, dialog) = SetupFcs();
         dialog.InputBoxResponses.Enqueue("0 3 * * *"); // cron expression
-        ExecCommand(vm, "SchedulerAdvanced");
+        ExecCommand(vm, "CronTester");
         Assert.True(dialog.InfoCalls.Count > 0);
     }
 
@@ -2255,23 +2156,6 @@ public class FcsCommandDeepTests
         finally { File.Delete(tmpFile); }
     }
 
-    // ── SplitPanelPreview ────────────────────────────────────────
-
-    [Fact]
-    public void FCS_SplitPanelPreview_WithCandidates_ShowsReport()
-    {
-        var (fcs, vm, dialog) = SetupFcs();
-        var w = MakeCandidate("Winner", region: "EU");
-        var l = MakeCandidate("Loser", region: "JP");
-        vm.LastDedupeGroups = new ObservableCollection<DedupeResult>
-        {
-            new() { Winner = w, Losers = new List<RomCandidate> { l }, GameKey = "TestKey" }
-        };
-        vm.LastCandidates = new ObservableCollection<RomCandidate> { w, l };
-        ExecCommand(vm, "SplitPanelPreview");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
     // ── CommandPalette (requires windowHost) ─────────────────────
 
     [Fact]
@@ -2303,14 +2187,14 @@ public class FcsCommandDeepTests
         ExecCommand(vm, "SystemTray");
     }
 
-    // ── MobileWebUI (requires windowHost) ────────────────────────
+    // ── ApiServer (requires windowHost) ───────────────────────────
 
     [Fact]
-    public void FCS_MobileWebUI_WithHost_RunsCommand()
+    public void FCS_ApiServer_WithHost_RunsCommand()
     {
         var (fcs, vm, dialog) = SetupFcsWithHost();
         dialog.NextConfirm = false; // Don't actually start API
-        ExecCommand(vm, "MobileWebUI");
+        ExecCommand(vm, "ApiServer");
         // No crash = success; command exercises FindApiProjectPath
     }
 }

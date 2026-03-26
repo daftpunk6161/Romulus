@@ -15,13 +15,6 @@ public sealed partial class FeatureCommandService
 {
     // ═══ WORKFLOW & AUTOMATISIERUNG ═════════════════════════════════════
 
-    private void SplitPanelPreview()
-    {
-        if (_vm.LastDedupeGroups.Count == 0)
-        { _vm.AddLog("Keine Daten für Split-Panel.", "WARN"); return; }
-        _dialog.ShowText("Split-Panel", FeatureService.BuildSplitPanelPreview(_vm.LastDedupeGroups));
-    }
-
     private void FilterBuilder()
     {
         if (_vm.LastCandidates.Count == 0)
@@ -113,7 +106,7 @@ public sealed partial class FeatureCommandService
         }
     }
 
-    private void SchedulerAdvanced()
+    private void CronTester()
     {
         var input = _dialog.ShowInputBox(
             "Cron-Expression eingeben (5 Felder: Min Std Tag Mon Wochentag):\n\nBeispiele:\n0 3 * * * → Täglich um 3:00\n0 */6 * * * → Alle 6 Stunden\n0 0 * * 0 → Sonntags um Mitternacht",

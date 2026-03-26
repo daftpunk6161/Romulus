@@ -262,65 +262,47 @@ public static partial class FeatureService
     }
 
 
-    // ═══ SPLIT PANEL PREVIEW ════════════════════════════════════════════
-    // Port of SplitPanelPreview.ps1
-
-    public static string BuildSplitPanelPreview(IReadOnlyList<DedupeResult> groups)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Split-Panel (Norton Commander Style)");
-        sb.AppendLine(new string('═', 60));
-        sb.AppendLine($"{"KEEP (Quelle)",-30} │ {"MOVE (Ziel)",-30}");
-        sb.AppendLine(new string('─', 30) + "─┼─" + new string('─', 30));
-
-        foreach (var g in groups.Take(30))
-        {
-            var winner = Path.GetFileName(g.Winner.MainPath);
-            foreach (var l in g.Losers)
-            {
-                var loser = Path.GetFileName(l.MainPath);
-                sb.AppendLine($"{Truncate(winner, 30),-30} │ {Truncate(loser, 30),-30}");
-            }
-        }
-        if (groups.Count > 30)
-            sb.AppendLine($"\n  … und {groups.Count - 30} weitere Gruppen");
-        return sb.ToString();
-    }
-
-
     // ═══ COMMAND PALETTE ════════════════════════════════════════════════
-    // Port of CommandPalette.ps1
 
-    public static readonly (string key, string name, string shortcut)[] PaletteCommands =
+    /// <summary>Core VM-level shortcuts that are not registered as FeatureCommands.</summary>
+    internal static readonly (string key, string name, string shortcut)[] CoreShortcuts =
     [
-        ("dryrun", "DryRun starten", "Ctrl+D"),
-        ("move", "Move ausführen", "Ctrl+M"),
-        ("convert", "Konvertierung starten", "Ctrl+K"),
-        ("settings", "Einstellungen öffnen", "Ctrl+,"),
-        ("dat-update", "DAT aktualisieren", "Ctrl+U"),
-        ("export-csv", "CSV exportieren", "Ctrl+E"),
-        ("export-report", "Report öffnen", "Ctrl+R"),
-        ("history", "Verlauf anzeigen", "Ctrl+H"),
-        ("cancel", "Lauf abbrechen", "Escape"),
-        ("help", "Hilfe anzeigen", "F1"),
-        ("rollback", "Rollback ausführen", "Ctrl+Z"),
-        ("filter", "ROM-Filter", "Ctrl+F"),
-        ("theme", "Theme wechseln", "Ctrl+T"),
-        ("clear-log", "Log leeren", "Ctrl+L"),
-        ("gamekey", "GameKey-Vorschau", "Ctrl+G")
+        ("dryrun",    "DryRun starten",         "Ctrl+D"),
+        ("move",      "Move ausführen",         "Ctrl+M"),
+        ("cancel",    "Lauf abbrechen",         "Escape"),
+        ("rollback",  "Rollback ausführen",     "Ctrl+Z"),
+        ("theme",     "Theme wechseln",         "Ctrl+T"),
+        ("clear-log", "Log leeren",             "Ctrl+L"),
+        ("settings",  "Einstellungen öffnen",   "Ctrl+,")
     ];
 
-
-    public static List<(string key, string name, string shortcut, int score)> SearchCommands(string query)
+    /// <summary>
+    /// Searches all registered FeatureCommands + CoreShortcuts for a query.
+    /// Returns matching entries ordered by relevance (exact substring first, then Levenshtein distance).
+    /// </summary>
+    public static List<(string key, string name, string shortcut, int score)> SearchCommands(
+        string query, IReadOnlyDictionary<string, System.Windows.Input.ICommand>? featureCommands = null)
     {
+        // Build the searchable command list from FeatureCommands + CoreShortcuts
+        var allCommands = new List<(string key, string name, string shortcut)>();
+
+        if (featureCommands is not null)
+        {
+            foreach (var kvp in featureCommands)
+                allCommands.Add((kvp.Key, kvp.Key, ""));
+        }
+
+        foreach (var cs in CoreShortcuts)
+            allCommands.Add(cs);
+
         if (string.IsNullOrWhiteSpace(query))
-            return PaletteCommands.Select(c => (c.key, c.name, c.shortcut, 0)).ToList();
+            return allCommands.Select(c => (c.key, c.name, c.shortcut, 0)).ToList();
 
         // Limit query length to prevent excessive Levenshtein matrix allocation
         var safeQuery = query.Length > 50 ? query[..50] : query;
 
         var results = new List<(string key, string name, string shortcut, int score)>();
-        foreach (var cmd in PaletteCommands)
+        foreach (var cmd in allCommands)
         {
             // Substring match = best score
             if (cmd.name.Contains(safeQuery, StringComparison.OrdinalIgnoreCase) ||
@@ -377,158 +359,6 @@ public static partial class FeatureService
             default_core_name = "",
             items = entries
         }, new JsonSerializerOptions { WriteIndented = true });
-    }
-
-
-    // ═══ GENRE CLASSIFICATION ═══════════════════════════════════════════
-    // Port of GenreClassification.ps1
-
-    private static (string keyword, string genre)[] GenreKeywords
-    {
-        get
-        {
-            var ext = UiLookupData.Instance.GenreKeywords;
-            if (ext.Count > 0)
-                return ext.Select(e => (e.Keyword, e.Genre)).ToArray();
-            return _defaultGenreKeywords;
-        }
-    }
-
-    private static readonly (string keyword, string genre)[] _defaultGenreKeywords =
-    [
-        ("rpg", "RPG"), ("quest", "RPG"), ("dragon", "RPG"), ("fantasy", "RPG"),
-        ("race", "Racing"), ("rally", "Racing"), ("kart", "Racing"), ("speed", "Racing"),
-        ("soccer", "Sports"), ("fifa", "Sports"), ("nba", "Sports"), ("tennis", "Sports"),
-        ("fight", "Fighting"), ("tekken", "Fighting"), ("mortal", "Fighting"), ("street fighter", "Fighting"),
-        ("puzzle", "Puzzle"), ("tetris", "Puzzle"),
-        ("mario", "Platformer"), ("sonic", "Platformer"), ("jump", "Platformer"),
-        ("shoot", "Shooter"), ("gun", "Shooter"), ("doom", "Shooter"),
-        ("strategy", "Strategy"), ("chess", "Strategy"), ("war", "Strategy"),
-        ("adventure", "Adventure"), ("zelda", "Adventure"),
-        ("simulation", "Simulation"), ("sim", "Simulation"),
-        ("pinball", "Arcade"), ("pong", "Arcade")
-    ];
-
-
-    public static string ClassifyGenre(string gameName)
-    {
-        var lower = gameName.ToLowerInvariant();
-        foreach (var (keyword, genre) in GenreKeywords)
-        {
-            // Use word boundary matching to avoid false positives (e.g. "gun" matching "Gundam")
-            if (System.Text.RegularExpressions.Regex.IsMatch(lower, $@"\b{System.Text.RegularExpressions.Regex.Escape(keyword)}\b", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(200)))
-                return genre;
-        }
-        return "Other";
-    }
-
-
-    // ═══ CSV REPORT PARSER ═════════════════════════════════════════════
-    // Parse a CSV report file (as exported by ExportCollectionCsv) back into RomCandidate objects.
-
-    public static IReadOnlyList<RomCandidate> ParseCsvReport(string filePath)
-    {
-        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            return [];
-
-        var results = new List<RomCandidate>();
-        var lines = File.ReadAllLines(filePath);
-        if (lines.Length < 2) return [];
-
-        // Parse header to determine column indices
-        var headers = ParseCsvLine(lines[0]);
-        var colIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < headers.Length; i++)
-            colIndex[headers[i].Trim()] = i;
-
-        for (int row = 1; row < lines.Length; row++)
-        {
-            var line = lines[row];
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var fields = ParseCsvLine(line);
-
-            string GetField(string name) =>
-                colIndex.TryGetValue(name, out var idx) && idx < fields.Length ? fields[idx].Trim() : "";
-
-            var sizeStr = GetField("SizeBytes");
-            long.TryParse(sizeStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var sizeBytes);
-
-            var datStr = GetField("DatMatch");
-            var datMatch = datStr.Equals("true", StringComparison.OrdinalIgnoreCase) ||
-                           datStr.Equals("Verified", StringComparison.OrdinalIgnoreCase);
-
-            results.Add(new RomCandidate
-            {
-                MainPath = GetField("MainPath"),
-                GameKey = GetField("GameKey"),
-                Extension = GetField("Extension"),
-                Region = GetField("Region") is { Length: > 0 } r ? r : "UNKNOWN",
-                Category = GetField("Category") is { Length: > 0 } cat ? cat : "GAME",
-                SizeBytes = sizeBytes,
-                DatMatch = datMatch
-            });
-        }
-
-        return results;
-    }
-
-
-    // ═══ BATCH-4 EXTRACTIONS ════════════════════════════════════════════
-
-    /// <summary>Detect auto-profile recommendation based on file extensions in roots.</summary>
-    public static string DetectAutoProfile(IReadOnlyList<string> roots)
-    {
-        var hasDisc = false;
-        var hasCartridge = false;
-        foreach (var root in roots)
-        {
-            if (!Directory.Exists(root)) continue;
-            foreach (var f in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Take(200))
-            {
-                var ext = Path.GetExtension(f).ToLowerInvariant();
-                if (ext is ".chd" or ".iso" or ".bin" or ".cue" or ".gdi") hasDisc = true;
-                if (ext is ".nes" or ".sfc" or ".gba" or ".nds" or ".z64" or ".gb") hasCartridge = true;
-            }
-        }
-        return (hasDisc, hasCartridge) switch
-        {
-            (true, true) => "Gemischt (Disc + Cartridge): Konvertierung empfohlen",
-            (true, false) => "Disc-basiert: CHD-Konvertierung empfohlen, aggressive Deduplizierung",
-            (false, true) => "Cartridge-basiert: ZIP-Komprimierung, leichte Deduplizierung",
-            _ => "Unbekannt: Keine erkannten ROM-Formate gefunden. Bitte überprüfen Sie die Root-Ordner."
-        };
-    }
-
-
-    /// <summary>Build playtime tracker report from .lrtl files.</summary>
-    public static string BuildPlaytimeReport(string directory)
-    {
-        var lrtlFiles = Directory.GetFiles(directory, "*.lrtl", SearchOption.AllDirectories);
-        if (lrtlFiles.Length == 0) return "";
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Spielzeit-Tracker: {lrtlFiles.Length} Dateien\n");
-        sb.AppendLine("Hinweis: Es werden nur RetroArch .lrtl-Dateien unterstützt.\n");
-        foreach (var f in lrtlFiles.Take(20))
-        {
-            var name = Path.GetFileNameWithoutExtension(f);
-            var lines = File.ReadAllLines(f);
-            sb.AppendLine($"  {name}: {lines.Length} Einträge");
-        }
-        return sb.ToString();
-    }
-
-
-    /// <summary>Build collection manager report grouped by genre.</summary>
-    public static string BuildCollectionManagerReport(IReadOnlyList<RomCandidate> candidates)
-    {
-        var byConsole = candidates.GroupBy(c => ClassifyGenre(c.GameKey))
-            .OrderByDescending(g => g.Count()).ToList();
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Smart Collection Manager\n");
-        sb.AppendLine($"Gesamt: {candidates.Count} ROMs\n");
-        foreach (var g in byConsole)
-            sb.AppendLine($"  {g.Key,-20} {g.Count(),5} ROMs");
-        return sb.ToString();
     }
 
 

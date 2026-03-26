@@ -45,35 +45,6 @@ public sealed partial class FeatureCommandService
         _dialog.ShowText("Portable-Modus", sb.ToString());
     }
 
-    private void DockerContainer()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Docker-Konfiguration\n");
-        sb.AppendLine("═══ Dockerfile ═══");
-        sb.AppendLine(FeatureService.GenerateDockerfile());
-        sb.AppendLine("\n═══ docker-compose.yml ═══");
-        sb.AppendLine(FeatureService.GenerateDockerCompose());
-        _dialog.ShowText("Docker", sb.ToString());
-        var savePath = _dialog.SaveFile("Docker-Dateien speichern", "Dockerfile|Dockerfile|YAML (*.yml)|*.yml", "Dockerfile");
-        if (savePath is not null)
-        {
-            var ext = Path.GetExtension(savePath).ToLowerInvariant();
-            var content = ext == ".yml" ? FeatureService.GenerateDockerCompose() : FeatureService.GenerateDockerfile();
-            File.WriteAllText(savePath, content);
-            _vm.AddLog($"Docker-Datei gespeichert: {savePath}", "INFO");
-        }
-    }
-
-    private void WindowsContextMenu()
-    {
-        var regScript = FeatureService.GetContextMenuRegistryScript();
-        var path = _dialog.SaveFile("Registry-Skript speichern", "Registry (*.reg)|*.reg", "romcleanup-context-menu.reg");
-        if (path is null) return;
-        File.WriteAllText(path, regScript);
-        _vm.AddLog($"Kontextmenü-Registry exportiert: {path}", "INFO");
-        _dialog.Info($"Registry-Skript gespeichert:\n{path}\n\nDoppelklicke die .reg-Datei, um das Kontextmenü zu installieren.\n\n⚠ Das Skript enthält den absoluten Pfad zur aktuellen EXE-Datei.\nBei Verschiebung der Anwendung muss das Skript neu generiert werden.\n\nEinträge:\n• ROM Cleanup – DryRun Scan\n• ROM Cleanup – Move Sort", "Kontextmenü");
-    }
-
     private void HardlinkMode()
     {
         if (_vm.LastDedupeGroups.Count == 0)
@@ -135,7 +106,7 @@ public sealed partial class FeatureCommandService
     {
         var input = _dialog.ShowInputBox("Befehl suchen:", "Command-Palette", "");
         if (string.IsNullOrWhiteSpace(input)) return;
-        var results = FeatureService.SearchCommands(input);
+        var results = FeatureService.SearchCommands(input, _vm.FeatureCommands);
         if (results.Count == 0)
         { _vm.AddLog($"Kein Befehl gefunden für: {input}", "WARN"); return; }
 
@@ -145,6 +116,14 @@ public sealed partial class FeatureCommandService
 
     private void ExecuteCommand(string key)
     {
+        // 1. Try FeatureCommands dictionary (all registered tool commands)
+        if (_vm.FeatureCommands.TryGetValue(key, out var featureCmd))
+        {
+            featureCmd.Execute(null);
+            return;
+        }
+
+        // 2. Fallback: core VM-level shortcuts not in FeatureCommands
         switch (key)
         {
             case "dryrun": if (!_vm.IsBusy) { _vm.DryRun = true; _vm.RunCommand.Execute(null); } break;
@@ -154,16 +133,16 @@ public sealed partial class FeatureCommandService
             case "theme": _vm.ThemeToggleCommand.Execute(null); break;
             case "clear-log": _vm.ClearLogCommand.Execute(null); break;
             case "settings": _windowHost?.SelectTab(3); break;
-            default: _vm.AddLog($"Befehl: {key}", "INFO"); break;
+            default: _vm.AddLog($"Unbekannter Befehl: {key}", "WARN"); break;
         }
     }
 
-    private void MobileWebUI()
+    private void ApiServer()
     {
         var apiProject = FeatureService.FindApiProjectPath();
         if (apiProject is not null)
         {
-            if (_dialog.Confirm("REST API starten und Browser öffnen?\n\nhttp://127.0.0.1:5000", "Mobile Web UI"))
+            if (_dialog.Confirm("REST API starten und Browser öffnen?\n\nhttp://127.0.0.1:5000", "API-Server"))
             {
                 _windowHost?.StartApiProcess(apiProject);
                 return;
@@ -171,7 +150,7 @@ public sealed partial class FeatureCommandService
         }
         else
         {
-            _dialog.ShowText("Mobile Web UI", "Mobile Web UI\n\n  API-Projekt nicht gefunden.\n\n" +
+            _dialog.ShowText("API-Server", "API-Server\n\n  API-Projekt nicht gefunden.\n\n" +
                 "  Zum manuellen Start:\n    dotnet run --project src/RomCleanup.Api\n\n" +
                 "  Dann im Browser öffnen:\n    http://127.0.0.1:5000");
         }

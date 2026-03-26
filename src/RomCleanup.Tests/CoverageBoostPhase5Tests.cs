@@ -176,31 +176,6 @@ public class FcsExportCommandTests : IDisposable
         Assert.Contains(vm.LogEntries, e => e.Level == "WARN");
     }
 
-    // ── CollectionSharing Import ─────────────────────────────────
-
-    [Fact]
-    public void CollectionSharing_NoAction_CancelDialog()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextYesNoCancel = ConfirmResult.Cancel;
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("G1"),
-        };
-        Exec(vm, "CollectionSharing");
-    }
-
-    [Fact]
-    public void CollectionSharing_Import_WithFile()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextYesNoCancel = ConfirmResult.No; // Import path
-        var importFile = Path.Combine(_tmpDir, "import.json");
-        File.WriteAllText(importFile, "[]");
-        dialog.NextBrowseFile = importFile;
-        Exec(vm, "CollectionSharing");
-    }
-
     // ── ExportUnified ────────────────────────────────────────────
 
     [Fact]
@@ -363,32 +338,6 @@ public class FcsDatCommandTests : IDisposable
         Exec(vm, "TosecDat");
     }
 
-    [Fact]
-    public void TosecDat_NoDatRoot_ShowsError()
-    {
-        var (_, vm, dialog) = Setup();
-        vm.DatRoot = "";
-        var tmpFile = Path.Combine(_tmpDir, "tosec.dat");
-        File.WriteAllText(tmpFile, "<data/>");
-        dialog.NextBrowseFile = tmpFile;
-        Exec(vm, "TosecDat");
-        Assert.True(dialog.ErrorCalls.Count > 0 || dialog.InfoCalls.Count > 0);
-    }
-
-    [Fact]
-    public void TosecDat_WithDatRoot_CopiesFile()
-    {
-        var (_, vm, dialog) = Setup();
-        var datDir = Path.Combine(_tmpDir, "dats");
-        Directory.CreateDirectory(datDir);
-        vm.DatRoot = datDir;
-        var tosecFile = Path.Combine(_tmpDir, "tosec.dat");
-        File.WriteAllText(tosecFile, "<data/>");
-        dialog.NextBrowseFile = tosecFile;
-        Exec(vm, "TosecDat");
-        Assert.True(dialog.InfoCalls.Count > 0);
-    }
-
     // ── CustomDatEditor ──────────────────────────────────────────
 
     [Fact]
@@ -492,15 +441,6 @@ public class FcsConversionCommandTests
     }
 
     [Fact]
-    public void ConvertQueue_NoCandidates_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        vm.LastCandidates.Clear();
-        Exec(vm, "ConvertQueue");
-        Assert.Contains(vm.LogEntries, e => e.Level == "WARN");
-    }
-
-    [Fact]
     public void ConversionVerify_NoBrowse_NoAction()
     {
         var (_, vm, dialog) = Setup();
@@ -556,29 +496,6 @@ public class FcsWorkflowCommandTests
     {
         if (vm.FeatureCommands.TryGetValue(key, out var cmd))
             cmd.Execute(null);
-    }
-
-    [Fact]
-    public void SplitPanelPreview_NoCandidates_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        vm.LastDedupeGroups.Clear();
-        Exec(vm, "SplitPanelPreview");
-        Assert.Contains(vm.LogEntries, e => e.Level == "WARN");
-    }
-
-    [Fact]
-    public void SplitPanelPreview_WithGroups_ShowsReport()
-    {
-        var (_, vm, dialog) = Setup();
-        var w = MakeCandidate("W1");
-        var l = MakeCandidate("L1", "JP");
-        vm.LastDedupeGroups = new ObservableCollection<DedupeResult>
-        {
-            new() { Winner = w, Losers = new List<RomCandidate> { l }, GameKey = "W1" }
-        };
-        Exec(vm, "SplitPanelPreview");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
     [Fact]
@@ -718,24 +635,6 @@ public class FcsInfraCommandTests
     }
 
     [Fact]
-    public void DockerContainer_ShowsDockerfile()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextSaveFile = null; // Don't save
-        Exec(vm, "DockerContainer");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
-    public void WindowsContextMenu_ShowsScript()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextSaveFile = null;
-        Exec(vm, "WindowsContextMenu");
-        // WindowsContextMenu returns silently when SaveFile is cancelled
-    }
-
-    [Fact]
     public void HardlinkMode_NoGroups_ShowsInfo()
     {
         var (_, vm, dialog) = Setup();
@@ -810,11 +709,11 @@ public class FcsInfraCommandTests
     }
 
     [Fact]
-    public void MobileWebUI_NoConfirm_NoStart()
+    public void ApiServer_NoConfirm_NoStart()
     {
         var (_, vm, dialog) = Setup(withHost: true);
         dialog.NextConfirm = false;
-        Exec(vm, "MobileWebUI");
+        Exec(vm, "ApiServer");
     }
 
     [Fact]
@@ -893,15 +792,6 @@ public class FcsAnalysisDeepTests
     }
 
     [Fact]
-    public void ConversionEstimate_NoCandidates_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        vm.LastCandidates.Clear();
-        Exec(vm, "ConversionEstimate");
-        Assert.Contains(vm.LogEntries, e => e.Level == "WARN");
-    }
-
-    [Fact]
     public void RomFilter_EmptyInput_NoAction()
     {
         var (_, vm, dialog) = Setup();
@@ -956,15 +846,6 @@ public class FcsAnalysisDeepTests
     }
 
     [Fact]
-    public void EmulatorCompat_NoCandidates_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        vm.LastCandidates.Clear();
-        Exec(vm, "EmulatorCompat");
-        Assert.True(dialog.InfoCalls.Count > 0 || dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
     public void CollectionManager_WithCandidates_ShowsReport()
     {
         var (_, vm, dialog) = Setup();
@@ -1007,18 +888,6 @@ public class FcsAnalysisDeepTests
         };
         Exec(vm, "CloneListViewer");
         Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
-    public void CoverScraper_NoBrowse_NoAction()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextBrowseFolder = null;
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("G1"),
-        };
-        Exec(vm, "CoverScraper");
     }
 
     [Fact]

@@ -100,75 +100,6 @@ public static partial class FeatureService
     }
 
 
-    // ═══ DOCKER CONFIG ══════════════════════════════════════════════════
-    // Port of DockerContainer.ps1
-
-    public static string GenerateDockerfile()
-    {
-        return """
-            FROM mcr.microsoft.com/dotnet/aspnet:10.0
-            LABEL maintainer="RomCleanup" description="ROM Cleanup REST API"
-            WORKDIR /app
-            COPY publish/ .
-            VOLUME ["/data/roms", "/data/config"]
-            EXPOSE 5000 5001
-            ENV ASPNETCORE_URLS=http://+:5000;https://+:5001
-            ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/cert.pfx
-            ENTRYPOINT ["dotnet", "RomCleanup.Api.dll"]
-            """;
-    }
-
-
-    public static string GenerateDockerCompose()
-    {
-        return """
-            # HINWEIS: ROM_CLEANUP_API_KEY NICHT in docker-compose.yml hartcodieren!
-            # Verwende eine .env-Datei oder Docker Secrets.
-            services:
-              romcleanup:
-                build: .
-                ports:
-                  - "5000:5000"
-                volumes:
-                  - ./roms:/data/roms
-                  - ./config:/data/config
-                environment:
-                  - ROM_CLEANUP_API_KEY=${ROM_CLEANUP_API_KEY}
-                restart: unless-stopped
-                healthcheck:
-                  test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-                  interval: 30s
-                  retries: 3
-            """;
-    }
-
-
-    // ═══ WINDOWS CONTEXT MENU ═══════════════════════════════════════════
-    // Port of WindowsContextMenu.ps1
-
-    public static string GetContextMenuRegistryScript()
-    {
-        var exePath = Environment.ProcessPath ?? "RomCleanup.CLI.exe";
-        // .reg format requires backslashes doubled and paths with spaces quoted
-        var escapedPath = "\\\"" + exePath.Replace("\\", "\\\\") + "\\\"";
-        return $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_DryRun]
-            @="ROM Cleanup – DryRun Scan"
-
-            [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_DryRun\command]
-            @="{escapedPath} --roots \\\"%V\\\" --mode DryRun"
-
-            [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_Move]
-            @="ROM Cleanup – Move Sort"
-
-            [HKEY_CURRENT_USER\Software\Classes\Directory\shell\RomCleanup_Move\command]
-            @="{escapedPath} --roots \\\"%V\\\" --mode Move"
-            """;
-    }
-
-
     // ═══ ACCESSIBILITY ══════════════════════════════════════════════════
     // Port of Accessibility.ps1
 
@@ -198,26 +129,5 @@ public static partial class FeatureService
         return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
     }
 
-
-    // ═══ RULE PACK SHARING ══════════════════════════════════════════════
-
-    /// <summary>Export rules.json to a user-chosen path.</summary>
-    public static bool ExportRulePack(string rulesPath, string savePath)
-    {
-        if (!File.Exists(rulesPath)) return false;
-        File.Copy(rulesPath, savePath, overwrite: true);
-        return true;
-    }
-
-
-    /// <summary>Import rules.json from an external file (validates JSON first).</summary>
-    public static void ImportRulePack(string importPath, string rulesPath)
-    {
-        var json = File.ReadAllText(importPath);
-        System.Text.Json.JsonDocument.Parse(json).Dispose(); // validate
-        var dir = Path.GetDirectoryName(rulesPath);
-        if (dir is not null) Directory.CreateDirectory(dir);
-        File.Copy(importPath, rulesPath, overwrite: true);
-    }
 
 }

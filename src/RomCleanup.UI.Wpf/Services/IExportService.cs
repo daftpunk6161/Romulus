@@ -13,7 +13,7 @@ public interface IExportService
     string ExportExcelXml(IReadOnlyList<RomCandidate> candidates);
     string FormatRulesFromJson(string rulesPath, IReadOnlyList<RomCandidate>? candidates = null);
     string BuildRuleEngineReport();
-    (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
+    (ReportSummary Summary, List<ReportEntry> Entries) BuildHtmlReportData(
         IReadOnlyList<RomCandidate> candidates,
         IReadOnlyList<DedupeResult> groups,
         RunResult? runResult, bool dryRun);

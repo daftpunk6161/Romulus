@@ -52,8 +52,25 @@ public sealed class LocalizationService : ILocalizationService
 
     private void LoadStrings(string locale)
     {
-        var dict = FeatureService.LoadLocale(locale);
-        _strings = dict.Count > 0 ? dict : FeatureService.LoadLocale("de");
+        var baseDict = FeatureService.LoadLocale("de");
+        if (string.Equals(locale, "de", StringComparison.OrdinalIgnoreCase))
+        {
+            _strings = baseDict;
+            return;
+        }
+
+        var overlay = FeatureService.LoadLocale(locale);
+        if (overlay.Count == 0)
+        {
+            _strings = baseDict;
+            return;
+        }
+
+        // Per-key fallback: DE base + overlay from target locale
+        foreach (var kv in overlay)
+            baseDict[kv.Key] = kv.Value;
+
+        _strings = baseDict;
     }
 
     private static List<string> DiscoverLocales()

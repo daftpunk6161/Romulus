@@ -37,14 +37,14 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void SearchCommands_EmptyQuery_ReturnsAllPaletteCommands()
     {
         var result = FeatureService.SearchCommands("");
-        Assert.True(result.Count >= 10);
+        Assert.True(result.Count >= 7); // CoreShortcuts only when no featureCommands passed
     }
 
     [Fact]
     public void SearchCommands_NullQuery_ReturnsAllPaletteCommands()
     {
         var result = FeatureService.SearchCommands(null!);
-        Assert.True(result.Count >= 10);
+        Assert.True(result.Count >= 7);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void SearchCommands_NameSubstring_Matches()
     {
         var result = FeatureService.SearchCommands("starten");
-        Assert.True(result.Count >= 2);
+        Assert.True(result.Count >= 1); // CoreShortcuts: "DryRun starten"
     }
 
     [Fact]
@@ -77,11 +77,37 @@ public sealed class WpfCoverageBoostTests : IDisposable
     }
 
     [Fact]
-    public void PaletteCommands_HasExpectedEntries()
+    public void CoreShortcuts_HasExpectedEntries()
     {
-        Assert.True(FeatureService.PaletteCommands.Length >= 15);
-        Assert.Contains(FeatureService.PaletteCommands, c => c.key == "dryrun");
-        Assert.Contains(FeatureService.PaletteCommands, c => c.key == "settings");
+        Assert.True(FeatureService.CoreShortcuts.Length >= 7);
+        Assert.Contains(FeatureService.CoreShortcuts, c => c.key == "dryrun");
+        Assert.Contains(FeatureService.CoreShortcuts, c => c.key == "settings");
+    }
+
+    [Fact]
+    public void SearchCommands_WithFeatureCommands_ReturnsAllCommands()
+    {
+        var fakeCommands = new Dictionary<string, System.Windows.Input.ICommand>
+        {
+            ["HealthScore"] = new CommunityToolkit.Mvvm.Input.RelayCommand(() => { }),
+            ["DuplicateAnalysis"] = new CommunityToolkit.Mvvm.Input.RelayCommand(() => { }),
+            ["ExportCollection"] = new CommunityToolkit.Mvvm.Input.RelayCommand(() => { })
+        };
+        var result = FeatureService.SearchCommands("", fakeCommands);
+        // 3 FeatureCommands + 7 CoreShortcuts = 10
+        Assert.True(result.Count >= 10);
+    }
+
+    [Fact]
+    public void SearchCommands_WithFeatureCommands_FindsFeatureKey()
+    {
+        var fakeCommands = new Dictionary<string, System.Windows.Input.ICommand>
+        {
+            ["HealthScore"] = new CommunityToolkit.Mvvm.Input.RelayCommand(() => { })
+        };
+        var result = FeatureService.SearchCommands("Health", fakeCommands);
+        Assert.True(result.Count > 0);
+        Assert.Equal("HealthScore", result[0].key);
     }
 
     // ═══ ANALYSIS: ExportRetroArchPlaylist ═══════════════════════════════
@@ -111,26 +137,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var json = FeatureService.ExportRetroArchPlaylist([], "Empty");
         var doc = JsonDocument.Parse(json);
         Assert.Equal(0, doc.RootElement.GetProperty("items").GetArrayLength());
-    }
-
-    // ═══ ANALYSIS: ClassifyGenre ════════════════════════════════════════
-
-    [Theory]
-    [InlineData("Dragon Quest XI", "RPG")]
-    [InlineData("Mario Kart 8", "Racing")]
-    [InlineData("FIFA 23", "Sports")]
-    [InlineData("Tekken 7", "Fighting")]
-    [InlineData("Tetris Effect", "Puzzle")]
-    [InlineData("Super Mario World", "Platformer")]
-    [InlineData("Doom Eternal", "Shooter")]
-    [InlineData("Chess Master", "Strategy")]
-    [InlineData("Zelda Breath of the Wild", "Adventure")]
-    [InlineData("Pinball FX3", "Arcade")]
-    [InlineData("Flight Simulation 2020", "Simulation")]
-    [InlineData("Random Title 12345", "Other")]
-    public void ClassifyGenre_VariousGames_CorrectGenre(string gameName, string expected)
-    {
-        Assert.Equal(expected, FeatureService.ClassifyGenre(gameName));
     }
 
     // ═══ ANALYSIS: BuildCloneTree ═══════════════════════════════════════
@@ -179,26 +185,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var result = FeatureService.BuildVirtualFolderPreview([]);
         Assert.NotNull(result);
-    }
-
-    // ═══ ANALYSIS: BuildSplitPanelPreview ═══════════════════════════════
-
-    [Fact]
-    public void BuildSplitPanelPreview_WithGroups_ReturnsPreview()
-    {
-        var groups = new[]
-        {
-            new DedupeResult
-            {
-                GameKey = "Game",
-                Winner = new RomCandidate { MainPath = "a.sfc", GameKey = "Game", Region = "EU", Extension = ".sfc", SizeBytes = 1024 },
-                Losers = [new RomCandidate { MainPath = "b.sfc", GameKey = "Game", Region = "US", Extension = ".sfc", SizeBytes = 1024 }]
-            }
-        };
-        var result = FeatureService.BuildSplitPanelPreview(groups);
-        Assert.Contains("a.sfc", result);
-        Assert.Contains("b.sfc", result);
-        Assert.Contains("KEEP", result);
     }
 
     // ═══ ANALYSIS: GetHardlinkEstimate ══════════════════════════════════
@@ -286,38 +272,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
         Assert.Equal(candidates.Length, result.Count);
     }
 
-    // ═══ ANALYSIS: ParseCsvReport ═══════════════════════════════════════
-
-    [Fact]
-    public void ParseCsvReport_ValidCsv_ParsesCorrectly()
-    {
-        var csvPath = Path.Combine(_tempDir, "report.csv");
-        // ParseCsvLine uses comma delimiter, matching ParseCsvReport expectations
-        File.WriteAllText(csvPath, "MainPath,GameKey,Region,Extension,SizeBytes,Category,ConsoleKey,DatMatch\na.sfc,Game,EU,.sfc,1024,GAME,SNES,true\n");
-
-        var result = FeatureService.ParseCsvReport(csvPath);
-        Assert.Single(result);
-        Assert.Equal("Game", result[0].GameKey);
-        Assert.Equal("EU", result[0].Region);
-    }
-
-    [Fact]
-    public void ParseCsvReport_EmptyFile_ReturnsEmpty()
-    {
-        var csvPath = Path.Combine(_tempDir, "empty.csv");
-        File.WriteAllText(csvPath, "");
-
-        var result = FeatureService.ParseCsvReport(csvPath);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public void ParseCsvReport_NonexistentFile_ReturnsEmpty()
-    {
-        var result = FeatureService.ParseCsvReport("/nonexistent/path.csv");
-        Assert.Empty(result);
-    }
-
     // ═══ INFRA: GetConfigDiff ═══════════════════════════════════════════
 
     [Fact]
@@ -336,34 +290,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var a = new Dictionary<string, string> { ["x"] = "1" };
         var diff = FeatureService.GetConfigDiff(a, a);
         Assert.Empty(diff);
-    }
-
-    // ═══ INFRA: GenerateDockerfile ══════════════════════════════════════
-
-    [Fact]
-    public void GenerateDockerfile_ContainsDotnetSdkImage()
-    {
-        var df = FeatureService.GenerateDockerfile();
-        Assert.Contains("FROM", df);
-        Assert.Contains("dotnet", df);
-    }
-
-    // ═══ INFRA: GenerateDockerCompose ═══════════════════════════════════
-
-    [Fact]
-    public void GenerateDockerCompose_ContainsServiceDefinition()
-    {
-        var dc = FeatureService.GenerateDockerCompose();
-        Assert.Contains("services", dc);
-    }
-
-    // ═══ INFRA: GetContextMenuRegistryScript ════════════════════════════
-
-    [Fact]
-    public void GetContextMenuRegistryScript_ContainsRegistryFormat()
-    {
-        var script = FeatureService.GetContextMenuRegistryScript();
-        Assert.Contains("Windows Registry Editor", script);
     }
 
     // ═══ INFRA: IsPortableMode ══════════════════════════════════════════
@@ -574,29 +500,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
         Assert.Contains("game.sfc", xml);
     }
 
-    // ═══ WORKFLOW: CompareDryRuns ════════════════════════════════════════
-
-    [Fact]
-    public void CompareDryRuns_IdenticalRuns_NoChanges()
-    {
-        var entries = new[]
-        {
-            new ReportEntry { FilePath = "a.sfc", GameKey = "Game", Action = "KEEP" }
-        };
-        var result = FeatureService.CompareDryRuns(entries, entries);
-        Assert.Empty(result.OnlyInA);
-        Assert.Empty(result.OnlyInB);
-    }
-
-    [Fact]
-    public void CompareDryRuns_DifferentRuns_DetectsChanges()
-    {
-        var a = new[] { new ReportEntry { FilePath = "a.sfc", GameKey = "Game", Action = "KEEP" } };
-        var b = new[] { new ReportEntry { FilePath = "b.sfc", GameKey = "Other", Action = "MOVE" } };
-        var result = FeatureService.CompareDryRuns(a, b);
-        Assert.True(result.OnlyInA.Count > 0 || result.OnlyInB.Count > 0);
-    }
-
     // ═══ WORKFLOW: GetSortTemplates ══════════════════════════════════════
 
     [Fact]
@@ -647,32 +550,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void CronFieldMatch_VariousPatterns_CorrectResult(string field, int value, bool expected)
     {
         Assert.Equal(expected, FeatureService.CronFieldMatch(field, value));
-    }
-
-    // ═══ WORKFLOW: BuildPipelineReport ═══════════════════════════════════
-
-    [Fact]
-    public void BuildPipelineReport_NullResult_ReturnsReport()
-    {
-        var report = FeatureService.BuildPipelineReport(null, []);
-        Assert.NotNull(report);
-    }
-
-    [Fact]
-    public void BuildPipelineReport_WithResult_IncludesStats()
-    {
-        var result = new RunResult
-        {
-            TotalFilesScanned = 100,
-            WinnerCount = 50,
-            LoserCount = 30,
-            GroupCount = 40,
-            DurationMs = 5000,
-            AllCandidates = [],
-            DedupeGroups = []
-        };
-        var report = FeatureService.BuildPipelineReport(result, []);
-        Assert.Contains("100", report);
     }
 
     // ═══ INFRA: LoadLocale ══════════════════════════════════════════════
@@ -819,15 +696,6 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void IsValidHexHash_VariousInputs_CorrectResult(string hash, int expectedLength, bool expected)
     {
         Assert.Equal(expected, FeatureService.IsValidHexHash(hash, expectedLength));
-    }
-
-    // ═══ FeatureService: FormatEmulatorCompat ═══════════════════════════
-
-    [Fact]
-    public void FormatEmulatorCompat_ReturnsCompatInfo()
-    {
-        var result = FeatureService.FormatEmulatorCompat();
-        Assert.NotEmpty(result);
     }
 
     // ═══ FeatureService: FormatFormatPriority ═══════════════════════════

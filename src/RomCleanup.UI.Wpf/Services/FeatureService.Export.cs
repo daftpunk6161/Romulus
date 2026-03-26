@@ -286,8 +286,8 @@ public static partial class FeatureService
     }
 
 
-    /// <summary>Build report data for PDF/HTML export.</summary>
-    public static (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
+    /// <summary>Build report data for HTML export.</summary>
+    public static (ReportSummary Summary, List<ReportEntry> Entries) BuildHtmlReportData(
         IReadOnlyList<RomCandidate> candidates, IReadOnlyList<DedupeResult> groups,
         RunResult? runResult, bool dryRun)
     {

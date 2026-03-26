@@ -11,7 +11,6 @@ public sealed class UiLookupData
 {
     public Dictionary<string, double> CompressionRatios { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string[]> ConsoleFormatPriority { get; init; } = new(StringComparer.OrdinalIgnoreCase);
-    public Dictionary<string, Dictionary<string, string>> EmulatorMatrix { get; init; } = [];
     public List<GenreKeywordEntry> GenreKeywords { get; init; } = [];
     public Dictionary<string, string> CoreMapping { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> SortTemplates { get; init; } = [];

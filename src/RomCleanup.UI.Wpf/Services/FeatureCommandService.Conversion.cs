@@ -48,31 +48,6 @@ public sealed partial class FeatureCommandService
         }
     }
 
-    private void ConvertQueue()
-    {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog("Keine Dateien in der Konvert-Warteschlange.", "WARN"); return; }
-        var est = FeatureService.GetConversionEstimate(_vm.LastCandidates);
-
-        var sb = new StringBuilder();
-        sb.AppendLine("Konvert-Warteschlange");
-        sb.AppendLine(new string('═', 60));
-        sb.AppendLine($"\n  Dateien: {est.Details.Count}");
-        sb.AppendLine($"  Quellgröße: {FeatureService.FormatSize(est.TotalSourceBytes)}");
-        sb.AppendLine($"  Geschätzte Zielgröße: {FeatureService.FormatSize(est.EstimatedTargetBytes)}");
-        sb.AppendLine($"  Ersparnis: {FeatureService.FormatSize(est.SavedBytes)}\n");
-        if (est.Details.Count > 0)
-        {
-            sb.AppendLine($"  {"Datei",-40} {"Quelle",-8} {"Ziel",-8} {"Größe",12}");
-            sb.AppendLine($"  {new string('-', 40)} {new string('-', 8)} {new string('-', 8)} {new string('-', 12)}");
-            foreach (var d in est.Details)
-                sb.AppendLine($"  {d.FileName,-40} {d.SourceFormat,-8} {d.TargetFormat,-8} {FeatureService.FormatSize(d.SourceBytes),12}");
-        }
-        else
-            sb.AppendLine("  Keine konvertierbaren Dateien gefunden.");
-        _dialog.ShowText("Konvert-Warteschlange", sb.ToString());
-    }
-
     private void ConversionVerify()
     {
         var dir = _dialog.BrowseFolder("Konvertierte Dateien prüfen");

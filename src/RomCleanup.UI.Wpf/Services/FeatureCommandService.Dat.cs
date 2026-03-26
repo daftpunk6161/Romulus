@@ -278,26 +278,6 @@ public sealed partial class FeatureCommandService
         }
     }
 
-    private void TosecDat()
-    {
-        var path = _dialog.BrowseFile("TOSEC-DAT wählen", "DAT (*.dat;*.xml)|*.dat;*.xml");
-        if (path is null) return;
-        _vm.AddLog($"TOSEC-DAT geladen: {Path.GetFileName(path)}", "INFO");
-        if (string.IsNullOrWhiteSpace(_vm.DatRoot))
-        { _dialog.Error("DAT-Root ist nicht konfiguriert. Bitte zuerst den DAT-Root-Ordner setzen.", "TOSEC-DAT"); return; }
-        try
-        {
-            var safeName = Path.GetFileName(path);
-            var targetPath = Path.GetFullPath(Path.Combine(_vm.DatRoot, safeName));
-            if (!targetPath.StartsWith(Path.GetFullPath(_vm.DatRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            { _vm.AddLog("TOSEC-DAT Import blockiert: Pfad außerhalb des DatRoot.", "ERROR"); return; }
-            File.Copy(path, targetPath, overwrite: true);
-            _vm.AddLog($"TOSEC-DAT kopiert nach: {targetPath}", "INFO");
-            _dialog.Info($"TOSEC-DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "TOSEC-DAT");
-        }
-        catch (Exception ex) { LogError("DAT-TOSEC", $"TOSEC-DAT Import fehlgeschlagen: {ex.Message}"); }
-    }
-
     private void CustomDatEditor()
     {
         var gameName = _dialog.ShowInputBox("Spielname eingeben:", "Custom-DAT-Editor", "");

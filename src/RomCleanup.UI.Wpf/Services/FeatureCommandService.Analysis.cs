@@ -15,25 +15,6 @@ public sealed partial class FeatureCommandService
 {
     // ═══ ANALYSE & BERICHTE ═════════════════════════════════════════════
 
-    private void ConversionEstimate()
-    {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog("Erst einen Lauf starten, um Konvertierungs-Schätzungen zu berechnen.", "WARN"); return; }
-        var est = FeatureService.GetConversionEstimate(_vm.LastCandidates);
-        var sb = new StringBuilder();
-        sb.AppendLine("Konvertierungs-Schätzung");
-        sb.AppendLine(new string('═', 50));
-        sb.AppendLine($"  Quellgröße:     {FeatureService.FormatSize(est.TotalSourceBytes)}");
-        sb.AppendLine($"  Geschätzt:      {FeatureService.FormatSize(est.EstimatedTargetBytes)}");
-        sb.AppendLine($"  Ersparnis:      {FeatureService.FormatSize(est.SavedBytes)} ({(1 - est.CompressionRatio) * 100:F1}%)");
-        sb.AppendLine($"\nDetails ({est.Details.Count} konvertierbare Dateien):");
-        foreach (var d in est.Details.Take(20))
-            sb.AppendLine($"  {d.FileName}: {d.SourceFormat}→{d.TargetFormat} ({FeatureService.FormatSize(d.SourceBytes)}→{FeatureService.FormatSize(d.EstimatedBytes)})");
-        if (est.Details.Count > 20)
-            sb.AppendLine($"  … und {est.Details.Count - 20} weitere");
-        _dialog.ShowText("Konvertierungs-Schätzung", sb.ToString());
-    }
-
     private void JunkReport()
     {
         if (_vm.LastCandidates.Count == 0)
@@ -56,21 +37,6 @@ public sealed partial class FeatureCommandService
         if (results.Count > 50)
             sb.AppendLine($"\n  … und {results.Count - 50} weitere");
         _dialog.ShowText("ROM-Filter", sb.ToString());
-    }
-
-    private void DuplicateHeatmap()
-    {
-        if (_vm.LastDedupeGroups.Count == 0)
-        { _vm.AddLog("Keine Deduplizierungs-Daten vorhanden.", "WARN"); return; }
-        var heatmap = FeatureService.GetDuplicateHeatmap(_vm.LastDedupeGroups);
-        var sb = new StringBuilder();
-        sb.AppendLine("Duplikat-Heatmap (nach Konsole)\n");
-        foreach (var h in heatmap)
-        {
-            var bar = new string('█', (int)(h.DuplicatePercent / 5));
-            sb.AppendLine($"  {h.Console,-25} {h.Duplicates,4} Dupes ({h.DuplicatePercent:F1}%) {bar}");
-        }
-        _dialog.ShowText("Duplikat-Heatmap", sb.ToString());
     }
 
     private void MissingRom()
@@ -109,45 +75,6 @@ public sealed partial class FeatureCommandService
         foreach (var g in byDir)
             sb.AppendLine($"    {g.Count(),5}  {g.Key}");
         _dialog.ShowText("Fehlende ROMs", sb.ToString());
-    }
-
-    private void CrossRootDupe()
-    {
-        if (_vm.Roots.Count < 2)
-        { _vm.AddLog("Mindestens 2 Root-Ordner für Cross-Root-Duplikate erforderlich.", "WARN"); return; }
-        if (_vm.LastDedupeGroups.Count == 0)
-        { _vm.AddLog("Keine Deduplizierungs-Daten vorhanden. Erst einen DryRun starten.", "WARN"); return; }
-
-        var roots = _vm.Roots.Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
-        string? GetRoot(string filePath)
-        {
-            var full = Path.GetFullPath(filePath);
-            return roots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
-        }
-
-        var crossRootGroups = new List<DedupeResult>();
-        foreach (var g in _vm.LastDedupeGroups)
-        {
-            var allPaths = new[] { g.Winner }.Concat(g.Losers);
-            var distinctRoots = allPaths.Select(c => GetRoot(c.MainPath)).Where(r => r is not null).Distinct().Count();
-            if (distinctRoots > 1) crossRootGroups.Add(g);
-        }
-
-        var sb = new StringBuilder();
-        sb.AppendLine("Cross-Root-Duplikate");
-        sb.AppendLine(new string('═', 50));
-        sb.AppendLine($"\n  Roots: {_vm.Roots.Count}");
-        sb.AppendLine($"  Dedupe-Gruppen gesamt: {_vm.LastDedupeGroups.Count}");
-        sb.AppendLine($"  Cross-Root-Gruppen: {crossRootGroups.Count}\n");
-        foreach (var g in crossRootGroups.Take(30))
-        {
-            sb.AppendLine($"  [{g.GameKey}]");
-            sb.AppendLine($"    Winner: {g.Winner.MainPath}");
-            foreach (var l in g.Losers) sb.AppendLine($"    Loser:  {l.MainPath}");
-        }
-        if (crossRootGroups.Count > 30) sb.AppendLine($"\n  … und {crossRootGroups.Count - 30} weitere Gruppen");
-        if (crossRootGroups.Count == 0) sb.AppendLine("  Keine Cross-Root-Duplikate gefunden.");
-        _dialog.ShowText("Cross-Root-Duplikate", sb.ToString());
     }
 
     private void HeaderAnalysis()
@@ -226,26 +153,6 @@ public sealed partial class FeatureCommandService
             _dialog.ShowText("DryRun-Vergleich", $"Vergleich:\n  A: {fileA}\n  B: {fileB}\n\n" +
                 "Detaillierter Vergleich erfordert CSV-Reports.\nExportiere Reports als CSV und vergleiche erneut.");
         }
-    }
-
-    private void TrendAnalysis()
-    {
-        if (_vm.LastCandidates.Count > 0)
-        {
-            var dupes = _vm.LastDedupeGroups.Sum(g => g.Losers.Count);
-            var junk = _vm.LastCandidates.Count(c => c.Category == "JUNK");
-            var verified = _vm.LastCandidates.Count(c => c.DatMatch);
-            var totalSize = _vm.LastCandidates.Sum(c => c.SizeBytes);
-            FeatureService.SaveTrendSnapshot(_vm.LastCandidates.Count, totalSize, verified, dupes, junk);
-        }
-        var history = FeatureService.LoadTrendHistory();
-        var report = FeatureService.FormatTrendReport(history);
-        _dialog.ShowText("Trend-Analyse", report);
-    }
-
-    private void EmulatorCompat()
-    {
-        _dialog.ShowText("Emulator-Kompatibilität", FeatureService.FormatEmulatorCompat());
     }
 
 }

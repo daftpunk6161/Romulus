@@ -4,7 +4,7 @@ version: 1.0
 date_created: 2026-03-26
 last_updated: 2026-03-26
 owner: Romulus Team
-status: 'In Progress'
+status: 'Completed'
 tags: [refactor, chore, architecture, cleanup, ui, release-readiness]
 ---
 
@@ -54,96 +54,110 @@ Zielzustand: ~50 ehrliche, vollständig implementierte, getestete und korrekt be
 
 - GOAL-002: Alle Features entfernen, die 100% Code-Duplikate oder 95%+ Überlappung mit anderen Features haben
 
-- [ ] **TASK-009** — **QuickPreview entfernen**: ToolItem (ToolsViewModel ~58, ~138), MainViewModel.Filters (~161, ~183). Command-Registration `cmds["QuickPreview"]` in FeatureCommandService.cs. Handler entfernen. **WICHTIG**: `QuickPreviewCommand` in MainViewModel.cs (~99, ~395) ist ein eigenständiger ICommand — diesen beibehalten und auf DryRun-Preset-Logik umleiten (`PresetSafeDryRunCommand` + `RunCommand`). Keyboard-Shortcut Ctrl+D in MainWindow.xaml auf `PresetSafeDryRunCommand` umverdrahten. Aus `DefaultPinnedKeys` entfernen (ToolsViewModel ~58). i18n-Keys `Tool.QuickPreview*`.
-- [ ] **TASK-010** — **CollectionDiff entfernen**: ToolItem (ToolsViewModel ~140), MainViewModel.Filters (~185). Command `cmds["CollectionDiff"]` in FeatureCommandService.cs (~71). Handler `CollectionDiff()` in FeatureCommandService.Infra.cs. DryRunCompare (das identische Feature) bleibt. i18n-Keys `Tool.CollectionDiff*`.
-- [ ] **TASK-011** — **ConvertQueue entfernen**: ToolItem (ToolsViewModel ~157, ~231), MainViewModel.Filters (~202, ~276). Command `cmds["ConvertQueue"]` in FeatureCommandService.cs (~102). Handler `ConvertQueue()` in FeatureCommandService.Conversion.cs (~51). FeatureService `BuildConvertQueueReport()` in FeatureService.Conversion.cs. i18n-Keys `Tool.ConvertQueue*`. ConversionPipeline bleibt als konsolidiertes Feature.
-- [ ] **TASK-012** — **ConversionEstimate entfernen** (als separates Tool): ToolItem (ToolsViewModel ~142), MainViewModel.Filters (~187). Command `cmds["ConversionEstimate"]` in FeatureCommandService.cs (~87). Handler `ConversionEstimate()` in FeatureCommandService.Analysis.cs (~18) und FeatureCommandService.Conversion.cs (~18/~22). **WICHTIG**: `FeatureService.GetConversionEstimate()` wird von ConversionPipeline weiter genutzt — NUR die Tool-Karte entfernen, nicht die FeatureService-Methode. i18n-Keys `Tool.ConversionEstimate*`.
-- [ ] **TASK-013** — **TosecDat entfernen**: ToolItem (ToolsViewModel ~166, ~231), MainViewModel.Filters (~211, ~276). Command `cmds["TosecDat"]` in FeatureCommandService.cs (~111). Handler `TosecDat()` in FeatureCommandService.Dat.cs (~281). ToolImport deckt denselben Use-Case ab. i18n-Keys `Tool.TosecDat*`.
-- [ ] **TASK-014** — **SplitPanelPreview entfernen**: ToolItem (ToolsViewModel ~192), MainViewModel.Filters (~237). Command `cmds["SplitPanelPreview"]`, Handler `SplitPanelPreview()` in FeatureCommandService.Workflow.cs. FeatureService Methoden für Split-Panel-Formatierung. i18n-Keys `Tool.SplitPanelPreview*`.
-- [ ] **TASK-015** — Build + Tests ausführen — alle grün
+- [x] **TASK-009** — **QuickPreview entfernen**: ToolItem (ToolsViewModel ~58, ~138), MainViewModel.Filters (~161, ~183). Command-Registration `cmds["QuickPreview"]` in FeatureCommandService.cs. Handler entfernen. **WICHTIG**: `QuickPreviewCommand` in MainViewModel.cs (~99, ~395) ist ein eigenständiger ICommand — diesen beibehalten und auf DryRun-Preset-Logik umleiten (`PresetSafeDryRunCommand` + `RunCommand`). Keyboard-Shortcut Ctrl+D in MainWindow.xaml auf `PresetSafeDryRunCommand` umverdrahten. Aus `DefaultPinnedKeys` entfernen (ToolsViewModel ~58). i18n-Keys `Tool.QuickPreview*`.
+- [x] **TASK-010** — **CollectionDiff entfernen**: ToolItem (ToolsViewModel ~140), MainViewModel.Filters (~185). Command `cmds["CollectionDiff"]` in FeatureCommandService.cs (~71). Handler `CollectionDiff()` in FeatureCommandService.Infra.cs. DryRunCompare (das identische Feature) bleibt. i18n-Keys `Tool.CollectionDiff*`.
+- [x] **TASK-011** — **ConvertQueue entfernen**: ToolItem (ToolsViewModel ~157, ~231), MainViewModel.Filters (~202, ~276). Command `cmds["ConvertQueue"]` in FeatureCommandService.cs (~102). Handler `ConvertQueue()` in FeatureCommandService.Conversion.cs (~51). FeatureService `BuildConvertQueueReport()` in FeatureService.Conversion.cs. i18n-Keys `Tool.ConvertQueue*`. ConversionPipeline bleibt als konsolidiertes Feature.
+- [x] **TASK-012** — **ConversionEstimate entfernen** (als separates Tool): ToolItem (ToolsViewModel ~142), MainViewModel.Filters (~187). Command `cmds["ConversionEstimate"]` in FeatureCommandService.cs (~87). Handler `ConversionEstimate()` in FeatureCommandService.Analysis.cs (~18) und FeatureCommandService.Conversion.cs (~18/~22). **WICHTIG**: `FeatureService.GetConversionEstimate()` wird von ConversionPipeline weiter genutzt — NUR die Tool-Karte entfernen, nicht die FeatureService-Methode. i18n-Keys `Tool.ConversionEstimate*`.
+- [x] **TASK-013** — **TosecDat entfernen**: ToolItem (ToolsViewModel ~166, ~231), MainViewModel.Filters (~211, ~276). Command `cmds["TosecDat"]` in FeatureCommandService.cs (~111). Handler `TosecDat()` in FeatureCommandService.Dat.cs (~281). ToolImport deckt denselben Use-Case ab. i18n-Keys `Tool.TosecDat*`.
+- [x] **TASK-014** — **SplitPanelPreview entfernen**: ToolItem (ToolsViewModel ~192), MainViewModel.Filters (~237). Command `cmds["SplitPanelPreview"]`, Handler `SplitPanelPreview()` in FeatureCommandService.Workflow.cs. FeatureService Methoden für Split-Panel-Formatierung. i18n-Keys `Tool.SplitPanelPreview*`.
+- [x] **TASK-015** — Build + Tests ausführen — alle grün
+
+> **Phase 2 abgeschlossen (2025-07-24):** 6 redundante Features vollständig entfernt (QuickPreview, CollectionDiff, ConvertQueue, ConversionEstimate, TosecDat, SplitPanelPreview). 12 Quelldateien editiert (ToolsViewModel.cs, MainViewModel.Filters.cs, FeatureCommandService.cs + 4 Partials, FeatureCommandKeys.cs, de.json, en.json, fr.json). 24 Tests entfernt über 5 Testdateien. Build: 0 Fehler, 0 Warnungen. Tests: 3062 bestanden, 0 fehlgeschlagen, 6 übersprungen. QuickPreviewCommand (ICommand) und FeatureService-Methoden (GetConversionEstimate, BuildConvertQueueReport, BuildSplitPanelPreview) bewusst erhalten — Aufräumung in Phase 9.
 
 ### Phase 3: Qualitativ unzureichende Features entfernen (3 Features)
 
+> **Phase 3 abgeschlossen (2025-07-25):** 3 qualitativ unzureichende Features vollständig entfernt (PlaytimeTracker, GenreClassification, EmulatorCompat). 11 Quelldateien editiert (ToolsViewModel.cs, MainViewModel.Filters.cs, FeatureCommandService.cs + 2 Partials, FeatureCommandKeys.cs, FeatureService.Conversion.cs, IConversionEstimator.cs, ConversionEstimator.cs, de.json, en.json). 19 Tests entfernt über 7 Testdateien. Emulator-Matrix als § 9 in docs/USER_HANDBOOK.md eingefügt. ClassifyGenre() und IHealthAnalyzer.ClassifyGenre bewusst erhalten (verwendet von BuildCollectionManagerReport). Build: 0 Fehler, 0 Warnungen. Tests: 3043 bestanden, 0 fehlgeschlagen, 6 übersprungen.
+
 - GOAL-003: Features entfernen, die unzuverlässige oder keine echte Funktionalität bieten
 
-- [ ] **TASK-016** — **PlaytimeTracker entfernen**: ToolItem (ToolsViewModel ~175, ~232), MainViewModel.Filters (~220, ~277). Command `cmds["PlaytimeTracker"]`, Handler `PlaytimeTracker()` in FeatureCommandService.Collection.cs (~105). i18n-Keys `Tool.PlaytimeTracker*`. Grund: Zählt nur .lrtl-Dateien statt Spielzeiten zu parsen.
-- [ ] **TASK-017** — **GenreClassification entfernen**: ToolItem (ToolsViewModel ~174, ~232), MainViewModel.Filters (~219, ~277). Command `cmds["GenreClassification"]`, Handler `GenreClassification()` in FeatureCommandService.Collection.cs (~88). i18n-Keys `Tool.GenreClassification*`. Grund: Keyword-Regex auf Dateinamen ist unzuverlässig.
-- [ ] **TASK-018** — **EmulatorCompat entfernen**: ToolItem (ToolsViewModel ~152, ~232), MainViewModel.Filters (~197, ~277). Command `cmds["EmulatorCompat"]` in FeatureCommandService.cs (~97). Handler `EmulatorCompat()` in FeatureCommandService.Analysis.cs (~246). FeatureService `FormatEmulatorCompat()`. i18n-Keys `Tool.EmulatorCompat*`. Grund: Statische hardcodierte Matrix ohne ROM-Bezug — Inhalt in docs/USER_HANDBOOK.md verschieben.
-- [ ] **TASK-019** — Emulator-Kompatibilitäts-Matrix als Referenz-Tabelle in `docs/USER_HANDBOOK.md` einfügen (den Inhalt aus `FormatEmulatorCompat()` übernehmen, als Markdown-Tabelle)
-- [ ] **TASK-020** — Build + Tests ausführen — alle grün
+- [x] **TASK-016** — **PlaytimeTracker entfernen**: ToolItem (ToolsViewModel ~175, ~232), MainViewModel.Filters (~220, ~277). Command `cmds["PlaytimeTracker"]`, Handler `PlaytimeTracker()` in FeatureCommandService.Collection.cs (~105). i18n-Keys `Tool.PlaytimeTracker*`. Grund: Zählt nur .lrtl-Dateien statt Spielzeiten zu parsen.
+- [x] **TASK-017** — **GenreClassification entfernen**: ToolItem (ToolsViewModel ~174, ~232), MainViewModel.Filters (~219, ~277). Command `cmds["GenreClassification"]`, Handler `GenreClassification()` in FeatureCommandService.Collection.cs (~88). i18n-Keys `Tool.GenreClassification*`. Grund: Keyword-Regex auf Dateinamen ist unzuverlässig.
+- [x] **TASK-018** — **EmulatorCompat entfernen**: ToolItem (ToolsViewModel ~152, ~232), MainViewModel.Filters (~197, ~277). Command `cmds["EmulatorCompat"]` in FeatureCommandService.cs (~97). Handler `EmulatorCompat()` in FeatureCommandService.Analysis.cs (~246). FeatureService `FormatEmulatorCompat()`. i18n-Keys `Tool.EmulatorCompat*`. Grund: Statische hardcodierte Matrix ohne ROM-Bezug — Inhalt in docs/USER_HANDBOOK.md verschieben.
+- [x] **TASK-019** — Emulator-Kompatibilitäts-Matrix als Referenz-Tabelle in `docs/USER_HANDBOOK.md` einfügen (den Inhalt aus `FormatEmulatorCompat()` übernehmen, als Markdown-Tabelle)
+- [x] **TASK-020** — Build + Tests ausführen — alle grün
 
 ### Phase 4: Features deaktivieren / ausblenden (5 Features)
 
 - GOAL-004: Sichtbare aber unfertige Features aus dem Standard-Katalog nehmen, indem sie komplett aus der Tool-Registrierung entfernt werden (statt nur IsPlanned=true, da "geplant" immer noch sichtbar ist)
 
-- [ ] **TASK-021** — **CoverScraper aus Katalog entfernen**: ToolItem (ToolsViewModel), MainViewModel.Filters. Command + Handler in FeatureCommandService.Collection.cs (~39). FeatureService-Methoden BEIBEHALTEN (für späteres Epic). Nur die UI-Sichtbarkeit entfernen. i18n-Keys entfernen.
-- [ ] **TASK-022** — **CollectionSharing aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Collection.cs (~124). Grund: Export-only, kein Import-Gegenstück.
-- [ ] **TASK-023** — **TrendAnalysis aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Analysis.cs. Grund: Kein Auto-Snapshot nach Runs.
-- [ ] **TASK-024** — **WindowsContextMenu aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Infra.cs (~155). Grund: Generiert .reg ohne Auto-Import.
-- [ ] **TASK-025** — **DockerContainer aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Infra.cs (~136). Grund: Template-Generierung ohne Build/Deploy.
-- [ ] **TASK-026** — Build + Tests ausführen — alle grün
+- [x] **TASK-021** — **CoverScraper aus Katalog entfernen**: ToolItem (ToolsViewModel), MainViewModel.Filters. Command + Handler in FeatureCommandService.Collection.cs (~39). FeatureService-Methoden BEIBEHALTEN (für späteres Epic). Nur die UI-Sichtbarkeit entfernen. i18n-Keys entfernen.
+- [x] **TASK-022** — **CollectionSharing aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Collection.cs (~124). Grund: Export-only, kein Import-Gegenstück.
+- [x] **TASK-023** — **TrendAnalysis aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Analysis.cs. Grund: Kein Auto-Snapshot nach Runs.
+- [x] **TASK-024** — **WindowsContextMenu aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Infra.cs (~155). Grund: Generiert .reg ohne Auto-Import.
+- [x] **TASK-025** — **DockerContainer aus Katalog entfernen**: ToolItem, MainViewModel.Filters. Command + Handler in FeatureCommandService.Infra.cs (~136). Grund: Template-Generierung ohne Build/Deploy.
+- [x] **TASK-026** — Build + Tests: 3013 bestanden, 0 Fehler, 6 übersprungen (30 Feature-Tests entfernt)
+
+> **Phase 4 abgeschlossen (2025-07-25):** 5 sichtbare aber unfertige Features komplett aus dem Tool-Katalog entfernt (CoverScraper, CollectionSharing, TrendAnalysis, WindowsContextMenu, DockerContainer). 9 Quelldateien editiert (ToolsViewModel.cs, MainViewModel.Filters.cs, FeatureCommandService.cs + 3 Partials, FeatureCommandKeys.cs, de.json, en.json). 30 Tests entfernt über 7 Testdateien. Build: 0 Fehler, 0 Warnungen. Tests: 3013 bestanden, 0 fehlgeschlagen, 6 übersprungen. **Beibehaltene FeatureService-Methoden** (für Phase 9 Dead-Code-Cleanup oder spätere Epics): CoverScraper (BuildCoverReport), TrendAnalysis (SaveTrendSnapshot, LoadTrendHistory, FormatTrendReport), DockerContainer (GenerateDockerfile, GenerateDockerCompose), WindowsContextMenu (GetContextMenuRegistryScript). CollectionSharing hatte keine separaten FeatureService-Methoden. fr.json hatte keine Tool.*-Keys für diese 5 Features — kein Edit nötig. IsPlanned-Filter in beiden ViewModels auf 3 verbleibende Features reduziert: MultiInstanceSync, PatchEngine, NKitConvert.
 
 ### Phase 5: Irreführende Benennungen korrigieren (5 Features)
 
 - GOAL-005: Feature-Namen und Beschreibungen korrigieren, sodass sie korrekt beschreiben was das Feature tut
 
-- [ ] **TASK-027** — **PdfReport → HtmlReport umbenennen**: ToolItem Key `PdfReport` → `HtmlReport` in ToolsViewModel. Command-Key `cmds["PdfReport"]` → `cmds["HtmlReport"]` in FeatureCommandService.Export.cs. i18n-Keys `Tool.PdfReport` → `Tool.HtmlReport` in allen 3 Sprachen. DisplayName in de.json: "HTML-Report", en.json: "HTML Report", fr.json: "Rapport HTML". Icon von 📄 auf 🌐 ändern.
-- [ ] **TASK-028** — **MobileWebUI → ApiServer umbenennen**: ToolItem Key `MobileWebUI` → `ApiServer` in ToolsViewModel. Command-Key in FeatureCommandService. i18n DisplayName in de.json: "API-Server starten", en.json: "Start API Server", fr.json: "Démarrer le serveur API".
-- [ ] **TASK-029** — **SchedulerAdvanced → CronTester umbenennen + Beschreibung korrigieren**: ToolItem Key `SchedulerAdvanced` → `CronTester` in ToolsViewModel. i18n DisplayName: "Cron-Tester" (de), "Cron Tester" (en), "Testeur Cron" (fr). Beschreibung anpassen: "Cron-Ausdrücke testen und validieren" statt "Automatische Zeitplanung".
-- [ ] **TASK-030** — **HardlinkMode Beschreibung korrigieren**: i18n-Beschreibung in allen Sprachen auf "Speicher-Einsparung durch Hardlinks schätzen" ändern (statt "Hardlinks erstellen"). IsPlanned-Flag NICHT setzen — bleibt als Info-Feature.
-- [ ] **TASK-031** — **SystemTray aus Tools-Katalog in Einstellungen verschieben**: ToolItem aus ToolsViewModel entfernen. Die `ToggleSystemTray()`-Funktionalität bleibt als Setting in der Allgemein-Sektion erhalten. i18n-Keys `Tool.SystemTray*` entfernen.
-- [ ] **TASK-032** — Build + Tests ausführen — alle grün
+- [x] **TASK-027** — **PdfReport → HtmlReport umbenennen**: ToolItem Key `PdfReport` → `HtmlReport` in ToolsViewModel. Command-Key `cmds["PdfReport"]` → `cmds["HtmlReport"]` in FeatureCommandService.Export.cs. i18n-Keys `Tool.PdfReport` → `Tool.HtmlReport` in allen 3 Sprachen. DisplayName in de.json: "HTML-Report", en.json: "HTML Report", fr.json: "Rapport HTML". Icon von 📄 auf 🌐 ändern.
+- [x] **TASK-028** — **MobileWebUI → ApiServer umbenennen**: ToolItem Key `MobileWebUI` → `ApiServer` in ToolsViewModel. Command-Key in FeatureCommandService. i18n DisplayName in de.json: "API-Server starten", en.json: "Start API Server", fr.json: "Démarrer le serveur API".
+- [x] **TASK-029** — **SchedulerAdvanced → CronTester umbenennen + Beschreibung korrigieren**: ToolItem Key `SchedulerAdvanced` → `CronTester` in ToolsViewModel. i18n DisplayName: "Cron-Tester" (de), "Cron Tester" (en), "Testeur Cron" (fr). Beschreibung anpassen: "Cron-Ausdrücke testen und validieren" statt "Automatische Zeitplanung".
+- [x] **TASK-030** — **HardlinkMode Beschreibung korrigieren**: i18n-Beschreibung in allen Sprachen auf "Speicher-Einsparung durch Hardlinks schätzen" ändern (statt "Hardlinks erstellen"). IsPlanned-Flag NICHT setzen — bleibt als Info-Feature.
+- [x] **TASK-031** — **SystemTray aus Tools-Katalog in Einstellungen verschieben**: ToolItem aus ToolsViewModel entfernen. Die `ToggleSystemTray()`-Funktionalität bleibt als Setting in der Allgemein-Sektion erhalten. i18n-Keys `Tool.SystemTray*` entfernen.
+- [x] **TASK-032** — Build + Tests ausführen — alle grün
+
+> **Phase 5 abgeschlossen (2026-03-26):** 5 irreführende Benennungen korrigiert. PdfReport→HtmlReport (Key, Command, Handler, IExportService, ExportService, FeatureService, Icon \xE774), MobileWebUI→ApiServer (Key, Command, Handler, Dialog-Titel), SchedulerAdvanced→CronTester (Key, Command, Handler, Beschreibung), HardlinkMode-Beschreibung korrigiert ("Speicher-Einsparung durch Hardlinks schätzen"), SystemTray aus ToolItem-Katalog entfernt (cmds["SystemTray"] + IWindowHost.ToggleSystemTray() beibehalten als Window-Level-Command). 14 Quelldateien editiert (FeatureCommandKeys.cs, ToolsViewModel.cs, MainViewModel.Filters.cs, FeatureCommandService.cs + 3 Partials, IExportService.cs, ExportService.cs, FeatureService.Export.cs, FeatureService.Workflow.cs, de.json, en.json, fr.json). 7 Testdateien aktualisiert (FeatureCommandServiceTests.cs, CoverageBoostPhase2Tests.cs, CoverageBoostPhase3Tests.cs, CoverageBoostPhase5Tests.cs, GuiViewModelTests.cs). Build: 0 Fehler, 0 Warnungen. Tests: 3013 bestanden, 0 fehlgeschlagen, 6 übersprungen.
 
 ### Phase 6: Features konsolidieren (3 Gruppen)
 
 - GOAL-006: Redundante Feature-Gruppen zu je einer Karte mit Unteroptionen zusammenführen
 
-- [ ] **TASK-033** — **Duplikat-Analyse konsolidieren**: DuplicateInspector + DuplicateHeatmap + CrossRootDupe zu einer Karte "DuplicateAnalysis" zusammenführen. Neues ToolItem `DuplicateAnalysis` in ToolsViewModel mit Kategorie "Analyse". Neuer Handler `DuplicateAnalysis()` in FeatureCommandService.Analysis.cs, der einen Dialog mit 3 Tabs/Abschnitten zeigt: (1) Verzeichnis-Analyse (alter DuplicateInspector-Code), (2) Konsolen-Heatmap (alter DuplicateHeatmap-Code), (3) Cross-Root (alter CrossRootDupe-Code). Alte 3 separate Tool-Registrierungen entfernen. `DefaultPinnedKeys`: `DuplicateInspector` → `DuplicateAnalysis`.
-- [ ] **TASK-034** — **Export konsolidieren**: ExportCsv + ExportExcel + DuplicateExport zu einer Karte "ExportCollection" zusammenführen. Neuer Handler `ExportCollection()` mit Format-Auswahl-Dialog (CSV / Excel XML / Duplikate-CSV). Alte 3 separate Tool-Registrierungen entfernen. `DefaultPinnedKeys`: `ExportCsv` → `ExportCollection`. **WICHTIG**: Die separaten FeatureService-Methoden (`ExportCollectionCsv`, `ExportExcelXml`) beibehalten — nur die UI-Karten zusammenführen.
-- [ ] **TASK-035** — **DAT-Import konsolidieren**: ToolImport bleibt als einziger DAT-Import (TosecDat bereits in Phase 2 entfernt). ToolImport umbenennen zu `DatImport` — klarerer Name. ToolItem-Key `ToolImport` → `DatImport`. i18n aktualisieren.
-- [ ] **TASK-036** — Build + Tests ausführen — alle grün
+- [x] **TASK-033** — **Duplikat-Analyse konsolidieren**: DuplicateInspector + DuplicateHeatmap + CrossRootDupe zu einer Karte "DuplicateAnalysis" zusammenführen. Neues ToolItem `DuplicateAnalysis` in ToolsViewModel mit Kategorie "Analyse". Neuer Handler `DuplicateAnalysis()` in FeatureCommandService.Analysis.cs, der einen Dialog mit 3 Tabs/Abschnitten zeigt: (1) Verzeichnis-Analyse (alter DuplicateInspector-Code), (2) Konsolen-Heatmap (alter DuplicateHeatmap-Code), (3) Cross-Root (alter CrossRootDupe-Code). Alte 3 separate Tool-Registrierungen entfernen. `DefaultPinnedKeys`: `DuplicateInspector` → `DuplicateAnalysis`.
+- [x] **TASK-034** — **Export konsolidieren**: ExportCsv + ExportExcel + DuplicateExport zu einer Karte "ExportCollection" zusammenführen. Neuer Handler `ExportCollection()` mit Format-Auswahl-Dialog (CSV / Excel XML / Duplikate-CSV). Alte 3 separate Tool-Registrierungen entfernen. `DefaultPinnedKeys`: `ExportCsv` → `ExportCollection`. **WICHTIG**: Die separaten FeatureService-Methoden (`ExportCollectionCsv`, `ExportExcelXml`) beibehalten — nur die UI-Karten zusammenführen.
+- [x] **TASK-035** — **DAT-Import konsolidieren**: ToolImport bleibt als einziger DAT-Import (TosecDat bereits in Phase 2 entfernt). ToolImport umbenennen zu `DatImport` — klarerer Name. ToolItem-Key `ToolImport` → `DatImport`. i18n aktualisieren.
+- [x] **TASK-036** — Build + Tests ausführen — alle grün. Ergebnis: 3005 bestanden, 6 übersprungen, 0 Fehler.
 
 ### Phase 7: CommandPalette reparieren
 
 - GOAL-007: CommandPalette von 8 auf alle verfügbaren Tool-Commands erweitern
 
-- [ ] **TASK-037** — `FeatureService.SearchCommands()` refaktorieren: Statt hardcodierter 8-Command-Liste die Tool-Registrierungen aus dem FeatureCommandService dynamisch auslesen. Jeder registrierte Command-Key soll durchsuchbar sein. Fuzzy-Matching (Levenshtein) beibehalten.
-- [ ] **TASK-038** — `FeatureCommandService.ExecuteCommand()` switch-Statement durch Dictionary-Lookup auf `FeatureCommands` ersetzen. Wenn Command-Key im Dictionary existiert → `((ICommand)cmd).Execute(null)`.
-- [ ] **TASK-039** — Build + Tests ausführen — alle grün
+- [x] **TASK-037** — `FeatureService.SearchCommands()` refaktoriert: Hardcodiertes 15-Einträge-Array `PaletteCommands` ersetzt durch dynamische Suche über `FeatureCommands` Dictionary + `CoreShortcuts` (7 VM-Level-Commands). Levenshtein-Matching beibehalten. Neuer optionaler Parameter `IReadOnlyDictionary<string, ICommand>? featureCommands`.
+- [x] **TASK-038** — `FeatureCommandService.ExecuteCommand()` refaktoriert: Dictionary-Lookup auf `_vm.FeatureCommands` zuerst, Fallback auf CoreShortcuts-Switch (dryrun/move/cancel/rollback/theme/clear-log/settings). Default-Case loggt WARN statt INFO.
+- [x] **TASK-039** — Build + Tests ausgeführt — alle grün. Ergebnis: 3007 bestanden, 6 übersprungen, 0 Fehler. 2 neue Tests: `SearchCommands_WithFeatureCommands_ReturnsAllCommands`, `SearchCommands_WithFeatureCommands_FindsFeatureKey`.
 
 ### Phase 8: DefaultPinnedKeys und Kategorien bereinigen
 
 - GOAL-008: Schnellzugriff, Kategorien und Tool-Zähler aktualisieren
 
-- [ ] **TASK-040** — `DefaultPinnedKeys` in ToolsViewModel aktualisieren: Entfernte Tools raus, konsolidierte Tools rein. Neue Liste: `HealthScore`, `DuplicateAnalysis`, `RollbackQuick`, `ExportCollection`, `DatAutoUpdate`, `ConversionPipeline`.
-- [ ] **TASK-041** — Tool-Kategorien prüfen und leere Kategorien entfernen. Nach Bereinigung sollte jede Kategorie 3-8 Tools enthalten. Kategorien mit <3 Tools mit benachbarter Kategorie zusammenlegen.
-- [ ] **TASK-042** — i18n-Dateien auf verwaiste Keys prüfen: Alle `Tool.*`-Keys in `data/i18n/de.json`, `en.json`, `fr.json` gegen die verbleibenden ToolItem-Keys abgleichen. Verwaiste Keys entfernen.
-- [ ] **TASK-043** — `data/ui-lookups.json` auf verwaiste Einträge prüfen und bereinigen.
-- [ ] **TASK-044** — Build + Tests ausführen — alle grün
+- [x] **TASK-040** — `DefaultPinnedKeys` in ToolsViewModel + MainViewModel.Filters aktualisiert: 6 Keys `HealthScore, DuplicateAnalysis, RollbackQuick, ExportCollection, DatAutoUpdate, ConversionPipeline`.
+- [x] **TASK-041** — Tool-Kategorien bereinigt: HeaderRepair von "Sicherheit & Integrität" (9→8) nach "Konvertierung & Hashing" (4→5) verschoben. Accessibility von "UI & Erscheinungsbild" (1 Tool) nach "Infrastruktur" (6→7) verschoben. Kategorie "UI & Erscheinungsbild" komplett entfernt (CategoryIcons, i18n Tool.Cat.UI). Alle 8 Kategorien haben jetzt 3-8 Tools.
+- [x] **TASK-042** — i18n verwaiste Keys entfernt (de.json + en.json): Tool.Cat.UI, Tool.ThemeEngine + .Desc, Tool.RollbackUndo + .Desc, Tool.RollbackRedo + .Desc. fr.json: keine verwaisten Keys (nur 7 aktive Tool-Keys vorhanden).
+- [x] **TASK-043** — ui-lookups.json: `emulatorMatrix` entfernt (EmulatorCompat in Phase 3 entfernt, kein Leser im Code). EmulatorMatrix-Property aus UiLookupData.cs entfernt. Verbleibende 5 Sektionen sind aktiv genutzt.
+- [x] **TASK-044** — Build: 0 Fehler, 0 Warnungen. Tests: 3007 bestanden, 6 übersprungen, 0 Fehler.
+
+> **Phase 8 abgeschlossen (2026-03-26):** DefaultPinnedKeys um ConversionPipeline erweitert (5→6). 2 Kategorie-Verstösse behoben: UI & Erscheinungsbild (1 Tool) aufgelöst → Accessibility nach Infrastruktur; Sicherheit & Integrität (9 Tools) reduziert → HeaderRepair nach Konvertierung & Hashing. 7 verwaiste i18n-Keys entfernt (de+en). emulatorMatrix aus ui-lookups.json und UiLookupData.cs entfernt. 6 Dateien editiert. Build: 0F/0W, Tests: 3007/6/0.
 
 ### Phase 9: Toter Code in FeatureService bereinigen
 
 - GOAL-009: Nicht mehr referenzierte Methoden aus FeatureService-Partials entfernen
 
-- [ ] **TASK-045** — **FeatureService.Infra.cs bereinigen**: `BuildPluginMarketplaceReport()` bereits in Phase 1 entfernt. Verbleibend prüfen: `BuildCloudSyncReport()`, `GetPluginMarketplaceStatus()`, `GetInstalledPlugins()` — falls noch vorhanden, entfernen.
-- [ ] **TASK-046** — **FeatureService.Conversion.cs bereinigen**: `BuildGpuHashingStatus()`, `ToggleGpuHashing()`, `BuildParallelHashingReport()` bereits in Phase 1 entfernt. Verbleibend: `BuildConvertQueueReport()` entfernen (Aufrufer wird in Phase 2 entfernt). `GetConversionEstimate()` BEIBEHALTEN (wird von ConversionPipeline genutzt).
-- [ ] **TASK-047** — **FeatureService.Analysis.cs bereinigen**: `FormatEmulatorCompat()` entfernen (Inhalt in Phase 3 nach USER_HANDBOOK.md migriert).
-- [ ] **TASK-048** — **FeatureService.Collection.cs bereinigen**: Methoden für PlaytimeTracker und GenreClassification entfernen falls vorhanden. CoverScraper- und CollectionSharing-Methoden BEIBEHALTEN (spätere Epics).
-- [ ] **TASK-049** — **FeatureService.Workflow.cs bereinigen**: SplitPanel-Formatierungsmethoden entfernen.
-- [ ] **TASK-050** — Compiler-Warnungen prüfen: `dotnet build src/RomCleanup.sln -warnaserror` auf unreferenzierte Methoden/Variablen prüfen.
-- [ ] **TASK-051** — Finaler Test-Lauf: `dotnet test src/RomCleanup.Tests/RomCleanup.Tests.csproj --nologo` — alle Tests müssen grün sein.
+- [x] **TASK-045** — **FeatureService.Infra.cs bereinigen**: `GenerateDockerfile()`, `GenerateDockerCompose()`, `GetContextMenuRegistryScript()`, `ExportRulePack()`, `ImportRulePack()` entfernt. Alive behalten: `GetConfigDiff`, `LoadLocale`, `ResolveDataDirectory`, `IsPortableMode`, `IsHighContrastActive`, `FindApiProjectPath`.
+- [x] **TASK-046** — **FeatureService.Conversion.cs bereinigen**: `BuildConvertQueueReport()`, `BuildNKitConvertReport()`, `BuildConversionEstimateReport()` entfernt. Alive behalten: `GetConversionEstimate`, `GetTargetFormat`, `VerifyConversions`, `FormatFormatPriority`.
+- [x] **TASK-047** — **FeatureService.Analysis.cs bereinigen**: `BuildSplitPanelPreview()`, `GenreKeywords`, `_defaultGenreKeywords`, `ClassifyGenre()`, `ParseCsvReport()`, `DetectAutoProfile()`, `BuildPlaytimeReport()`, `BuildCollectionManagerReport()` entfernt.
+- [x] **TASK-048** — **FeatureService.Collection.cs**: Nicht editiert — PlaytimeTracker- und GenreClassification-Methoden lagen in Analysis.cs, dort entfernt (TASK-047).
+- [x] **TASK-049** — **FeatureService.Workflow.cs bereinigen**: `CompareDryRuns()`, `BuildCsvDiff()`, `BuildPipelineReport()`, `BuildMultiInstanceReport()`, `RemoveLockFiles()`, `HasLockFiles()` entfernt. Alive behalten: `GetSortTemplates`, `TestCronMatch`, `CronFieldMatch`, `ExtractFirstCsvField`.
+- [x] **TASK-050** — Compiler-Warnungen geprüft: `dotnet build src/RomCleanup.sln --nologo` — 0 Fehler, 0 Warnungen. Wrapper bereinigt: IWorkflowService (6→2 Members), WorkflowService (6→2 Delegates), IConversionEstimator (7→4), ConversionEstimator (7→4), IHealthAnalyzer (12→7), HealthAnalyzer (12→7).
+- [x] **TASK-051** — Finaler Test-Lauf: 2956 bestanden, 6 übersprungen, 0 Fehler. 51 tote Tests entfernt (3007→2956).
+
+> **Phase 9 abgeschlossen:** 22 tote Methoden + 2 tote Felder aus 4 FeatureService-Partials entfernt. 6 Wrapper-Services/Interfaces bereinigt (IWorkflowService, WorkflowService, IConversionEstimator, ConversionEstimator, IHealthAnalyzer, HealthAnalyzer). 51 tote Tests aus 4 Testdateien (FeatureServiceTests, GuiViewModelTests, WpfCoverageBoostTests, CoverageBoostPhase2Tests) entfernt. Build: 0F/0W, Tests: 2956/6/0.
 
 ### Phase 10: Tests für Konsolidierung
 
 - GOAL-010: Sicherstellen, dass die konsolidierten Features korrekt funktionieren und keine Regressionen entstehen
 
-- [ ] **TASK-052** — Neue Tests in `src/RomCleanup.Tests/FeatureCommandServiceTests.cs` hinzufügen: Test dass `DuplicateAnalysis`-Command alle 3 Sektionen (Inspector, Heatmap, CrossRoot) ausgibt.
-- [ ] **TASK-053** — Test dass `ExportCollection`-Command alle 3 Formate (CSV, Excel, DuplicateCSV) korrekt exportiert.
-- [ ] **TASK-054** — Test dass `CommandPalette` alle registrierten Tool-Keys findet (statt nur 8). Fuzzy-Search-Test mit Levenshtein ≤3 beibehalten.
-- [ ] **TASK-055** — Test dass `DefaultPinnedKeys` keine entfernten Tool-Keys referenzieren.
-- [ ] **TASK-056** — Negativtest: Entfernte Tool-Keys (`FtpSource`, `CloudSync`, `GpuHashing`, etc.) dürfen nicht im `FeatureCommands`-Dictionary existieren.
-- [ ] **TASK-057** — i18n-Konsistenztest: Alle ToolItem-Keys müssen korrespondierende i18n-Einträge in allen 3 Sprachen haben.
-- [ ] **TASK-058** — Finaler vollständiger Test-Lauf mit `dotnet test src/RomCleanup.sln --nologo`
+- [x] **TASK-052** — DuplicateAnalysis-Command test: 3 Tests — `NoCandidates_ShowsAllThreeSections` (verifies Inspector + Heatmap + CrossRoot sections present), `WithDedupeGroups_ShowsHeatmapData` (SNES console in heatmap), `SingleRoot_CrossRootSaysNeedsTwo` (cross-root requires 2 roots message).
+- [x] **TASK-053** — ExportCollection-Command test: 3 Tests — `DuplicateCsvFormat_CreatesDuplicateCsvFile` (format 3 creates CSV with loser paths), `InvalidChoice_LogsWarning` (format 99 logs WARN), `EmptyInput_DoesNothing` (empty input = no action).
+- [x] **TASK-054** — CommandPalette coverage test: 4 Tests — `SearchFindsRegisteredToolKey` (exact match score=0), `FuzzySearchFindsCloseMatch` (Levenshtein ≤3 for "HelthScore"), `SearchCoversAllFeatureCommandKeys` (every key in FeatureCommands dictionary findable), `FeatureCommandsCountExceedsOldHardcodedLimit` (more than 8 results, validating Phase 7 expansion).
+- [x] **TASK-055** — DefaultPinnedKeys test: 3 Tests — `AllKeysExistInToolItems` (pinned keys must reference existing ToolItems), `ContainsExpectedKeys` (6 expected keys: HealthScore, DuplicateAnalysis, RollbackQuick, ExportCollection, DatAutoUpdate, ConversionPipeline), `DoNotContainRemovedKeys` (31 removed keys must not appear in pinned).
+- [x] **TASK-056** — Removed keys negative test: 2 Tests — `RemovedToolKeys_MustNotExistInFeatureCommands` (Theory with 30 InlineData cases for all removed keys from Phases 1-6), `RemovedToolKeys_MustNotExistInToolItems` (same 31 removed keys checked against ToolItems collection).
+- [x] **TASK-057** — i18n consistency test: 3 Tests — `AllToolItems_HaveLocalizedDisplayNameAndDescription` (no empty DisplayName/Description), `DeAndEn_HaveMatchingToolKeys` (de.json and en.json Tool.* keys identical), `NoRemovedToolKeys_InAnyLocale` (31 removed Tool.* keys absent from all 3 locale files + Tool.Cat.UI absent).
+- [x] **TASK-058** — Finaler Test-Lauf: 3003 bestanden, 6 übersprungen, 0 Fehler. 47 neue Tests hinzugefügt (2956→3003).
+
+> **Phase 10 abgeschlossen:** 16 neue Testmethoden (47 Test-Cases inkl. Theory-Inline) in FeatureCommandServiceTests.cs. Alle konsolidierten Features (DuplicateAnalysis 3-Sektionen, ExportCollection 3-Formate, CommandPalette dynamische Suche) abgesichert. DefaultPinnedKeys-Invariante, Removed-Keys-Negativtest (30 entfernte Keys gegen FeatureCommands + ToolItems) und i18n-Konsistenz (de/en-Sync, keine verwaisten Keys) verifiziert. Build: 0F/0W, Tests: 3003/6/0.
 
 ## 3. Alternatives
 

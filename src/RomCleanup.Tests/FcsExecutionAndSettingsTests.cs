@@ -104,13 +104,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void GenreClassification_WithCandidates_ShowsGenreBreakdown()
-    {
-        ExecCommand("GenreClassification");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
     public void CloneListViewer_WithGroups_ShowsCloneTree()
     {
         ExecCommand("CloneListViewer");
@@ -124,18 +117,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    [Fact]
-    public void CollectionSharing_WithCandidates_ExportsPrivacySafe()
-    {
-        _dialog.NextSaveFile = Path.Combine(_tempDir, "share.json");
-        ExecCommand("CollectionSharing");
-        if (File.Exists(_dialog.NextSaveFile))
-        {
-            var json = File.ReadAllText(_dialog.NextSaveFile);
-            // Privacy: should NOT contain full paths
-            Assert.DoesNotContain(_tempDir, json);
-        }
-    }
 
     // ═══ SECURITY COMMANDS ══════════════════════════════════════════════
 
@@ -182,25 +163,10 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void DockerContainer_ShowsDockerfileContent()
-    {
-        ExecCommand("DockerContainer");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
     public void PortableMode_ShowsStatus()
     {
         ExecCommand("PortableMode");
         Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void WindowsContextMenu_ExecutesWithoutError()
-    {
-        _dialog.NextSaveFile = Path.Combine(_tempDir, "ctx.reg");
-        ExecCommand("WindowsContextMenu");
-        // Just verify no exception thrown
     }
 
     [Fact]
@@ -234,16 +200,9 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void DuplicateInspector_WithGroups_ShowsDetails()
+    public void DuplicateAnalysis_WithGroups_ShowsDetails()
     {
-        ExecCommand("DuplicateInspector");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void DuplicateHeatmap_WithGroups_ShowsHeatmap()
-    {
-        ExecCommand("DuplicateHeatmap");
+        ExecCommand("DuplicateAnalysis");
         Assert.True(HasOutput());
     }
 
@@ -255,30 +214,9 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void CrossRootDupe_ShowsCrossRootInfo()
-    {
-        ExecCommand("CrossRootDupe");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
     public void Completeness_ShowsCompletenessReport()
     {
         ExecCommand("Completeness");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void TrendAnalysis_ShowsTrend()
-    {
-        ExecCommand("TrendAnalysis");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void EmulatorCompat_ShowsCompatInfo()
-    {
-        ExecCommand("EmulatorCompat");
         Assert.True(HasOutput());
     }
 
@@ -325,20 +263,22 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     // ═══ EXPORT COMMANDS ════════════════════════════════════════════════
 
     [Fact]
-    public void ExportCsv_WithCandidates_CreatesCsvFile()
+    public void ExportCollection_CsvFormat_CreatesCsvFile()
     {
         var csvPath = Path.Combine(_tempDir, "export.csv");
+        _dialog.InputBoxResponses = ["1"];
         _dialog.NextSaveFile = csvPath;
-        ExecCommand("ExportCsv");
+        ExecCommand("ExportCollection");
         Assert.True(HasOutput() || File.Exists(csvPath));
     }
 
     [Fact]
-    public void ExportExcel_WithCandidates_CreatesExcelXml()
+    public void ExportCollection_ExcelFormat_CreatesExcelXml()
     {
         var xmlPath = Path.Combine(_tempDir, "export.xml");
+        _dialog.InputBoxResponses = ["2"];
         _dialog.NextSaveFile = xmlPath;
-        ExecCommand("ExportExcel");
+        ExecCommand("ExportCollection");
         Assert.True(HasOutput() || File.Exists(xmlPath));
     }
 
@@ -369,11 +309,12 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void DuplicateExport_WithGroups_Creates()
+    public void ExportCollection_DuplicateFormat_CreatesFile()
     {
         var path = Path.Combine(_tempDir, "dupes.csv");
+        _dialog.InputBoxResponses = ["3"];
         _dialog.NextSaveFile = path;
-        ExecCommand("DuplicateExport");
+        ExecCommand("ExportCollection");
         Assert.True(HasOutput() || File.Exists(path));
     }
 
@@ -381,13 +322,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     public void FormatPriority_ShowsFormatList()
     {
         ExecCommand("FormatPriority");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void ConversionEstimate_ShowsEstimate()
-    {
-        ExecCommand("ConversionEstimate");
         Assert.True(HasOutput());
     }
 
@@ -456,15 +390,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    [Fact]
-    public void CollectionDiff_ExecutesWithoutError()
-    {
-        // CollectionDiff may require browse dialog for CSV files
-        _dialog.NextBrowseFile = null;
-        ExecCommand("CollectionDiff");
-        // Just verify no exception thrown
-    }
-
     // ═══ CONVERSION COMMANDS ════════════════════════════════════════════
 
     [Fact]
@@ -479,13 +404,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     {
         ExecCommand("NKitConvert");
         // NKit conversion is placeholder/future feature
-    }
-
-    [Fact]
-    public void ConvertQueue_ShowsQueueInfo()
-    {
-        ExecCommand("ConvertQueue");
-        Assert.True(HasOutput());
     }
 
     // ═══ PROFILE COMMANDS ═══════════════════════════════════════════════

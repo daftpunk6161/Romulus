@@ -231,50 +231,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
 
     #endregion
 
-    #region FeatureService.Infra - ExportRulePack / ImportRulePack
-
-    [Fact]
-    public void ExportRulePack_FileNotExist_ReturnsFalse()
-    {
-        var result = FeatureService.ExportRulePack(
-            Path.Combine(_tempDir, "nonexist.json"),
-            Path.Combine(_tempDir, "out.json"));
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void ExportRulePack_FileExists_CopiesAndReturnsTrue()
-    {
-        var src = Path.Combine(_tempDir, "rules.json");
-        var dest = Path.Combine(_tempDir, "rules-export.json");
-        File.WriteAllText(src, "{\"test\":true}");
-        var result = FeatureService.ExportRulePack(src, dest);
-        Assert.True(result);
-        Assert.True(File.Exists(dest));
-    }
-
-    [Fact]
-    public void ImportRulePack_ValidJson_Copies()
-    {
-        var src = Path.Combine(_tempDir, "import.json");
-        var dest = Path.Combine(_tempDir, "rules_dest", "rules.json");
-        File.WriteAllText(src, "{\"imported\":true}");
-        FeatureService.ImportRulePack(src, dest);
-        Assert.True(File.Exists(dest));
-        Assert.Contains("imported", File.ReadAllText(dest));
-    }
-
-    [Fact]
-    public void ImportRulePack_InvalidJson_Throws()
-    {
-        var src = Path.Combine(_tempDir, "bad_import.json");
-        File.WriteAllText(src, "not json");
-        Assert.ThrowsAny<Exception>(() =>
-            FeatureService.ImportRulePack(src, Path.Combine(_tempDir, "out.json")));
-    }
-
-    #endregion
-
     #region FeatureService.Infra - LoadLocale
 
     [Fact]
@@ -819,56 +775,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_DockerContainer_ShowsDockerConfig()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.NextSaveFile = null; // cancel save
-        ExecCommand(vm, "DockerContainer");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-        Assert.Contains(dialog.ShowTextCalls, c => c.content.Contains("Dockerfile"));
-    }
-
-    [Fact]
-    public void FCS_DockerContainer_SaveDockerfile()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        var dockerPath = Path.Combine(_tempDir, "Dockerfile");
-        dialog.NextSaveFile = dockerPath;
-        ExecCommand(vm, "DockerContainer");
-        Assert.True(File.Exists(dockerPath));
-    }
-
-    [Fact]
-    public void FCS_DockerContainer_SaveCompose()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        var composePath = Path.Combine(_tempDir, "docker-compose.yml");
-        dialog.NextSaveFile = composePath;
-        ExecCommand(vm, "DockerContainer");
-        Assert.True(File.Exists(composePath));
-    }
-
-    [Fact]
-    public void FCS_WindowsContextMenu_SavesRegFile()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        var regPath = Path.Combine(_tempDir, "ctx.reg");
-        dialog.NextSaveFile = regPath;
-        ExecCommand(vm, "WindowsContextMenu");
-        Assert.True(File.Exists(regPath));
-        Assert.Contains(vm.LogEntries, e => e.Text.Contains("Registry"));
-    }
-
-    [Fact]
-    public void FCS_WindowsContextMenu_CancelSave_NoFile()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.NextSaveFile = null;
-        ExecCommand(vm, "WindowsContextMenu");
-        // Should not log anything if save was cancelled
-    }
-
-    [Fact]
     public void FCS_HardlinkMode_NoCandidates_Warns()
     {
         var (vm, dialog, _) = SetupFcs();
@@ -946,22 +852,11 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_SplitPanelPreview_WithGroups()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        var winner = MakeCandidate("Game1");
-        var loser = MakeCandidate("Game1b", region: "JP");
-        vm.LastDedupeGroups = new ObservableCollection<DedupeResult> { MakeGroup("Game1", winner, loser) };
-        ExecCommand(vm, "SplitPanelPreview");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_SchedulerAdvanced_ValidCron_ShowsResult()
+    public void FCS_CronTester_ValidCron_ShowsResult()
     {
         var (vm, dialog, _) = SetupFcs();
         dialog.InputBoxResponses.Add("0 3 * * *");
-        ExecCommand(vm, "SchedulerAdvanced");
+        ExecCommand(vm, "CronTester");
         Assert.True(dialog.InfoCalls.Count > 0 || vm.LogEntries.Count > 0);
     }
 
@@ -1039,15 +934,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     #region FCS - Analysis commands
 
     [Fact]
-    public void FCS_ConversionEstimate_WithCandidates()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate> { MakeCandidate("Game.iso", ext: ".iso", size: 700_000_000, consoleKey: "PS1") };
-        ExecCommand(vm, "ConversionEstimate");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
     public void FCS_JunkReport_WithCandidates()
     {
         var (vm, dialog, _) = SetupFcs();
@@ -1067,12 +953,14 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_DuplicateHeatmap_WithGroups()
+    public void FCS_DuplicateAnalysis_WithGroups()
     {
         var (vm, dialog, _) = SetupFcs();
         var w = MakeCandidate("Game1"); var l = MakeCandidate("Game1b", region: "JP");
         vm.LastDedupeGroups = new ObservableCollection<DedupeResult> { MakeGroup("Game1", w, l) };
-        ExecCommand(vm, "DuplicateHeatmap");
+        vm.Roots.Add(@"C:\roms");
+        vm.Roots.Add(@"D:\roms");
+        ExecCommand(vm, "DuplicateAnalysis");
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
@@ -1086,22 +974,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_TrendAnalysis_NoHistory_ShowsInfo()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        ExecCommand(vm, "TrendAnalysis");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || vm.LogEntries.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_EmulatorCompat_NoCandidates_ShowsText()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        ExecCommand(vm, "EmulatorCompat");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
     public void FCS_MissingRom_WithCandidates()
     {
         var (vm, dialog, _) = SetupFcs();
@@ -1109,18 +981,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         vm.Roots.Add(@"C:\roms");
         ExecCommand(vm, "MissingRom");
         Assert.True(dialog.ShowTextCalls.Count > 0 || vm.LogEntries.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_CrossRootDupe_WithGroups()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        var w = MakeCandidate("Game1"); var l = MakeCandidate("Game1b", region: "JP");
-        vm.LastDedupeGroups = new ObservableCollection<DedupeResult> { MakeGroup("Game1", w, l) };
-        vm.Roots.Add(@"C:\roms");
-        vm.Roots.Add(@"D:\roms");
-        ExecCommand(vm, "CrossRootDupe");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
     [Fact]
@@ -1145,15 +1005,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_GenreClassification_WithCandidates()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate> { MakeCandidate("RPG", gameKey: "Final Fantasy"), MakeCandidate("Racer", gameKey: "Mario Kart") };
-        ExecCommand(vm, "GenreClassification");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
     public void FCS_CloneListViewer_WithGroups()
     {
         var (vm, dialog, _) = SetupFcs();
@@ -1170,36 +1021,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         vm.LastCandidates = new ObservableCollection<RomCandidate> { MakeCandidate("G1", consoleKey: "SNES"), MakeCandidate("G2", consoleKey: "NES") };
         ExecCommand(vm, "VirtualFolderPreview");
         Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_CollectionSharing_WithCandidates_ExportsJson()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate> { MakeCandidate("Game1") };
-        var exportPath = Path.Combine(_tempDir, "collection.json");
-        dialog.NextSaveFile = exportPath;
-        ExecCommand(vm, "CollectionSharing");
-        Assert.True(File.Exists(exportPath));
-    }
-
-    [Fact]
-    public void FCS_CoverScraper_NoBrowse()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate> { MakeCandidate("Game1") };
-        dialog.NextBrowseFolder = null;
-        ExecCommand(vm, "CoverScraper");
-        // Cancelled browse
-    }
-
-    [Fact]
-    public void FCS_PlaytimeTracker_NoBrowse()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.NextBrowseFolder = null;
-        ExecCommand(vm, "PlaytimeTracker");
-        // Cancelled browse
     }
 
     #endregion
@@ -1292,31 +1113,31 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_ToolImport_CancelBrowse()
+    public void FCS_DatImport_CancelBrowse()
     {
         var (vm, dialog, _) = SetupFcs();
         dialog.NextBrowseFile = null;
-        ExecCommand(vm, "ToolImport");
+        ExecCommand(vm, "DatImport");
         // Cancelled
     }
 
     [Fact]
-    public void FCS_ToolImport_NoDatRoot_ShowsError()
+    public void FCS_DatImport_NoDatRoot_ShowsError()
     {
         var (vm, dialog, _) = SetupFcs();
         var datFile = Path.Combine(_tempDir, "test.dat");
         File.WriteAllText(datFile, "<xml/>");
         dialog.NextBrowseFile = datFile;
         vm.DatRoot = "";
-        ExecCommand(vm, "ToolImport");
+        ExecCommand(vm, "DatImport");
         Assert.True(dialog.ErrorCalls.Count > 0);
     }
 
     [Fact]
-    public void FCS_PdfReport_NoCandidates_Warns()
+    public void FCS_HtmlReport_NoCandidates_Warns()
     {
         var (vm, dialog, _) = SetupFcs();
-        ExecCommand(vm, "PdfReport");
+        ExecCommand(vm, "HtmlReport");
         Assert.Contains(vm.LogEntries, e => e.Level == "WARN");
     }
 

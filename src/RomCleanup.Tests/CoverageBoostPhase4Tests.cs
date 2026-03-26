@@ -883,21 +883,6 @@ public class FcsDeepBranchTests
         ExecCommand(vm, "IntegrityMonitor");
     }
 
-    // ── ConversionEstimate with candidates ───────────────────────
-
-    [Fact]
-    public void FCS_ConversionEstimate_WithDiscCandidates_ShowsEstimate()
-    {
-        var (_, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("PS1G", ext: ".bin", consoleKey: "ps1", size: 700_000_000),
-            MakeCandidate("PS1G2", ext: ".iso", consoleKey: "ps1", size: 4_000_000_000),
-        };
-        ExecCommand(vm, "ConversionEstimate");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
     // ── JunkReport with data ─────────────────────────────────────
 
     [Fact]
@@ -914,10 +899,10 @@ public class FcsDeepBranchTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── DuplicateHeatmap with data ───────────────────────────────
+    // ── DuplicateAnalysis with data ────────────────────────────────
 
     [Fact]
-    public void FCS_DuplicateHeatmap_WithGroups_ShowsHeatmap()
+    public void FCS_DuplicateAnalysis_WithGroups_ShowsHeatmap()
     {
         var (_, vm, dialog) = SetupFcs();
         var w = MakeCandidate("W1", consoleKey: "nes");
@@ -927,22 +912,7 @@ public class FcsDeepBranchTests
             new() { Winner = w, Losers = new List<RomCandidate> { l }, GameKey = "TestKey" }
         };
         vm.LastCandidates = new ObservableCollection<RomCandidate> { w, l };
-        ExecCommand(vm, "DuplicateHeatmap");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    // ── TrendAnalysis with data ──────────────────────────────────
-
-    [Fact]
-    public void FCS_TrendAnalysis_WithCandidates_ShowsReport()
-    {
-        var (_, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("G1", size: 1_000_000),
-            MakeCandidate("G2", size: 2_000_000, category: "JUNK"),
-        };
-        ExecCommand(vm, "TrendAnalysis");
+        ExecCommand(vm, "DuplicateAnalysis");
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
@@ -979,22 +949,6 @@ public class FcsDeepBranchTests
         Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0);
     }
 
-    // ── GenreClassification ──────────────────────────────────────
-
-    [Fact]
-    public void FCS_GenreClassification_WithCandidates_ShowsReport()
-    {
-        var (_, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("Super Mario Bros"),
-            MakeCandidate("Street Fighter II"),
-            MakeCandidate("Final Fantasy VII"),
-        };
-        ExecCommand(vm, "GenreClassification");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
     // ── VirtualFolderPreview ─────────────────────────────────────
 
     [Fact]
@@ -1009,26 +963,6 @@ public class FcsDeepBranchTests
         };
         ExecCommand(vm, "VirtualFolderPreview");
         Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    // ── CollectionSharing export ─────────────────────────────────
-
-    [Fact]
-    public void FCS_CollectionSharing_Export_WithSavePath()
-    {
-        var (_, vm, dialog) = SetupFcs();
-        var tmpFile = Path.GetTempFileName();
-        try
-        {
-            dialog.NextYesNoCancel = ConfirmResult.Yes; // Export
-            dialog.NextSaveFile = tmpFile;
-            vm.LastCandidates = new ObservableCollection<RomCandidate>
-            {
-                MakeCandidate("G1"),
-            };
-            ExecCommand(vm, "CollectionSharing");
-        }
-        finally { File.Delete(tmpFile); }
     }
 
     // ── ToolImport with valid file ───────────────────────────────
@@ -1063,25 +997,10 @@ public class FcsDeepBranchTests
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 
-    // ── EmulatorCompat ───────────────────────────────────────────
+    // ── CrossRoot via DuplicateAnalysis ─────────────────────────
 
     [Fact]
-    public void FCS_EmulatorCompat_WithCandidates_ShowsReport()
-    {
-        var (_, vm, dialog) = SetupFcs();
-        vm.LastCandidates = new ObservableCollection<RomCandidate>
-        {
-            MakeCandidate("G1", consoleKey: "nes", ext: ".nes"),
-            MakeCandidate("G2", consoleKey: "ps1", ext: ".chd"),
-        };
-        ExecCommand(vm, "EmulatorCompat");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    // ── CrossRootDupe with real-style setup ───────────────────────
-
-    [Fact]
-    public void FCS_CrossRootDupe_WithMultipleRoots_ShowsReport()
+    public void FCS_DuplicateAnalysis_WithMultipleRoots_ShowsReport()
     {
         var (_, vm, dialog) = SetupFcs();
         vm.Roots.Clear();
@@ -1105,7 +1024,7 @@ public class FcsDeepBranchTests
         {
             new() { Winner = w, Losers = new List<RomCandidate> { l }, GameKey = "game1" }
         };
-        ExecCommand(vm, "CrossRootDupe");
+        ExecCommand(vm, "DuplicateAnalysis");
         Assert.True(dialog.ShowTextCalls.Count > 0);
     }
 

@@ -55,7 +55,7 @@ public sealed class ToolsViewModel : ObservableObject
     // Default pinned tool keys
     private static readonly HashSet<string> DefaultPinnedKeys =
     [
-        "QuickPreview", "HealthScore", "RollbackQuick", "ExportCsv", "DatAutoUpdate", "DuplicateInspector"
+        "HealthScore", "DuplicateAnalysis", "RollbackQuick", "ExportCollection", "DatAutoUpdate", "ConversionPipeline"
     ];
 
     // Category icon mapping
@@ -69,7 +69,6 @@ public sealed class ToolsViewModel : ObservableObject
         ["Workflow & Automatisierung"] = "\xE713",
         ["Export & Integration"] = "\xE792",
         ["Infrastruktur"] = "\xE8CB",
-        ["UI & Erscheinungsbild"] = "\xE771",
     };
 
     public ToolsViewModel(ILocalizationService? loc = null)
@@ -135,44 +134,30 @@ public sealed class ToolsViewModel : ObservableObject
         var items = new (string key, string catKey, string icon, bool needsResult)[]
         {
             // Analysis
-            ("QuickPreview",       "Analysis",       "\xE8A7", false),
             ("HealthScore",        "Analysis",       "\xE8CB", true),
-            ("CollectionDiff",     "Analysis",       "\xE8F1", false),
-            ("DuplicateInspector", "Analysis",       "\xE71D", true),
-            ("ConversionEstimate", "Analysis",       "\xE8EF", true),
+            ("DuplicateAnalysis",  "Analysis",       "\xE71D", true),
             ("JunkReport",         "Analysis",       "\xE74D", true),
             ("RomFilter",          "Analysis",       "\xE721", true),
-            ("DuplicateHeatmap",   "Analysis",       "\xEB05", true),
             ("MissingRom",         "Analysis",       "\xE783", true),
-            ("CrossRootDupe",      "Analysis",       "\xE8B9", true),
             ("HeaderAnalysis",     "Analysis",       "\xE9D9", true),
             ("Completeness",       "Analysis",       "\xE73E", true),
             ("DryRunCompare",      "Analysis",       "\xE8F1", false),
-            ("TrendAnalysis",      "Analysis",       "\xE9D2", false),
-            ("EmulatorCompat",     "Analysis",       "\xE7FC", false),
 
             // Conversion
             ("ConversionPipeline", "Conversion",     "\xE8AB", false),
             ("NKitConvert",        "Conversion",     "\xE8AB", false),
-            ("ConvertQueue",       "Conversion",     "\xE8CB", false),
             ("ConversionVerify",   "Conversion",     "\xE73E", false),
-            ("FormatPriority",     "Conversion",     "\xE8CB", false),
-
+            ("FormatPriority",     "Conversion",     "\xE8CB", false),            ("HeaderRepair",       "Conversion",    "\xE90F", false),
 
             // DatVerify
             ("DatAutoUpdate",      "DatVerify",      "\xE895", false),
             ("DatDiffViewer",      "DatVerify",      "\xE8F1", false),
-            ("TosecDat",           "DatVerify",      "\xE8B5", false),
             ("CustomDatEditor",    "DatVerify",      "\xE70F", false),
             ("HashDatabaseExport", "DatVerify",      "\xE792", true),
 
             // Collection
             ("CollectionManager",  "Collection",     "\xE8F1", true),
             ("CloneListViewer",    "Collection",     "\xE8B9", true),
-            ("CoverScraper",       "Collection",     "\xE8B9", true),
-            ("GenreClassification","Collection",     "\xE8CB", true),
-            ("PlaytimeTracker",    "Collection",     "\xE916", false),
-            ("CollectionSharing",  "Collection",     "\xE72D", true),
             ("VirtualFolderPreview","Collection",    "\xE8B7", true),
 
             // Security
@@ -181,51 +166,41 @@ public sealed class ToolsViewModel : ObservableObject
             ("Quarantine",         "Security",       "\xE7BA", true),
             ("RuleEngine",         "Security",       "\xE713", false),
             ("PatchEngine",        "Security",       "\xE70F", false),
-            ("HeaderRepair",       "Security",       "\xE90F", false),
             ("RollbackQuick",      "Security",       "\xE777", false),
             ("RollbackHistoryBack",    "Security",       "\xE7A7", false),
             ("RollbackHistoryForward", "Security",       "\xE7A6", false),
 
             // Workflow
             ("CommandPalette",     "Workflow",       "\xE721", false),
-            ("SplitPanelPreview",  "Workflow",       "\xE8A0", true),
             ("FilterBuilder",      "Workflow",       "\xE71C", true),
             ("SortTemplates",      "Workflow",       "\xE8CB", false),
             ("PipelineEngine",     "Workflow",       "\xE8CB", false),
-            ("SystemTray",         "Workflow",       "\xE8CB", false),
-            ("SchedulerAdvanced",  "Workflow",       "\xE787", false),
+            ("CronTester",         "Workflow",       "\xE787", false),
             ("RulePackSharing",    "Workflow",       "\xE72D", false),
             ("ArcadeMergeSplit",   "Workflow",       "\xE8CB", false),
             ("AutoProfile",        "Workflow",       "\xE713", false),
 
             // Export
-            ("PdfReport",          "Export",         "\xE8A5", true),
+            ("HtmlReport",         "Export",         "\xE774", true),
             ("LauncherIntegration","Export",         "\xE768", true),
-            ("ToolImport",         "Export",         "\xE8B5", false),
-            ("DuplicateExport",    "Export",         "\xE792", true),
-            ("ExportCsv",          "Export",         "\xE792", true),
-            ("ExportExcel",        "Export",         "\xE792", true),
+            ("DatImport",          "Export",         "\xE8B5", false),
+            ("ExportCollection",   "Export",         "\xE792", true),
 
             // Infrastructure
             ("StorageTiering",     "Infra",          "\xE8CB", true),
             ("NasOptimization",    "Infra",          "\xE8CB", false),
 
             ("PortableMode",       "Infra",          "\xE8CB", false),
-            ("DockerContainer",    "Infra",          "\xE8CB", false),
-            ("MobileWebUI",        "Infra",          "\xE774", false),
-            ("WindowsContextMenu", "Infra",          "\xE8CB", false),
+            ("ApiServer",          "Infra",          "\xE774", false),
             ("HardlinkMode",       "Infra",          "\xE8CB", true),
             ("MultiInstanceSync",  "Infra",          "\xE8CB", false),
 
-            // UI
-            ("Accessibility",      "UI",             "\xE7F8", false),
+            ("Accessibility",      "Infra",          "\xE7F8", false),
         };
         foreach (var (key, catKey, icon, needsResult) in items)
         {
-            var isPlanned = key is "DockerContainer" or "MultiInstanceSync"
-                or "TosecDat" or "PatchEngine" or "NKitConvert" or "WindowsContextMenu"
-                or "EmulatorCompat" or "TrendAnalysis" or "GenreClassification" or "PlaytimeTracker"
-                or "CoverScraper" or "CollectionSharing";
+            var isPlanned = key is "MultiInstanceSync"
+                or "PatchEngine" or "NKitConvert";
             var item = new ToolItem
             {
                 Key = key, DisplayName = _loc[$"Tool.{key}"], Category = _loc[$"Tool.Cat.{catKey}"], Description = _loc[$"Tool.{key}.Desc"],

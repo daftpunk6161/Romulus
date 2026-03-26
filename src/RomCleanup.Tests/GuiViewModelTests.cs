@@ -1449,36 +1449,6 @@ public class GuiViewModelTests
     // ═══ FeatureService extraction tests ════════════════════════════════
 
     [Fact]
-    public void FeatureService_BuildCsvDiff_NonCsv_ReturnsNull()
-    {
-        var result = FeatureService.BuildCsvDiff("a.html", "b.html", "Test");
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void FeatureService_BuildCsvDiff_ValidCsv_ReturnsDiff()
-    {
-        var dirA = Path.Combine(Path.GetTempPath(), $"csvdiff_a_{Guid.NewGuid():N}.csv");
-        var dirB = Path.Combine(Path.GetTempPath(), $"csvdiff_b_{Guid.NewGuid():N}.csv");
-        try
-        {
-            File.WriteAllText(dirA, "Path;Size\n\"game1.rom\";100\n\"game2.rom\";200\n");
-            File.WriteAllText(dirB, "Path;Size\n\"game2.rom\";200\n\"game3.rom\";300\n");
-            var result = FeatureService.BuildCsvDiff(dirA, dirB, "Test-Diff");
-            Assert.NotNull(result);
-            Assert.Contains("Hinzugefügt", result);
-            Assert.Contains("Entfernt", result);
-            Assert.Contains("game3", result);   // added
-            Assert.Contains("game1", result);   // removed
-        }
-        finally
-        {
-            File.Delete(dirA);
-            File.Delete(dirB);
-        }
-    }
-
-    [Fact]
     public void FeatureService_BuildMissingRomReport_AllVerified_ReturnsNull()
     {
         var candidates = new List<RomCandidate>
@@ -1547,84 +1517,12 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void FeatureService_BuildConvertQueueReport_EmptyDetails()
-    {
-        var est = new ConversionEstimateResult(0, 0, 0, 0.0, []);
-        var report = FeatureService.BuildConvertQueueReport(est);
-        Assert.Contains("Konvert-Warteschlange", report);
-        Assert.Contains("Keine konvertierbaren Dateien gefunden", report);
-    }
-
-    [Fact]
-    public void FeatureService_BuildConvertQueueReport_WithDetails()
-    {
-        var details = new List<ConversionDetail>
-        {
-            new("game.iso", "ISO", "CHD", 700_000_000, 400_000_000)
-        };
-        var est = new ConversionEstimateResult(700_000_000, 400_000_000, 300_000_000, 0.57, details);
-        var report = FeatureService.BuildConvertQueueReport(est);
-        Assert.Contains("game.iso", report);
-        Assert.Contains("ISO", report);
-        Assert.Contains("CHD", report);
-    }
-
-    [Fact]
-    public void FeatureService_BuildPipelineReport_NullResult_ReturnsHelp()
-    {
-        var report = FeatureService.BuildPipelineReport(null, []);
-        Assert.Contains("Pipeline-Engine", report);
-        Assert.Contains("Starte einen Lauf", report);
-    }
-
-    [Fact]
-    public void FeatureService_BuildPipelineReport_WithResult_ShowsPhases()
-    {
-        var result = new RunResult
-        {
-            Status = "ok",
-            DurationMs = 5000,
-            TotalFilesScanned = 100,
-            GroupCount = 10,
-            WinnerCount = 8
-        };
-        var candidates = new List<RomCandidate>
-        {
-            new() { MainPath = "a.rom", GameKey = "a", Category = "GAME" },
-            new() { MainPath = "b.rom", GameKey = "b", Category = "JUNK" }
-        };
-        var report = FeatureService.BuildPipelineReport(result, candidates);
-        Assert.Contains("Status: ok", report);
-        Assert.Contains("100 Dateien", report);
-        Assert.Contains("10 Gruppen", report);
-        Assert.Contains("1 Junk-Dateien", report);
-    }
-
-    [Fact]
     public void FeatureService_BuildRuleEngineReport_NoRulesFile_ReturnsHelp()
     {
         // With a non-existent data directory, should return help text
         var report = FeatureService.BuildRuleEngineReport();
         Assert.NotNull(report);
         Assert.True(report.Length > 0);
-    }
-
-    // ═══ Batch-3 extraction tests ═══════════════════════════════════════
-
-    [Fact]
-    public void FeatureService_BuildNKitConvertReport_ContainsFileName()
-    {
-        var report = FeatureService.BuildNKitConvertReport(@"C:\Roms\game.nkit.iso");
-        Assert.Contains("NKit-Konvertierung", report);
-        Assert.Contains("game.nkit.iso", report);
-        Assert.Contains("NKit-Format: Ja", report);
-    }
-
-    [Fact]
-    public void FeatureService_BuildNKitConvertReport_NonNkit_ShowsNo()
-    {
-        var report = FeatureService.BuildNKitConvertReport(@"C:\Roms\game.iso");
-        Assert.Contains("NKit-Format: Nein", report);
     }
 
     [Fact]
@@ -1701,9 +1599,9 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void FeatureService_BuildPdfReportData_EmptyCandidates()
+    public void FeatureService_BuildHtmlReportData_EmptyCandidates()
     {
-        var (summary, entries) = FeatureService.BuildPdfReportData(
+        var (summary, entries) = FeatureService.BuildHtmlReportData(
             Array.Empty<RomCandidate>(), Array.Empty<DedupeResult>(), null, true);
         Assert.Equal("DryRun", summary.Mode);
         Assert.Equal(0, summary.TotalFiles);
@@ -1711,7 +1609,7 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void FeatureService_BuildPdfReportData_PopulatedCandidates()
+    public void FeatureService_BuildHtmlReportData_PopulatedCandidates()
     {
         var candidates = new List<RomCandidate>
         {
@@ -1723,18 +1621,11 @@ public class GuiViewModelTests
             new() { GameKey = "game", Winner = candidates[0], Losers = [] }
         };
         var result = new RunResult { Status = "ok", DurationMs = 1234 };
-        var (summary, entries) = FeatureService.BuildPdfReportData(candidates, groups, result, false);
+        var (summary, entries) = FeatureService.BuildHtmlReportData(candidates, groups, result, false);
         Assert.Equal("Move", summary.Mode);
         Assert.Equal(2, summary.TotalFiles);
         Assert.Equal(1, summary.JunkCount);
         Assert.Equal(2, entries.Count);
-    }
-
-    [Fact]
-    public void FeatureService_BuildConversionEstimateReport_EmptyCandidates()
-    {
-        var report = FeatureService.BuildConversionEstimateReport(Array.Empty<RomCandidate>());
-        Assert.Contains("Konvertierungs-Schätzung", report);
     }
 
     [Theory]
@@ -1764,107 +1655,6 @@ public class GuiViewModelTests
     {
         var xml = FeatureService.BuildCustomDatXmlEntry("Game", "rom.bin", "AABBCCDD", "");
         Assert.DoesNotContain("sha1=", xml);
-    }
-
-    // ═══ Batch-4 extraction tests ═══════════════════════════════════════
-
-    [Fact]
-    public void FeatureService_DetectAutoProfile_EmptyRoots()
-    {
-        var result = FeatureService.DetectAutoProfile(Array.Empty<string>());
-        Assert.Contains("Unbekannt", result);
-    }
-
-    [Fact]
-    public void FeatureService_DetectAutoProfile_CartridgeOnly()
-    {
-        var tmpDir = Path.Combine(Path.GetTempPath(), $"auto_prof_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tmpDir);
-        try
-        {
-            File.WriteAllBytes(Path.Combine(tmpDir, "game.nes"), [0]);
-            File.WriteAllBytes(Path.Combine(tmpDir, "game.sfc"), [0]);
-            var result = FeatureService.DetectAutoProfile([tmpDir]);
-            Assert.Contains("Cartridge", result);
-        }
-        finally
-        {
-            Directory.Delete(tmpDir, true);
-        }
-    }
-
-    [Fact]
-    public void FeatureService_DetectAutoProfile_DiscOnly()
-    {
-        var tmpDir = Path.Combine(Path.GetTempPath(), $"auto_prof_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tmpDir);
-        try
-        {
-            File.WriteAllBytes(Path.Combine(tmpDir, "game.chd"), [0]);
-            File.WriteAllBytes(Path.Combine(tmpDir, "game.iso"), [0]);
-            var result = FeatureService.DetectAutoProfile([tmpDir]);
-            Assert.Contains("Disc", result);
-        }
-        finally
-        {
-            Directory.Delete(tmpDir, true);
-        }
-    }
-
-    [Fact]
-    public void FeatureService_BuildPlaytimeReport_NoLrtl_ReturnsEmpty()
-    {
-        var tmpDir = Path.Combine(Path.GetTempPath(), $"playtime_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tmpDir);
-        try
-        {
-            var result = FeatureService.BuildPlaytimeReport(tmpDir);
-            Assert.Equal("", result);
-        }
-        finally
-        {
-            Directory.Delete(tmpDir, true);
-        }
-    }
-
-    [Fact]
-    public void FeatureService_BuildPlaytimeReport_WithLrtl()
-    {
-        var tmpDir = Path.Combine(Path.GetTempPath(), $"playtime_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tmpDir);
-        try
-        {
-            File.WriteAllLines(Path.Combine(tmpDir, "game.lrtl"), ["10", "20", "30"]);
-            var result = FeatureService.BuildPlaytimeReport(tmpDir);
-            Assert.Contains("Spielzeit-Tracker", result);
-            Assert.Contains("game", result);
-            Assert.Contains("3 Einträge", result);
-        }
-        finally
-        {
-            Directory.Delete(tmpDir, true);
-        }
-    }
-
-    [Fact]
-    public void FeatureService_BuildCollectionManagerReport_EmptyCandidates()
-    {
-        var report = FeatureService.BuildCollectionManagerReport(Array.Empty<RomCandidate>());
-        Assert.Contains("Smart Collection Manager", report);
-        Assert.Contains("Gesamt: 0 ROMs", report);
-    }
-
-    [Fact]
-    public void FeatureService_BuildCollectionManagerReport_GroupsByGenre()
-    {
-        var candidates = new List<RomCandidate>
-        {
-            new() { MainPath = "a.rom", GameKey = "Super Mario", Category = "GAME" },
-            new() { MainPath = "b.rom", GameKey = "Zelda", Category = "GAME" },
-            new() { MainPath = "c.rom", GameKey = "Doom", Category = "GAME" }
-        };
-        var report = FeatureService.BuildCollectionManagerReport(candidates);
-        Assert.Contains("Gesamt: 3 ROMs", report);
     }
 
     [Fact]

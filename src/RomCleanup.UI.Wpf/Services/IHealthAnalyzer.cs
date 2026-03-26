@@ -14,12 +14,7 @@ public interface IHealthAnalyzer
     string GetNasInfo(IReadOnlyList<string> roots);
     string BuildCloneTree(IReadOnlyList<DedupeResult> groups);
     string BuildVirtualFolderPreview(IReadOnlyList<RomCandidate> candidates);
-    string BuildSplitPanelPreview(IReadOnlyList<DedupeResult> groups);
-    string ClassifyGenre(string gameName);
     List<(string key, string name, string shortcut, int score)> SearchCommands(string query);
     string ExportRetroArchPlaylist(IReadOnlyList<RomCandidate> winners, string playlistName);
-    string DetectAutoProfile(IReadOnlyList<string> roots);
-    string BuildPlaytimeReport(string directory);
-    string BuildCollectionManagerReport(IReadOnlyList<RomCandidate> candidates);
     string BuildCommandPaletteReport(string input, IReadOnlyList<(string key, string name, string shortcut, int score)> results);
 }

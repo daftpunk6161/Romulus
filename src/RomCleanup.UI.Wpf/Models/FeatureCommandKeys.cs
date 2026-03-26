@@ -7,43 +7,30 @@ namespace RomCleanup.UI.Wpf.Models;
 public static class FeatureCommandKeys
 {
     // ── Analyse & Berichte ──
-    public const string QuickPreview = "QuickPreview";
     public const string HealthScore = "HealthScore";
-    public const string CollectionDiff = "CollectionDiff";
-    public const string DuplicateInspector = "DuplicateInspector";
-    public const string ConversionEstimate = "ConversionEstimate";
+    public const string DuplicateAnalysis = "DuplicateAnalysis";
     public const string JunkReport = "JunkReport";
     public const string RomFilter = "RomFilter";
-    public const string DuplicateHeatmap = "DuplicateHeatmap";
     public const string MissingRom = "MissingRom";
-    public const string CrossRootDupe = "CrossRootDupe";
     public const string HeaderAnalysis = "HeaderAnalysis";
     public const string Completeness = "Completeness";
     public const string DryRunCompare = "DryRunCompare";
-    public const string TrendAnalysis = "TrendAnalysis";
-    public const string EmulatorCompat = "EmulatorCompat";
 
     // ── Konvertierung & Hashing ──
     public const string ConversionPipeline = "ConversionPipeline";
     public const string NKitConvert = "NKitConvert";
-    public const string ConvertQueue = "ConvertQueue";
     public const string ConversionVerify = "ConversionVerify";
     public const string FormatPriority = "FormatPriority";
 
     // ── DAT & Verifizierung ──
     public const string DatAutoUpdate = "DatAutoUpdate";
     public const string DatDiffViewer = "DatDiffViewer";
-    public const string TosecDat = "TosecDat";
     public const string CustomDatEditor = "CustomDatEditor";
     public const string HashDatabaseExport = "HashDatabaseExport";
 
     // ── Sammlungsverwaltung ──
     public const string CollectionManager = "CollectionManager";
     public const string CloneListViewer = "CloneListViewer";
-    public const string CoverScraper = "CoverScraper";
-    public const string GenreClassification = "GenreClassification";
-    public const string PlaytimeTracker = "PlaytimeTracker";
-    public const string CollectionSharing = "CollectionSharing";
     public const string VirtualFolderPreview = "VirtualFolderPreview";
 
     // ── Sicherheit & Integrität ──
@@ -61,31 +48,25 @@ public static class FeatureCommandKeys
 
     // ── Workflow & Automatisierung ──
     public const string CommandPalette = "CommandPalette";
-    public const string SplitPanelPreview = "SplitPanelPreview";
     public const string FilterBuilder = "FilterBuilder";
     public const string SortTemplates = "SortTemplates";
     public const string PipelineEngine = "PipelineEngine";
-    public const string SystemTray = "SystemTray";
-    public const string SchedulerAdvanced = "SchedulerAdvanced";
+    public const string CronTester = "CronTester";
     public const string RulePackSharing = "RulePackSharing";
     public const string ArcadeMergeSplit = "ArcadeMergeSplit";
     public const string AutoProfile = "AutoProfile";
 
     // ── Export & Integration ──
-    public const string PdfReport = "PdfReport";
+    public const string HtmlReport = "HtmlReport";
     public const string LauncherIntegration = "LauncherIntegration";
-    public const string ToolImport = "ToolImport";
-    public const string DuplicateExport = "DuplicateExport";
-    public const string ExportCsv = "ExportCsv";
-    public const string ExportExcel = "ExportExcel";
+    public const string DatImport = "DatImport";
+    public const string ExportCollection = "ExportCollection";
 
     // ── Infrastruktur ──
     public const string StorageTiering = "StorageTiering";
     public const string NasOptimization = "NasOptimization";
     public const string PortableMode = "PortableMode";
-    public const string DockerContainer = "DockerContainer";
-    public const string MobileWebUI = "MobileWebUI";
-    public const string WindowsContextMenu = "WindowsContextMenu";
+    public const string ApiServer = "ApiServer";
     public const string HardlinkMode = "HardlinkMode";
     public const string MultiInstanceSync = "MultiInstanceSync";
 

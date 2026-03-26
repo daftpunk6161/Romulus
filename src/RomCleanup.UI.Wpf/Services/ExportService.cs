@@ -25,9 +25,9 @@ public sealed class ExportService : IExportService
     public string BuildRuleEngineReport()
         => FeatureService.BuildRuleEngineReport();
 
-    public (ReportSummary Summary, List<ReportEntry> Entries) BuildPdfReportData(
+    public (ReportSummary Summary, List<ReportEntry> Entries) BuildHtmlReportData(
         IReadOnlyList<RomCandidate> candidates,
         IReadOnlyList<DedupeResult> groups,
         RunResult? runResult, bool dryRun)
-        => FeatureService.BuildPdfReportData(candidates, groups, runResult, dryRun);
+        => FeatureService.BuildHtmlReportData(candidates, groups, runResult, dryRun);
 }
