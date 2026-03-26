@@ -231,43 +231,6 @@ public static partial class FeatureService
     }
 
 
-    /// <summary>Build GPU hashing status report.</summary>
-    public static (string Report, bool IsEnabled) BuildGpuHashingStatus()
-    {
-        var openCl = File.Exists(Path.Combine(Environment.SystemDirectory, "OpenCL.dll"));
-        var currentSetting = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
-        var isEnabled = currentSetting.Equals("on", StringComparison.OrdinalIgnoreCase);
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("GPU-Hashing Konfiguration\n");
-        sb.AppendLine($"  OpenCL verfügbar: {(openCl ? "Ja" : "Nein")}");
-        sb.AppendLine($"  CPU-Kerne:        {Environment.ProcessorCount}");
-        sb.AppendLine($"  Aktueller Status: {(isEnabled ? "AKTIVIERT" : "Deaktiviert")}");
-
-        if (!openCl)
-        {
-            sb.AppendLine("\n  GPU-Hashing benötigt OpenCL-Treiber.");
-            sb.AppendLine("  Installiere aktuelle GPU-Treiber für Unterstützung.");
-        }
-        else
-        {
-            sb.AppendLine("\n  GPU-Hashing kann SHA1/SHA256-Berechnungen");
-            sb.AppendLine("  um 5-20x beschleunigen (experimentell).");
-        }
-        return (sb.ToString(), isEnabled);
-    }
-
-
-    /// <summary>Toggle GPU hashing and return the new state.</summary>
-    public static bool ToggleGpuHashing()
-    {
-        var current = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
-        var isEnabled = current.Equals("on", StringComparison.OrdinalIgnoreCase);
-        Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", isEnabled ? "off" : "on");
-        return !isEnabled;
-    }
-
-
     /// <summary>Build formatted conversion estimate report.</summary>
     public static string BuildConversionEstimateReport(IReadOnlyList<RomCandidate> candidates)
     {
@@ -284,15 +247,6 @@ public static partial class FeatureService
         if (est.Details.Count > 20)
             sb.AppendLine($"  … und {est.Details.Count - 20} weitere");
         return sb.ToString();
-    }
-
-
-    /// <summary>Build parallel hashing configuration report.</summary>
-    public static string BuildParallelHashingReport(int cores, int newThreads)
-    {
-        return $"Parallel-Hashing Konfiguration\n\n" +
-            $"CPU-Kerne: {cores}\nThreads (neu): {newThreads}\n\n" +
-            "Die Änderung wird beim nächsten Hash-Vorgang wirksam.";
     }
 
 }

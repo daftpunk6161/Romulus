@@ -69,7 +69,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("RollbackHistoryBack")]
     [InlineData("RollbackHistoryForward")]
     [InlineData("ApplyLocale")]
-    [InlineData("PluginManager")]
     [InlineData("AutoProfile")]
     [InlineData("ConversionEstimate")]
     [InlineData("JunkReport")]
@@ -87,8 +86,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("ConvertQueue")]
     [InlineData("ConversionVerify")]
     [InlineData("FormatPriority")]
-    [InlineData("ParallelHashing")]
-    [InlineData("GpuHashing")]
     [InlineData("DatAutoUpdate")]
     [InlineData("DatDiffViewer")]
     [InlineData("TosecDat")]
@@ -119,9 +116,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("ToolImport")]
     [InlineData("StorageTiering")]
     [InlineData("NasOptimization")]
-    [InlineData("FtpSource")]
-    [InlineData("CloudSync")]
-    [InlineData("PluginMarketplaceFeature")]
     [InlineData("PortableMode")]
     [InlineData("DockerContainer")]
     [InlineData("WindowsContextMenu")]
@@ -295,15 +289,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         // No exception on empty filter
     }
 
-    // ═══ PLUGIN MANAGER ═════════════════════════════════════════════════
-
-    [Fact]
-    public void PluginManager_ShowsPluginInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["PluginManager"].Execute(null);
-        Assert.True(HasOutput());
-    }
 
     // ═══ APPLY LOCALE ═══════════════════════════════════════════════════
 
@@ -335,15 +320,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ CLOUD SYNC ═════════════════════════════════════════════════════
-
-    [Fact]
-    public void CloudSync_ShowsCloudInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["CloudSync"].Execute(null);
-        Assert.True(HasOutput());
-    }
 
     // ═══ PORTABLE MODE ══════════════════════════════════════════════════
 
@@ -687,27 +663,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _sut.RegisterCommands();
         _dialog.ShowInputBoxResult = "* * * * *";
         _vm.FeatureCommands["SchedulerAdvanced"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ GPU HASHING ════════════════════════════════════════════════════
-
-    [Fact]
-    public void GpuHashing_ShowsGpuInfo()
-    {
-        _sut.RegisterCommands();
-        _vm.FeatureCommands["GpuHashing"].Execute(null);
-        Assert.True(HasOutput());
-    }
-
-    // ═══ PARALLEL HASHING ═══════════════════════════════════════════════
-
-    [Fact]
-    public void ParallelHashing_ShowsThreadInfo()
-    {
-        _sut.RegisterCommands();
-        _dialog.ShowInputBoxResult = "4";
-        _vm.FeatureCommands["ParallelHashing"].Execute(null);
         Assert.True(HasOutput());
     }
 

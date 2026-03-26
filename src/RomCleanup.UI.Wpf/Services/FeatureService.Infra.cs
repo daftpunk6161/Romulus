@@ -185,69 +185,6 @@ public static partial class FeatureService
     }
 
 
-    // ═══ PLUGIN MARKETPLACE ═════════════════════════════════════════════
-
-    /// <summary>Build a report of installed plugins.</summary>
-    public static string BuildPluginMarketplaceReport(string pluginDir)
-    {
-        if (!Directory.Exists(pluginDir))
-            Directory.CreateDirectory(pluginDir);
-
-        var manifests = Directory.GetFiles(pluginDir, "*.json", SearchOption.AllDirectories);
-        var dlls = Directory.GetFiles(pluginDir, "*.dll", SearchOption.AllDirectories);
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Plugin-Manager (Coming Soon)\n");
-        sb.AppendLine("  ℹ Das Plugin-System ist in Planung und noch nicht funktionsfähig.");
-        sb.AppendLine($"  Plugin-Verzeichnis: {pluginDir}\n");
-        sb.AppendLine($"  Manifeste:   {manifests.Length}");
-        sb.AppendLine($"  DLLs:        {dlls.Length}\n");
-
-        if (manifests.Length == 0 && dlls.Length == 0)
-        {
-            sb.AppendLine("  Keine Plugins installiert.\n");
-            sb.AppendLine("  Plugin-Struktur:");
-            sb.AppendLine("    plugins/");
-            sb.AppendLine("      mein-plugin/");
-            sb.AppendLine("        manifest.json");
-            sb.AppendLine("        MeinPlugin.dll\n");
-            sb.AppendLine("  Manifest-Format:");
-            sb.AppendLine("    {");
-            sb.AppendLine("      \"name\": \"Mein Plugin\",");
-            sb.AppendLine("      \"version\": \"1.0.0\",");
-            sb.AppendLine("      \"type\": \"console|format|report\"");
-            sb.AppendLine("    }");
-        }
-        else
-        {
-            foreach (var manifest in manifests)
-            {
-                try
-                {
-                    var json = File.ReadAllText(manifest);
-                    using var doc = System.Text.Json.JsonDocument.Parse(json);
-                    var name = doc.RootElement.TryGetProperty("name", out var np) ? np.GetString() : Path.GetFileName(manifest);
-                    var ver = doc.RootElement.TryGetProperty("version", out var vp) ? vp.GetString() : "?";
-                    var type = doc.RootElement.TryGetProperty("type", out var tp) ? tp.GetString() : "?";
-                    sb.AppendLine($"  [{type}] {name} v{ver}");
-                    sb.AppendLine($"         {Path.GetDirectoryName(manifest)}");
-                }
-                catch
-                {
-                    sb.AppendLine($"  [?] {Path.GetFileName(manifest)} (manifest ungültig)");
-                }
-            }
-            if (dlls.Length > 0)
-            {
-                sb.AppendLine($"\n  DLLs:");
-                foreach (var dll in dlls)
-                    sb.AppendLine($"    {Path.GetFileName(dll)}");
-            }
-        }
-        return sb.ToString();
-    }
-
-
     // ═══ MOBILE WEB UI ══════════════════════════════════════════════════
 
     /// <summary>Try to find the API project path.</summary>

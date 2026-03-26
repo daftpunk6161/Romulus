@@ -12,8 +12,5 @@ public interface IConversionEstimator
     string FormatEmulatorCompat();
     string BuildConvertQueueReport(ConversionEstimateResult est);
     string BuildNKitConvertReport(string filePath);
-    (string Report, bool IsEnabled) BuildGpuHashingStatus();
-    bool ToggleGpuHashing();
     string BuildConversionEstimateReport(IReadOnlyList<RomCandidate> candidates);
-    string BuildParallelHashingReport(int cores, int newThreads);
 }

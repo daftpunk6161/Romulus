@@ -80,7 +80,6 @@ public sealed partial class FeatureCommandService
         cmds["RollbackUndo"] = rollbackHistoryBack;
         cmds["RollbackRedo"] = rollbackHistoryForward;
         cmds["ApplyLocale"] = new RelayCommand(ApplyLocale);
-        cmds["PluginManager"] = new RelayCommand(PluginManager);
         cmds["AutoProfile"] = new RelayCommand(AutoProfile);
 
         // ── Analyse & Berichte ──────────────────────────────────────────
@@ -102,8 +101,6 @@ public sealed partial class FeatureCommandService
         cmds["ConvertQueue"] = new RelayCommand(ConvertQueue);
         cmds["ConversionVerify"] = new RelayCommand(ConversionVerify);
         cmds["FormatPriority"] = new RelayCommand(FormatPriority);
-        cmds["ParallelHashing"] = new RelayCommand(ParallelHashing);
-        cmds["GpuHashing"] = new RelayCommand(GpuHashing);
 
         // ── DAT & Verifizierung ─────────────────────────────────────────
         cmds["DatAutoUpdate"] = new AsyncRelayCommand(DatAutoUpdateAsync);
@@ -147,9 +144,6 @@ public sealed partial class FeatureCommandService
         // ── Infrastruktur & Deployment ──────────────────────────────────
         cmds["StorageTiering"] = new RelayCommand(StorageTiering);
         cmds["NasOptimization"] = new RelayCommand(NasOptimization);
-        cmds["FtpSource"] = new RelayCommand(FtpSource);
-        cmds["CloudSync"] = new RelayCommand(CloudSync);
-        cmds["PluginMarketplaceFeature"] = new RelayCommand(PluginMarketplace);
         cmds["PortableMode"] = new RelayCommand(PortableMode);
         cmds["DockerContainer"] = new RelayCommand(DockerContainer);
         cmds["WindowsContextMenu"] = new RelayCommand(WindowsContextMenu);
@@ -456,28 +450,6 @@ public sealed partial class FeatureCommandService
         _vm.Loc.SetLocale(locale);
         _vm.AddLog(_vm.Loc.Format("Cmd.LocaleChanged", locale, strings.Count), "INFO");
         // Title update must be done in code-behind (Window property)
-    }
-
-    private void PluginManager()
-    {
-        var pluginDir = Path.Combine(AppContext.BaseDirectory, "plugins");
-        if (!Directory.Exists(pluginDir))
-        {
-            _dialog.Info(_vm.Loc["Cmd.PluginNoDir"], _vm.Loc["Cmd.PluginTitle"]);
-            return;
-        }
-        var manifests = Directory.GetFiles(pluginDir, "plugin.json", SearchOption.AllDirectories);
-        var sb = new StringBuilder();
-        sb.AppendLine(_vm.Loc.Format("Cmd.PluginHeader", manifests.Length));
-        foreach (var m in manifests)
-        {
-            var dir = Path.GetDirectoryName(m)!;
-            sb.AppendLine($"  \U0001F4E6 {Path.GetFileName(dir)}");
-            sb.AppendLine($"     Pfad: {dir}");
-        }
-        if (manifests.Length == 0)
-            sb.AppendLine(_vm.Loc["Cmd.PluginNone"]);
-        _dialog.ShowText(_vm.Loc["Cmd.PluginTitle"], sb.ToString());
     }
 
     private void AutoProfile()

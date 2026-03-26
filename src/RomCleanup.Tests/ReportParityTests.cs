@@ -53,7 +53,7 @@ public sealed class ReportParityTests : IDisposable
         };
 
         var (cliExitCode, cliStdout, cliStderr) = RunCliWithCapturedConsole(cliOptions);
-        using var cliJson = JsonDocument.Parse(cliStdout);
+        using var cliJson = ParseCliSummaryJson(cliStdout);
 
         var vm = CreateViewModel();
         vm.Roots.Add(root);
@@ -150,6 +150,16 @@ public sealed class ReportParityTests : IDisposable
             Console.SetOut(originalOut);
             Console.SetError(originalError);
         }
+    }
+
+    private static JsonDocument ParseCliSummaryJson(string stdout)
+    {
+        var start = stdout.IndexOf('{');
+        var end = stdout.LastIndexOf('}');
+        Assert.True(start >= 0 && end > start, $"CLI stdout did not contain a JSON object. Output: {stdout}");
+
+        var jsonPayload = stdout[start..(end + 1)];
+        return JsonDocument.Parse(jsonPayload);
     }
 
     private static MainViewModel CreateViewModel()

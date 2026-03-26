@@ -211,13 +211,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     }
 
     [Fact]
-    public void PluginManager_ShowsPluginStatus()
-    {
-        ExecCommand("PluginManager");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
     public void MultiInstanceSync_ShowsLockStatus()
     {
         ExecCommand("MultiInstanceSync");
@@ -534,21 +527,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         Assert.True(HasOutput() || _vm.LogEntries.Count == 0);
     }
 
-    // ═══ HASHING COMMANDS ═══════════════════════════════════════════════
-
-    [Fact]
-    public void ParallelHashing_ShowsHashInfo()
-    {
-        ExecCommand("ParallelHashing");
-        Assert.True(HasOutput());
-    }
-
-    [Fact]
-    public void GpuHashing_ShowsGpuInfo()
-    {
-        ExecCommand("GpuHashing");
-        Assert.True(HasOutput());
-    }
 
     // ═══ SETTINGS SERVICE ROUND-TRIP ════════════════════════════════════
 

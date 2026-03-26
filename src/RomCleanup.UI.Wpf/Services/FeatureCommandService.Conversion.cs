@@ -89,49 +89,4 @@ public sealed partial class FeatureCommandService
         _dialog.ShowText("Format-Priorität", FeatureService.FormatFormatPriority());
     }
 
-    private void ParallelHashing()
-    {
-        var cores = Environment.ProcessorCount;
-        var optimal = Math.Max(1, cores - 1);
-        var input = _dialog.ShowInputBox(
-            $"CPU-Kerne: {cores}\nAktuell: {optimal} Threads\n\nGewünschte Thread-Anzahl eingeben (1-{cores}):",
-            "Parallel-Hashing Konfiguration", optimal.ToString());
-        if (string.IsNullOrWhiteSpace(input)) return;
-        if (int.TryParse(input, out var threads) && threads >= 1 && threads <= cores * 2)
-        {
-            Environment.SetEnvironmentVariable("ROMCLEANUP_HASH_THREADS", threads.ToString());
-            _vm.AddLog($"Parallel-Hashing: {threads} Threads konfiguriert (experimentell – wird in einer zukünftigen Version unterstützt)", "INFO");
-            _dialog.ShowText("Parallel-Hashing", $"Parallel-Hashing Konfiguration\n\nCPU-Kerne: {cores}\nThreads (neu): {threads}\n\nDie Änderung wird beim nächsten Hash-Vorgang wirksam.");
-        }
-        else
-            _vm.AddLog($"Ungültige Thread-Anzahl: {input} (erlaubt: 1-{cores * 2})", "WARN");
-    }
-
-    private void GpuHashing()
-    {
-        var openCl = File.Exists(Path.Combine(Environment.SystemDirectory, "OpenCL.dll"));
-        var currentSetting = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING") ?? "off";
-        var isEnabled = currentSetting.Equals("on", StringComparison.OrdinalIgnoreCase);
-        var sb = new StringBuilder();
-        sb.AppendLine("GPU-Hashing Konfiguration\n");
-        sb.AppendLine($"  OpenCL verfügbar: {(openCl ? "Ja" : "Nein")}");
-        sb.AppendLine($"  CPU-Kerne:        {Environment.ProcessorCount}");
-        sb.AppendLine($"  Aktueller Status: {(isEnabled ? "AKTIVIERT" : "Deaktiviert")}");
-        if (!openCl)
-        {
-            sb.AppendLine("\n  GPU-Hashing benötigt OpenCL-Treiber.\n  Installiere aktuelle GPU-Treiber für Unterstützung.");
-            _dialog.ShowText("GPU-Hashing", sb.ToString());
-            return;
-        }
-        sb.AppendLine("\n  GPU-Hashing kann SHA1/SHA256-Berechnungen\n  um 5-20x beschleunigen (experimentell).");
-        _dialog.ShowText("GPU-Hashing", sb.ToString());
-        var toggle = isEnabled ? "deaktivieren" : "aktivieren";
-        if (_dialog.Confirm($"GPU-Hashing {toggle}?\n\nAktuell: {(isEnabled ? "AN" : "AUS")}", "GPU-Hashing"))
-        {
-            var newValue = isEnabled ? "off" : "on";
-            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", newValue);
-            _vm.AddLog($"GPU-Hashing: {(isEnabled ? "deaktiviert" : "aktiviert")} (experimentell – wird in einer zukünftigen Version unterstützt)", "INFO");
-        }
-    }
-
 }

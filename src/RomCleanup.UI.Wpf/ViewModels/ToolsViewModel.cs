@@ -157,8 +157,7 @@ public sealed class ToolsViewModel : ObservableObject
             ("ConvertQueue",       "Conversion",     "\xE8CB", false),
             ("ConversionVerify",   "Conversion",     "\xE73E", false),
             ("FormatPriority",     "Conversion",     "\xE8CB", false),
-            ("ParallelHashing",    "Conversion",     "\xE8CB", false),
-            ("GpuHashing",         "Conversion",     "\xE8CB", false),
+
 
             // DatVerify
             ("DatAutoUpdate",      "DatVerify",      "\xE895", false),
@@ -210,10 +209,7 @@ public sealed class ToolsViewModel : ObservableObject
             // Infrastructure
             ("StorageTiering",     "Infra",          "\xE8CB", true),
             ("NasOptimization",    "Infra",          "\xE8CB", false),
-            ("FtpSource",          "Infra",          "\xE774", false),
-            ("CloudSync",          "Infra",          "\xE753", false),
-            ("PluginMarketplaceFeature","Infra",     "\xE71B", false),
-            ("PluginManager",      "Infra",          "\xE71B", false),
+
             ("PortableMode",       "Infra",          "\xE8CB", false),
             ("DockerContainer",    "Infra",          "\xE8CB", false),
             ("MobileWebUI",        "Infra",          "\xE774", false),
@@ -226,8 +222,7 @@ public sealed class ToolsViewModel : ObservableObject
         };
         foreach (var (key, catKey, icon, needsResult) in items)
         {
-            var isPlanned = key is "FtpSource" or "CloudSync" or "PluginMarketplaceFeature" or "PluginManager"
-                or "ParallelHashing" or "GpuHashing" or "DockerContainer" or "MultiInstanceSync"
+            var isPlanned = key is "DockerContainer" or "MultiInstanceSync"
                 or "TosecDat" or "PatchEngine" or "NKitConvert" or "WindowsContextMenu"
                 or "EmulatorCompat" or "TrendAnalysis" or "GenreClassification" or "PlaytimeTracker"
                 or "CoverScraper" or "CollectionSharing";

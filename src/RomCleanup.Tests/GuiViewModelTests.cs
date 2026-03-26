@@ -1701,34 +1701,6 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void FeatureService_BuildGpuHashingStatus_ReturnsReport()
-    {
-        var (report, _) = FeatureService.BuildGpuHashingStatus();
-        Assert.Contains("GPU-Hashing Konfiguration", report);
-        Assert.Contains("CPU-Kerne", report);
-    }
-
-    [Fact]
-    public void FeatureService_ToggleGpuHashing_Toggles()
-    {
-        // Save and restore original env var
-        var original = Environment.GetEnvironmentVariable("ROMCLEANUP_GPU_HASHING");
-        try
-        {
-            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", "off");
-            var result1 = FeatureService.ToggleGpuHashing();
-            Assert.True(result1); // off → on
-
-            var result2 = FeatureService.ToggleGpuHashing();
-            Assert.False(result2); // on → off
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("ROMCLEANUP_GPU_HASHING", original);
-        }
-    }
-
-    [Fact]
     public void FeatureService_BuildPdfReportData_EmptyCandidates()
     {
         var (summary, entries) = FeatureService.BuildPdfReportData(
@@ -1915,18 +1887,6 @@ public class GuiViewModelTests
         var report = FeatureService.BuildCommandPaletteReport("xyz",
             Array.Empty<(string, string, string, int)>());
         Assert.Contains("Ergebnisse für \"xyz\"", report);
-    }
-
-    [Theory]
-    [InlineData(4, 2)]
-    [InlineData(16, 8)]
-    [InlineData(1, 1)]
-    public void FeatureService_BuildParallelHashingReport_ContainsCoreInfo(int cores, int threads)
-    {
-        var report = FeatureService.BuildParallelHashingReport(cores, threads);
-        Assert.Contains($"CPU-Kerne: {cores}", report);
-        Assert.Contains($"Threads (neu): {threads}", report);
-        Assert.Contains("nächsten Hash-Vorgang", report);
     }
 
     // ═══ Browse + Quick Commands (Runde 18) ═════════════════════════════
@@ -2605,20 +2565,6 @@ public class GuiViewModelTests
         Assert.True(localeIdx >= 0);
         var segment = xaml.Substring(Math.Max(0, localeIdx - 200), Math.Min(600, xaml.Length - Math.Max(0, localeIdx - 200)));
         Assert.Contains("ToolTip=", segment);
-    }
-
-    // ═══ TASK-119/120: Experimental feature labels ══════════════════════
-
-    [Fact]
-    public void FeatureDescriptions_GpuAndParallelHashing_MarkedExperimental()
-    {
-        var vm = new MainViewModel();
-        var gpuItem = vm.ToolItems.FirstOrDefault(t => t.Key == "GpuHashing");
-        var parallelItem = vm.ToolItems.FirstOrDefault(t => t.Key == "ParallelHashing");
-        Assert.NotNull(gpuItem);
-        Assert.NotNull(parallelItem);
-        Assert.Contains("experimentell", gpuItem.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("experimentell", parallelItem.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     // ═══ WPF file locator ══════════════════════════════════════════════

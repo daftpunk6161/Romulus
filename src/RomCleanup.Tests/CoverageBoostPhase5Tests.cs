@@ -517,32 +517,6 @@ public class FcsConversionCommandTests
     }
 
     [Fact]
-    public void ParallelHashing_EmptyInput_DoesNotSet()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.InputBoxResponses.Enqueue("");
-        Exec(vm, "ParallelHashing");
-    }
-
-    [Fact]
-    public void ParallelHashing_WithValue_SetsEnvVar()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.InputBoxResponses.Enqueue("4");
-        Exec(vm, "ParallelHashing");
-        Assert.True(dialog.InfoCalls.Count > 0 || dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
-    public void GpuHashing_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.NextConfirm = false;
-        Exec(vm, "GpuHashing");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0);
-    }
-
-    [Fact]
     public void NKitConvert_NoBrowse_NoAction()
     {
         var (_, vm, dialog) = Setup();
@@ -736,31 +710,6 @@ public class FcsInfraCommandTests
     }
 
     [Fact]
-    public void FtpSource_EmptyInput_ShowsInfo()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.InputBoxResponses.Enqueue("");
-        Exec(vm, "FtpSource");
-    }
-
-    [Fact]
-    public void FtpSource_ValidFtpUri_ShowsWarning()
-    {
-        var (_, vm, dialog) = Setup();
-        dialog.InputBoxResponses.Enqueue("ftp://example.com/roms");
-        Exec(vm, "FtpSource");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0);
-    }
-
-    [Fact]
-    public void CloudSync_ShowsStatus()
-    {
-        var (_, vm, dialog) = Setup();
-        Exec(vm, "CloudSync");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-    }
-
-    [Fact]
     public void PortableMode_ShowsInfo()
     {
         var (_, vm, dialog) = Setup();
@@ -814,14 +763,6 @@ public class FcsInfraCommandTests
         var (_, vm, dialog) = Setup();
         vm.Roots.Add(@"C:\Roms");
         Exec(vm, "MultiInstanceSync");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0);
-    }
-
-    [Fact]
-    public void PluginMarketplaceFeature_ShowsStatus()
-    {
-        var (_, vm, dialog) = Setup();
-        Exec(vm, "PluginMarketplaceFeature");
         Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0);
     }
 

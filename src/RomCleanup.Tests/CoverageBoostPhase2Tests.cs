@@ -231,44 +231,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
 
     #endregion
 
-    #region FeatureService.Infra - BuildPluginMarketplaceReport
-
-    [Fact]
-    public void BuildPluginMarketplaceReport_EmptyDir_ShowsNoPlugins()
-    {
-        var dir = Path.Combine(_tempDir, "plugins_empty");
-        var report = FeatureService.BuildPluginMarketplaceReport(dir);
-        Assert.Contains("Keine Plugins installiert", report);
-        Assert.Contains("Manifeste:   0", report);
-    }
-
-    [Fact]
-    public void BuildPluginMarketplaceReport_WithManifest_ShowsPlugin()
-    {
-        var dir = Path.Combine(_tempDir, "plugins_with");
-        var subDir = Path.Combine(dir, "myplugin");
-        Directory.CreateDirectory(subDir);
-        var manifest = new { name = "TestPlugin", version = "1.0.0", type = "console" };
-        File.WriteAllText(Path.Combine(subDir, "manifest.json"),
-            JsonSerializer.Serialize(manifest));
-        var report = FeatureService.BuildPluginMarketplaceReport(dir);
-        Assert.Contains("TestPlugin", report);
-        Assert.Contains("v1.0.0", report);
-        Assert.Contains("[console]", report);
-    }
-
-    [Fact]
-    public void BuildPluginMarketplaceReport_InvalidManifest_ShowsError()
-    {
-        var dir = Path.Combine(_tempDir, "plugins_bad");
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "bad.json"), "not json{{{");
-        var report = FeatureService.BuildPluginMarketplaceReport(dir);
-        Assert.Contains("manifest ungültig", report);
-    }
-
-    #endregion
-
     #region FeatureService.Infra - ExportRulePack / ImportRulePack
 
     [Fact]
@@ -848,43 +810,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
     }
 
     [Fact]
-    public void FCS_FtpSource_InvalidUrl_LogsError()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.InputBoxResponses.Add("http://invalid");
-        ExecCommand(vm, "FtpSource");
-        Assert.Contains(vm.LogEntries, e => e.Level == "ERROR");
-    }
-
-    [Fact]
-    public void FCS_FtpSource_ValidSftp_ShowsInfo()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.InputBoxResponses.Add("sftp://myhost/path");
-        ExecCommand(vm, "FtpSource");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || vm.LogEntries.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_FtpSource_FtpWithConfirm_ShowsInfo()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.InputBoxResponses.Add("ftp://myhost/path");
-        dialog.NextConfirm = true;
-        ExecCommand(vm, "FtpSource");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || vm.LogEntries.Count > 0);
-    }
-
-    [Fact]
-    public void FCS_CloudSync_ShowsStatus()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        ExecCommand(vm, "CloudSync");
-        Assert.True(dialog.ShowTextCalls.Count > 0);
-        Assert.Contains(dialog.ShowTextCalls, c => c.content.Contains("Cloud-Sync"));
-    }
-
-    [Fact]
     public void FCS_PortableMode_ShowsStatus()
     {
         var (vm, dialog, _) = SetupFcs();
@@ -941,15 +866,6 @@ public sealed class CoverageBoostPhase2Tests : IDisposable
         dialog.NextSaveFile = null;
         ExecCommand(vm, "WindowsContextMenu");
         // Should not log anything if save was cancelled
-    }
-
-    [Fact]
-    public void FCS_PluginMarketplace_ShowsPluginInfo()
-    {
-        var (vm, dialog, _) = SetupFcs();
-        dialog.NextConfirm = false; // don't open explorer
-        ExecCommand(vm, "PluginManager");
-        Assert.True(dialog.ShowTextCalls.Count > 0 || dialog.InfoCalls.Count > 0 || vm.LogEntries.Count > 0);
     }
 
     [Fact]

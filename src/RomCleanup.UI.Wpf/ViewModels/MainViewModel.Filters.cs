@@ -202,8 +202,7 @@ public sealed partial class MainViewModel
             ("ConvertQueue",       "Konvert-Warteschlange",      "Konvertierung & Hashing",   "Warteschlange anzeigen",                       "\xE8CB", false),
             ("ConversionVerify",   "Konvertierung verifizieren", "Konvertierung & Hashing",   "Konvertierte Dateien prüfen",                  "\xE73E", false),
             ("FormatPriority",     "Format-Priorität",           "Konvertierung & Hashing",   "Format-Prioritätsliste anzeigen",              "\xE8CB", false),
-            ("ParallelHashing",    "Parallel-Hashing",           "Konvertierung & Hashing",   "Hash-Threading konfigurieren (experimentell)", "\xE8CB", false),
-            ("GpuHashing",         "GPU-Hashing",                "Konvertierung & Hashing",   "GPU-beschleunigtes Hashing (experimentell)",  "\xE8CB", false),
+
 
             // DAT & Verifizierung
             ("DatAutoUpdate",      "DAT Auto-Update",            "DAT & Verifizierung",       "Lokale DAT-Dateien prüfen",                    "\xE895", false),
@@ -255,10 +254,7 @@ public sealed partial class MainViewModel
             // Infrastruktur & Deployment
             ("StorageTiering",     "Storage-Tiering",            "Infrastruktur",              "Speicher-Analyse",                             "\xE8CB", true),
             ("NasOptimization",    "NAS-Optimierung",            "Infrastruktur",              "NAS-Pfad-Infos anzeigen",                     "\xE8CB", false),
-            ("FtpSource",          "FTP-Quelle",                 "Infrastruktur",              "FTP/SFTP-Quelle konfigurieren",               "\xE774", false),
-            ("CloudSync",          "Cloud-Sync",                 "Infrastruktur",              "Cloud-Status prüfen",                          "\xE753", false),
-            ("PluginMarketplaceFeature","Plugin-Marktplatz",     "Infrastruktur",              "Plugin-System (geplant)",                      "\xE71B", false),
-            ("PluginManager",      "Plugin-Manager",             "Infrastruktur",              "Installierte Plugins verwalten",               "\xE71B", false),
+
             ("PortableMode",       "Portable Modus",             "Infrastruktur",              "Portable-Modus Status",                        "\xE8CB", false),
             ("DockerContainer",    "Docker",                     "Infrastruktur",              "Docker-Dateien generieren",                    "\xE8CB", false),
             ("MobileWebUI",        "Mobile Web UI",              "Infrastruktur",              "REST API starten",                             "\xE774", false),
@@ -271,8 +267,7 @@ public sealed partial class MainViewModel
         };
         foreach (var (key, display, cat, desc, icon, needsResult) in items)
         {
-            var isPlanned = key is "FtpSource" or "CloudSync" or "PluginMarketplaceFeature" or "PluginManager"
-                or "ParallelHashing" or "GpuHashing" or "DockerContainer" or "MultiInstanceSync"
+            var isPlanned = key is "DockerContainer" or "MultiInstanceSync"
                 or "TosecDat" or "PatchEngine" or "NKitConvert" or "WindowsContextMenu"
                 or "EmulatorCompat" or "TrendAnalysis" or "GenreClassification" or "PlaytimeTracker"
                 or "CoverScraper" or "CollectionSharing";

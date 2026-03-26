@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "description": "Benchmark dataset manifest",
+    "version": "3.1.0",
+    "groundTruthVersion": "2.0.0",
+    "lastModified": "2026-03-26"
+  },
+  "totalEntries": 5000,
+  "holdoutEntries": 0,
+  "bySet": {
+    "performance-scale": 5000
+  }
+}

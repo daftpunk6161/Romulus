@@ -26,15 +26,6 @@ public sealed class ConversionEstimator : IConversionEstimator
     public string BuildNKitConvertReport(string filePath)
         => FeatureService.BuildNKitConvertReport(filePath);
 
-    public (string Report, bool IsEnabled) BuildGpuHashingStatus()
-        => FeatureService.BuildGpuHashingStatus();
-
-    public bool ToggleGpuHashing()
-        => FeatureService.ToggleGpuHashing();
-
     public string BuildConversionEstimateReport(IReadOnlyList<RomCandidate> candidates)
         => FeatureService.BuildConversionEstimateReport(candidates);
-
-    public string BuildParallelHashingReport(int cores, int newThreads)
-        => FeatureService.BuildParallelHashingReport(cores, newThreads);
 }

@@ -29,8 +29,6 @@ public static class FeatureCommandKeys
     public const string ConvertQueue = "ConvertQueue";
     public const string ConversionVerify = "ConversionVerify";
     public const string FormatPriority = "FormatPriority";
-    public const string ParallelHashing = "ParallelHashing";
-    public const string GpuHashing = "GpuHashing";
 
     // ── DAT & Verifizierung ──
     public const string DatAutoUpdate = "DatAutoUpdate";
@@ -84,10 +82,6 @@ public static class FeatureCommandKeys
     // ── Infrastruktur ──
     public const string StorageTiering = "StorageTiering";
     public const string NasOptimization = "NasOptimization";
-    public const string FtpSource = "FtpSource";
-    public const string CloudSync = "CloudSync";
-    public const string PluginMarketplace = "PluginMarketplaceFeature";
-    public const string PluginManager = "PluginManager";
     public const string PortableMode = "PortableMode";
     public const string DockerContainer = "DockerContainer";
     public const string MobileWebUI = "MobileWebUI";
