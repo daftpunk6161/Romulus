@@ -51,4 +51,9 @@ public sealed record DedupeGroup
     public RomCandidate Winner { get; init; } = null!;
     public IReadOnlyList<RomCandidate> Losers { get; init; } = Array.Empty<RomCandidate>();
     public string GameKey { get; init; } = "";
+    /// <summary>
+    /// SEC-DEDUP audit: Number of losers removed because their path was a winner in another group.
+    /// Zero means no cross-group filtering occurred.
+    /// </summary>
+    public int CrossGroupFilteredCount { get; init; }
 }

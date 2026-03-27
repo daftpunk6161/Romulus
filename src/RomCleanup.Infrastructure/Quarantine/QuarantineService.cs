@@ -79,9 +79,27 @@ public sealed class QuarantineService
         IReadOnlyList<string>? reasons = null, string mode = "DryRun")
     {
         var fileName = Path.GetFileName(sourcePath);
+
+        // SEC-QUARANTINE-01: Block path traversal via malicious filenames
+        if (!string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal)
+            || fileName.Contains("..")
+            || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            // Sanitize: replace dangerous chars with underscore
+            fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
+            fileName = fileName.Replace("..", "_");
+        }
+
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
         var targetDir = Path.Combine(quarantineRoot, timestamp);
         var targetPath = Path.Combine(targetDir, fileName);
+
+        // SEC-QUARANTINE-02: Validate target stays within quarantineRoot
+        var normalizedRoot = Path.GetFullPath(quarantineRoot).TrimEnd(Path.DirectorySeparatorChar)
+                           + Path.DirectorySeparatorChar;
+        var normalizedTarget = Path.GetFullPath(targetPath);
+        if (!normalizedTarget.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Blocked: Quarantine target path escapes quarantine root.");
 
         return new QuarantineAction
         {

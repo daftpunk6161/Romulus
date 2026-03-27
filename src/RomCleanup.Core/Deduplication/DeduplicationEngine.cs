@@ -106,7 +106,10 @@ public static class DeduplicationEngine
                 .Where(l => !winnerPaths.Contains(l.MainPath) || string.Equals(l.MainPath, group.Winner.MainPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             if (filtered.Count != group.Losers.Count)
-                results[i] = group with { Losers = filtered };
+            {
+                int removedCount = group.Losers.Count - filtered.Count;
+                results[i] = group with { Losers = filtered, CrossGroupFilteredCount = removedCount };
+            }
         }
 
         return results;

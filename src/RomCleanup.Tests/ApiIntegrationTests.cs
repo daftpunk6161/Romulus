@@ -813,7 +813,8 @@ public sealed class ApiIntegrationTests
             var runId = createDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
             Assert.False(string.IsNullOrWhiteSpace(runId));
 
-            var rollbackResponse = await client.PostAsync($"/runs/{runId}/rollback", new StringContent("", Encoding.UTF8, "application/json"));
+            // SEC-07: rollback defaults to dryRun=true — explicit false for actual rollback
+            var rollbackResponse = await client.PostAsync($"/runs/{runId}/rollback?dryRun=false", new StringContent("", Encoding.UTF8, "application/json"));
             Assert.Equal(HttpStatusCode.OK, rollbackResponse.StatusCode);
 
             using var rollbackDoc = JsonDocument.Parse(await rollbackResponse.Content.ReadAsStringAsync());

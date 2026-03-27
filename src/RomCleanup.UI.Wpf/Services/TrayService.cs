@@ -80,7 +80,16 @@ public sealed class TrayService : IDisposable
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("Beenden", null, (_, _) =>
         {
-            _window.Dispatcher.InvokeAsync(() => _window.Close());
+            _window.Dispatcher.InvokeAsync(() =>
+            {
+                if (_window is MainWindow mainWindow)
+                {
+                    mainWindow.RequestApplicationExit();
+                    return;
+                }
+
+                _window.Close();
+            });
         });
 
         _trayIcon = new System.Windows.Forms.NotifyIcon

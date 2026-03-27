@@ -244,8 +244,12 @@ public sealed class DiscHeaderDetector
             var xboxSig = Encoding.ASCII.GetString(buffer, 0x10000, 20);
             if (xboxSig == "MICROSOFT*XBOX*MEDIA")
             {
-                var probeText = ExtractPrintableAscii(buffer, 0, Math.Min(scanSize, 131072));
-                if (RxXbox360Marker.IsMatch(probeText))
+                // CORE-03 FIX: Limit Xbox 360 marker scan to the header area (first 8 KB)
+                // to avoid false positives from "XBOX 360" text appearing in game data further
+                // in the 128 KB buffer. Binary markers (XEX2/XGD2/XGD3) are also checked.
+                int headerProbeLen = Math.Min(8192, scanSize);
+                var headerProbeText = ExtractPrintableAscii(buffer, 0, headerProbeLen);
+                if (RxXbox360Marker.IsMatch(headerProbeText))
                     return "X360";
                 return "XBOX";
             }

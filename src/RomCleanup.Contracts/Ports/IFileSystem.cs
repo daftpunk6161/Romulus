@@ -34,6 +34,18 @@ public interface IFileSystem
         if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(newFileName))
             return null;
 
+        // SEC-RENAME-01: Block path segments in newFileName (prevents traversal via "..\..\")
+        if (!string.Equals(Path.GetFileName(newFileName), newFileName, StringComparison.Ordinal))
+            throw new InvalidOperationException("Blocked: Rename target must be a file name without path segments.");
+
+        // SEC-RENAME-02: Block NTFS Alternate Data Streams
+        if (newFileName.Contains(':'))
+            throw new InvalidOperationException("Blocked: Rename target contains ADS separator.");
+
+        // SEC-RENAME-03: Block invalid filename characters
+        if (newFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            throw new InvalidOperationException("Blocked: Rename target contains invalid filename characters.");
+
         var sourceDir = Path.GetDirectoryName(sourcePath);
         if (string.IsNullOrWhiteSpace(sourceDir))
             return null;
@@ -46,9 +58,38 @@ public interface IFileSystem
         if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(destinationPath))
             return false;
 
+        // SEC-DIRMOVE-01: Block directory traversal in destination
+        var destSegments = destinationPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (destSegments.Any(s => s == ".."))
+            throw new InvalidOperationException("Blocked: Destination path contains directory traversal.");
+
+        // SEC-DIRMOVE-02: Normalize and validate paths
+        var fullSource = Path.GetFullPath(sourcePath);
+        var fullDest = Path.GetFullPath(destinationPath);
+
+        if (string.Equals(fullSource, fullDest, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Source and destination are the same path.");
+
+        // SEC-DIRMOVE-03: Block reparse points on source directory
+        if (Directory.Exists(fullSource))
+        {
+            var sourceInfo = new DirectoryInfo(fullSource);
+            if ((sourceInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Blocked: Source directory is a reparse point.");
+        }
+
+        // SEC-DIRMOVE-04: Block reparse points on destination parent
+        var destParent = Path.GetDirectoryName(fullDest);
+        if (!string.IsNullOrEmpty(destParent) && Directory.Exists(destParent))
+        {
+            var destParentInfo = new DirectoryInfo(destParent);
+            if ((destParentInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
+        }
+
         try
         {
-            Directory.Move(sourcePath, destinationPath);
+            Directory.Move(fullSource, fullDest);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)

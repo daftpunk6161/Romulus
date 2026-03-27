@@ -483,17 +483,23 @@ app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, RunLifecyc
     if (string.IsNullOrWhiteSpace(run.AuditPath) || !File.Exists(run.AuditPath))
         return ApiError(409, "RUN-ROLLBACK-NOT-AVAILABLE", "No audit artifact available for rollback.", runId: runId);
 
+    // SEC-ROLLBACK-01: Default to dry-run to prevent accidental data changes.
+    // Safety sequence: DryRun → Summary → Bestätigung → Apply (Projektregeln §4)
+    var dryRunParam = ctx.Request.Query["dryRun"].FirstOrDefault();
+    bool isDryRun = !string.Equals(dryRunParam, "false", StringComparison.OrdinalIgnoreCase);
+
     var restoreRoots = run.Roots ?? Array.Empty<string>();
     var currentRoots = string.IsNullOrWhiteSpace(run.TrashRoot)
         ? restoreRoots
         : restoreRoots.Append(run.TrashRoot).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     var signing = new AuditSigningService(new FileSystemAdapter(), keyFilePath: AuditSecurityPaths.GetDefaultSigningKeyPath());
-    var rollback = signing.Rollback(run.AuditPath, restoreRoots, currentRoots, dryRun: false);
+    var rollback = signing.Rollback(run.AuditPath, restoreRoots, currentRoots, dryRun: isDryRun);
 
     return Results.Ok(new
     {
         run = run.ToDto(),
+        dryRun = isDryRun,
         rollback
     });
 });

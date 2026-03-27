@@ -120,9 +120,12 @@ public sealed class VersionScorer
 
             if (segments.Count > 0)
             {
-                // Clamp to max 6 segments to prevent long overflow (1000^5 ≈ 10^15 fits in long)
+                // Clamp to max 6 segments to prevent long overflow (1000^5 ≈ 10^15 fits in long).
+                // CORE-02 FIX: If truncated, add +1 per extra segment so versions with
+                // more segments score slightly higher than those with fewer.
                 const int maxSegments = 6;
-                var effectiveSegments = segments.Count > maxSegments
+                bool wasTruncated = segments.Count > maxSegments;
+                var effectiveSegments = wasTruncated
                     ? segments.GetRange(0, maxSegments)
                     : segments;
 
@@ -137,6 +140,10 @@ public sealed class VersionScorer
                     if (weight > 1) weight /= 1000;
                 }
                 score += versionScore;
+
+                // CORE-02: Differentiate versions with trailing segments beyond the clamp
+                if (wasTruncated)
+                    score += segments.Count - maxSegments;
             }
         }
 

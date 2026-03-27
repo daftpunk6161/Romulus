@@ -28,6 +28,8 @@ public partial class MainWindow : Window, IWindowHost
     private Process? _apiProcess;
     // Guard against recursive OnClosing calls
     private bool _isClosing;
+    // Explicit app-exit intent (e.g. tray 'Beenden') should bypass minimize-to-tray interception.
+    private bool _forceExitRequested;
 
     public MainWindow(MainViewModel vm, ISettingsService settings, IDialogService dialog)
     {
@@ -141,7 +143,7 @@ public partial class MainWindow : Window, IWindowHost
         if (_isClosing) return;
 
         // GUI-110: MinimizeToTray — hide instead of close (unless busy-cancel path)
-        if (_vm.MinimizeToTray && !_vm.IsBusy)
+        if (_vm.MinimizeToTray && !_vm.IsBusy && !_forceExitRequested)
         {
             e.Cancel = true;
             _vm.SaveSettings();
@@ -270,6 +272,16 @@ public partial class MainWindow : Window, IWindowHost
         {
             // Report preview auto-refreshes via LibraryReportView.OnLoaded
         }
+    }
+
+    /// <summary>
+    /// Request a real application exit from non-window UI (e.g. tray menu).
+    /// This bypasses minimize-to-tray interception in OnClosing.
+    /// </summary>
+    public void RequestApplicationExit()
+    {
+        _forceExitRequested = true;
+        Close();
     }
 
     // ═══ WORKFLOW & AUTOMATISIERUNG ═════════════════════════════════════
