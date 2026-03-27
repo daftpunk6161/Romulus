@@ -13,6 +13,7 @@ using CommunityToolkit.Mvvm.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
@@ -189,9 +190,6 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
 
         // Tool items collection (RD-004: Werkzeuge tab)
         InitToolItems();
-
-        // Feature commands (TASK-111: replaces Click event handlers)
-        InitFeatureCommands();
 
         // Wire watch-mode auto-run trigger
         _watchService.RunTriggered += OnWatchRunTriggered;
@@ -610,11 +608,6 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     // ═══ FEATURE COMMANDS (TASK-111: replaces Click event handlers) ═══════
     public Dictionary<string, ICommand> FeatureCommands { get; } = new();
 
-    private void InitFeatureCommands()
-    {
-        // All feature commands are registered by FeatureCommandService.RegisterCommands()
-    }
-
     /// <summary>Notify XAML bindings that FeatureCommands dictionary has been populated.
     /// Must be called after FeatureCommandService.RegisterCommands() to refresh
     /// deferred Binding expressions like {Binding FeatureCommands[AutoFindTools]}.</summary>
@@ -766,11 +759,16 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     private void ValidateToolPath(string value, string propertyName)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             ClearError(propertyName);
-        else if (!TryNormalizePath(value, out _))
-            SetError(propertyName, "Ungültiger Dateipfad", ValidationSeverity.Blocker);
-        else if (!File.Exists(value))
-            SetError(propertyName, $"Datei nicht gefunden: {Path.GetFileName(value)}", ValidationSeverity.Warning);
+            return;
+        }
+
+        var (normalized, reason) = ToolPathValidator.Validate(value);
+        if (normalized is not null)
+            ClearError(propertyName);
+        else if (reason is not null)
+            SetError(propertyName, reason, ValidationSeverity.Warning);
         else
             ClearError(propertyName);
     }

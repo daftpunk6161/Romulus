@@ -157,65 +157,6 @@ public static partial class FeatureService
     }
 
 
-    /// <summary>
-    /// Match cover images against ROM candidates and build a report.
-    /// Returns (report, matchedCount, unmatchedCount).
-    /// </summary>
-    public static (string Report, int Matched, int Unmatched) BuildCoverReport(
-        string coverDir, IReadOnlyList<RomCandidate> candidates)
-    {
-        var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
-        var coverFiles = Directory.GetFiles(coverDir, "*.*", SearchOption.AllDirectories)
-            .Where(f => imageExts.Contains(Path.GetExtension(f)))
-            .ToList();
-
-        if (coverFiles.Count == 0)
-            return ($"Keine Cover-Bilder gefunden in:\n{coverDir}", 0, 0);
-
-        var gameKeys = candidates
-            .Select(c => RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(
-                Path.GetFileNameWithoutExtension(c.MainPath)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var matched = new List<string>();
-        var unmatched = new List<string>();
-        foreach (var cover in coverFiles)
-        {
-            var coverName = Path.GetFileNameWithoutExtension(cover);
-            var normalizedCover = RomCleanup.Core.GameKeys.GameKeyNormalizer.Normalize(coverName);
-            if (gameKeys.Contains(normalizedCover))
-                matched.Add(coverName);
-            else
-                unmatched.Add(coverName);
-        }
-
-        var sb = new StringBuilder();
-        sb.AppendLine("Cover-Scraper Ergebnis\n");
-        sb.AppendLine($"  Cover-Ordner: {coverDir}");
-        sb.AppendLine($"  Gefundene Bilder: {coverFiles.Count}");
-        sb.AppendLine($"  ROMs in Sammlung: {gameKeys.Count}");
-        sb.AppendLine($"\n  Zugeordnet:    {matched.Count}");
-        sb.AppendLine($"  Nicht zugeordnet: {unmatched.Count}");
-        sb.AppendLine($"  Ohne Cover:    {gameKeys.Count - matched.Count}");
-
-        if (matched.Count > 0)
-        {
-            sb.AppendLine($"\n  --- Zugeordnet (erste {Math.Min(15, matched.Count)}) ---");
-            foreach (var m in matched.Take(15))
-                sb.AppendLine($"    \u2713 {m}");
-        }
-        if (unmatched.Count > 0)
-        {
-            sb.AppendLine($"\n  --- Nicht zugeordnet (erste {Math.Min(15, unmatched.Count)}) ---");
-            foreach (var u in unmatched.Take(15))
-                sb.AppendLine($"    ? {u}");
-        }
-
-        return (sb.ToString(), matched.Count, unmatched.Count);
-    }
-
-
     // ═══ FILTER BUILDER ═════════════════════════════════════════════════
 
     /// <summary>Parse a filter expression like "field=value" or "field>=value".</summary>
@@ -229,49 +170,6 @@ public static partial class FeatureService
         else if (input.Contains('=')) { var p = input.Split('=', 2); field = p[0].Trim().ToLowerInvariant(); op = "="; value = p[1].Trim(); }
         else return null;
         return (field, op, value);
-    }
-
-
-    /// <summary>Apply a parsed filter to candidates and build a report.</summary>
-    public static string BuildFilterReport(IReadOnlyList<RomCandidate> candidates, string field, string op, string value)
-    {
-        var filtered = candidates.Where(c =>
-        {
-            string fieldValue = field switch
-            {
-                "region" => c.Region,
-                "category" => ToCategoryLabel(c.Category),
-                "extension" or "ext" => c.Extension,
-                "gamekey" or "game" => c.GameKey,
-                "type" or "consolekey" or "console" => c.ConsoleKey,
-                "datmatch" or "dat" => c.DatMatch.ToString(),
-                "sizemb" => (c.SizeBytes / 1048576.0).ToString("F1"),
-                "sizebytes" or "size" => c.SizeBytes.ToString(),
-                "filename" or "name" => Path.GetFileName(c.MainPath),
-                _ => ""
-            };
-            if (op == "=")
-                return fieldValue.Contains(value, StringComparison.OrdinalIgnoreCase);
-            if (double.TryParse(value, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var numVal) &&
-                double.TryParse(fieldValue, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var fieldNum))
-            {
-                return op switch { ">" => fieldNum > numVal, "<" => fieldNum < numVal, ">=" => fieldNum >= numVal, "<=" => fieldNum <= numVal, _ => false };
-            }
-            return false;
-        }).ToList();
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Filter-Builder: {field} {op} {value}");
-        sb.AppendLine(new string('═', 50));
-        sb.AppendLine($"\n  Gesamt: {candidates.Count}");
-        sb.AppendLine($"  Gefiltert: {filtered.Count}\n");
-        foreach (var r in filtered.Take(50))
-            sb.AppendLine($"  {Path.GetFileName(r.MainPath),-45} [{r.Region}] {r.Extension} {r.Category} {FormatSize(r.SizeBytes)}");
-        if (filtered.Count > 50)
-            sb.AppendLine($"\n  … und {filtered.Count - 50} weitere");
-        return sb.ToString();
     }
 
 }

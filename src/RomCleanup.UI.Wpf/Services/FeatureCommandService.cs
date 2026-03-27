@@ -144,90 +144,90 @@ public sealed partial class FeatureCommandService
         cmds.Clear();
 
         // ── Functional buttons ──────────────────────────────────────────
-        cmds["ExportLog"] = new RelayCommand(ExportLog);
-        cmds["ProfileDelete"] = new RelayCommand(ProfileDelete);
-        cmds["ProfileImport"] = new RelayCommand(ProfileImport);
-        cmds["ProfileShare"] = new RelayCommand(ProfileShare);
-        cmds["CliCommandCopy"] = new RelayCommand(CliCommandCopy);
-        cmds["ConfigDiff"] = new RelayCommand(ConfigDiff);
-        cmds["ExportUnified"] = new RelayCommand(ExportUnified);
-        cmds["ConfigImport"] = new RelayCommand(ConfigImport);
-        cmds["AutoFindTools"] = new AsyncRelayCommand(AutoFindToolsAsync);
+        cmds[FeatureCommandKeys.ExportLog] = new RelayCommand(ExportLog);
+        cmds[FeatureCommandKeys.ProfileDelete] = new RelayCommand(ProfileDelete);
+        cmds[FeatureCommandKeys.ProfileImport] = new RelayCommand(ProfileImport);
+        cmds[FeatureCommandKeys.ProfileShare] = new RelayCommand(ProfileShare);
+        cmds[FeatureCommandKeys.CliCommandCopy] = new RelayCommand(CliCommandCopy);
+        cmds[FeatureCommandKeys.ConfigDiff] = new RelayCommand(ConfigDiff);
+        cmds[FeatureCommandKeys.ExportUnified] = new RelayCommand(ExportUnified);
+        cmds[FeatureCommandKeys.ConfigImport] = new RelayCommand(ConfigImport);
+        cmds[FeatureCommandKeys.AutoFindTools] = new AsyncRelayCommand(AutoFindToolsAsync);
 
         // ── Konfiguration tab misc ──────────────────────────────────────
-        cmds["HealthScore"] = new RelayCommand(HealthScore);
-        cmds["DuplicateAnalysis"] = new RelayCommand(DuplicateAnalysis);
-        cmds["ExportCollection"] = new RelayCommand(ExportCollection);
+        cmds[FeatureCommandKeys.HealthScore] = new RelayCommand(HealthScore);
+        cmds[FeatureCommandKeys.DuplicateAnalysis] = new RelayCommand(DuplicateAnalysis);
+        cmds[FeatureCommandKeys.ExportCollection] = new RelayCommand(ExportCollection);
         var rollbackHistoryBack = new RelayCommand(RollbackHistoryBack);
         var rollbackHistoryForward = new RelayCommand(RollbackHistoryForward);
-        cmds["RollbackQuick"] = _vm.RollbackCommand;
-        cmds["RollbackHistoryBack"] = rollbackHistoryBack;
-        cmds["RollbackHistoryForward"] = rollbackHistoryForward;
-        cmds["RollbackUndo"] = rollbackHistoryBack;
-        cmds["RollbackRedo"] = rollbackHistoryForward;
-        cmds["ApplyLocale"] = new RelayCommand(ApplyLocale);
-        cmds["AutoProfile"] = new RelayCommand(AutoProfile);
+        cmds[FeatureCommandKeys.RollbackQuick] = _vm.RollbackCommand;
+        cmds[FeatureCommandKeys.RollbackHistoryBack] = rollbackHistoryBack;
+        cmds[FeatureCommandKeys.RollbackHistoryForward] = rollbackHistoryForward;
+        cmds[FeatureCommandKeys.RollbackUndo] = rollbackHistoryBack;
+        cmds[FeatureCommandKeys.RollbackRedo] = rollbackHistoryForward;
+        cmds[FeatureCommandKeys.ApplyLocale] = new RelayCommand(ApplyLocale);
+        cmds[FeatureCommandKeys.AutoProfile] = new RelayCommand(AutoProfile);
 
         // ── Analyse & Berichte ──────────────────────────────────────────
 
-        cmds["JunkReport"] = new RelayCommand(JunkReport);
-        cmds["RomFilter"] = new RelayCommand(RomFilter);
-        cmds["MissingRom"] = new RelayCommand(MissingRom);
-        cmds["HeaderAnalysis"] = new RelayCommand(HeaderAnalysis);
-        cmds["Completeness"] = new RelayCommand(Completeness);
-        cmds["DryRunCompare"] = new RelayCommand(DryRunCompare);
+        cmds[FeatureCommandKeys.JunkReport] = new RelayCommand(JunkReport);
+        cmds[FeatureCommandKeys.RomFilter] = new RelayCommand(RomFilter);
+        cmds[FeatureCommandKeys.MissingRom] = new RelayCommand(MissingRom);
+        cmds[FeatureCommandKeys.HeaderAnalysis] = new RelayCommand(HeaderAnalysis);
+        cmds[FeatureCommandKeys.Completeness] = new RelayCommand(Completeness);
+        cmds[FeatureCommandKeys.DryRunCompare] = new RelayCommand(DryRunCompare);
 
 
         // ── Konvertierung & Hashing ─────────────────────────────────────
-        cmds["ConversionPipeline"] = new RelayCommand(ConversionPipeline);
-        cmds["ConversionVerify"] = new RelayCommand(ConversionVerify);
-        cmds["FormatPriority"] = new RelayCommand(FormatPriority);
+        cmds[FeatureCommandKeys.ConversionPipeline] = new RelayCommand(ConversionPipeline);
+        cmds[FeatureCommandKeys.ConversionVerify] = new RelayCommand(ConversionVerify);
+        cmds[FeatureCommandKeys.FormatPriority] = new RelayCommand(FormatPriority);
 
         // ── DAT & Verifizierung ─────────────────────────────────────────
-        cmds["DatAutoUpdate"] = new AsyncRelayCommand(DatAutoUpdateAsync);
-        cmds["DatDiffViewer"] = new RelayCommand(DatDiffViewer);
-        cmds["CustomDatEditor"] = new RelayCommand(CustomDatEditor);
-        cmds["HashDatabaseExport"] = new RelayCommand(HashDatabaseExport);
+        cmds[FeatureCommandKeys.DatAutoUpdate] = new AsyncRelayCommand(DatAutoUpdateAsync);
+        cmds[FeatureCommandKeys.DatDiffViewer] = new RelayCommand(DatDiffViewer);
+        cmds[FeatureCommandKeys.CustomDatEditor] = new RelayCommand(CustomDatEditor);
+        cmds[FeatureCommandKeys.HashDatabaseExport] = new RelayCommand(HashDatabaseExport);
 
         // ── Sammlungsverwaltung ─────────────────────────────────────────
-        cmds["CollectionManager"] = new RelayCommand(CollectionManager);
-        cmds["CloneListViewer"] = new RelayCommand(CloneListViewer);
-        cmds["VirtualFolderPreview"] = new RelayCommand(VirtualFolderPreview);
+        cmds[FeatureCommandKeys.CollectionManager] = new RelayCommand(CollectionManager);
+        cmds[FeatureCommandKeys.CloneListViewer] = new RelayCommand(CloneListViewer);
+        cmds[FeatureCommandKeys.VirtualFolderPreview] = new RelayCommand(VirtualFolderPreview);
 
         // ── Sicherheit & Integrität ─────────────────────────────────────
-        cmds["IntegrityMonitor"] = new AsyncRelayCommand(IntegrityMonitorAsync);
-        cmds["BackupManager"] = new RelayCommand(BackupManager);
-        cmds["Quarantine"] = new RelayCommand(Quarantine);
-        cmds["RuleEngine"] = new RelayCommand(RuleEngine);
-        cmds["HeaderRepair"] = new RelayCommand(HeaderRepair);
+        cmds[FeatureCommandKeys.IntegrityMonitor] = new AsyncRelayCommand(IntegrityMonitorAsync);
+        cmds[FeatureCommandKeys.BackupManager] = new RelayCommand(BackupManager);
+        cmds[FeatureCommandKeys.Quarantine] = new RelayCommand(Quarantine);
+        cmds[FeatureCommandKeys.RuleEngine] = new RelayCommand(RuleEngine);
+        cmds[FeatureCommandKeys.HeaderRepair] = new RelayCommand(HeaderRepair);
 
         // ── Workflow & Automatisierung ───────────────────────────────────
 
-        cmds["FilterBuilder"] = new RelayCommand(FilterBuilder);
-        cmds["SortTemplates"] = new RelayCommand(SortTemplates);
-        cmds["PipelineEngine"] = new RelayCommand(PipelineEngine);
-        cmds["SchedulerApply"] = new RelayCommand(() => _vm.ApplyScheduler());
-        cmds["RulePackSharing"] = new RelayCommand(RulePackSharing);
-        cmds["ArcadeMergeSplit"] = new RelayCommand(ArcadeMergeSplit);
+        cmds[FeatureCommandKeys.FilterBuilder] = new RelayCommand(FilterBuilder);
+        cmds[FeatureCommandKeys.SortTemplates] = new RelayCommand(SortTemplates);
+        cmds[FeatureCommandKeys.PipelineEngine] = new RelayCommand(PipelineEngine);
+        cmds[FeatureCommandKeys.SchedulerApply] = new RelayCommand(() => _vm.ApplyScheduler());
+        cmds[FeatureCommandKeys.RulePackSharing] = new RelayCommand(RulePackSharing);
+        cmds[FeatureCommandKeys.ArcadeMergeSplit] = new RelayCommand(ArcadeMergeSplit);
 
         // ── Export & Integration ────────────────────────────────────────
-        cmds["HtmlReport"] = new RelayCommand(HtmlReport);
-        cmds["LauncherIntegration"] = new RelayCommand(LauncherIntegration);
-        cmds["DatImport"] = new RelayCommand(DatImport);
+        cmds[FeatureCommandKeys.HtmlReport] = new RelayCommand(HtmlReport);
+        cmds[FeatureCommandKeys.LauncherIntegration] = new RelayCommand(LauncherIntegration);
+        cmds[FeatureCommandKeys.DatImport] = new RelayCommand(DatImport);
 
         // ── Infrastruktur & Deployment ──────────────────────────────────
-        cmds["StorageTiering"] = new RelayCommand(StorageTiering);
-        cmds["NasOptimization"] = new RelayCommand(NasOptimization);
-        cmds["PortableMode"] = new RelayCommand(PortableMode);
-        cmds["HardlinkMode"] = new RelayCommand(HardlinkMode);
+        cmds[FeatureCommandKeys.StorageTiering] = new RelayCommand(StorageTiering);
+        cmds[FeatureCommandKeys.NasOptimization] = new RelayCommand(NasOptimization);
+        cmds[FeatureCommandKeys.PortableMode] = new RelayCommand(PortableMode);
+        cmds[FeatureCommandKeys.HardlinkMode] = new RelayCommand(HardlinkMode);
 
         // ── Window-level commands (need IWindowHost) ────────────────────
         if (_windowHost is not null)
         {
-            cmds["CommandPalette"] = new RelayCommand(CommandPalette);
-            cmds["SystemTray"] = new RelayCommand(() => _windowHost.ToggleSystemTray());
-            cmds["ApiServer"] = new RelayCommand(ApiServer);
-            cmds["Accessibility"] = new RelayCommand(Accessibility);
+            cmds[FeatureCommandKeys.CommandPalette] = new RelayCommand(CommandPalette);
+            cmds[FeatureCommandKeys.SystemTray] = new RelayCommand(() => _windowHost.ToggleSystemTray());
+            cmds[FeatureCommandKeys.ApiServer] = new RelayCommand(ApiServer);
+            cmds[FeatureCommandKeys.Accessibility] = new RelayCommand(Accessibility);
         }
     }
 

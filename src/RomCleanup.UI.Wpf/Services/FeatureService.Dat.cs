@@ -73,7 +73,11 @@ public static partial class FeatureService
                 .Where(n => n.Length > 0)
                 .ToList();
         }
-        catch { return []; }
+        catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FeatureService] LoadDatGameNames failed for '{path}': {ex.Message}");
+            return [];
+        }
     }
 
 

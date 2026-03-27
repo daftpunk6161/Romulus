@@ -73,9 +73,15 @@ public static class FeatureCommandKeys
     public const string ExportLog = "ExportLog";
     public const string ProfileDelete = "ProfileDelete";
     public const string ProfileImport = "ProfileImport";
+    public const string ProfileShare = "ProfileShare";
+    public const string CliCommandCopy = "CliCommandCopy";
     public const string ConfigDiff = "ConfigDiff";
     public const string ExportUnified = "ExportUnified";
     public const string ConfigImport = "ConfigImport";
     public const string AutoFindTools = "AutoFindTools";
     public const string ApplyLocale = "ApplyLocale";
+    public const string SchedulerApply = "SchedulerApply";
+
+    // ── Fenster-gebundene Commands (benötigen WindowHost) ──
+    public const string SystemTray = "SystemTray";
 }

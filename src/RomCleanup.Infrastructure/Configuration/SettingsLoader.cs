@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.Infrastructure.Configuration;
 
@@ -331,11 +332,11 @@ public sealed class SettingsLoader
             if (user.ToolPaths is not null)
             {
                 if (!string.IsNullOrEmpty(user.ToolPaths.Chdman))
-                    settings.ToolPaths.Chdman = ValidateToolPath(user.ToolPaths.Chdman);
+                    settings.ToolPaths.Chdman = ToolPathValidator.ValidateOrEmpty(user.ToolPaths.Chdman);
                 if (!string.IsNullOrEmpty(user.ToolPaths.SevenZip))
-                    settings.ToolPaths.SevenZip = ValidateToolPath(user.ToolPaths.SevenZip);
+                    settings.ToolPaths.SevenZip = ToolPathValidator.ValidateOrEmpty(user.ToolPaths.SevenZip);
                 if (!string.IsNullOrEmpty(user.ToolPaths.DolphinTool))
-                    settings.ToolPaths.DolphinTool = ValidateToolPath(user.ToolPaths.DolphinTool);
+                    settings.ToolPaths.DolphinTool = ToolPathValidator.ValidateOrEmpty(user.ToolPaths.DolphinTool);
             }
 
             if (user.Dat is not null)
@@ -374,33 +375,9 @@ public sealed class SettingsLoader
     private static readonly HashSet<string> AllowedHashTypes = new(StringComparer.OrdinalIgnoreCase)
         { "SHA1", "SHA256", "MD5", "CRC32" };
 
-    private static readonly HashSet<string> AllowedToolExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".exe", ".bat", ".cmd" };
-
     /// <summary>V2-H06: Returns value if it is in allowedValues, otherwise returns fallback.</summary>
     private static string ValidateEnum(string? value, HashSet<string> allowedValues, string fallback)
         => !string.IsNullOrWhiteSpace(value) && allowedValues.Contains(value) ? value : fallback;
-
-    private static string ValidateToolPath(string path)
-    {
-        if (!File.Exists(path))
-            return "";
-
-        var ext = Path.GetExtension(path);
-        if (!AllowedToolExtensions.Contains(ext))
-            return "";
-
-        // Reject tools in system directories to prevent executing system binaries
-        var fullPath = Path.GetFullPath(path);
-        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        var sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
-        if (!string.IsNullOrEmpty(winDir) && fullPath.StartsWith(winDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            return "";
-        if (!string.IsNullOrEmpty(sysDir) && fullPath.StartsWith(sysDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            return "";
-
-        return fullPath;
-    }
 
     // ── P1-BUG-033: Nullable deserialization model ──
     // Separate model with bool? so that missing JSON keys deserialize as null

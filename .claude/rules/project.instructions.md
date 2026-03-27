@@ -1,4 +1,4 @@
-# Romulus – Copilot Instructions
+# Romulus – Projektregeln (Hauptregeln)
 
 ## Zweck
 
@@ -19,8 +19,6 @@ Kernfunktionen:
 Aktive Entwicklung erfolgt ausschliesslich in `src/`.
 `archive/powershell/` ist nur Legacy-Referenz und darf nicht als aktive Implementierungsbasis behandelt werden.
 
----
-
 ## Projektname und Bestandskontext
 
 Der Produktname ist **Romulus**.
@@ -32,8 +30,6 @@ Wichtig:
 - nichts blind global umbenennen
 - keine grossflaechigen Rename-Aktionen ohne expliziten Auftrag
 - bestehende Projektnamen und Pfade nur dann aendern, wenn dies Teil eines klaren, abgesicherten Refactors ist
-
----
 
 ## Nicht verhandelbare Regeln
 
@@ -101,8 +97,6 @@ Zusaetzlich gilt:
 - keine neue Architektur-Schicht ohne klaren Nutzen
 - keine neuen Services, wenn bestehende sauber erweitert werden koennen
 
----
-
 ## Architekturregeln
 
 Dependency-Richtung:
@@ -126,72 +120,6 @@ Nie umgekehrt.
 - Zeit, Prozesse, Dateisystem, externe Tools und Umgebungswerte hinter testbaren Abstraktionen halten
 - Keine Schattenlogik in GUI, CLI oder API, wenn bereits eine zentrale fachliche Implementierung existiert
 
----
-
-## GUI / WPF Regeln
-
-Die GUI muss:
-- verstaendlich
-- luftig
-- robust
-- nicht ueberladen
-- fehlbedienungssicher
-
-sein.
-
-### Pflicht
-- Standardablauf ist:
-  **DryRun / Preview -> Summary -> Bestaetigung -> Apply / Move -> Report / Undo**
-- Lange Operationen nicht auf dem UI-Thread ausfuehren
-- UI-Updates sauber ueber Dispatcher / async Patterns
-- Kein `DoEvents`-aehnliches Muster
-- Styles, Farben und Spacing zentral in `ResourceDictionary`
-- Zwei Bedienmodi unterstuetzen:
-  - einfach
-  - experte
-
-### Zusatzregel
-UI-Zustaende, KPI-Anzeigen, Run-Status und Summary-Werte sollen nach Moeglichkeit aus klaren Projektionen / ViewModels stammen und nicht an mehreren Stellen separat hergeleitet werden.
-
-### Verboten
-- Businesslogik im Code-Behind
-- unklare Danger Actions
-- ueberladene Screens ohne klare Priorisierung
-- unkontrollierte Converter-Logik fuer fachliche Regeln
-
----
-
-## Sicherheitsregeln
-
-Diese Regeln sind zwingend:
-
-- **Path Traversal blockieren**
-  - vor Move/Copy/Delete immer Root-validierte Pfadauflosung verwenden
-
-- **Zip-Slip blockieren**
-  - Archivpfade vor Extraktion validieren
-
-- **Reparse Points nicht transparent folgen**
-  - explizit blockieren oder sicher definieren
-
-- **CSV-Injection verhindern**
-  - keine ungesicherten Formel-Praefixe in Exportfeldern
-
-- **HTML-Encoding konsequent anwenden**
-  - alle HTML-Reports muessen sauber escapen
-
-- **Externe Tools absichern**
-  - Tool-Hash-Verifizierung
-  - korrektes Argument-Quoting
-  - Exit-Code-Pruefung
-  - Timeout / Retry / Cleanup
-  - Tool-Ausgabe nicht blind vertrauen
-  - Output validieren, wenn Folgeentscheidungen davon abhaengen
-  - partielle Outputs bei Fehlern sauber behandeln
-  - Source-Dateien nie vor erfolgreicher Verifikation entfernen
-
----
-
 ## Kernlogik-Regeln
 
 ### Kritische Bereiche
@@ -214,7 +142,27 @@ Bei jeder Aenderung, die Runs oder Ergebnisse beeinflusst, muss sichergestellt w
 - GUI, CLI und API widersprechen sich nicht
 - KPI-Werte stammen aus derselben fachlichen Wahrheit
 
----
+## Sicherheitsregeln
+
+- **Path Traversal blockieren**
+  - vor Move/Copy/Delete immer Root-validierte Pfadauflosung verwenden
+- **Zip-Slip blockieren**
+  - Archivpfade vor Extraktion validieren
+- **Reparse Points nicht transparent folgen**
+  - explizit blockieren oder sicher definieren
+- **CSV-Injection verhindern**
+  - keine ungesicherten Formel-Praefixe in Exportfeldern
+- **HTML-Encoding konsequent anwenden**
+  - alle HTML-Reports muessen sauber escapen
+- **Externe Tools absichern**
+  - Tool-Hash-Verifizierung
+  - korrektes Argument-Quoting
+  - Exit-Code-Pruefung
+  - Timeout / Retry / Cleanup
+  - Tool-Ausgabe nicht blind vertrauen
+  - Output validieren, wenn Folgeentscheidungen davon abhaengen
+  - partielle Outputs bei Fehlern sauber behandeln
+  - Source-Dateien nie vor erfolgreicher Verifikation entfernen
 
 ## Tests
 
@@ -253,8 +201,6 @@ Vermeide insbesondere:
 - Tests ohne echte Verifikationsaussage
 - Pseudo-Abdeckung ohne fachlichen Schutzwert
 
----
-
 ## Code Hygiene
 
 Achte aktiv auf:
@@ -273,8 +219,6 @@ Achte aktiv auf:
 
 Bereinige solche Probleme, wenn sie klar im Scope liegen und keine unnoetige Nebenbaustelle erzeugen.
 
----
-
 ## Arbeitsweise bei Aenderungen
 
 Wenn du Aenderungen vorschlaegst oder erzeugst:
@@ -292,8 +236,6 @@ Wenn konkrete Code-Aenderungen gefragt sind:
 - nenne betroffene Dateien zuerst
 - vermeide lange Vorreden
 - bevorzuge vollstaendige, zusammenhaengende Patches statt loser Einzelideen
-
----
 
 ## Arbeitsweise bei Reviews / Analysen
 
@@ -334,8 +276,6 @@ Wenn moeglich:
 - **Fix**
 - **Testabsicherung**
 
----
-
 ## Antwortverhalten
 
 Wenn du nicht-triviale Hilfe gibst, strukturiere die Antwort bevorzugt so:
@@ -347,8 +287,6 @@ Wenn du nicht-triviale Hilfe gibst, strukturiere die Antwort bevorzugt so:
 6. offene Annahmen
 
 Wenn Code erzeugt wird, liefere vollstaendige, zusammenhaengende Aenderungen statt loser Fragmente.
-
----
 
 ## Wichtige Projektfakten
 
@@ -394,8 +332,6 @@ Wenn Code erzeugt wird, liefere vollstaendige, zusammenhaengende Aenderungen sta
 - `RomCleanup.Infrastructure/Hashing`
 - `RomCleanup.Infrastructure/Safety`
 - `RomCleanup.Infrastructure/Sorting`
-
----
 
 ## Was du vermeiden musst
 

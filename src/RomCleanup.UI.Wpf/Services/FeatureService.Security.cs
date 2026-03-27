@@ -33,8 +33,9 @@ public static partial class FeatureService
                 ? null
                 : new RomHeaderInfo(analyzed.Platform, analyzed.Format, analyzed.Details);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
+            System.Diagnostics.Debug.WriteLine($"[FeatureService] AnalyzeHeader failed for '{filePath}': {ex.Message}");
             return null;
         }
     }
@@ -63,7 +64,11 @@ public static partial class FeatureService
     {
         if (!File.Exists(TrendFile)) return [];
         try { return JsonSerializer.Deserialize<List<TrendSnapshot>>(File.ReadAllText(TrendFile)) ?? []; }
-        catch { return []; }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FeatureService] LoadTrendHistory failed: {ex.Message}");
+            return [];
+        }
     }
 
 
@@ -156,7 +161,7 @@ public static partial class FeatureService
                 root = "";
             }
         }
-        catch
+        catch (JsonException)
         {
             entries = JsonSerializer.Deserialize<Dictionary<string, IntegrityEntry>>(json) ?? [];
             root = "";

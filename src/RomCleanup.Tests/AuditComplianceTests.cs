@@ -23,6 +23,7 @@ using RomCleanup.Infrastructure.History;
 using RomCleanup.Infrastructure.Quarantine;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Safety;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.ViewModels;
 using Xunit;
@@ -1037,20 +1038,15 @@ public sealed class AuditComplianceTests : IDisposable
     /// <summary>
     /// AUDIT3-TEST-012: SettingsLoader mit Path-Traversal Tool-Pfad → Assert abgelehnt.
     /// Tool path like "..\..\Windows\System32\cmd.exe" must be rejected.
+    /// Validation now centralized in ToolPathValidator (was private SettingsLoader.ValidateToolPath).
     /// </summary>
     [Fact]
     public void Audit3_Test012_SettingsLoader_ToolPathTraversal_Rejected()
     {
-        // ValidateToolPath is private static — use reflection to test directly
-        var method = typeof(SettingsLoader).GetMethod(
-            "ValidateToolPath",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Assert.NotNull(method);
-
         // A path pointing into the Windows directory must be rejected
         var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         var traversalPath = Path.Combine(winDir, "System32", "cmd.exe");
-        var result = (string)method.Invoke(null, [traversalPath])!;
+        var result = ToolPathValidator.ValidateOrEmpty(traversalPath);
         Assert.True(
             string.IsNullOrEmpty(result),
             "Tool path in Windows\\System32 should be rejected");

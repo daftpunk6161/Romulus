@@ -1,10 +1,9 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using RomCleanup.UI.Wpf.Helpers;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.ViewModels;
-using DragEventArgs = System.Windows.DragEventArgs;
 
 namespace RomCleanup.UI.Wpf.Views;
 
@@ -13,28 +12,8 @@ public partial class SortView : UserControl
     public SortView()
     {
         InitializeComponent();
-        listRoots.DragEnter += OnRootsDragEnter;
-        listRoots.Drop += OnRootsDrop;
-    }
-
-    private static void OnRootsDragEnter(object sender, DragEventArgs e)
-    {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Link
-            : DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private void OnRootsDrop(object sender, DragEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm) return;
-        if (vm.IsBusy) return;
-        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
-        foreach (var path in paths)
-        {
-            if (Directory.Exists(path) && !vm.Roots.Contains(path))
-                vm.Roots.Add(path);
-        }
+        listRoots.DragEnter += RootsDragDropHelper.OnDragEnter;
+        listRoots.Drop += (s, e) => RootsDragDropHelper.OnDrop(s, e, DataContext as MainViewModel);
     }
 
     // ═══ TASK-117: Region Ranker Drag & Drop ════════════════════════════

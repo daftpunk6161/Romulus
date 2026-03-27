@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
@@ -526,9 +527,16 @@ public sealed partial class SetupViewModel : ObservableObject, INotifyDataErrorI
     private void ValidateToolPath(string value, string propertyName)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             ClearError(propertyName);
-        else if (!File.Exists(value))
-            SetError(propertyName, _loc.Format("Error.FileNotFound", Path.GetFileName(value)));
+            return;
+        }
+
+        var (normalized, reason) = ToolPathValidator.Validate(value);
+        if (normalized is not null)
+            ClearError(propertyName);
+        else if (reason is not null)
+            SetError(propertyName, reason);
         else
             ClearError(propertyName);
     }
