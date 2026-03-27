@@ -87,6 +87,7 @@ public static class RunOptionsBuilder
             KeepUnknownWhenOnlyGames = options.KeepUnknownWhenOnlyGames,
             AggressiveJunk = options.AggressiveJunk,
             SortConsole = options.SortConsole,
+            ApproveReviews = options.ApproveReviews,
             ConvertOnly = options.ConvertOnly,
             ConvertFormat = options.ConvertFormat,
             EnableDat = options.EnableDat,

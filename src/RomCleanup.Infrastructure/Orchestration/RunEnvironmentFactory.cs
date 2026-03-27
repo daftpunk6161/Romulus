@@ -15,6 +15,7 @@ public interface IRunEnvironment
     ArchiveHashService? ArchiveHashService { get; }
     IFormatConverter? Converter { get; }
     DatIndex? DatIndex { get; }
+    IReadOnlySet<string>? KnownBiosHashes { get; }
 }
 
 public interface IRunEnvironmentFactory

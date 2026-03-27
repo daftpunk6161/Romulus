@@ -42,9 +42,9 @@ public sealed class ConsoleSorter
     /// <param name="dryRun">If true, don't actually move files.</param>
     /// <param name="cancellationToken">Cancellation support.</param>
     /// <param name="enrichedConsoleKeys">
-    /// Optional: pre-enriched ConsoleKey mappings (filePath → consoleKey) from the enrichment phase.
-    /// When provided, skips re-detection for files that already have a known ConsoleKey.
-    /// This preserves DAT-rescued console identifications.
+    /// Pre-enriched ConsoleKey mappings (filePath → consoleKey) from the enrichment phase.
+    /// Sorting is intentionally enrichment-driven to keep one deterministic source of truth.
+    /// If this map is missing, files are skipped with an audit warning.
     /// </param>
     /// <param name="enrichedSortDecisions">
     /// Optional: pre-enriched SortDecision mappings (filePath → "Sort"/"Review"/"Blocked"/"DatVerified").
@@ -82,6 +82,17 @@ public sealed class ConsoleSorter
             var setPrimaryToMembers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             BuildSetMemberships(files, setDependents, setPrimaryToMembers);
 
+            if (enrichedConsoleKeys is null)
+            {
+                // Phase-2 contract: never perform local re-detection in sort phase.
+                // Keep enrichment as the single truth and skip safely if missing.
+                total += files.Count;
+                skipped += files.Count;
+                IncrementReason(unknownReasons, "missing-enriched-console-keys");
+                WriteAuditWarning(root, "missing-enriched-console-keys");
+                continue;
+            }
+
             foreach (var filePath in files)
             {
                 if (cancellationToken.IsCancellationRequested) break;
@@ -94,18 +105,11 @@ public sealed class ConsoleSorter
                     continue;
                 }
 
-                // Detect console: prefer enrichment result (preserves DAT-rescued keys)
-                string consoleKey;
-                if (enrichedConsoleKeys is not null &&
-                    enrichedConsoleKeys.TryGetValue(filePath, out var enrichedKey) &&
-                    !string.IsNullOrEmpty(enrichedKey))
-                {
-                    consoleKey = enrichedKey;
-                }
-                else
-                {
-                    consoleKey = _consoleDetector.Detect(filePath, root);
-                }
+                // Sorting uses enrichment as the single source of truth.
+                var hasEnrichedKey = enrichedConsoleKeys.TryGetValue(filePath, out var enrichedKey);
+                var consoleKey = hasEnrichedKey && !string.IsNullOrEmpty(enrichedKey)
+                    ? enrichedKey
+                    : "UNKNOWN";
 
                 if (consoleKey == "UNKNOWN" || string.IsNullOrEmpty(consoleKey))
                 {
@@ -385,6 +389,15 @@ public sealed class ConsoleSorter
 
         _audit.AppendAuditRow(_auditPath, root, oldPath, newPath,
             "CONSOLE_SORT", "GAME", "", $"console-sort:{consoleKey}");
+    }
+
+    private void WriteAuditWarning(string root, string reason)
+    {
+        if (_audit is null || string.IsNullOrEmpty(_auditPath))
+            return;
+
+        _audit.AppendAuditRow(_auditPath, root, root, root,
+            "CONSOLE_SORT", "SYSTEM", "", reason);
     }
 
     private static void IncrementReason(Dictionary<string, int> reasons, string reason)

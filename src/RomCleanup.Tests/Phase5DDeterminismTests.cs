@@ -6,7 +6,6 @@ using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Regions;
 using RomCleanup.Core.Scoring;
 using RomCleanup.Infrastructure.Deduplication;
-using RomCleanup.Infrastructure.Analytics;
 using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.Orchestration;
 

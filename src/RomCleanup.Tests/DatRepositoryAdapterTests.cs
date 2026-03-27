@@ -64,6 +64,27 @@ public class DatRepositoryAdapterTests : IDisposable
         Assert.Equal("Zelda (USA)", index.Lookup("NES", "def456"));
     }
 
+        [Fact]
+        public void GetDatIndex_BiosGameName_SetsIsBiosFlag()
+        {
+                var datContent = @"<?xml version=""1.0""?>
+<datafile>
+    <game name=""PlayStation BIOS"">
+        <rom name=""SCPH1001.BIN"" size=""524288"" sha1=""bioshash1"" />
+    </game>
+</datafile>";
+
+                File.WriteAllText(Path.Combine(_tempDir, "psx.dat"), datContent);
+
+                var index = _dat.GetDatIndex(
+                        _tempDir,
+                        new Dictionary<string, string> { ["PSX"] = "psx.dat" });
+
+                var match = index.LookupWithFilename("PSX", "bioshash1");
+                Assert.NotNull(match);
+                Assert.True(match.Value.IsBios);
+        }
+
     [Fact]
     public void GetDatParentCloneIndex_ParsesCloneRelations()
     {

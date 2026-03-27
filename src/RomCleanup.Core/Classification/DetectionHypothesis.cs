@@ -34,12 +34,18 @@ public sealed record ConsoleDetectionResult(
     string? ConflictDetail,
     bool HasHardEvidence = false,
     bool IsSoftOnly = true,
-    SortDecision SortDecision = SortDecision.Blocked)
+    SortDecision SortDecision = SortDecision.Blocked,
+    MatchEvidence? MatchEvidence = null)
 {
     /// <summary>Unknown result with 0 confidence.</summary>
     public static ConsoleDetectionResult Unknown { get; } = new(
         "UNKNOWN", 0, Array.Empty<DetectionHypothesis>(), false, null,
-        HasHardEvidence: false, IsSoftOnly: true, SortDecision: SortDecision.Blocked);
+        HasHardEvidence: false, IsSoftOnly: true, SortDecision: SortDecision.Blocked,
+        MatchEvidence: new MatchEvidence
+        {
+            Level = MatchLevel.None,
+            Reasoning = "No detection hypotheses available."
+        });
 }
 
 
@@ -103,7 +109,7 @@ public static class DetectionSourceExtensions
         DetectionSource.CartridgeHeader => 90,
         DetectionSource.SerialNumber => 75,
         DetectionSource.ArchiveContent => 70,
-        DetectionSource.FolderName => 65,
+        DetectionSource.FolderName => 80,
         DetectionSource.FilenameKeyword => 60,
         DetectionSource.AmbiguousExtension => 40,
         _ => 60

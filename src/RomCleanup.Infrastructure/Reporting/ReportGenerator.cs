@@ -24,6 +24,8 @@ public sealed record ReportEntry
     public int VersionScore { get; init; }
     public string Console { get; init; } = "";
     public bool DatMatch { get; init; }
+    public string MatchLevel { get; init; } = "None";
+    public string MatchReasoning { get; init; } = "";
 }
 
 /// <summary>
@@ -132,7 +134,7 @@ public static class ReportGenerator
         var sb = new StringBuilder();
         // V2-L15: UTF-8 BOM for Excel compatibility
         sb.Append('\uFEFF');
-        sb.AppendLine("GameKey,Action,Category,Region,FileName,Extension,SizeBytes,RegionScore,FormatScore,VersionScore,Console,DatMatch");
+        sb.AppendLine("GameKey,Action,Category,Region,FileName,Extension,SizeBytes,RegionScore,FormatScore,VersionScore,Console,DatMatch,MatchLevel,MatchReasoning");
 
         foreach (var e in entries)
         {
@@ -148,7 +150,9 @@ public static class ReportGenerator
                 e.FormatScore.ToString(),
                 e.VersionScore.ToString(),
                 CsvSafe(e.Console),
-                e.DatMatch ? "1" : "0"));
+                e.DatMatch ? "1" : "0",
+                CsvSafe(e.MatchLevel),
+                CsvSafe(e.MatchReasoning)));
         }
 
         return sb.ToString();
@@ -303,7 +307,7 @@ tr:hover { background: rgba(137,180,250,0.05); }
         sb.AppendLine("<h2>Details</h2>");
         sb.AppendLine("<table id=\"reportTable\">");
         sb.AppendLine("<thead><tr>");
-        sb.AppendLine("<th>GameKey</th><th>Action</th><th>Category</th><th>Region</th><th>FileName</th><th>Ext</th><th>Size</th><th>Console</th><th>DAT</th>");
+        sb.AppendLine("<th>GameKey</th><th>Action</th><th>Category</th><th>Region</th><th>FileName</th><th>Ext</th><th>Size</th><th>Console</th><th>DAT</th><th>MatchLevel</th><th>Reasoning</th>");
         sb.AppendLine("</tr></thead>");
         sb.AppendLine("<tbody>");
 
@@ -332,6 +336,8 @@ tr:hover { background: rgba(137,180,250,0.05); }
             sb.Append($"<td>{Enc(FormatSize(e.SizeBytes))}</td>");
             sb.Append($"<td>{Enc(e.Console)}</td>");
             sb.Append($"<td>{(e.DatMatch ? "✓" : "")}</td>");
+            sb.Append($"<td>{Enc(e.MatchLevel)}</td>");
+            sb.Append($"<td title=\"{Enc(e.MatchReasoning)}\">{Enc(e.MatchReasoning)}</td>");
             sb.AppendLine("</tr>");
         }
 

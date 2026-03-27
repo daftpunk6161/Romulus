@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using RomCleanup.Api;
 using RomCleanup.Contracts.Errors;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
@@ -504,6 +505,64 @@ app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, RunLifecyc
     });
 });
 
+app.MapGet("/runs/{runId}/reviews", (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
+{
+    if (!Guid.TryParse(runId, out _))
+        return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
+
+    var run = mgr.Get(runId);
+    if (run is null)
+        return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
+
+    var queue = BuildReviewQueue(run);
+    return Results.Ok(queue);
+});
+
+app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
+{
+    if (!Guid.TryParse(runId, out _))
+        return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
+
+    var run = mgr.Get(runId);
+    if (run is null)
+        return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
+
+    ApiReviewApprovalRequest request;
+    try
+    {
+        request = await ctx.Request.ReadFromJsonAsync<ApiReviewApprovalRequest>() ?? new ApiReviewApprovalRequest();
+    }
+    catch (JsonException)
+    {
+        return ApiError(400, "RUN-INVALID-JSON", "Invalid JSON.");
+    }
+
+    var queue = BuildReviewQueue(run);
+    var matched = queue.Items.Where(item =>
+            (string.IsNullOrWhiteSpace(request.ConsoleKey) || string.Equals(item.ConsoleKey, request.ConsoleKey, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(request.MatchLevel) || string.Equals(item.MatchLevel, request.MatchLevel, StringComparison.OrdinalIgnoreCase)) &&
+            (request.Paths is null || request.Paths.Length == 0 || request.Paths.Contains(item.MainPath, StringComparer.OrdinalIgnoreCase)))
+        .ToArray();
+
+    foreach (var item in matched)
+        run.ApprovedReviewPaths.Add(item.MainPath);
+
+    var updated = BuildReviewQueue(run);
+    return Results.Ok(new
+    {
+        runId,
+        approvedCount = matched.Length,
+        totalApproved = run.ApprovedReviewPaths.Count,
+        queue = updated
+    });
+});
+
 app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunLifecycleManager mgr) =>
 {
     if (!Guid.TryParse(runId, out _))
@@ -753,6 +812,37 @@ static bool CanAccessRun(RunRecord run, string requesterClientId)
         return true;
 
     return string.Equals(run.OwnerClientId, requesterClientId, StringComparison.Ordinal);
+}
+
+static ApiReviewQueue BuildReviewQueue(RunRecord run)
+{
+    var core = run.CoreRunResult;
+    if (core is null)
+        return new ApiReviewQueue { RunId = run.RunId, Total = 0, Items = Array.Empty<ApiReviewItem>() };
+
+    var items = core.AllCandidates
+        .Where(c => c.SortDecision == SortDecision.Review || c.SortDecision == SortDecision.Blocked)
+        .OrderBy(c => c.ConsoleKey, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(c => c.MainPath, StringComparer.OrdinalIgnoreCase)
+        .Select(c => new ApiReviewItem
+        {
+            MainPath = c.MainPath,
+            FileName = Path.GetFileName(c.MainPath),
+            ConsoleKey = c.ConsoleKey,
+            SortDecision = c.SortDecision.ToString(),
+            MatchLevel = c.MatchEvidence.Level.ToString(),
+            MatchReasoning = c.MatchEvidence.Reasoning,
+            DetectionConfidence = c.DetectionConfidence,
+            Approved = run.ApprovedReviewPaths.Contains(c.MainPath)
+        })
+        .ToArray();
+
+    return new ApiReviewQueue
+    {
+        RunId = run.RunId,
+        Total = items.Length,
+        Items = items
+    };
 }
 
 static string SanitizeSseEventName(string eventName)

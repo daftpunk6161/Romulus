@@ -675,7 +675,14 @@ public sealed class HardRegressionInvariantTests : IDisposable
         var auditPath = Path.Combine(root, "audit.csv");
 
         var sorter = new RomCleanup.Infrastructure.Sorting.ConsoleSorter(fs, detector, audit, auditPath);
-        var sortResult = sorter.Sort(new[] { root }, new[] { ".sfc" }, dryRun: false);
+        var sortResult = sorter.Sort(
+            new[] { root },
+            new[] { ".sfc" },
+            dryRun: false,
+            enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [Path.Combine(root, "Game (USA).sfc")] = "SNES"
+            });
 
         // Muss CONSOLE_SORT Audit-Zeilen geschrieben haben wenn bewegt
         if (sortResult.Moved > 0)

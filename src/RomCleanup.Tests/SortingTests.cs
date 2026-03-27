@@ -41,6 +41,14 @@ public class ConsoleSorterTests : IDisposable
         return new ConsoleDetector(consoles);
     }
 
+    private static Dictionary<string, string> EnrichedKeys(params (string Path, string ConsoleKey)[] pairs)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, consoleKey) in pairs)
+            map[path] = consoleKey;
+        return map;
+    }
+
     [Fact]
     public void Sort_DryRun_DoesNotMoveFiles()
     {
@@ -49,7 +57,11 @@ public class ConsoleSorterTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var sorter = new ConsoleSorter(fs, detector);
 
-        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: true);
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".nes" },
+            dryRun: true,
+            enrichedConsoleKeys: EnrichedKeys((nesFile, "NES")));
 
         Assert.Equal(1, result.Total);
         Assert.Equal(1, result.Moved);
@@ -64,7 +76,12 @@ public class ConsoleSorterTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var sorter = new ConsoleSorter(fs, detector);
 
-        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: false);
+        var romPath = Path.Combine(_tempDir, "Game.nes");
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".nes" },
+            dryRun: false,
+            enrichedConsoleKeys: EnrichedKeys((romPath, "NES")));
 
         Assert.Equal(1, result.Moved);
         Assert.True(File.Exists(Path.Combine(_tempDir, "NES", "Game.nes")));
@@ -78,7 +95,12 @@ public class ConsoleSorterTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var sorter = new ConsoleSorter(fs, detector);
 
-        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: false);
+        var romPath = Path.Combine(_tempDir, "NES", "Game.nes");
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".nes" },
+            dryRun: false,
+            enrichedConsoleKeys: EnrichedKeys((romPath, "NES")));
 
         Assert.Equal(1, result.Skipped);
         Assert.Equal(0, result.Moved);
@@ -92,7 +114,12 @@ public class ConsoleSorterTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var sorter = new ConsoleSorter(fs, detector);
 
-        var result = sorter.Sort(new[] { _tempDir }, new[] { ".xyz" }, dryRun: true);
+        var romPath = Path.Combine(_tempDir, "Game.xyz");
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".xyz" },
+            dryRun: true,
+            enrichedConsoleKeys: EnrichedKeys((romPath, "UNKNOWN")));
 
         Assert.Equal(1, result.Unknown);
         Assert.True(result.UnknownReasons.ContainsKey("no-match"));
@@ -145,11 +172,62 @@ public class ConsoleSorterTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var sorter = new ConsoleSorter(fs, detector);
 
-        var result = sorter.Sort(new[] { root1, root2 }, new[] { ".nes", ".sfc" }, dryRun: false);
+        var result = sorter.Sort(
+            new[] { root1, root2 },
+            new[] { ".nes", ".sfc" },
+            dryRun: false,
+            enrichedConsoleKeys: EnrichedKeys(
+                (Path.Combine(root1, "Game1.nes"), "NES"),
+                (Path.Combine(root2, "Game2.sfc"), "SNES")));
 
         Assert.Equal(2, result.Moved);
         Assert.True(File.Exists(Path.Combine(root1, "NES", "Game1.nes")));
         Assert.True(File.Exists(Path.Combine(root2, "SNES", "Game2.sfc")));
+    }
+
+    [Fact]
+    public void Sort_MissingEnrichedConsoleKeys_SkipsAllFiles()
+    {
+        CreateFile("Game.nes", "nes content");
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var sorter = new ConsoleSorter(fs, detector);
+
+        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: true);
+
+        Assert.Equal(1, result.Total);
+        Assert.Equal(1, result.Skipped);
+        Assert.True(result.UnknownReasons.ContainsKey("missing-enriched-console-keys"));
+    }
+
+    [Fact]
+    public void Sort_MissingEnrichedConsoleKeys_WritesAuditWarning()
+    {
+        CreateFile("Game.nes", "nes content");
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new RecordingAuditStore();
+        var auditPath = Path.Combine(_tempDir, "audit.csv");
+        var sorter = new ConsoleSorter(fs, detector, audit, auditPath);
+
+        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: true);
+
+        Assert.Equal(1, result.Skipped);
+        Assert.Contains(audit.Rows, r => r.action == "CONSOLE_SORT" && r.reason == "missing-enriched-console-keys");
+    }
+
+    private sealed class RecordingAuditStore : IAuditStore
+    {
+        public List<(string action, string reason)> Rows { get; } = new();
+
+        public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata) { }
+        public bool TestMetadataSidecar(string auditCsvPath) => true;
+        public void Flush(string auditCsvPath) { }
+        public IReadOnlyList<string> Rollback(string auditCsvPath, string[] allowedRestoreRoots, string[] allowedCurrentRoots, bool dryRun = false)
+            => Array.Empty<string>();
+
+        public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath, string newPath, string action, string category = "", string hash = "", string reason = "")
+            => Rows.Add((action, reason));
     }
 }
 

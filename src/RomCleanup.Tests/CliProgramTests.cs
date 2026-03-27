@@ -318,6 +318,14 @@ public sealed class CliProgramTests : IDisposable
     }
 
     [Fact]
+    public void ParseArgs_ApproveReviews_SetsFlag()
+    {
+        var (opts, _) = CliProgram.ParseArgs(new[] { "--roots", _tempDir, "--approve-reviews" });
+        Assert.NotNull(opts);
+        Assert.True(opts!.ApproveReviews);
+    }
+
+    [Fact]
     public void ParseArgs_Yes_SetsFlag()
     {
         var (opts, _) = CliProgram.ParseArgs(new[] { "--roots", _tempDir, "--yes" });

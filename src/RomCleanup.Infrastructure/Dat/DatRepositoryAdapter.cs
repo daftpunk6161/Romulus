@@ -48,7 +48,8 @@ public sealed class DatRepositoryAdapter
                     if (rom.TryGetValue("hash", out var hash) && !string.IsNullOrWhiteSpace(hash))
                     {
                         rom.TryGetValue("name", out var romFileName);
-                        index.Add(consoleKey, hash, game.Key, romFileName);
+                        var isBios = IsLikelyBiosGameName(game.Key, romFileName);
+                        index.Add(consoleKey, hash, game.Key, romFileName, isBios);
                     }
                 }
             }
@@ -238,6 +239,28 @@ public sealed class DatRepositoryAdapter
         }
 
         return games;
+    }
+
+    private static bool IsLikelyBiosGameName(string gameName, string? romFileName)
+    {
+        if (ContainsBiosToken(gameName))
+            return true;
+        if (ContainsBiosToken(romFileName))
+            return true;
+        return false;
+    }
+
+    private static bool ContainsBiosToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return value.Contains("bios", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("firmware", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("boot rom", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("bootrom", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("sysrom", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("ipl", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

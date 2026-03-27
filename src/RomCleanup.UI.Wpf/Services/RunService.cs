@@ -85,7 +85,8 @@ public sealed class RunService : IRunService
 
         var orchestrator = new RunOrchestrator(
             env.FileSystem, env.AuditStore, env.ConsoleDetector, env.HashService, env.Converter, env.DatIndex, onProgress,
-            archiveHashService: env.ArchiveHashService);
+            archiveHashService: env.ArchiveHashService,
+            knownBiosHashes: env.KnownBiosHashes);
 
         _appState.SetValue("run.build.completedUtc", DateTime.UtcNow);
         _appState.SetValue("run.auditPath", auditPath);
@@ -154,6 +155,7 @@ public sealed class RunService : IRunService
             HashType = string.IsNullOrWhiteSpace(vm.DatHashType) ? "SHA1" : vm.DatHashType;
             ConvertFormat = (vm.ConvertEnabled || vm.ConvertOnly) ? "auto" : null;
             ConvertOnly = vm.ConvertOnly;
+            ApproveReviews = vm.ApproveReviews;
             TrashRoot = string.IsNullOrWhiteSpace(vm.TrashRoot) ? null : vm.TrashRoot;
             ConflictPolicy = vm.ConflictPolicy.ToString();
         }
@@ -174,6 +176,7 @@ public sealed class RunService : IRunService
         public string HashType { get; }
         public string? ConvertFormat { get; }
         public bool ConvertOnly { get; }
+        public bool ApproveReviews { get; }
         public string? TrashRoot { get; }
         public string ConflictPolicy { get; }
 

@@ -428,8 +428,24 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         });
 
         var sorter = new ConsoleSorter(new FileSystemAdapter(), detector, new AuditCsvStore(), null);
-        var first = sorter.Sort(new[] { root }, new[] { ".nes" }, dryRun: false);
-        var second = sorter.Sort(new[] { root }, new[] { ".nes" }, dryRun: false);
+        var originalPath = Path.Combine(root, "Metroid.nes");
+        var movedPath = Path.Combine(root, "NES", "Metroid.nes");
+        var first = sorter.Sort(
+            new[] { root },
+            new[] { ".nes" },
+            dryRun: false,
+            enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [originalPath] = "NES"
+            });
+        var second = sorter.Sort(
+            new[] { root },
+            new[] { ".nes" },
+            dryRun: false,
+            enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [movedPath] = "NES"
+            });
 
         var expected = Path.Combine(root, "NES", Path.GetFileName(rom));
         Assert.True(File.Exists(expected));
@@ -447,7 +463,14 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         var detector = BuildDetector(Array.Empty<ConsoleInfo>());
         var sorter = new ConsoleSorter(new FileSystemAdapter(), detector);
 
-        var result = sorter.Sort(new[] { root }, new[] { ".xyz" }, dryRun: true);
+        var result = sorter.Sort(
+            new[] { root },
+            new[] { ".xyz" },
+            dryRun: true,
+            enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [Path.Combine(root, "Mystery.xyz")] = "UNKNOWN"
+            });
         Assert.Equal(1, result.Unknown);
     }
 
@@ -466,7 +489,14 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         });
 
         var sorter = new ConsoleSorter(new FileSystemAdapter(), detector);
-        var result = sorter.Sort(new[] { root }, new[] { ".nes" }, dryRun: true);
+        var result = sorter.Sort(
+            new[] { root },
+            new[] { ".nes" },
+            dryRun: true,
+            enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [Path.Combine(psxFolder, "Odd.nes")] = "PSX"
+            });
 
         // Datei liegt bereits im durch Folder-Heuristik erwarteten Zielordner PSX -> skipped, nicht moved/unknown.
         Assert.Equal(0, result.Unknown);

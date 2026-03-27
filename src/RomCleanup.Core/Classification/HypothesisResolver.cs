@@ -10,13 +10,16 @@ namespace RomCleanup.Core.Classification;
 public static class HypothesisResolver
 {
     /// <summary>Baseline soft-only cap for weak single-source signals.</summary>
-    internal const int SoftOnlyCap = 65;
+    internal const int SoftOnlyCap = 75;
 
     /// <summary>Minimum confidence for Sort decision.</summary>
     internal const int SortThreshold = 85;
 
     /// <summary>Minimum confidence for Review decision (below Sort threshold).</summary>
-    internal const int ReviewThreshold = 65;
+    internal const int ReviewThreshold = 55;
+
+    /// <summary>Agreement bonus when multiple sources point to the same console.</summary>
+    internal const int MultiSourceAgreementBonus = 15;
 
     /// <summary>
     /// Resolve a set of hypotheses into a single console detection result.
@@ -88,10 +91,21 @@ public static class HypothesisResolver
                     var ratio = (double)sorted[1].Value.TotalConfidence / winner.Value.TotalConfidence;
                     if (ratio >= 0.7)
                     {
+                        var ambiguousEvidence = new MatchEvidence
+                        {
+                            Level = MatchLevel.Ambiguous,
+                            Reasoning = conflictDetail ?? "Ambiguous competing hypotheses.",
+                            Sources = hypotheses.Select(h => h.Source.ToString()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                            HasHardEvidence = false,
+                            HasConflict = true,
+                            DatVerified = false
+                        };
+
                         return new ConsoleDetectionResult(
                             "AMBIGUOUS", 0, hypotheses, true, conflictDetail,
                             HasHardEvidence: false, IsSoftOnly: true,
-                            SortDecision: SortDecision.Blocked);
+                            SortDecision: SortDecision.Blocked,
+                            MatchEvidence: ambiguousEvidence);
                     }
                 }
             }
@@ -105,13 +119,11 @@ public static class HypothesisResolver
         var hasHardEvidence = winnerSources.Any(s => s.IsHardEvidence());
         var runnerHasHardEvidence = hasConflict && sorted[1].Value.Items.Any(h => h.Source.IsHardEvidence());
 
-        // Aggregate confidence: use the max single confidence from the winner
-        // (capped at 100, boosted slightly if multiple sources agree)
+        // Aggregate confidence: use the max single confidence from the winner.
         var aggregateConfidence = winner.Value.MaxSingleConfidence;
         if (winner.Value.Items.Count > 1)
         {
-            // Multi-source agreement bonus: +5 per additional source, max 100
-            aggregateConfidence = Math.Min(100, aggregateConfidence + (winner.Value.Items.Count - 1) * 5);
+            aggregateConfidence = Math.Min(100, aggregateConfidence + MultiSourceAgreementBonus);
         }
 
         // Penalize if there's a strong competing hypothesis.
@@ -160,7 +172,21 @@ public static class HypothesisResolver
         }
 
         // Derive SortDecision
-        var sortDecision = DetermineSortDecision(aggregateConfidence, hasConflict, hasHardEvidence);
+        var sortDecision = DetermineSortDecision(
+            aggregateConfidence,
+            hasConflict,
+            hasHardEvidence,
+            winnerSources.Count,
+            winnerSources.Contains(DetectionSource.DatHash));
+
+        var matchEvidence = BuildMatchEvidence(
+            aggregateConfidence,
+            sortDecision,
+            hasHardEvidence,
+            hasConflict,
+            winnerSources,
+            winner.Key,
+            conflictDetail);
 
         return new ConsoleDetectionResult(
             winner.Key,
@@ -170,35 +196,34 @@ public static class HypothesisResolver
             conflictDetail,
             hasHardEvidence,
             isSoftOnly,
-            sortDecision);
+                sortDecision,
+                matchEvidence);
     }
 
     /// <summary>
     /// Derives the sort gate decision from confidence, conflict, and evidence type.
     /// </summary>
-    internal static SortDecision DetermineSortDecision(int confidence, bool conflict, bool hardEvidence)
+    internal static SortDecision DetermineSortDecision(int confidence, bool conflict, bool hardEvidence, int sourceCount, bool hasDatEvidence = false)
     {
-        // DAT-verified: always sort
-        if (confidence == 100)
+        // DAT-verified: only when DAT evidence exists.
+        if (confidence == 100 && hasDatEvidence)
             return SortDecision.DatVerified;
 
         // High confidence + hard evidence → Sort.
         // With conflict, require stronger confidence to avoid unsafe auto-sorting.
         if (confidence >= SortThreshold && hardEvidence && !conflict)
             return SortDecision.Sort;
-        if (confidence >= 90 && hardEvidence && conflict)
+        if (confidence >= 90 && hardEvidence)
             return SortDecision.Sort;
-
-        // Review corridor: medium/high confidence should route to review instead of hard block.
-        if (confidence >= SortThreshold && !hardEvidence)
-            return SortDecision.Review;
-        if (confidence >= ReviewThreshold && !conflict && hardEvidence)
-            return SortDecision.Review;
-        if (confidence >= 70 && conflict && hardEvidence)
-            return SortDecision.Review;
+        // Review corridor: explicitly allow non-conflicting detections,
+        // including soft evidence, to prevent over-blocking.
         if (confidence >= ReviewThreshold && !conflict)
             return SortDecision.Review;
-        if (confidence >= 60 && !conflict)
+
+        // Additional explicit guardrail from phase-1 plan:
+        // two agreeing sources with useful confidence should be reviewed,
+        // even if future threshold tuning changes ReviewThreshold.
+        if (confidence >= 70 && sourceCount >= 2 && !conflict)
             return SortDecision.Review;
 
         // Everything else → Blocked
@@ -214,10 +239,50 @@ public static class HypothesisResolver
             return winnerSources[0].SingleSourceCap();
 
         var strongestSourceCap = winnerSources.Max(s => s.SingleSourceCap());
-        var multiSourceAgreementBonus = Math.Min(15, (winnerSources.Count - 1) * 5);
+        var multiSourceAgreementBonus = MultiSourceAgreementBonus;
 
         // Soft-only detections can become strong enough for review but should not
         // exceed hard-evidence sort confidence without corroboration.
         return Math.Min(85, strongestSourceCap + multiSourceAgreementBonus);
+    }
+
+    private static MatchEvidence BuildMatchEvidence(
+        int confidence,
+        SortDecision sortDecision,
+        bool hasHardEvidence,
+        bool hasConflict,
+        IReadOnlyList<DetectionSource> winnerSources,
+        string winnerKey,
+        string? conflictDetail)
+    {
+        var level = sortDecision switch
+        {
+            SortDecision.DatVerified => MatchLevel.Exact,
+            SortDecision.Sort => MatchLevel.Strong,
+            SortDecision.Review when confidence >= 70 => MatchLevel.Probable,
+            SortDecision.Review => MatchLevel.Weak,
+            _ when hasConflict => MatchLevel.Ambiguous,
+            _ when confidence > 0 => MatchLevel.Weak,
+            _ => MatchLevel.None
+        };
+
+        var sourceLabels = winnerSources
+            .Select(static s => s.ToString())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var reasoning = hasConflict && !string.IsNullOrWhiteSpace(conflictDetail)
+            ? conflictDetail!
+            : $"Console={winnerKey}, Confidence={confidence}, Sources={string.Join("+", sourceLabels)}";
+
+        return new MatchEvidence
+        {
+            Level = level,
+            Reasoning = reasoning,
+            Sources = sourceLabels,
+            HasHardEvidence = hasHardEvidence,
+            HasConflict = hasConflict,
+            DatVerified = sortDecision == SortDecision.DatVerified
+        };
     }
 }

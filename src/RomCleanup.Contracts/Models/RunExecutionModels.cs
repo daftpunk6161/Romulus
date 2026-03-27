@@ -33,6 +33,7 @@ public sealed class RunOptions
     public string HashType { get; init; } = "SHA1";
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
+    public bool ApproveReviews { get; init; }
     public string? TrashRoot { get; init; }
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }

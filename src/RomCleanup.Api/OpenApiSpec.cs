@@ -70,6 +70,42 @@ public static class OpenApiSpec
         }
       }
     },
+    "/runs/{runId}/reviews": {
+      "get": {
+        "summary": "Get review queue for a run",
+        "responses": {
+          "200": {
+            "description": "Review queue",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiReviewQueue" }
+              }
+            }
+          },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" }
+        }
+      }
+    },
+    "/runs/{runId}/reviews/approve": {
+      "post": {
+        "summary": "Approve review items for a run",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApiReviewApprovalRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Approval applied" },
+          "400": { "description": "Validation error" },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" }
+        }
+      }
+    },
     "/runs/{runId}/cancel": {
       "post": {
         "summary": "Cancel a run idempotently",
@@ -120,6 +156,7 @@ public static class OpenApiSpec
           "hashType": { "type": "string", "enum": ["SHA1", "SHA256", "MD5"] },
           "convertFormat": { "type": "string", "enum": ["auto", "chd", "rvz", "zip", "7z"] },
           "convertOnly": { "type": "boolean" },
+          "approveReviews": { "type": "boolean" },
           "conflictPolicy": { "type": "string", "enum": ["Rename", "Skip", "Overwrite"] },
           "trashRoot": { "type": "string", "nullable": true },
           "extensions": { "type": "array", "items": { "type": "string" } }
@@ -227,6 +264,46 @@ public static class OpenApiSpec
           "safety": { "type": "string" }
         }
       },
+      "ApiReviewItem": {
+        "type": "object",
+        "properties": {
+          "mainPath": { "type": "string" },
+          "fileName": { "type": "string" },
+          "consoleKey": { "type": "string" },
+          "sortDecision": { "type": "string" },
+          "matchLevel": { "type": "string" },
+          "matchReasoning": { "type": "string" },
+          "detectionConfidence": { "type": "integer" },
+          "approved": { "type": "boolean" }
+        }
+      },
+      "ApiReviewQueue": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "total": { "type": "integer" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ApiReviewItem" } }
+        }
+      },
+      "ApiReviewApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "consoleKey": { "type": "string", "nullable": true },
+          "matchLevel": { "type": "string", "nullable": true },
+          "paths": { "type": "array", "items": { "type": "string" }, "nullable": true }
+        }
+      },
+      "MatchEvidence": {
+        "type": "object",
+        "properties": {
+          "level": { "type": "string", "enum": ["None", "Weak", "Probable", "Strong", "Exact", "Ambiguous"] },
+          "reasoning": { "type": "string" },
+          "sourceKeys": { "type": "array", "items": { "type": "string" } },
+          "hasHardEvidence": { "type": "boolean" },
+          "hasConflict": { "type": "boolean" },
+          "hasDatEvidence": { "type": "boolean" }
+        }
+      },
       "RomCandidate": {
         "type": "object",
         "properties": {
@@ -245,7 +322,8 @@ public static class OpenApiSpec
           "datMatch": { "type": "boolean" },
           "category": { "type": "string" },
           "classificationReasonCode": { "type": "string" },
-          "classificationConfidence": { "type": "integer" }
+          "classificationConfidence": { "type": "integer" },
+          "matchEvidence": { "$ref": "#/components/schemas/MatchEvidence" }
         }
       }
     },

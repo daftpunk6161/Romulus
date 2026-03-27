@@ -31,6 +31,7 @@ public sealed partial class RunOrchestrator
     private readonly Action<string>? _onProgress;
     private readonly IPhasePlanBuilder _phasePlanBuilder;
     private readonly Contracts.Ports.IHeaderlessHasher? _headerlessHasher;
+    private readonly IReadOnlySet<string>? _knownBiosHashes;
 
     public RunOrchestrator(
         IFileSystem fs,
@@ -42,7 +43,8 @@ public sealed partial class RunOrchestrator
         Action<string>? onProgress = null,
         IPhasePlanBuilder? phasePlanBuilder = null,
         ArchiveHashService? archiveHashService = null,
-        Contracts.Ports.IHeaderlessHasher? headerlessHasher = null)
+        Contracts.Ports.IHeaderlessHasher? headerlessHasher = null,
+        IReadOnlySet<string>? knownBiosHashes = null)
     {
         _fs = fs;
         _audit = audit;
@@ -54,6 +56,7 @@ public sealed partial class RunOrchestrator
         _onProgress = onProgress;
         _phasePlanBuilder = phasePlanBuilder ?? new PhasePlanBuilder();
         _headerlessHasher = headerlessHasher;
+        _knownBiosHashes = knownBiosHashes;
     }
 
     /// <summary>

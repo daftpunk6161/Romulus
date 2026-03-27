@@ -8,11 +8,13 @@ namespace RomCleanup.Tests.Conversion.ToolInvokers;
 public sealed class PsxtractInvokerTests : IDisposable
 {
     private readonly string _root;
+    private readonly PsxtractInvoker _sut;
 
     public PsxtractInvokerTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "RomCleanup.PsxtractInvokerTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
+        _sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
     }
 
     // ═══ Verify: CHD magic-byte check ═══════════════════════════════
@@ -26,9 +28,7 @@ public sealed class PsxtractInvokerTests : IDisposable
         "MComprHD"u8.CopyTo(header);
         File.WriteAllBytes(targetPath, header);
 
-        var sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
-
-        var status = sut.Verify(targetPath, Cap());
+        var status = _sut.Verify(targetPath, Cap());
 
         Assert.Equal(VerificationStatus.Verified, status);
     }
@@ -39,9 +39,7 @@ public sealed class PsxtractInvokerTests : IDisposable
         var targetPath = Path.Combine(_root, "game.chd");
         File.WriteAllBytes(targetPath, new byte[] { 0x50, 0x42, 0x50, 0x00, 0x01, 0x02, 0x03, 0x04 });
 
-        var sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
-
-        var status = sut.Verify(targetPath, Cap());
+        var status = _sut.Verify(targetPath, Cap());
 
         Assert.Equal(VerificationStatus.VerifyFailed, status);
     }
@@ -52,9 +50,7 @@ public sealed class PsxtractInvokerTests : IDisposable
         var targetPath = Path.Combine(_root, "game.chd");
         File.WriteAllBytes(targetPath, Array.Empty<byte>());
 
-        var sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
-
-        var status = sut.Verify(targetPath, Cap());
+        var status = _sut.Verify(targetPath, Cap());
 
         Assert.Equal(VerificationStatus.VerifyFailed, status);
     }
@@ -65,9 +61,7 @@ public sealed class PsxtractInvokerTests : IDisposable
         var targetPath = Path.Combine(_root, "game.chd");
         File.WriteAllBytes(targetPath, "MCom"u8.ToArray());
 
-        var sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
-
-        var status = sut.Verify(targetPath, Cap());
+        var status = _sut.Verify(targetPath, Cap());
 
         Assert.Equal(VerificationStatus.VerifyFailed, status);
     }
@@ -77,9 +71,7 @@ public sealed class PsxtractInvokerTests : IDisposable
     {
         var targetPath = Path.Combine(_root, "nonexistent.chd");
 
-        var sut = new PsxtractInvoker(new TestToolRunner(new Dictionary<string, string?>()));
-
-        var status = sut.Verify(targetPath, Cap());
+        var status = _sut.Verify(targetPath, Cap());
 
         Assert.Equal(VerificationStatus.VerifyFailed, status);
     }

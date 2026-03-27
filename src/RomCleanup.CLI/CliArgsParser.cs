@@ -98,6 +98,10 @@ internal static class CliArgsParser
                     opts.ConvertFormat = true;
                     break;
 
+                case "-approve-reviews" or "--approve-reviews":
+                    opts.ApproveReviews = true;
+                    break;
+
                 case "-conflictpolicy" or "--conflictpolicy":
                     if (!TryConsumeValue(args, ref i, "--conflictpolicy", errors, out var conflictPolicyVal))
                         break;
@@ -443,6 +447,7 @@ internal sealed class CliRunOptions
     public string? HashType { get; set; }
     public bool ConvertFormat { get; set; }
     public bool ConvertOnly { get; set; }
+    public bool ApproveReviews { get; set; }
     public string ConflictPolicy { get; set; } = RomCleanup.Contracts.RunConstants.DefaultConflictPolicy;
     public bool Yes { get; set; }
     public string? ReportPath { get; set; }

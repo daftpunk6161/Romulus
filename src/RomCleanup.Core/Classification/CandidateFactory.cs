@@ -31,7 +31,8 @@ public static class CandidateFactory
         bool detectionConflict = false,
         bool hasHardEvidence = false,
         bool isSoftOnly = true,
-        SortDecision sortDecision = SortDecision.Blocked)
+        SortDecision sortDecision = SortDecision.Blocked,
+        MatchEvidence? matchEvidence = null)
     {
         var effectiveGameKey = category == FileCategory.Bios
             ? $"__BIOS__{gameKey}"
@@ -61,7 +62,8 @@ public static class CandidateFactory
             DetectionConflict = detectionConflict,
             HasHardEvidence = hasHardEvidence,
             IsSoftOnly = isSoftOnly,
-            SortDecision = sortDecision
+            SortDecision = sortDecision,
+            MatchEvidence = matchEvidence ?? new MatchEvidence()
         };
     }
 }

@@ -659,9 +659,8 @@ public sealed class DetectionPipelineTests
         Assert.Equal("NES", result.ConsoleKey);
         Assert.True(result.HasConflict);
         Assert.NotNull(result.ConflictDetail);
-        // Runner max = 85 ≥ 80 → strong conflict → -20
-        // Winner max = 90 - 20 = 70
-        Assert.Equal(70, result.Confidence);
+        // Phase-1: hard winner vs soft conflict applies reduced penalty.
+        Assert.Equal(82, result.Confidence);
     }
 
     [Fact]
@@ -677,9 +676,8 @@ public sealed class DetectionPipelineTests
 
         Assert.Equal("NES", result.ConsoleKey);
         Assert.True(result.HasConflict);
-        // Runner max = 50 ≥ 50 → moderate conflict → -10
-        // Winner max = 90 - 10 = 80
-        Assert.Equal(80, result.Confidence);
+        // Phase-1: hard winner with adequate lead is not heavily penalized.
+        Assert.Equal(90, result.Confidence);
     }
 
     [Fact]
@@ -761,9 +759,9 @@ public sealed class DetectionPipelineTests
         var result = HypothesisResolver.Resolve(hypotheses);
 
         // SNES total=85 > MD total=40; SNES wins.
-        // Since winner evidence is soft-only (folder), resolver applies cap=65.
+        // Since winner evidence is soft-only (folder), phase-1 cap applies at 80.
         Assert.Equal("SNES", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence);
+        Assert.Equal(80, result.Confidence);
     }
 
     [Fact]
@@ -797,8 +795,8 @@ public sealed class DetectionPipelineTests
 
         // Both should group together (case-insensitive)
         Assert.False(result.HasConflict);
-        // Total for nes/NES = 175, max single = 90, bonus from 2 sources = +5 → 95
-        Assert.Equal(95, result.Confidence);
+        // Total for nes/NES = 175, max single = 90, phase-1 bonus from 2 sources = +15 → 100
+        Assert.Equal(100, result.Confidence);
     }
 
     [Fact]
@@ -908,7 +906,7 @@ public sealed class DetectionPipelineTests
     [InlineData(DetectionSource.DiscHeader, 92)]
     [InlineData(DetectionSource.CartridgeHeader, 90)]
     [InlineData(DetectionSource.SerialNumber, 75)]
-    [InlineData(DetectionSource.FolderName, 65)]
+    [InlineData(DetectionSource.FolderName, 80)]
     [InlineData(DetectionSource.ArchiveContent, 70)]
     [InlineData(DetectionSource.FilenameKeyword, 60)]
     [InlineData(DetectionSource.AmbiguousExtension, 40)]
@@ -926,10 +924,10 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("PS1", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence); // Capped from 85 to 65 (soft-only + single-source)
+        Assert.Equal(80, result.Confidence); // Capped from 85 to 80 (phase-1 folder single-source cap)
         Assert.True(result.IsSoftOnly);
         Assert.False(result.HasHardEvidence);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     [Fact]
@@ -942,9 +940,9 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("MD", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence); // Soft-only cap applied
+        Assert.Equal(85, result.Confidence); // phase-1 soft-only cap with multi-source agreement
         Assert.True(result.IsSoftOnly);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     [Fact]
@@ -957,9 +955,9 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("GBA", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence); // Soft-only cap: min(90, 65) = 65
+        Assert.Equal(85, result.Confidence); // phase-1 soft-only cap with multi-source agreement
         Assert.True(result.IsSoftOnly);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     [Fact]
@@ -1014,10 +1012,10 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("PS1", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence); // Soft-only cap wins: min(75, 65) = 65
+        Assert.Equal(75, result.Confidence); // single-source cap for serial remains 75
         Assert.False(result.HasHardEvidence); // SerialNumber is NOT hard evidence
         Assert.True(result.IsSoftOnly);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     [Fact]
@@ -1030,9 +1028,9 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("PS1", result.ConsoleKey);
-        Assert.Equal(65, result.Confidence); // Soft-only cap
+        Assert.Equal(85, result.Confidence); // phase-1 soft-only cap with multi-source agreement
         Assert.True(result.IsSoftOnly);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     [Fact]
@@ -1045,7 +1043,7 @@ public sealed class DetectionPipelineTests
         ]);
 
         Assert.Equal("PS2", result.ConsoleKey);
-        Assert.Equal(97, result.Confidence); // 92 + 5 bonus = 97
+        Assert.Equal(100, result.Confidence); // 92 + 15 bonus = 107, capped at 100
         Assert.True(result.HasHardEvidence);
         Assert.False(result.IsSoftOnly);
         Assert.Equal(SortDecision.Sort, result.SortDecision);
@@ -1076,9 +1074,9 @@ public sealed class DetectionPipelineTests
         Assert.Equal("NES", result.ConsoleKey);
         Assert.True(result.HasConflict);
         Assert.True(result.HasHardEvidence);
-        // Moderate conflict penalty: 90 - 10 = 80
-        Assert.Equal(80, result.Confidence);
-        Assert.Equal(SortDecision.Review, result.SortDecision);
+        // Phase-1: reduced penalty when hard evidence dominates soft runner-up.
+        Assert.Equal(90, result.Confidence);
+        Assert.Equal(SortDecision.Sort, result.SortDecision);
     }
 
     [Fact]
@@ -1140,14 +1138,14 @@ public sealed class DetectionPipelineTests
     [InlineData(85, false, true, SortDecision.Sort)]
     [InlineData(84, false, true, SortDecision.Review)]
     [InlineData(65, false, true, SortDecision.Review)]
-    [InlineData(64, false, true, SortDecision.Blocked)]
+    [InlineData(64, false, true, SortDecision.Review)]
     [InlineData(85, false, false, SortDecision.Review)]
-    [InlineData(85, true, true, SortDecision.Review)]
+    [InlineData(85, true, true, SortDecision.Blocked)]
     [InlineData(85, true, false, SortDecision.Blocked)]
     [InlineData(50, false, false, SortDecision.Blocked)]
     public void DetermineSortDecision_Matrix(int confidence, bool conflict, bool hardEvidence, SortDecision expected)
     {
-        Assert.Equal(expected, HypothesisResolver.DetermineSortDecision(confidence, conflict, hardEvidence));
+        Assert.Equal(expected, HypothesisResolver.DetermineSortDecision(confidence, conflict, hardEvidence, sourceCount: 1, hasDatEvidence: confidence == 100));
     }
 
     #endregion

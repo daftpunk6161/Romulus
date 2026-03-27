@@ -83,9 +83,11 @@ public sealed class RunManager
                 run.ProgressMessage = msg;
                 run.ProgressPercent = ProgressEstimator.EstimateFromMessage(msg);
             },
-            archiveHashService: env.ArchiveHashService);
+            archiveHashService: env.ArchiveHashService,
+            knownBiosHashes: env.KnownBiosHashes);
 
         var result = orchestrator.Execute(options, ct);
+        run.CoreRunResult = result;
         var projection = RunProjectionFactory.Create(result);
         var status = RunOutcomeExtensions.ParseRunOutcome(result.Status) switch
         {
@@ -125,6 +127,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
         HashType = run.HashType;
         ConvertFormat = run.ConvertFormat;
         ConvertOnly = run.ConvertOnly;
+        ApproveReviews = run.ApproveReviews;
         TrashRoot = run.TrashRoot;
         ConflictPolicy = run.ConflictPolicy;
     }
@@ -145,6 +148,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
     public string HashType { get; }
     public string? ConvertFormat { get; }
     public bool ConvertOnly { get; }
+    public bool ApproveReviews { get; }
     public string? TrashRoot { get; }
     public string ConflictPolicy { get; }
 }
@@ -199,6 +203,7 @@ public sealed class RunRequest
     public string? HashType { get; set; }
     public string? ConvertFormat { get; set; }
     public bool ConvertOnly { get; set; }
+    public bool ApproveReviews { get; set; }
     public string? ConflictPolicy { get; set; }
     public string? TrashRoot { get; set; }
     public string[]? Extensions { get; set; }
@@ -243,6 +248,7 @@ public sealed class RunRecord
     public string HashType { get; init; } = "SHA1";
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
+    public bool ApproveReviews { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
     [JsonIgnore]
     public string? TrashRoot { get; init; }
@@ -258,6 +264,10 @@ public sealed class RunRecord
         get { lock (_lock) return _result; }
         set { lock (_lock) _result = value; }
     }
+    [JsonIgnore]
+    public RunResult? CoreRunResult { get; set; }
+    [JsonIgnore]
+    public HashSet<string> ApprovedReviewPaths { get; } = new(StringComparer.OrdinalIgnoreCase);
     public string? ProgressMessage
     {
         get { lock (_lock) return _progressMessage; }
@@ -357,6 +367,32 @@ public sealed class ApiRunResult
     public OperationError? Error { get; init; }
 }
 
+public sealed class ApiReviewItem
+{
+    public string MainPath { get; init; } = string.Empty;
+    public string FileName { get; init; } = string.Empty;
+    public string ConsoleKey { get; init; } = string.Empty;
+    public string SortDecision { get; init; } = string.Empty;
+    public string MatchLevel { get; init; } = string.Empty;
+    public string MatchReasoning { get; init; } = string.Empty;
+    public int DetectionConfidence { get; init; }
+    public bool Approved { get; init; }
+}
+
+public sealed class ApiReviewQueue
+{
+    public string RunId { get; init; } = string.Empty;
+    public int Total { get; init; }
+    public ApiReviewItem[] Items { get; init; } = Array.Empty<ApiReviewItem>();
+}
+
+public sealed class ApiReviewApprovalRequest
+{
+    public string? ConsoleKey { get; set; }
+    public string? MatchLevel { get; set; }
+    public string[]? Paths { get; set; }
+}
+
 public sealed class ApiPhaseMetrics
 {
     public string? RunId { get; init; }
@@ -414,6 +450,7 @@ public sealed class RunStatusDto
     public string HashType { get; init; } = "SHA1";
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
+    public bool ApproveReviews { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
     public string[] Extensions { get; init; } = Array.Empty<string>();
     public DateTime StartedUtc { get; init; }
@@ -450,6 +487,7 @@ public static class RunStatusDtoMapper
             HashType = run.HashType,
             ConvertFormat = run.ConvertFormat,
             ConvertOnly = run.ConvertOnly,
+            ApproveReviews = run.ApproveReviews,
             ConflictPolicy = run.ConflictPolicy,
             Extensions = run.Extensions,
             StartedUtc = run.StartedUtc,

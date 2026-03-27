@@ -56,10 +56,14 @@ public partial class LibrarySafetyView : UserControl
 
         foreach (var c in candidates)
         {
+            var reason = !string.IsNullOrWhiteSpace(c.MatchEvidence.Reasoning)
+                ? c.MatchEvidence.Reasoning
+                : c.ClassificationReasonCode;
             var item = new SafetyListItem(
                 Path.GetFileName(c.MainPath),
                 c.ConsoleKey,
-                c.ClassificationReasonCode);
+                c.MatchEvidence.Level.ToString(),
+                reason);
 
             switch (c.SortDecision)
             {
@@ -69,6 +73,12 @@ public partial class LibrarySafetyView : UserControl
                 case SortDecision.Review:
                     review.Add(item);
                     break;
+            }
+
+            if (string.IsNullOrWhiteSpace(c.ConsoleKey) ||
+                c.ConsoleKey.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase))
+            {
+                unknown.Add(item);
             }
         }
 
@@ -89,4 +99,4 @@ public partial class LibrarySafetyView : UserControl
     }
 }
 
-internal sealed record SafetyListItem(string FileName, string ConsoleKey, string Reason);
+internal sealed record SafetyListItem(string FileName, string ConsoleKey, string MatchLevel, string Reason);

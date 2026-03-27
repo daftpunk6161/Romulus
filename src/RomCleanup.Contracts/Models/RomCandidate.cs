@@ -41,6 +41,9 @@ public sealed record RomCandidate
 
     /// <summary>The computed sort gate decision from the detection pipeline.</summary>
     public SortDecision SortDecision { get; init; } = SortDecision.Blocked;
+
+    /// <summary>Canonical evidence details for explainability and review batching.</summary>
+    public MatchEvidence MatchEvidence { get; init; } = new();
 }
 
 /// <summary>

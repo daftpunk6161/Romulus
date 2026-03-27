@@ -70,6 +70,7 @@ internal static class CliOptionsMapper
             hashType: hashType,
             convertFormat: cli.ConvertFormat ? "auto" : null,
             convertOnly: cli.ConvertOnly,
+            approveReviews: cli.ApproveReviews,
             trashRoot: cli.TrashRoot,
             conflictPolicy: cli.ConflictPolicy);
 
@@ -97,6 +98,7 @@ internal static class CliOptionsMapper
             string hashType,
             string? convertFormat,
             bool convertOnly,
+            bool approveReviews,
             string? trashRoot,
             string conflictPolicy)
         {
@@ -116,6 +118,7 @@ internal static class CliOptionsMapper
             HashType = hashType;
             ConvertFormat = convertFormat;
             ConvertOnly = convertOnly;
+            ApproveReviews = approveReviews;
             TrashRoot = trashRoot;
             ConflictPolicy = conflictPolicy;
         }
@@ -136,6 +139,7 @@ internal static class CliOptionsMapper
         public string HashType { get; }
         public string? ConvertFormat { get; }
         public bool ConvertOnly { get; }
+        public bool ApproveReviews { get; }
         public string? TrashRoot { get; }
         public string ConflictPolicy { get; }
     }

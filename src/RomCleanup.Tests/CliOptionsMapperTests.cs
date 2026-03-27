@@ -71,6 +71,23 @@ public sealed class CliOptionsMapperTests
     }
 
     [Fact]
+    public void Map_ApproveReviews_IsProjectedToRunOptions()
+    {
+        var settings = new RomCleanupSettings();
+        var cli = new CliRunOptions
+        {
+            Roots = new[] { "C:\\temp" },
+            ApproveReviews = true
+        };
+
+        var (runOptions, errors) = CliOptionsMapper.Map(cli, settings);
+
+        Assert.NotNull(runOptions);
+        Assert.Null(errors);
+        Assert.True(runOptions!.ApproveReviews);
+    }
+
+    [Fact]
     public void Map_WhenExtensionsExplicit_DoesNotMergeSettingsExtensions()
     {
         var settings = new RomCleanupSettings

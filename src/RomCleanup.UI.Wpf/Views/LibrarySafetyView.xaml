@@ -54,6 +54,8 @@
                     <TextBlock FontSize="10" Foreground="{DynamicResource BrushTextMuted}">
                       <Run Text="{Binding ConsoleKey, Mode=OneWay}"/>
                       <Run Text=" · "/>
+                      <Run Text="{Binding MatchLevel, Mode=OneWay}"/>
+                      <Run Text=" · "/>
                       <Run Text="{Binding Reason, Mode=OneWay}"/>
                     </TextBlock>
                   </StackPanel>
@@ -93,6 +95,8 @@
                     <TextBlock FontSize="10" Foreground="{DynamicResource BrushTextMuted}">
                       <Run Text="{Binding ConsoleKey, Mode=OneWay}"/>
                       <Run Text=" · "/>
+                      <Run Text="{Binding MatchLevel, Mode=OneWay}"/>
+                      <Run Text=" · "/>
                       <Run Text="{Binding Reason, Mode=OneWay}"/>
                     </TextBlock>
                   </StackPanel>
@@ -131,6 +135,8 @@
                                Foreground="{DynamicResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
                     <TextBlock FontSize="10" Foreground="{DynamicResource BrushTextMuted}">
                       <Run Text="{Binding ConsoleKey, Mode=OneWay}"/>
+                      <Run Text=" · "/>
+                      <Run Text="{Binding MatchLevel, Mode=OneWay}"/>
                       <Run Text=" · "/>
                       <Run Text="{Binding Reason, Mode=OneWay}"/>
                     </TextBlock>

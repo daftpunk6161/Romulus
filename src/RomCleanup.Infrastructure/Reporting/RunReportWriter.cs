@@ -32,7 +32,9 @@ public static class RunReportWriter
                 FormatScore = group.Winner.FormatScore,
                 VersionScore = (int)group.Winner.VersionScore,
                 Console = group.Winner.ConsoleKey ?? string.Empty,
-                DatMatch = group.Winner.DatMatch
+                DatMatch = group.Winner.DatMatch,
+                MatchLevel = group.Winner.MatchEvidence.Level.ToString(),
+                MatchReasoning = group.Winner.MatchEvidence.Reasoning
             });
             seenPaths.Add(group.Winner.MainPath);
 
@@ -52,7 +54,9 @@ public static class RunReportWriter
                     FormatScore = loser.FormatScore,
                     VersionScore = (int)loser.VersionScore,
                     Console = loser.ConsoleKey ?? string.Empty,
-                    DatMatch = loser.DatMatch
+                    DatMatch = loser.DatMatch,
+                    MatchLevel = loser.MatchEvidence.Level.ToString(),
+                    MatchReasoning = loser.MatchEvidence.Reasoning
                 });
                 seenPaths.Add(loser.MainPath);
             }
@@ -86,7 +90,9 @@ public static class RunReportWriter
                 FormatScore = candidate.FormatScore,
                 VersionScore = (int)candidate.VersionScore,
                 Console = candidate.ConsoleKey ?? string.Empty,
-                DatMatch = candidate.DatMatch
+                DatMatch = candidate.DatMatch,
+                MatchLevel = candidate.MatchEvidence.Level.ToString(),
+                MatchReasoning = candidate.MatchEvidence.Reasoning
             });
         }
 

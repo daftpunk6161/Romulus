@@ -488,7 +488,11 @@ public class Phase6QualityAssuranceTests
             var romPath = Path.Combine(dir, "unknown.chd");
             File.WriteAllBytes(romPath, new byte[64]);
 
-            // No enriched key = falls through to detector which returns UNKNOWN
+            var enrichedKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [romPath] = "UNKNOWN"
+            };
+
             var fs = new Infrastructure.FileSystem.FileSystemAdapter();
             var detector = CreateEmptyDetector();
             var sorter = new ConsoleSorter(fs, detector);
@@ -496,7 +500,8 @@ public class Phase6QualityAssuranceTests
             var result = sorter.Sort(
                 roots: [dir],
                 extensions: [".chd"],
-                dryRun: false);
+                dryRun: false,
+                enrichedConsoleKeys: enrichedKeys);
 
             Assert.Equal(0, result.Moved);
             Assert.Equal(1, result.Unknown);

@@ -329,6 +329,101 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task Runs_ApproveReviews_Flag_IsExposedInStatusDto()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                roots = new[] { root },
+                mode = "DryRun",
+                approveReviews = true
+            });
+
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var createResponse = await client.PostAsync("/runs?wait=true", content);
+            Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+            using var createDoc = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
+            var runId = createDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(runId));
+
+            var statusResponse = await client.GetAsync($"/runs/{runId}");
+            Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+
+            using var statusDoc = JsonDocument.Parse(await statusResponse.Content.ReadAsStringAsync());
+            var run = statusDoc.RootElement.GetProperty("run");
+            Assert.True(run.GetProperty("approveReviews").GetBoolean());
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public async Task Runs_ReviewsEndpoints_ReturnQueue_AndAllowApprovalByPath()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            // Generate at least one low-confidence candidate so review queue is populated.
+            File.WriteAllText(Path.Combine(root, "mystery_title_no_console_hint.bin"), "x");
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                roots = new[] { root },
+                mode = "DryRun"
+            });
+
+            using var createContent = new StringContent(payload, Encoding.UTF8, "application/json");
+            var createResponse = await client.PostAsync("/runs?wait=true", createContent);
+            Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+            using var createDoc = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
+            var runId = createDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(runId));
+
+            var reviewsResponse = await client.GetAsync($"/runs/{runId}/reviews");
+            Assert.Equal(HttpStatusCode.OK, reviewsResponse.StatusCode);
+
+            using var reviewsDoc = JsonDocument.Parse(await reviewsResponse.Content.ReadAsStringAsync());
+            var items = reviewsDoc.RootElement.GetProperty("items");
+            Assert.True(items.GetArrayLength() >= 1);
+
+            var firstPath = items[0].GetProperty("mainPath").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(firstPath));
+
+            var approvePayload = JsonSerializer.Serialize(new
+            {
+                paths = new[] { firstPath }
+            });
+            using var approveContent = new StringContent(approvePayload, Encoding.UTF8, "application/json");
+            var approveResponse = await client.PostAsync($"/runs/{runId}/reviews/approve", approveContent);
+            Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
+
+            using var approveDoc = JsonDocument.Parse(await approveResponse.Content.ReadAsStringAsync());
+            Assert.Equal(1, approveDoc.RootElement.GetProperty("approvedCount").GetInt32());
+
+            var updatedItems = approveDoc.RootElement.GetProperty("queue").GetProperty("items");
+            var approvedItem = updatedItems.EnumerateArray()
+                .First(item => string.Equals(item.GetProperty("mainPath").GetString(), firstPath, StringComparison.OrdinalIgnoreCase));
+            Assert.True(approvedItem.GetProperty("approved").GetBoolean());
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
+    [Fact]
     public async Task Runs_IdempotencyKey_RetryReusesCompletedRun()
     {
         using var factory = CreateFactory();

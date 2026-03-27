@@ -201,6 +201,7 @@ public sealed class RunEnvironmentBuilder
         // DAT
         DatIndex? datIndex = null;
         FileHashService? hashService = null;
+        var knownBiosHashes = LoadKnownBiosHashes(dataDir, onWarning);
         var effectiveDatRoot = !string.IsNullOrWhiteSpace(runOptions.DatRoot)
             ? runOptions.DatRoot
             : settings.Dat.DatRoot;
@@ -226,7 +227,40 @@ public sealed class RunEnvironmentBuilder
             onWarning?.Invoke("[Warning] DAT enabled but DatRoot not set or not found");
         }
 
-        return new RunEnvironment(fs, audit, consoleDetector, hashService, converter, datIndex, archiveHashService);
+        return new RunEnvironment(fs, audit, consoleDetector, hashService, converter, datIndex, archiveHashService, knownBiosHashes);
+    }
+
+    private static IReadOnlySet<string>? LoadKnownBiosHashes(string dataDir, Action<string>? onWarning)
+    {
+        var catalogPath = Path.Combine(dataDir, "bios-hashes.json");
+        if (!File.Exists(catalogPath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(catalogPath);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var hashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var value = item.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    hashes.Add(value.Trim());
+            }
+
+            return hashes.Count > 0 ? hashes : null;
+        }
+        catch (Exception ex)
+        {
+            onWarning?.Invoke($"[Warning] Could not load bios-hashes.json: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
@@ -313,11 +347,13 @@ public sealed class RunEnvironment
     public ArchiveHashService? ArchiveHashService { get; }
     public IFormatConverter? Converter { get; }
     public DatIndex? DatIndex { get; }
+    public IReadOnlySet<string>? KnownBiosHashes { get; }
 
     public RunEnvironment(FileSystemAdapter fileSystem, AuditCsvStore audit,
         ConsoleDetector? consoleDetector, FileHashService? hashService,
         FormatConverterAdapter? converter, DatIndex? datIndex,
-        ArchiveHashService? archiveHashService = null)
+        ArchiveHashService? archiveHashService = null,
+        IReadOnlySet<string>? knownBiosHashes = null)
     {
         FileSystem = fileSystem;
         AuditStore = audit;
@@ -326,5 +362,6 @@ public sealed class RunEnvironment
         ArchiveHashService = archiveHashService;
         Converter = converter;
         DatIndex = datIndex;
+        KnownBiosHashes = knownBiosHashes;
     }
 }

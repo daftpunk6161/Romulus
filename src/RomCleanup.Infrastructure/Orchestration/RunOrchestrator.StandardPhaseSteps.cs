@@ -167,6 +167,11 @@ public sealed partial class RunOrchestrator
                 enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
                 enrichedSortDecisions[c.MainPath] = c.SortDecision.ToString();
 
+                if (options.ApproveReviews && c.SortDecision == SortDecision.Review)
+                {
+                    enrichedSortDecisions[c.MainPath] = SortDecision.Sort.ToString();
+                }
+
                 // Non-game categories are blocked
                 if (c.Category != FileCategory.Game)
                 {

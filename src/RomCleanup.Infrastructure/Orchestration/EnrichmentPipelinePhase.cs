@@ -24,7 +24,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         foreach (var file in input.Files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, context, folderConsoleCache, versionScorer));
+            candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, input.KnownBiosHashes, context, folderConsoleCache, versionScorer));
         }
 
         return candidates;
@@ -41,7 +41,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         await foreach (var file in input.Files.WithCancellation(cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, context, folderConsoleCache, versionScorer);
+            yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, input.KnownBiosHashes, context, folderConsoleCache, versionScorer);
         }
     }
 
@@ -52,6 +52,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         ArchiveHashService? archiveHashService,
         DatIndex? datIndex,
         Contracts.Ports.IHeaderlessHasher? headerlessHasher,
+        IReadOnlySet<string>? knownBiosHashes,
         PipelineContext context,
         Dictionary<string, string> folderConsoleCache,
         VersionScorer versionScorer)
@@ -89,15 +90,18 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         bool hasHardEvidence = false;
         bool isSoftOnly = true;
         var sortDecision = SortDecision.Blocked;
+        MatchEvidence matchEvidence = new();
+        ConsoleDetectionResult? detectionResult = null;
         if (consoleDetector is not null)
         {
-            var result = consoleDetector.DetectWithConfidence(filePath, root);
-            consoleKey = result.ConsoleKey;
-            detectionConfidence = result.Confidence;
-            detectionConflict = result.HasConflict;
-            hasHardEvidence = result.HasHardEvidence;
-            isSoftOnly = result.IsSoftOnly;
-            sortDecision = result.SortDecision;
+            detectionResult = consoleDetector.DetectWithConfidence(filePath, root);
+            consoleKey = detectionResult.ConsoleKey;
+            detectionConfidence = detectionResult.Confidence;
+            detectionConflict = detectionResult.HasConflict;
+            hasHardEvidence = detectionResult.HasHardEvidence;
+            isSoftOnly = detectionResult.IsSoftOnly;
+            sortDecision = detectionResult.SortDecision;
+            matchEvidence = detectionResult.MatchEvidence ?? new MatchEvidence();
         }
 
         var regionTag = Core.Regions.RegionDetector.GetRegionTag(fileName);
@@ -106,6 +110,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var verScore = versionScorer.GetVersionScore(fileName);
 
         bool datMatch = false;
+        bool datMatchedBios = false;
+        bool datResolvedFromAmbiguousCandidates = false;
         string? computedHash = null;
         string? computedHeaderlessHash = null;
         if (datIndex is not null && hashService is not null)
@@ -126,32 +132,44 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 foreach (var innerHash in innerHashes)
                 {
                     computedHash ??= innerHash;
-                    if (consoleKey is "UNKNOWN" or "")
+                    if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
                     {
-                        var anyMatch = datIndex.LookupAny(innerHash);
-                        if (anyMatch is not null)
+                        var unknownResolution = ResolveUnknownDatMatch(datIndex, innerHash, detectionResult);
+                        if (unknownResolution.IsMatch)
                         {
                             datMatch = true;
                             computedHash = innerHash;
+                            datMatchedBios = unknownResolution.IsBios;
+                            datResolvedFromAmbiguousCandidates = unknownResolution.ResolvedFromAmbiguousCandidates;
                             var previousConsole = consoleKey;
-                            consoleKey = anyMatch.Value.ConsoleKey;
+                            consoleKey = unknownResolution.ConsoleKey!;
                             if (!string.IsNullOrEmpty(previousConsole) &&
                                 previousConsole != "UNKNOWN" &&
                                 !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
                             {
                                 detectionConflict = true;
                             }
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                            if (unknownResolution.ResolvedFromAmbiguousCandidates)
+                            {
+                                context.OnProgress?.Invoke(
+                                    $"[DAT] Mehrdeutigen Hash via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                            }
+                            else
+                            {
+                                context.OnProgress?.Invoke(
+                                    $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                            }
                             break;
                         }
                     }
                     else
                     {
-                        if (datIndex.Lookup(consoleKey, innerHash) is not null)
+                        var byConsole = datIndex.LookupWithFilename(consoleKey, innerHash);
+                        if (byConsole is not null)
                         {
                             datMatch = true;
                             computedHash = innerHash;
+                            datMatchedBios = byConsole.Value.IsBios;
                             break;
                         }
                     }
@@ -175,23 +193,33 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 computedHash ??= hash;
                 if (hash is not null)
                 {
-                    if (consoleKey is "UNKNOWN" or "")
+                    if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
                     {
-                        var anyMatch = datIndex.LookupAny(hash);
-                        if (anyMatch is not null)
+                        var unknownResolution = ResolveUnknownDatMatch(datIndex, hash, detectionResult);
+                        if (unknownResolution.IsMatch)
                         {
                             datMatch = true;
                             computedHash = hash;
+                            datMatchedBios = unknownResolution.IsBios;
+                            datResolvedFromAmbiguousCandidates = unknownResolution.ResolvedFromAmbiguousCandidates;
                             var previousConsole = consoleKey;
-                            consoleKey = anyMatch.Value.ConsoleKey;
+                            consoleKey = unknownResolution.ConsoleKey!;
                             if (!string.IsNullOrEmpty(previousConsole) &&
                                 previousConsole != "UNKNOWN" &&
                                 !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
                             {
                                 detectionConflict = true;
                             }
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                            if (unknownResolution.ResolvedFromAmbiguousCandidates)
+                            {
+                                context.OnProgress?.Invoke(
+                                    $"[DAT] Mehrdeutigen Hash via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                            }
+                            else
+                            {
+                                context.OnProgress?.Invoke(
+                                    $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                            }
                         }
                         else
                         {
@@ -202,9 +230,52 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     }
                     else
                     {
-                        datMatch = datIndex.Lookup(consoleKey, hash) is not null;
+                        var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
+                        datMatch = byConsole is not null;
+                        datMatchedBios = byConsole is not null && byConsole.Value.IsBios;
                     }
                 }
+            }
+        }
+
+        if (datMatchedBios)
+        {
+            category = FileCategory.Bios;
+            matchEvidence = matchEvidence with
+            {
+                Reasoning = string.IsNullOrWhiteSpace(matchEvidence.Reasoning)
+                    ? "DAT marks this hash as BIOS."
+                    : $"{matchEvidence.Reasoning}; DAT marks hash as BIOS",
+                Level = matchEvidence.Level == MatchLevel.None ? MatchLevel.Strong : matchEvidence.Level
+            };
+        }
+
+        if (knownBiosHashes is not null && hashService is not null && string.IsNullOrWhiteSpace(computedHash))
+        {
+            computedHash = hashService.GetHash(filePath, context.Options.HashType);
+        }
+
+        if (knownBiosHashes is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(computedHash) && knownBiosHashes.Contains(computedHash))
+            {
+                category = FileCategory.Bios;
+                matchEvidence = matchEvidence with
+                {
+                    Level = MatchLevel.Exact,
+                    Reasoning = "Known BIOS hash catalog match.",
+                    DatVerified = matchEvidence.DatVerified
+                };
+            }
+            if (!string.IsNullOrWhiteSpace(computedHeaderlessHash) && knownBiosHashes.Contains(computedHeaderlessHash))
+            {
+                category = FileCategory.Bios;
+                matchEvidence = matchEvidence with
+                {
+                    Level = MatchLevel.Exact,
+                    Reasoning = "Known BIOS headerless hash catalog match.",
+                    DatVerified = matchEvidence.DatVerified
+                };
             }
         }
 
@@ -216,9 +287,34 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 : 100;
             hasHardEvidence = true;
             isSoftOnly = false;
-            sortDecision = detectionConflict
-                ? SortDecision.Review
-                : SortDecision.DatVerified;
+            if (datResolvedFromAmbiguousCandidates)
+            {
+                sortDecision = SortDecision.Review;
+                matchEvidence = new MatchEvidence
+                {
+                    Level = MatchLevel.Ambiguous,
+                    Reasoning = "DAT hash matched multiple consoles; resolved using detector hypotheses and routed to review.",
+                    Sources = new[] { "DatHash", "DetectorHypotheses" },
+                    HasHardEvidence = true,
+                    HasConflict = true,
+                    DatVerified = false
+                };
+            }
+            else
+            {
+                sortDecision = detectionConflict
+                    ? SortDecision.Review
+                    : SortDecision.DatVerified;
+                matchEvidence = new MatchEvidence
+                {
+                    Level = MatchLevel.Exact,
+                    Reasoning = "Exact DAT hash match.",
+                    Sources = new[] { "DatHash" },
+                    HasHardEvidence = true,
+                    HasConflict = detectionConflict,
+                    DatVerified = !detectionConflict
+                };
+            }
         }
 
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
@@ -257,7 +353,63 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             detectionConflict: detectionConflict,
             hasHardEvidence: hasHardEvidence,
             isSoftOnly: isSoftOnly,
-            sortDecision: sortDecision);
+                sortDecision: sortDecision,
+                matchEvidence: matchEvidence);
+    }
+
+    private static DatUnknownResolution ResolveUnknownDatMatch(
+        DatIndex datIndex,
+        string hash,
+        ConsoleDetectionResult? detectionResult)
+    {
+        var matches = datIndex.LookupAllByHash(hash);
+        if (matches.Count == 0)
+            return DatUnknownResolution.NoMatch;
+
+        if (matches.Count == 1)
+        {
+            var single = matches[0];
+            return new DatUnknownResolution(true, single.ConsoleKey, single.Entry.IsBios, false);
+        }
+
+        if (detectionResult is null || detectionResult.Hypotheses.Count == 0)
+            return DatUnknownResolution.NoMatch;
+
+        var matchMap = new Dictionary<string, DatIndex.DatIndexEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (consoleKey, entry) in matches)
+        {
+            if (!matchMap.ContainsKey(consoleKey))
+                matchMap[consoleKey] = entry;
+        }
+
+        var rankedHypothesisKeys = detectionResult.Hypotheses
+            .OrderByDescending(h => h.Confidence)
+            .Select(h => h.ConsoleKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        string? selectedKey = null;
+        foreach (var hypothesisKey in rankedHypothesisKeys)
+        {
+            if (matchMap.ContainsKey(hypothesisKey))
+            {
+                selectedKey = hypothesisKey;
+                break;
+            }
+        }
+
+        if (selectedKey is null)
+            return DatUnknownResolution.NoMatch;
+
+        return new DatUnknownResolution(true, selectedKey, matchMap[selectedKey].IsBios, true);
+    }
+
+    private readonly record struct DatUnknownResolution(
+        bool IsMatch,
+        string? ConsoleKey,
+        bool IsBios,
+        bool ResolvedFromAmbiguousCandidates)
+    {
+        public static DatUnknownResolution NoMatch { get; } = new(false, null, false, false);
     }
 
 }
@@ -268,7 +420,8 @@ public sealed record EnrichmentPhaseInput(
     FileHashService? HashService,
     ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex,
-    Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null);
+    Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
+    IReadOnlySet<string>? KnownBiosHashes = null);
 
 public sealed record EnrichmentPhaseStreamingInput(
     IAsyncEnumerable<ScannedFileEntry> Files,
@@ -276,4 +429,5 @@ public sealed record EnrichmentPhaseStreamingInput(
     FileHashService? HashService,
     ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex,
-    Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null);
+    Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
+    IReadOnlySet<string>? KnownBiosHashes = null);

@@ -145,6 +145,9 @@ public sealed partial class MainViewModel
     private bool _aggressiveJunk;
 
     [ObservableProperty]
+    private bool _approveReviews;
+
+    [ObservableProperty]
     private bool _crcVerifyScan;
 
     [ObservableProperty]
