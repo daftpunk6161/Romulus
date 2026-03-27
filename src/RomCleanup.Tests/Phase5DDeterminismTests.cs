@@ -61,46 +61,6 @@ public sealed class CrossRootTiebreakerTests
 }
 
 // ============================================================================
-// TASK-155: InsightsEngine deterministic .First()
-// ============================================================================
-public sealed class InsightsEngineDeterminismTests
-{
-    [Fact]
-    public void GetCrossCollectionHints_DeterministicWinnerPath()
-    {
-        var tempBase = Path.Combine(Path.GetTempPath(), $"insights_det_{Guid.NewGuid():N}");
-        var root1 = Path.Combine(tempBase, "root1");
-        var root2 = Path.Combine(tempBase, "root2");
-        Directory.CreateDirectory(root1);
-        Directory.CreateDirectory(root2);
-
-        try
-        {
-            // Same game key across two roots
-            File.WriteAllText(Path.Combine(root1, "Zelda (EU).zip"), "data1");
-            File.WriteAllText(Path.Combine(root2, "Zelda (US).zip"), "data2");
-
-            var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
-            var engine = new InsightsEngine(fs);
-
-            string[] extensions = [".zip"];
-            var hints1 = engine.GetCrossCollectionHints([root1, root2], extensions, top: 10);
-            var hints2 = engine.GetCrossCollectionHints([root1, root2], extensions, top: 10);
-
-            // Must be deterministic across invocations
-            if (hints1.Count > 0 && hints2.Count > 0)
-            {
-                Assert.Equal(hints1[0].WinnerPath, hints2[0].WinnerPath);
-            }
-        }
-        finally
-        {
-            try { Directory.Delete(tempBase, true); } catch { }
-        }
-    }
-}
-
-// ============================================================================
 // TASK-156: VersionScore overflow protection
 // ============================================================================
 public sealed class VersionScoreOverflowTests

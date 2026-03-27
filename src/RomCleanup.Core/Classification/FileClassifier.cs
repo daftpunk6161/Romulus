@@ -16,7 +16,10 @@ public static class FileClassifier
     private static readonly TimeSpan RxTimeout = SafeRegex.DefaultTimeout;
 
     private static readonly Regex RxBios = new(
-        @"\((bios|firmware)\)|\[bios\]|^\s*bios\b",
+        @"\((bios|firmware)\)|\[bios\]|^\s*bios(?:\s|_|-|\.|\d|$)"
+        + @"|\b(?:gba|dc|psx|ps1|ps2|nds?)_bios\b"
+        + @"|\bscph[-_ ]?\d{3,6}\b"
+        + @"|\bboot[._ -]?rom\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 
     private static readonly Regex RxJunkTags = new(

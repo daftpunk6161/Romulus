@@ -53,8 +53,28 @@ public sealed class PsxtractInvoker(IToolRunner tools) : IToolInvoker
         ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
         ArgumentNullException.ThrowIfNull(capability);
 
-        return File.Exists(targetPath)
-            ? VerificationStatus.Verified
-            : VerificationStatus.VerifyFailed;
+        if (!File.Exists(targetPath))
+            return VerificationStatus.VerifyFailed;
+
+        // V07 audit fix: verify CHD magic bytes ("MComprHD") instead of just file existence
+        try
+        {
+            using var stream = File.OpenRead(targetPath);
+            if (stream.Length < 8)
+                return VerificationStatus.VerifyFailed;
+
+            Span<byte> magic = stackalloc byte[8];
+            var read = stream.ReadAtLeast(magic, 8, throwOnEndOfStream: false);
+            if (read < 8)
+                return VerificationStatus.VerifyFailed;
+
+            return magic.SequenceEqual("MComprHD"u8)
+                ? VerificationStatus.Verified
+                : VerificationStatus.VerifyFailed;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return VerificationStatus.VerifyFailed;
+        }
     }
 }

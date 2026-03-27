@@ -9,7 +9,7 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public static class HypothesisResolver
 {
-    /// <summary>Soft-only detections are capped at this value (never auto-sortable).</summary>
+    /// <summary>Baseline soft-only cap for weak single-source signals.</summary>
     internal const int SoftOnlyCap = 65;
 
     /// <summary>Minimum confidence for Sort decision.</summary>
@@ -97,6 +97,14 @@ public static class HypothesisResolver
             }
         }
 
+        var winnerSources = winner.Value.Items
+            .Select(i => i.Source)
+            .Distinct()
+            .ToList();
+
+        var hasHardEvidence = winnerSources.Any(s => s.IsHardEvidence());
+        var runnerHasHardEvidence = hasConflict && sorted[1].Value.Items.Any(h => h.Source.IsHardEvidence());
+
         // Aggregate confidence: use the max single confidence from the winner
         // (capped at 100, boosted slightly if multiple sources agree)
         var aggregateConfidence = winner.Value.MaxSingleConfidence;
@@ -106,34 +114,43 @@ public static class HypothesisResolver
             aggregateConfidence = Math.Min(100, aggregateConfidence + (winner.Value.Items.Count - 1) * 5);
         }
 
-        // Penalize if there's a strong competing hypothesis
+        // Penalize if there's a strong competing hypothesis.
+        // Keep deterministic behavior but avoid over-penalizing hard winner evidence
+        // against weaker soft-context runner-up signals.
         if (hasConflict)
         {
             var runnerConfidence = sorted[1].Value.MaxSingleConfidence;
+            var winnerConfidence = winner.Value.MaxSingleConfidence;
+            var confidenceDelta = winnerConfidence - runnerConfidence;
+
+            var effectivePenalty = 0;
             if (runnerConfidence >= 80)
             {
-                // Strong conflict — reduce confidence
-                aggregateConfidence = Math.Max(30, aggregateConfidence - 20);
+                effectivePenalty = 20;
             }
             else if (runnerConfidence >= 50)
             {
-                aggregateConfidence = Math.Max(40, aggregateConfidence - 10);
+                effectivePenalty = 10;
             }
+
+            if (hasHardEvidence && !runnerHasHardEvidence)
+            {
+                // Weak conflict against hard evidence: do not kill confidence aggressively.
+                effectivePenalty = runnerConfidence >= 80
+                    ? (confidenceDelta >= 10 ? 5 : 8)
+                    : (confidenceDelta >= 10 ? 0 : 5);
+            }
+
+            aggregateConfidence = Math.Max(30, aggregateConfidence - effectivePenalty);
         }
-
-        // Evidence classification
-        var winnerSources = winner.Value.Items
-            .Select(i => i.Source)
-            .Distinct()
-            .ToList();
-
-        var hasHardEvidence = winnerSources.Any(s => s.IsHardEvidence());
         var isSoftOnly = !hasHardEvidence;
 
-        // Soft-only cap: weak signals alone cannot reach auto-sort thresholds
+        // Soft-only cap: contextual-only detection remains bounded and explainable.
+        // Source-specific caps remain respected, and multiple agreeing soft sources
+        // may raise confidence into Review territory.
         if (isSoftOnly)
         {
-            aggregateConfidence = Math.Min(aggregateConfidence, SoftOnlyCap);
+            aggregateConfidence = Math.Min(aggregateConfidence, ComputeSoftOnlyCap(winnerSources));
         }
 
         // Single-source cap: one signal type alone is capped per its reliability
@@ -165,19 +182,42 @@ public static class HypothesisResolver
         if (confidence == 100)
             return SortDecision.DatVerified;
 
-        // High confidence + hard evidence + no conflict → Sort
-        if (confidence >= SortThreshold && !conflict && hardEvidence)
+        // High confidence + hard evidence → Sort.
+        // With conflict, require stronger confidence to avoid unsafe auto-sorting.
+        if (confidence >= SortThreshold && hardEvidence && !conflict)
+            return SortDecision.Sort;
+        if (confidence >= 90 && hardEvidence && conflict)
             return SortDecision.Sort;
 
-        // High confidence but soft-only or conflicted → Review
-        if (confidence >= SortThreshold && !conflict && !hardEvidence)
+        // Review corridor: medium/high confidence should route to review instead of hard block.
+        if (confidence >= SortThreshold && !hardEvidence)
             return SortDecision.Review;
         if (confidence >= ReviewThreshold && !conflict && hardEvidence)
             return SortDecision.Review;
-        if (confidence >= ReviewThreshold && conflict && hardEvidence)
+        if (confidence >= 70 && conflict && hardEvidence)
+            return SortDecision.Review;
+        if (confidence >= ReviewThreshold && !conflict)
+            return SortDecision.Review;
+        if (confidence >= 60 && !conflict)
             return SortDecision.Review;
 
         // Everything else → Blocked
         return SortDecision.Blocked;
+    }
+
+    private static int ComputeSoftOnlyCap(IReadOnlyList<DetectionSource> winnerSources)
+    {
+        if (winnerSources.Count == 0)
+            return SoftOnlyCap;
+
+        if (winnerSources.Count == 1)
+            return winnerSources[0].SingleSourceCap();
+
+        var strongestSourceCap = winnerSources.Max(s => s.SingleSourceCap());
+        var multiSourceAgreementBonus = Math.Min(15, (winnerSources.Count - 1) * 5);
+
+        // Soft-only detections can become strong enough for review but should not
+        // exceed hard-evidence sort confidence without corroboration.
+        return Math.Min(85, strongestSourceCap + multiSourceAgreementBonus);
     }
 }

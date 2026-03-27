@@ -450,4 +450,22 @@ public sealed class HygieneCleanupRegressionTests
         }
         return Path.Combine("src", "RomCleanup.UI.Wpf", "MainWindow.xaml.cs");
     }
+
+    // ═══ Round 4: Orphaned services must stay removed ═════════════════
+
+    private static readonly Assembly InfraAssembly = typeof(RomCleanup.Infrastructure.Configuration.SettingsLoader).Assembly;
+
+    [Theory]
+    [InlineData("InsightsEngine")]
+    [InlineData("RunHistoryService")]
+    [InlineData("ScanIndexService")]
+    public void OrphanedService_MustNotExistInInfraAssembly(string typeName)
+    {
+        // Audit O01/O03/O04: These services were built with tests but never wired
+        // into DI or production code. They are dead maintenance weight.
+        var type = InfraAssembly.GetTypes()
+            .FirstOrDefault(t => t.Name == typeName);
+
+        Assert.Null(type);
+    }
 }

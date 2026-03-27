@@ -1,23 +1,19 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // LEGACY: V2 remaining gap-fill tests. Still active — do not delete.
-// These tests cover CancellationToken, CJK/Unicode, InsightsEngine, concurrency.
+// These tests cover CancellationToken, CJK/Unicode, concurrency.
 // Migrate to domain-specific test classes when revisiting test organization.
 // ══════════════════════════════════════════════════════════════════════════════
 using System.IO.Compression;
-using RomCleanup.Contracts.Models;
-using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Scoring;
-using RomCleanup.Infrastructure.Analytics;
 using RomCleanup.Infrastructure.Hashing;
-using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
 
 namespace RomCleanup.Tests;
 
 /// <summary>
 /// V2 remaining test gaps: CancellationToken, IsKnownFormat,
-/// CJK/Unicode edge-cases, InsightsEngine coverage, concurrency stability.
+/// CJK/Unicode edge-cases, concurrency stability.
 /// </summary>
 public sealed class V2RemainingTests : IDisposable
 {
@@ -205,71 +201,6 @@ public sealed class V2RemainingTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  V2-TEST-L01: InsightsEngine — Additional Coverage
-    // ═══════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void InsightsEngine_ExportInspectorCsv_ContainsHeaders()
-    {
-        var dir = Path.Combine(_tempDir, "csv_export");
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "Game (USA).zip"), "test");
-        File.WriteAllText(Path.Combine(dir, "Game (Europe).zip"), "test");
-
-        var fs = new StubFs(Directory.GetFiles(dir));
-        var engine = new InsightsEngine(fs);
-
-        var rows = engine.GetDuplicateInspectorRows(
-            roots: [dir],
-            extensions: [".zip"],
-            preferRegions: ["US"]);
-
-        var csvPath = Path.Combine(dir, "inspector.csv");
-        InsightsEngine.ExportInspectorCsv(rows, csvPath);
-
-        Assert.True(File.Exists(csvPath));
-        var lines = File.ReadAllLines(csvPath);
-        Assert.True(lines.Length >= 1); // At least header row
-        Assert.Contains("GameKey", lines[0]);
-    }
-
-    [Fact]
-    public void InsightsEngine_GetDuplicateInspectorRows_EmptyDir_ReturnsEmpty()
-    {
-        var dir = Path.Combine(_tempDir, "empty_inspect");
-        Directory.CreateDirectory(dir);
-
-        var fs = new StubFs();
-        var engine = new InsightsEngine(fs);
-
-        var rows = engine.GetDuplicateInspectorRows(
-            roots: [dir],
-            extensions: [".zip"],
-            preferRegions: ["US"]);
-
-        Assert.Empty(rows);
-    }
-
-    [Fact]
-    public void GetCollectionHealthRows_WithDatMatch_ShowsCoverage()
-    {
-        var result = new RunResult
-        {
-            AllCandidates =
-            [
-                new RomCandidate { MainPath = "a.zip", ConsoleKey = "NES", Extension = ".zip", DatMatch = true },
-                new RomCandidate { MainPath = "b.zip", ConsoleKey = "NES", Extension = ".zip", DatMatch = false },
-                new RomCandidate { MainPath = "c.iso", ConsoleKey = "NES", Extension = ".iso", DatMatch = true }
-            ],
-            DedupeGroups = []
-        };
-
-        var rows = InsightsEngine.GetCollectionHealthRows(result);
-        Assert.Single(rows);
-        Assert.Equal(3, rows[0].Roms);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
     //  V2-TEST-M03: Long Paths Edge-Case
     // ═══════════════════════════════════════════════════════════════════
 
@@ -376,19 +307,4 @@ public sealed class V2RemainingTests : IDisposable
         Assert.Empty(errors);
     }
 
-    // ── StubFs for InsightsEngine tests ──
-    private sealed class StubFs : IFileSystem
-    {
-        private readonly IReadOnlyList<string> _files;
-        public StubFs(IReadOnlyList<string>? files = null) => _files = files ?? [];
-        public bool TestPath(string literalPath, string pathType = "Any") => true;
-        public string EnsureDirectory(string path) => path;
-        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? extensions = null) => _files;
-        public string? MoveItemSafely(string src, string dest) => dest;
-        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
-            => Path.Combine(rootPath, relativePath);
-        public bool IsReparsePoint(string path) => false;
-        public void DeleteFile(string path) { }
-        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
-    }
 }

@@ -11,7 +11,6 @@ using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Regions;
 using RomCleanup.Core.Rules;
 using RomCleanup.Core.Scoring;
-using RomCleanup.Infrastructure.Analytics;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.Configuration;
 using RomCleanup.Infrastructure.Conversion;
@@ -19,7 +18,6 @@ using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.Deduplication;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Hashing;
-using RomCleanup.Infrastructure.History;
 using RomCleanup.Infrastructure.Quarantine;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Safety;
@@ -889,11 +887,11 @@ public sealed class AuditComplianceTests : IDisposable
     }
 
     /// <summary>
-    /// AUDIT3-TEST-007: InsightsEngine Winner vs DeduplicationEngine Winner → identisch.
-    /// Both scoring systems must agree on winner selection.
+    /// AUDIT3-TEST-007: DeduplicationEngine Winner Selection → deterministic scoring.
+    /// Manual scoring by region+format+version must agree with engine selection.
     /// </summary>
     [Fact]
-    public void Audit3_Test007_InsightsEngine_MatchesDeduplicationEngine()
+    public void Audit3_Test007_WinnerSelection_MatchesManualScoring()
     {
         var preferRegions = new[] { "EU", "US", "WORLD", "JP" };
         var versionScorer = new VersionScorer();
@@ -935,7 +933,7 @@ public sealed class AuditComplianceTests : IDisposable
         Assert.Single(engineResult);
         var engineWinner = engineResult[0].Winner.MainPath;
 
-        // Get InsightsEngine scoring (same logic applied manually)
+        // Verify manual scoring produces same winner
         var insightsScored = candidates
             .OrderByDescending(c => c.RegionScore + c.FormatScore + c.VersionScore)
             .ThenByDescending(c => c.SizeBytes)
@@ -1157,26 +1155,6 @@ public sealed class AuditComplianceTests : IDisposable
         var target = new ConversionTarget(".rvz", "dolphintool", "convert");
 
         Assert.True(converter.Verify(rvzPath, target));
-    }
-
-    /// <summary>
-    /// AUDIT3-TEST-017: ScanIndex Fingerprint Case-Test — Pfade mit unterschiedlicher Groß-/Kleinschreibung
-    /// müssen denselben Fingerprint ergeben.
-    /// </summary>
-    [Fact]
-    public void Audit3_Test017_ScanIndex_Fingerprint_CaseInsensitive()
-    {
-        var file = Path.Combine(_tempDir, "TestFile.txt");
-        File.WriteAllText(file, "content");
-
-        var fp1 = ScanIndexService.GetPathFingerprint(file);
-        // Same path with different casing
-        var fpUpper = ScanIndexService.GetPathFingerprint(file.ToUpperInvariant());
-        var fpLower = ScanIndexService.GetPathFingerprint(file.ToLowerInvariant());
-
-        // All should produce the same fingerprint (ToUpperInvariant normalization)
-        Assert.Equal(fp1, fpUpper);
-        Assert.Equal(fp1, fpLower);
     }
 
     /// <summary>
