@@ -17,8 +17,10 @@ public static class FileClassifier
 
     private static readonly Regex RxBios = new(
         @"\((bios|firmware)\)|\[bios\]|^\s*bios(?:\s|_|-|\.|\d|$)"
-        + @"|\b(?:gba|dc|psx|ps1|ps2|nds?)_bios\b"
+        + @"|\b(?:gba|dc|psx|ps1|ps2|nds?|saturn|sega_?cd|segacd|genesis|megadrive|n64|lynx|jaguar|turbografx|atari7800)_bios\b"
         + @"|\bscph[-_ ]?\d{3,6}\b"
+        + @"|\bsyscard[123]\b"
+        + @"|\b(?:cps2|neo\s*geo|sega\s*saturn|atari\s*jaguar|3do)\s+bios\b"
         + @"|\bboot[._ -]?rom\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 

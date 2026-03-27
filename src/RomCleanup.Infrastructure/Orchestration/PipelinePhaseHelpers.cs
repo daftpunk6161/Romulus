@@ -63,6 +63,22 @@ internal static class PipelinePhaseHelpers
         if (string.IsNullOrEmpty(convertedPath) || !File.Exists(convertedPath))
             return;
 
+        // SEC-CONV-08: Verify converted output is a real file, not a reparse point/junction
+        try
+        {
+            var attrs = File.GetAttributes(convertedPath);
+            if ((attrs & FileAttributes.ReparsePoint) != 0)
+            {
+                context.OnProgress?.Invoke($"WARNING: Converted output is a reparse point, source not trashed: {convertedPath}");
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            context.OnProgress?.Invoke($"WARNING: Cannot verify converted output, source not trashed: {convertedPath}");
+            return;
+        }
+
         var root = FindRootForPath(sourcePath, options.Roots);
         if (root is null)
             return;

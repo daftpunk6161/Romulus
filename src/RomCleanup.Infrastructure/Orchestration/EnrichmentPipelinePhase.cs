@@ -357,7 +357,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                 matchEvidence: matchEvidence);
     }
 
-    private static DatUnknownResolution ResolveUnknownDatMatch(
+    internal static DatUnknownResolution ResolveUnknownDatMatch(
         DatIndex datIndex,
         string hash,
         ConsoleDetectionResult? detectionResult)
@@ -384,6 +384,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
 
         var rankedHypothesisKeys = detectionResult.Hypotheses
             .OrderByDescending(h => h.Confidence)
+            .ThenBy(h => h.ConsoleKey, StringComparer.OrdinalIgnoreCase)
             .Select(h => h.ConsoleKey)
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
@@ -403,7 +404,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         return new DatUnknownResolution(true, selectedKey, matchMap[selectedKey].IsBios, true);
     }
 
-    private readonly record struct DatUnknownResolution(
+    internal readonly record struct DatUnknownResolution(
         bool IsMatch,
         string? ConsoleKey,
         bool IsBios,

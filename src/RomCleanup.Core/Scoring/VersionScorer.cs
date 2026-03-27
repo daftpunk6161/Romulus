@@ -20,6 +20,7 @@ public sealed class VersionScorer
 
     // Pre-compiled patterns for revision parsing (TASK-154)
     private static readonly Regex RxPureLetters = new(@"^[a-z]+$", RegexOptions.Compiled, RxTimeout);
+    private static readonly Regex RxDottedNumeric = new(@"^\d+(?:\.\d+)+$", RegexOptions.Compiled, RxTimeout);
     private static readonly Regex RxNumericSuffix = new(@"^(\d+)([a-z]+)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
     private static readonly Regex RxLeadingDigits = new(@"^\d+", RegexOptions.Compiled, RxTimeout);
     private static readonly Regex RxDigits = new(@"\d+", RegexOptions.Compiled, RxTimeout);
@@ -73,6 +74,22 @@ public sealed class VersionScorer
                     letterScore = (letterScore * 26) + (ch - 'a' + 1);
                 }
                 score += letterScore * 10;
+            }
+            else if (SafeRegex.IsMatch(RxDottedNumeric, rev))
+            {
+                var segments = rev.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                long weight = 1;
+                for (var i = 1; i < segments.Length; i++)
+                    weight *= 1000;
+
+                long dottedScore = 0;
+                foreach (var segment in segments)
+                {
+                    dottedScore += int.Parse(segment) * weight;
+                    if (weight > 1) weight /= 1000;
+                }
+
+                score += dottedScore;
             }
             else if (SafeRegex.IsMatch(RxNumericSuffix, rev))
             {

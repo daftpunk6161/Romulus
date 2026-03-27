@@ -28,7 +28,7 @@ public static class RegionDetector
     private static readonly IReadOnlyList<RegionRule> DefaultOrderedRules = new[]
     {
         // Major regions (priority order)
-        R("EU",    @"\((?:Europe|EUR|PAL)\)"),
+        R("EU",    @"\((?:Europe|EUR|PAL(?:\d+)?)\)"),
         R("US",    @"\((?:USA|US|U\.S\.A\.|U\.S\.)\)"),
         R("JP",    @"\((?:Japan|JP|JPN|NTSC-J)\)"),
         R("WORLD", @"\((?:World|Export)\)"),
@@ -134,6 +134,10 @@ public static class RegionDetector
             return Regions.EU;
         }
 
+        // Multi-language tags: all-EU languages map to EU; mixed language families map to WORLD.
+        if (TryResolveLanguageMultiTag(name, out var languageRegion))
+            return languageRegion;
+
         // Multi-region → WORLD
         if (multiRegionPattern.IsMatch(name))
             return Regions.World;
@@ -215,10 +219,10 @@ public static class RegionDetector
         ["scandinavia"] = Regions.EU,
         // US
         ["usa"] = Regions.US, ["us"] = Regions.US, ["america"] = Regions.US,
-        ["ntsc-u"] = Regions.US, ["ntsc"] = Regions.US,
+        ["ntsc-u"] = Regions.US, ["ntsc - u"] = Regions.US, ["ntsc"] = Regions.US,
         // Japan
         ["japan"] = Regions.JP, ["jp"] = Regions.JP, ["jpn"] = Regions.JP,
-        ["ntsc-j"] = Regions.JP,
+        ["ntsc-j"] = Regions.JP, ["ntsc - j"] = Regions.JP,
         // World
         ["world"] = Regions.World, ["export"] = Regions.World,
         // Asia
@@ -258,6 +262,56 @@ public static class RegionDetector
         if (RegionTokenMap.TryGetValue(token, out var mapped))
         {
             region = mapped;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static readonly HashSet<string> LanguageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "en", "fr", "de", "es", "it", "pt", "nl", "sv", "no", "da", "fi", "ru", "pl", "zh", "ko", "ja",
+        "cs", "hu", "el", "tr", "ar", "he", "th", "vi", "id", "ms", "ro", "bg", "uk", "hr", "sk", "sl",
+        "et", "lv", "lt", "af", "ca", "gd", "eu"
+    };
+
+    private static readonly HashSet<string> EuLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fr", "de", "es", "it", "pt", "nl", "sv", "no", "da", "fi", "pl", "cs", "hu", "el", "ro", "bg",
+        "uk", "hr", "sk", "sl", "et", "lv", "lt", "ca", "gd", "eu"
+    };
+
+    private static bool TryResolveLanguageMultiTag(string name, out string region)
+    {
+        region = Regions.Unknown;
+
+        var matches = ParenGroupPattern.Matches(name);
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            var content = match.Groups[1].Value;
+            var tokens = content.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 2)
+                continue;
+
+            var hasOnlyLanguageCodes = true;
+            var hasOnlyEuLanguageCodes = true;
+            foreach (var token in tokens)
+            {
+                var t = token.Trim();
+                if (!LanguageCodes.Contains(t))
+                {
+                    hasOnlyLanguageCodes = false;
+                    break;
+                }
+
+                if (!EuLanguageCodes.Contains(t))
+                    hasOnlyEuLanguageCodes = false;
+            }
+
+            if (!hasOnlyLanguageCodes)
+                continue;
+
+            region = hasOnlyEuLanguageCodes ? Regions.EU : Regions.World;
             return true;
         }
 

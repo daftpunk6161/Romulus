@@ -185,7 +185,7 @@ public static class GameKeyNormalizer
         if (string.IsNullOrWhiteSpace(text))
             return text;
 
-        var work = text
+        var work = ConvertFullwidthAscii(text)
             .Replace("ß", "ss").Replace("ẞ", "ss")
             .Replace("\u0131", "i").Replace("\u0130", "I") // BUG-027: Turkish İ/ı
             .Replace("\u2019", "'").Replace("\u2018", "'")
@@ -213,6 +213,29 @@ public static class GameKeyNormalizer
         }
 
         return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static string ConvertFullwidthAscii(string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        foreach (var ch in text)
+        {
+            // Convert fullwidth ASCII variants to halfwidth ASCII.
+            if (ch >= '\uFF01' && ch <= '\uFF5E')
+            {
+                sb.Append((char)(ch - 0xFEE0));
+            }
+            else if (ch == '\u3000')
+            {
+                sb.Append(' ');
+            }
+            else
+            {
+                sb.Append(ch);
+            }
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>

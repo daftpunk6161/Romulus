@@ -160,6 +160,17 @@ internal static class ConversionPhaseHelper
         foreach (var member in members)
         {
             if (!File.Exists(member)) continue;
+
+            // SEC-MOVE-06: Validate set member path is within an allowed root.
+            // CUE/GDI/CCD parsers return paths resolved from the descriptor content;
+            // a crafted descriptor could reference paths outside the configured roots.
+            var memberRoot = PipelinePhaseHelpers.FindRootForPath(member, options.Roots);
+            if (memberRoot is null)
+            {
+                context.OnProgress?.Invoke($"WARNING: Set member outside allowed roots, skipped: {member}");
+                continue;
+            }
+
             var memberName = Path.GetFileName(member);
             var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", memberName));
             if (trashDest is null) continue;

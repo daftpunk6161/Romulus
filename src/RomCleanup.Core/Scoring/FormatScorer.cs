@@ -15,7 +15,7 @@ public static class FormatScorer
     private static readonly HashSet<string> DiscExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".iso", ".bin", ".img", ".cue", ".gdi", ".ccd", ".chd", ".rvz", ".gcz", ".m3u",
-        ".wbfs", ".wia", ".wbf1", ".cso", ".pbp", ".nrg", ".mdf", ".mds", ".cdi"
+        ".wbfs", ".wia", ".wbf1", ".cso", ".pbp", ".nrg", ".mdf", ".mds", ".cdi", ".wud", ".wux"
     };
 
     /// <summary>
@@ -50,14 +50,16 @@ public static class FormatScorer
             ".wia" => 670,
             ".wbf1" => 660,
             ".wbfs" => 650, ".nsp" => 650, ".xci" => 650, ".3ds" => 650,
+            ".wud" => 650, ".wux" => 650,
             ".dax" => 650, ".jso" => 650, ".zso" => 650,
+            ".rpx" => 645,
             ".pkg" => 645,
             ".cia" => 640, ".nsz" => 640, ".xcz" => 640,
             ".nrg" => 620,
             ".mdf" or ".mds" or ".cdi" => 610,
             ".nds" or ".gba" or ".gbc" or ".gb" or ".nes" or ".sfc" or ".smc"
             or ".n64" or ".z64" or ".v64" or ".md" or ".gen" or ".sms"
-            or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78"
+            or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78" or ".lnx" or ".jag"
             or ".snes" or ".ngp" or ".ws" => 600,
             ".ecm" => 550,
             ".zip" => 500,
@@ -140,11 +142,12 @@ public static class FormatScorer
         {
             ".chd" or ".iso" or ".cso" or ".pbp" or ".gcz" or ".rvz"
             or ".wia" or ".wbf1" or ".wbfs" or ".nsp" or ".xci" or ".3ds"
+            or ".wud" or ".wux" or ".rpx"
             or ".dax" or ".jso" or ".zso" or ".cia" or ".nsz" or ".xcz"
             or ".nrg" or ".mdf" or ".mds" or ".cdi" or ".bin" or ".cue" or ".gdi" or ".ccd" or ".pkg"
             or ".nds" or ".gba" or ".gbc" or ".gb" or ".nes" or ".sfc" or ".smc"
             or ".n64" or ".z64" or ".v64" or ".md" or ".gen" or ".sms"
-            or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78" or ".snes" or ".ngp" or ".ws"
+            or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78" or ".lnx" or ".jag" or ".snes" or ".ngp" or ".ws"
             or ".ecm" or ".zip" or ".7z" or ".rar" or ".m3u" => true,
             _ => false
         };

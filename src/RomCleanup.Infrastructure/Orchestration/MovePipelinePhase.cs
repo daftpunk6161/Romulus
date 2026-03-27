@@ -125,6 +125,16 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                             if (alreadyMovedAsSetMember.Contains(member) || !File.Exists(member))
                                 continue;
 
+                            // SEC-MOVE-06: Validate set member path is within an allowed root.
+                            // CUE/GDI/CCD parsers return relative paths resolved from the descriptor;
+                            // a crafted descriptor could reference paths outside the root.
+                            var memberRoot = PipelinePhaseHelpers.FindRootForPath(member, input.Options.Roots);
+                            if (memberRoot is null)
+                            {
+                                context.OnProgress?.Invoke($"WARNING: Set member outside allowed roots, skipped: {member}");
+                                continue;
+                            }
+
                             var memberFileName = Path.GetFileName(member);
                             var memberDest = context.FileSystem.ResolveChildPathWithinRoot(
                                 trashBase, Path.Combine("_TRASH_REGION_DEDUPE", memberFileName));
