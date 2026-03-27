@@ -215,6 +215,9 @@ public partial class MainWindow : Window, IWindowHost
 
         // GUI-115: Dispose file watchers (owned by VM) — includes WatchService event unsubscription
         _vm.CleanupWatchers();
+
+        // Force application exit so no zombie .NET Host processes remain
+        Application.Current?.Shutdown();
     }
 
     // ═══ GUI-101: Shortcut overlay dismiss on background click ══════════
@@ -340,12 +343,25 @@ public partial class MainWindow : Window, IWindowHost
     /// </summary>
     private void SafeKillApiProcess()
     {
-        try { if (_apiProcess is { HasExited: false }) _apiProcess.Kill(entireProcessTree: true); }
+        var proc = _apiProcess;
+        _apiProcess = null;
+        if (proc is null) return;
+
+        try
+        {
+            if (!proc.HasExited)
+            {
+                proc.Kill(entireProcessTree: true);
+                // Wait for process tree to actually terminate (max 5 s)
+                if (!proc.WaitForExit(5000))
+                    _vm.AddLog("API process did not exit within 5 s after kill", "WARN");
+            }
+        }
         catch (InvalidOperationException) { /* process already exited between check and kill */ }
         catch (System.ComponentModel.Win32Exception ex) { _vm.AddLog($"API process kill failed: {ex.Message}", "WARN"); }
-        try { _apiProcess?.Dispose(); }
+
+        try { proc.Dispose(); }
         catch (InvalidOperationException) { /* already disposed */ }
-        _apiProcess = null;
     }
 
 }

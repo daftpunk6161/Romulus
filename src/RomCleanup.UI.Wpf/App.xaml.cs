@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,11 +14,30 @@ namespace RomCleanup.UI.Wpf;
 
 public partial class App : Application
 {
+    /// <summary>Named mutex for single-instance enforcement.</summary>
+    private Mutex? _singleInstanceMutex;
+
     public IServiceProvider Services { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Single-instance guard: prevent zombie processes from multiple launches
+        const string mutexName = "Global\\Romulus_RomCleanup_SingleInstance";
+        _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show(
+                "Romulus läuft bereits (ggf. im System-Tray).",
+                "Romulus",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+            Shutdown(0);
+            return;
+        }
 
         // Register global handlers before resolving UI to catch startup exceptions.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -42,6 +62,22 @@ public partial class App : Application
                 MessageBoxImage.Error);
             Shutdown(-1);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        // Dispose DI container to release all singleton disposables
+        (Services as IDisposable)?.Dispose();
+
+        // Release single-instance mutex so next launch can acquire it
+        if (_singleInstanceMutex is not null)
+        {
+            try { _singleInstanceMutex.ReleaseMutex(); } catch (ApplicationException) { /* not owned */ }
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+        }
+
+        base.OnExit(e);
     }
 
     private static void ConfigureServices(IServiceCollection services)

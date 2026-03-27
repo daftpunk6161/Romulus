@@ -254,4 +254,65 @@ public sealed class HygieneCleanupRegressionTests
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         Assert.Null(field);
     }
+
+    // ═══ Shutdown hygiene: prevent zombie .NET Host processes ═════════
+
+    [Fact]
+    public void App_MustHave_SingleInstanceMutex()
+    {
+        var appType = WpfAssembly.GetTypes().First(t => t.Name == "App");
+        var mutexField = appType.GetField("_singleInstanceMutex",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(mutexField);
+        Assert.Equal(typeof(System.Threading.Mutex), mutexField!.FieldType);
+    }
+
+    [Fact]
+    public void App_MustOverride_OnExit()
+    {
+        var appType = WpfAssembly.GetTypes().First(t => t.Name == "App");
+        var onExit = appType.GetMethod("OnExit",
+            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+        Assert.NotNull(onExit);
+    }
+
+    [Fact]
+    public void MainWindow_SafeKillApiProcess_MustCallWaitForExit()
+    {
+        var codePath = FindMainWindowCodePath();
+        var code = File.ReadAllText(codePath);
+        Assert.Contains("WaitForExit", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MainWindow_CleanupResources_MustCallShutdown()
+    {
+        var codePath = FindMainWindowCodePath();
+        var code = File.ReadAllText(codePath);
+        Assert.Contains("Application.Current?.Shutdown()", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppXaml_MustSetExplicitShutdownMode()
+    {
+        var xamlPath = FindMainWindowCodePath().Replace("MainWindow.xaml.cs", "App.xaml");
+        var xaml = File.ReadAllText(xamlPath);
+        Assert.Contains("ShutdownMode=\"OnExplicitShutdown\"", xaml, StringComparison.Ordinal);
+    }
+
+    private static string FindMainWindowCodePath([System.Runtime.CompilerServices.CallerFilePath] string? callerPath = null)
+    {
+        var dir = Path.GetDirectoryName(callerPath);
+        while (dir is not null)
+        {
+            if (File.Exists(Path.Combine(dir, "RomCleanup.sln")) ||
+                Directory.Exists(Path.Combine(dir, "src")))
+            {
+                var candidate = Path.Combine(dir, "src", "RomCleanup.UI.Wpf", "MainWindow.xaml.cs");
+                if (File.Exists(candidate)) return candidate;
+            }
+            dir = Path.GetDirectoryName(dir);
+        }
+        return Path.Combine("src", "RomCleanup.UI.Wpf", "MainWindow.xaml.cs");
+    }
 }
