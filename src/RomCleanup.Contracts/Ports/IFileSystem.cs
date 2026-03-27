@@ -15,11 +15,47 @@ public interface IFileSystem
     /// Returns null if destination is outside allowedRoot.
     /// </summary>
     string? MoveItemSafely(string sourcePath, string destinationPath, string allowedRoot)
-        => MoveItemSafely(sourcePath, destinationPath);
+    {
+        if (string.IsNullOrWhiteSpace(allowedRoot))
+            throw new ArgumentException("Allowed root must not be empty.", nameof(allowedRoot));
+
+        var normalizedRoot = Path.GetFullPath(allowedRoot).TrimEnd(Path.DirectorySeparatorChar)
+                           + Path.DirectorySeparatorChar;
+        var normalizedDest = Path.GetFullPath(destinationPath).TrimEnd(Path.DirectorySeparatorChar)
+                           + Path.DirectorySeparatorChar;
+
+        if (!normalizedDest.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return MoveItemSafely(sourcePath, destinationPath);
+    }
     string? RenameItemSafely(string sourcePath, string newFileName)
-        => throw new NotSupportedException("RenameItemSafely not implemented.");
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(newFileName))
+            return null;
+
+        var sourceDir = Path.GetDirectoryName(sourcePath);
+        if (string.IsNullOrWhiteSpace(sourceDir))
+            return null;
+
+        var targetPath = Path.Combine(sourceDir, newFileName);
+        return MoveItemSafely(sourcePath, targetPath);
+    }
     bool MoveDirectorySafely(string sourcePath, string destinationPath)
-        => throw new NotSupportedException("MoveDirectorySafely not implemented.");
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(destinationPath))
+            return false;
+
+        try
+        {
+            Directory.Move(sourcePath, destinationPath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
     string? ResolveChildPathWithinRoot(string rootPath, string relativePath);
     bool IsReparsePoint(string path);
     void DeleteFile(string path);

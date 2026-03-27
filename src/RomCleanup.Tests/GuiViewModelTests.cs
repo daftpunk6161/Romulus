@@ -1347,6 +1347,27 @@ public class GuiViewModelTests
         Assert.Single(vm.LastDedupeGroups);
     }
 
+    [Fact]
+    public void ProgressEstimator_ScanPhase_ShouldIncreaseAcrossRepeatedScanMessages()
+    {
+        var vm = new MainViewModel(new ThemeService(), new StubDialogService());
+        var estimateMethod = typeof(MainViewModel).GetMethod(
+            "EstimatePhaseProgress",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(estimateMethod);
+
+        var p1 = (double)estimateMethod!.Invoke(vm, new object[] { "[Scan] Root: C:\\ROMS" })!;
+        vm.Progress = p1;
+        var p2 = (double)estimateMethod.Invoke(vm, new object[] { "[Scan] Hash: A.chd (300 MB)…" })!;
+        vm.Progress = p2;
+        var p3 = (double)estimateMethod.Invoke(vm, new object[] { "[Scan] Hash: B.chd (420 MB)…" })!;
+
+        Assert.True(p1 >= 12, $"Expected scan progress to start at or above phase lower bound, got {p1}");
+        Assert.True(p2 > p1, $"Expected scan progress to increase (p1={p1}, p2={p2})");
+        Assert.True(p3 > p2, $"Expected scan progress to continue increasing (p2={p2}, p3={p3})");
+    }
+
     // ═══ TEST-007: DryRun E2E Smoke-Test ════════════════════════════════
 
     [Fact]

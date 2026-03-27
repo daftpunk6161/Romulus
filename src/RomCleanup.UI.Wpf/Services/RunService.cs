@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
@@ -56,7 +57,7 @@ public sealed class RunService : IRunService
         {
             var auditDir = !string.IsNullOrWhiteSpace(vm.AuditRoot)
                 ? vm.AuditRoot
-                : ArtifactPathResolver.GetArtifactDirectory(vm.Roots, "audit-logs");
+                : ArtifactPathResolver.GetArtifactDirectory(vm.Roots, AppIdentity.ArtifactDirectories.AuditLogs);
             auditDir = Path.GetFullPath(auditDir);
             auditPath = Path.Combine(auditDir, $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
         }
@@ -64,7 +65,7 @@ public sealed class RunService : IRunService
         string? reportPath = null;
         if (vm.Roots.Count > 0)
         {
-            var reportDir = ArtifactPathResolver.GetArtifactDirectory(vm.Roots, "reports");
+            var reportDir = ArtifactPathResolver.GetArtifactDirectory(vm.Roots, AppIdentity.ArtifactDirectories.Reports);
             reportDir = Path.GetFullPath(reportDir);
             Directory.CreateDirectory(reportDir);
             reportPath = Path.Combine(reportDir, $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html");

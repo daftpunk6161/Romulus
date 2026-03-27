@@ -29,6 +29,7 @@ public sealed partial class MainViewModel
         nameof(PreferAU), nameof(PreferASIA), nameof(PreferKR), nameof(PreferCN),
         nameof(PreferBR), nameof(PreferNL), nameof(PreferSE), nameof(PreferSCAN),
         nameof(LogLevel), nameof(MinimizeToTray),
+        nameof(WatchAutoStart),
     };
 
     /// <summary>Schedule an auto-save 2 seconds after the last persisted property change.</summary>
@@ -176,6 +177,9 @@ public sealed partial class MainViewModel
 
     [ObservableProperty]
     private bool _isWatchModeActive;
+
+    [ObservableProperty]
+    private bool _watchAutoStart;
 
     /// <summary>GUI-109: Scheduled run interval in minutes (0 = disabled).</summary>
     private int _schedulerIntervalMinutes;
@@ -727,6 +731,12 @@ public sealed partial class MainViewModel
         // Subscribe to property changes for auto-save
         PropertyChanged += OnAutoSavePropertyChanged;
         Roots.CollectionChanged += (_, _) => ScheduleAutoSave();
+
+        // Optionally activate watch mode right after settings have been loaded.
+        if (WatchAutoStart && Roots.Count > 0 && !IsWatchModeActive)
+        {
+            SetWatchMode(enabled: true, showDialog: false);
+        }
 
         RefreshStatus();
     }

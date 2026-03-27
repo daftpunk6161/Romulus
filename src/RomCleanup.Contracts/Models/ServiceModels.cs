@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using RomCleanup.Contracts.Errors;
 
 namespace RomCleanup.Contracts.Models;
 
@@ -61,23 +60,6 @@ public sealed class ToolTestEntry
     public string? Path { get; init; }
     public string? Version { get; init; }
     public string? Error { get; init; }
-}
-
-/// <summary>
-/// CatchGuard error record for audit trail.
-/// Port of New-CatchGuardRecord from CatchGuard.ps1.
-/// </summary>
-public sealed class CatchGuardRecord
-{
-    public DateTime TimestampUtc { get; init; } = DateTime.UtcNow;
-    public ErrorKind ErrorClass { get; init; }
-    public string Module { get; init; } = "";
-    public string OperationId { get; init; } = "";
-    public string Root { get; init; } = "";
-    public string Action { get; init; } = "";
-    public string ErrorCode { get; init; } = "";
-    public string ExceptionType { get; init; } = "";
-    public string Message { get; init; } = "";
 }
 
 /// <summary>

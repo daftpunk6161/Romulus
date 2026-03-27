@@ -55,14 +55,7 @@ public partial class App : Application
         services.AddSingleton<IAppState, AppStateStore>();
         services.AddTransient<IDialogService, WpfDialogService>();
 
-        // Feature domain services (GUI-034 to GUI-040)
-        services.AddSingleton<IHealthAnalyzer, HealthAnalyzer>();
-        services.AddSingleton<ICollectionService, CollectionService>();
-        services.AddSingleton<IConversionEstimator, ConversionEstimator>();
-        services.AddSingleton<IExportService, ExportService>();
-        services.AddSingleton<IDatManagementService, DatManagementService>();
-        services.AddSingleton<IHeaderService, HeaderSecurityService>();
-        services.AddSingleton<IWorkflowService, WorkflowService>();
+        // Feature domain services
         services.AddSingleton<IRunService, RunService>();
 
         // ViewModel

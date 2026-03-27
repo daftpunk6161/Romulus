@@ -13,7 +13,7 @@ public static class FileClassifier
     // Order matters: BIOS checked first, then standard junk, then aggressive.
     // BUG-FIX: Added RegexTimeout to all patterns to prevent ReDoS on malicious filenames.
 
-    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan RxTimeout = SafeRegex.DefaultTimeout;
 
     private static readonly Regex RxBios = new(
         @"\((bios|firmware)\)|\[bios\]|^\s*bios\b",
@@ -62,6 +62,11 @@ public static class FileClassifier
         ".nfo", ".diz", ".url", ".lnk"
     ];
 
+    /// <summary>
+    /// Classification output contract.
+    /// Confidence is a 0..100 heuristic certainty score where higher means stronger evidence.
+    /// ReasonCode is machine-readable and stable for reporting/telemetry branching.
+    /// </summary>
     public sealed record ClassificationDecision(FileCategory Category, int Confidence, string ReasonCode);
 
     /// <summary>

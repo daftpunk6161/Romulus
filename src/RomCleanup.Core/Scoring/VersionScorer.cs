@@ -16,7 +16,7 @@ public sealed class VersionScorer
     private readonly Regex _rxVersion;
     private readonly Regex _rxLang;
 
-    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan RxTimeout = SafeRegex.DefaultTimeout;
 
     // Pre-compiled patterns for revision parsing (TASK-154)
     private static readonly Regex RxPureLetters = new(@"^[a-z]+$", RegexOptions.Compiled, RxTimeout);

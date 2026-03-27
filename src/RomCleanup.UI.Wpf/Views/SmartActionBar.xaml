@@ -5,7 +5,7 @@
   <!-- ActionRail: Background shifts to DangerBg when inline Move confirm is visible -->
   <Border BorderBrush="{DynamicResource BrushBorder}"
           BorderThickness="0,1,0,0"
-          Padding="{DynamicResource PaddingBar}" Height="{DynamicResource ActionRailHeight}">
+      Padding="{DynamicResource PaddingBar}" MinHeight="{DynamicResource ActionRailHeight}">
     <Border.Style>
       <Style TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource BrushSurfaceAlt}"/>
@@ -17,9 +17,9 @@
         </Style.Triggers>
       </Style>
     </Border.Style>
-    <DockPanel>
+    <Grid>
       <!-- TASK-115: ProgressPanel — visible only during busy RunStates -->
-      <StackPanel x:Name="ProgressPanel" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+      <StackPanel x:Name="ProgressPanel" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center"
                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
         <ProgressBar MinWidth="120" Width="200" Height="8" Maximum="100"
                      Value="{Binding Progress}" Margin="{DynamicResource SpaceLeftSM}" VerticalAlignment="Center"
@@ -29,10 +29,14 @@
                    AutomationProperties.Name="Fortschrittstext" AutomationProperties.LiveSetting="Polite"/>
       </StackPanel>
 
-      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+            VerticalScrollBarVisibility="Disabled"
+            CanContentScroll="False"
+        VerticalAlignment="Center" HorizontalAlignment="Left">
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <!-- TASK-115: Run button — hidden when pipeline is busy -->
         <Button Command="{Binding RunCommand}" Style="{StaticResource PrimaryButton}"
-                Width="140" Height="44" Margin="{DynamicResource SpaceRightXS}"
+          Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                 ToolTip="{Binding Loc[Start.RunTip]}" AutomationProperties.Name="{Binding Loc[Start.RunButton]}"
                 AutomationProperties.AcceleratorKey="F5" TabIndex="1"
                 Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}">
@@ -44,7 +48,7 @@
 
         <!-- TASK-115: Cancel button — visible only when pipeline is running -->
         <Button x:Name="CancelButton" Command="{Binding CancelCommand}"
-                Width="60" Height="44" Margin="{DynamicResource SpaceRightXS}"
+          Width="60" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                 AutomationProperties.AcceleratorKey="Esc"
                 ToolTip="{Binding Loc[Start.CancelTip]}" AutomationProperties.Name="{Binding Loc[Start.CancelButton]}" TabIndex="2"
                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
@@ -60,7 +64,7 @@
         <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
 
         <Button Command="{Binding ConvertOnlyCommand}"
-                Width="130" Height="44" Margin="{DynamicResource SpaceRightXS}"
+          Width="130" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                 BorderBrush="{DynamicResource BrushSuccess}" Foreground="{DynamicResource BrushSuccess}"
                 Background="{DynamicResource BrushSuccessBg}" BorderThickness="2"
                 ToolTip="{Binding Loc[Start.ConvertOnlyTip]}" AutomationProperties.Name="{Binding Loc[Start.ConvertOnlyButton]}" TabIndex="3"
@@ -73,7 +77,7 @@
 
         <StackPanel Orientation="Horizontal" Visibility="{Binding ShowStartMoveButton, Converter={StaticResource BoolToVis}}">
           <Button Command="{Binding RequestStartMoveCommand}"
-                  Width="120" Height="44" Margin="{DynamicResource SpaceRightXS}"
+              Width="120" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                   BorderBrush="{DynamicResource BrushDanger}" Foreground="{DynamicResource BrushDanger}"
                   Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
                   ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move bestätigen anfordern" TabIndex="4"
@@ -86,7 +90,7 @@
 
           <StackPanel Orientation="Horizontal" Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource BoolToVis}}">
             <Button Command="{Binding StartMoveCommand}"
-                    Width="140" Height="44" Margin="{DynamicResource SpaceRightXS}"
+                  Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                     BorderBrush="{DynamicResource BrushDanger}" Foreground="{DynamicResource BrushDanger}"
                     Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
                     ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move jetzt ausführen" TabIndex="4">
@@ -96,7 +100,7 @@
               </StackPanel>
             </Button>
             <Button Command="{Binding CancelStartMoveCommand}"
-                    Width="80" Height="44" Margin="{DynamicResource SpaceRightXS}"
+                  Width="80" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                     ToolTip="Move abbrechen" AutomationProperties.Name="Move abbrechen" TabIndex="4">
               <StackPanel HorizontalAlignment="Center">
                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="18" HorizontalAlignment="Center"/>
@@ -107,7 +111,7 @@
         </StackPanel>
 
         <Button Command="{Binding RollbackCommand}"
-                Width="110" Height="44" Margin="{DynamicResource SpaceRightXS}"
+          Width="110" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
                 BorderBrush="{DynamicResource BrushAccentPurple}" Foreground="{DynamicResource BrushAccentPurple}"
                 AutomationProperties.AcceleratorKey="Ctrl+Z"
                 Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
@@ -140,7 +144,8 @@
 
         <TextBlock Text="{Binding BusyHint}" Style="{StaticResource CaptionText}"
                    VerticalAlignment="Center" Margin="4,0"/>
-      </WrapPanel>
-    </DockPanel>
+      </StackPanel>
+      </ScrollViewer>
+    </Grid>
   </Border>
 </UserControl>

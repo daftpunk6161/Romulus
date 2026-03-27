@@ -11,4 +11,14 @@ public static class AppIdentity
     /// audit logs, integrity baselines, trend history, and report paths.
     /// </summary>
     public const string AppFolderName = "RomCleanupRegionDedupe";
+
+    /// <summary>
+    /// Canonical artifact directory names used by ArtifactPathResolver and entry points.
+    /// Single source of truth — prevents scattered "reports" / "audit-logs" magic strings.
+    /// </summary>
+    public static class ArtifactDirectories
+    {
+        public const string Reports = "reports";
+        public const string AuditLogs = "audit-logs";
+    }
 }

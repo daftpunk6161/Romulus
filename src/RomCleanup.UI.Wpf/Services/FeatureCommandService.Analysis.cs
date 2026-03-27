@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -50,18 +51,16 @@ public sealed partial class FeatureCommandService
         if (unverified.Count == 0)
         { _dialog.Info("Alle ROMs haben einen DAT-Match. Keine fehlenden ROMs erkannt.", "Fehlende ROMs"); return; }
 
-        var roots = _vm.Roots.Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
+        var roots = _vm.Roots.Select(ArtifactPathResolver.NormalizeRoot).ToList();
         string GetSubDir(string filePath)
         {
             var full = Path.GetFullPath(filePath);
-            foreach (var root in roots)
+            var root = ArtifactPathResolver.FindContainingRoot(filePath, roots);
+            if (root is not null)
             {
-                if (full.Length > root.Length && full.StartsWith(root, StringComparison.OrdinalIgnoreCase) && full[root.Length] is '\\' or '/')
-                {
-                    var relative = full[(root.Length + 1)..];
-                    var sep = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-                    return sep > 0 ? relative[..sep] : "(Root)";
-                }
+                var relative = full[(root.Length + 1)..];
+                var sep = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+                return sep > 0 ? relative[..sep] : "(Root)";
             }
             return Path.GetDirectoryName(filePath) ?? "(Unbekannt)";
         }

@@ -127,4 +127,28 @@ public class RunProjectionFactoryTests
 
         Assert.Equal(expected, projection.HealthScore);
     }
+
+    [Fact]
+    public void Create_CancelledWithScannedCandidates_UsesScanFallbackForGamesAndKeep()
+    {
+        var run = new RunResult
+        {
+            Status = "cancelled",
+            TotalFilesScanned = 3,
+            DedupeGroups = Array.Empty<DedupeGroup>(),
+            AllCandidates = new[]
+            {
+                new RomCandidate { MainPath = @"C:\roms\a.zip", Category = FileCategory.Game, DatMatch = false, ConsoleKey = "3ds" },
+                new RomCandidate { MainPath = @"C:\roms\b.zip", Category = FileCategory.Game, DatMatch = false, ConsoleKey = "3ds" },
+                new RomCandidate { MainPath = @"C:\roms\junk.zip", Category = FileCategory.Junk, DatMatch = false, ConsoleKey = "3ds" }
+            }
+        };
+
+        var projection = RunProjectionFactory.Create(run);
+
+        Assert.Equal(2, projection.Games);
+        Assert.Equal(2, projection.Keep);
+        Assert.Equal(0, projection.Dupes);
+        Assert.Equal(1, projection.Junk);
+    }
 }

@@ -731,28 +731,6 @@ public sealed class HardRegressionInvariantTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  INV-HSC-01 | HealthScore-Formel identisch auf allen Channels
-    //  GUI, CLI und FeatureService müssen dieselbe Formel nutzen
-    // ═══════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void INV_HSC_01_HealthScore_IdenticalFormula_AcrossChannels()
-    {
-        // Identical inputs
-        int total = 100, dupes = 30, junk = 5, verified = 20;
-
-        // FeatureService (canonical)
-        var featureScore = FeatureService.CalculateHealthScore(total, dupes, junk, verified);
-
-        // HealthAnalyzer (wrapper)
-        var analyzer = new HealthAnalyzer();
-        var analyzerScore = analyzer.CalculateHealthScore(total, dupes, junk, verified);
-
-        // Müssen identisch sein
-        Assert.Equal(featureScore, analyzerScore);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
     //  INV-HSC-02 | Games-Definition identisch: DedupeGroups.Count
     //  GUI "DashGames" und CLI "Games" müssen beide DedupeGroups.Count nutzen
     // ═══════════════════════════════════════════════════════════════════

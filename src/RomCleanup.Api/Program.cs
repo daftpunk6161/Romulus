@@ -13,21 +13,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Bind to loopback only (security: no network exposure)
 var port = builder.Configuration.GetValue("Port", 7878);
 var bindAddress = builder.Configuration.GetValue("BindAddress", "127.0.0.1");
-var allowInsecureNetwork = builder.Configuration.GetValue("AllowInsecureNetwork", false);
 builder.WebHost.UseUrls($"http://{bindAddress}:{port}");
 
-// F-05 FIX: Hard-fail if binding to non-loopback address without explicit opt-in
-if (bindAddress != "127.0.0.1" && bindAddress != "localhost" && bindAddress != "::1")
+// Security hardening: the API currently binds via HTTP only, so non-loopback is forbidden.
+if (!IsLoopbackAddress(bindAddress))
 {
-    if (!allowInsecureNetwork)
-    {
-        throw new InvalidOperationException(
-            $"Refusing to bind to non-loopback address '{bindAddress}' over plain HTTP. " +
-            "API key would be transmitted in cleartext. " +
-            "Set --AllowInsecureNetwork=true to override (NOT recommended for production).");
-    }
-    Console.WriteLine($"WARNING: API bound to non-loopback address '{bindAddress}' with --AllowInsecureNetwork. " +
-        "API key is transmitted in cleartext. Ensure firewall rules and TLS are configured.");
+    throw new InvalidOperationException(
+        $"Refusing to bind API to non-loopback address '{bindAddress}' over plain HTTP. " +
+        "Use loopback (127.0.0.1/localhost/::1) or terminate TLS in a reverse proxy.");
 }
 
 builder.Services.AddRomCleanupCore();
@@ -61,6 +54,7 @@ var trustForwardedFor = builder.Configuration.GetValue("TrustForwardedFor", fals
 var sseTimeoutSeconds = Math.Clamp(builder.Configuration.GetValue("SseTimeoutSeconds", 300), 30, 3600);
 var sseHeartbeatSeconds = Math.Clamp(builder.Configuration.GetValue("SseHeartbeatSeconds", 15), 5, 120);
 var rateLimiter = new RateLimiter(rateLimitMax, rateLimitWindow);
+var resolvedCorsOrigin = ResolveCorsOrigin(corsMode, corsOrigin);
 
 // Remove server headers
 app.Use(async (ctx, next) =>
@@ -73,13 +67,7 @@ app.Use(async (ctx, next) =>
     // CORS
     if (corsMode != "none")
     {
-        var origin = corsMode switch
-        {
-            "local-dev" => "http://localhost:3000",
-            "strict-local" => "http://127.0.0.1",
-            "custom" => corsOrigin,
-            _ => "http://127.0.0.1"
-        };
+        var origin = resolvedCorsOrigin;
         ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
         ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Api-Key, X-Client-Id";
         ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
@@ -115,6 +103,11 @@ app.Use(async (ctx, next) =>
     // Rate limiting
     var clientIp = ApiClientIdentity.ResolveRateLimitClientId(ctx, trustForwardedFor);
     var rawClientId = ctx.Request.Headers["X-Client-Id"].FirstOrDefault();
+    if (!string.IsNullOrWhiteSpace(rawClientId) && SanitizeClientBindingId(rawClientId) is null)
+    {
+        await WriteApiError(ctx, 400, "AUTH-INVALID-CLIENT-ID", "Invalid X-Client-Id. Use max 64 chars from [A-Za-z0-9-_.].", ErrorKind.Critical);
+        return;
+    }
     var clientBindingId = SanitizeClientBindingId(rawClientId) ?? clientIp;
     ctx.Items["ClientBindingId"] = clientBindingId;
 
@@ -699,6 +692,41 @@ static string? SanitizeClientBindingId(string? raw)
     }
 
     return raw;
+}
+
+static bool IsLoopbackAddress(string host)
+{
+    if (string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(host, "[::1]", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+static string ResolveCorsOrigin(string mode, string customOrigin)
+{
+    return mode switch
+    {
+        "local-dev" => "http://localhost:3000",
+        "strict-local" => "http://127.0.0.1",
+        "custom" => IsValidCorsOrigin(customOrigin) ? customOrigin : "http://127.0.0.1",
+        _ => "http://127.0.0.1"
+    };
+}
+
+static bool IsValidCorsOrigin(string origin)
+{
+    if (string.IsNullOrWhiteSpace(origin))
+        return false;
+
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        return false;
+
+    return uri.Scheme is "http" or "https" && !string.IsNullOrWhiteSpace(uri.Host);
 }
 
 static string GetClientBindingId(HttpContext context, bool trustForwardedFor)

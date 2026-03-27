@@ -25,7 +25,7 @@ public sealed partial class RunOrchestrator
         {
             ExecuteCrossRootPreview(candidates, options);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             _onProgress?.Invoke($"[CrossRoot] Analyse übersprungen: {ex.Message}");
         }
@@ -34,7 +34,7 @@ public sealed partial class RunOrchestrator
         {
             ExecuteFolderDedupePreview(options, candidates, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             _onProgress?.Invoke($"[FolderDedupe] Analyse übersprungen: {ex.Message}");
         }
@@ -43,7 +43,7 @@ public sealed partial class RunOrchestrator
         {
             ExecuteQuarantinePreview(candidates);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             _onProgress?.Invoke($"[Quarantine] Analyse übersprungen: {ex.Message}");
         }
@@ -52,7 +52,7 @@ public sealed partial class RunOrchestrator
         {
             ExecuteHardlinkSupportPreview(options);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             _onProgress?.Invoke($"[Hardlink] Analyse übersprungen: {ex.Message}");
         }
@@ -110,9 +110,11 @@ public sealed partial class RunOrchestrator
             var auditDir = Path.GetDirectoryName(options.AuditPath);
             if (!string.IsNullOrEmpty(auditDir))
                 Directory.CreateDirectory(auditDir);
-            File.WriteAllText(options.AuditPath,
+            var tempAuditPath = options.AuditPath + ".tmp";
+            File.WriteAllText(tempAuditPath,
                 "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n",
                 System.Text.Encoding.UTF8);
+            File.Move(tempAuditPath, options.AuditPath, overwrite: true);
         }
         _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
         {
@@ -174,6 +176,7 @@ public sealed partial class RunOrchestrator
 
         var sample = candidates
             .Where(c => !string.IsNullOrWhiteSpace(c.MainPath) && File.Exists(c.MainPath))
+            .OrderBy(c => c.MainPath, StringComparer.Ordinal)
             .Take(400)
             .Select(c =>
             {
@@ -236,7 +239,7 @@ public sealed partial class RunOrchestrator
         _onProgress?.Invoke($"[Hardlink] NTFS-Hardlink support: {supportedRoots}/{options.Roots.Count} Root(s)");
     }
 
-    private List<RomCandidate> MaterializeEnrichedCandidates(
+    private async Task<List<RomCandidate>> MaterializeEnrichedCandidatesAsync(
         IAsyncEnumerable<ScannedFileEntry> scannedFiles,
         PipelineContext context,
         CancellationToken cancellationToken)
@@ -248,19 +251,15 @@ public sealed partial class RunOrchestrator
             cancellationToken);
 
         var candidates = new List<RomCandidate>();
-        var enumerator = enrichedStream.GetAsyncEnumerator(cancellationToken);
-
         try
         {
-            while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                candidates.Add(enumerator.Current);
-            }
+            await foreach (var candidate in enrichedStream.WithCancellation(cancellationToken))
+                candidates.Add(candidate);
         }
-        finally
+        catch (OperationCanceledException)
         {
-            enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Scan cancelled mid-way; return whatever was collected.
+            // The caller checks cancellationToken.IsCancellationRequested to detect early exit.
         }
 
         return candidates;

@@ -23,7 +23,7 @@ public static class GameKeyNormalizer
     private static System.Text.RegularExpressions.Regex[] BuildDefaultTagPatterns()
     {
         var opts = System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled;
-        var timeout = TimeSpan.FromMilliseconds(500);
+        var timeout = SafeRegex.DefaultTimeout;
         return new[]
         {
             // 1. Region tags (all countries/codes from rules.json GameKeyPatterns[0])
@@ -146,7 +146,7 @@ public static class GameKeyNormalizer
         };
     }
 
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan RegexTimeout = SafeRegex.DefaultTimeout;
 
     private static readonly System.Text.RegularExpressions.Regex MsDosTrailingBracketRegex =
         new(@"\s*(?:\[[^\]]+\]\s*)+$",

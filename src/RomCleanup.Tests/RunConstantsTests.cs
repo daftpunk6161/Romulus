@@ -70,4 +70,18 @@ public sealed class RunConstantsTests
     {
         Assert.DoesNotContain(invalid, RunConstants.ValidConflictPolicies);
     }
+
+    [Fact]
+    public void ArtifactDirectories_Reports_IsNotEmpty()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(AppIdentity.ArtifactDirectories.Reports));
+        Assert.Equal("reports", AppIdentity.ArtifactDirectories.Reports);
+    }
+
+    [Fact]
+    public void ArtifactDirectories_AuditLogs_IsNotEmpty()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(AppIdentity.ArtifactDirectories.AuditLogs));
+        Assert.Equal("audit-logs", AppIdentity.ArtifactDirectories.AuditLogs);
+    }
 }

@@ -114,6 +114,9 @@ public sealed partial class RunOrchestrator
     /// Execute the full pipeline: Scan → Dedupe → JunkRemoval → Move → Sort → (optional Convert) → Report.
     /// </summary>
     public RunResult Execute(RunOptions options, CancellationToken cancellationToken = default)
+        => ExecuteAsync(options, cancellationToken).GetAwaiter().GetResult();
+
+    private async Task<RunResult> ExecuteAsync(RunOptions options, CancellationToken cancellationToken = default)
     {
         var result = new RunResultBuilder();
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -146,12 +149,15 @@ public sealed partial class RunOrchestrator
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var scanResult = RunScanAndPrepareState(options, result, metrics, pipelineState, cancellationToken);
+        var scanResult = await RunScanAndPrepareStateAsync(options, result, metrics, pipelineState, cancellationToken);
         var candidates = scanResult.AllCandidates;
         var processingCandidates = scanResult.ProcessingCandidates;
 
         if (processingCandidates.Count == 0)
         {
+            // Ensure a mid-scan cancel that left 0 processing candidates uses the cancel path.
+            cancellationToken.ThrowIfCancellationRequested();
+
             result.Status = RunOutcome.Ok.ToStatusString();
             result.ExitCode = 0;
             result.AllCandidates = candidates;
@@ -256,6 +262,9 @@ public sealed partial class RunOrchestrator
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
 
+            // Preserve partial scan/dedupe output so GUI/CLI can display progress made before cancellation.
+            ApplyPartialPipelineState(pipelineState, result);
+
             // Issue #19: Write partial audit sidecar so rollback is possible after cancel
             WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
 
@@ -271,6 +280,9 @@ public sealed partial class RunOrchestrator
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
 
+            // Keep best-effort partial data for diagnostics and UI continuity after failures.
+            ApplyPartialPipelineState(pipelineState, result);
+
             _onProgress?.Invoke($"[FEHLER] Pipeline abgebrochen: {ex.GetType().Name}: {ex.Message}");
 
             // Write partial audit sidecar so rollback is possible even after crash
@@ -278,6 +290,33 @@ public sealed partial class RunOrchestrator
 
             return result.Build();
         }
+    }
+
+    private static void ApplyPartialPipelineState(PipelineState pipelineState, RunResultBuilder result)
+    {
+        if (pipelineState.AllCandidates is { } allCandidates)
+        {
+            result.AllCandidates = allCandidates;
+            if (result.TotalFilesScanned == 0)
+                result.TotalFilesScanned = allCandidates.Count;
+        }
+
+        if (pipelineState.AllGroups is not { } allGroups)
+            return;
+
+        result.DedupeGroups = allGroups;
+        if (result.GroupCount == 0)
+            result.GroupCount = allGroups.Count;
+        if (result.WinnerCount == 0)
+            result.WinnerCount = allGroups.Count;
+        if (result.LoserCount != 0)
+            return;
+
+        var loserCount = 0;
+        foreach (var group in allGroups)
+            loserCount += group.Losers.Count;
+
+        result.LoserCount = loserCount;
     }
 
     private void ExecutePhasePlan(

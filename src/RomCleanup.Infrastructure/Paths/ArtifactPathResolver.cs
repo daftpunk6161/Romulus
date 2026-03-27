@@ -37,6 +37,19 @@ public static class ArtifactPathResolver
     public static string NormalizeRoot(string rootPath)
         => Path.GetFullPath(rootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
+    /// <summary>
+    /// Given a file path and a list of already-normalized roots, returns the root
+    /// that contains the file, or null if no root matches.
+    /// </summary>
+    public static string? FindContainingRoot(string filePath, IReadOnlyList<string> normalizedRoots)
+    {
+        var full = Path.GetFullPath(filePath);
+        return normalizedRoots.FirstOrDefault(r =>
+            full.Length > r.Length &&
+            full.StartsWith(r, StringComparison.OrdinalIgnoreCase) &&
+            full[r.Length] is '\\' or '/');
+    }
+
     public static string NormalizeRootForIdentity(string rootPath)
     {
         var normalized = NormalizeRoot(rootPath);

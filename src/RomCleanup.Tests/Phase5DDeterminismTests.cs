@@ -194,7 +194,7 @@ public sealed class DatSourceServiceDeterminismTests
 }
 
 // ============================================================================
-// TASK-081: ITimeProvider and IFileReader seams exist in Contracts
+// TASK-081: ITimeProvider seam exists in Contracts
 // ============================================================================
 public sealed class SeamInterfaceTests
 {
@@ -207,16 +207,6 @@ public sealed class SeamInterfaceTests
     }
 
     [Fact]
-    public void IFileReader_ExistsInContracts()
-    {
-        var type = typeof(IFileReader);
-        Assert.True(type.IsInterface);
-        var methods = type.GetMethods().Select(m => m.Name).ToList();
-        Assert.True(methods.Contains("ReadAllLines") || methods.Contains("ReadAllText"),
-            $"IFileReader should have ReadAllLines or ReadAllText, has: {string.Join(", ", methods)}");
-    }
-
-    [Fact]
     public void SystemTimeProvider_ReturnsUtcNow()
     {
         var provider = new RomCleanup.Infrastructure.Time.SystemTimeProvider();
@@ -225,13 +215,6 @@ public sealed class SeamInterfaceTests
         var after = DateTimeOffset.UtcNow;
 
         Assert.InRange(result, before, after);
-    }
-
-    [Fact]
-    public void PhysicalFileReader_ImplementsIFileReader()
-    {
-        var reader = new RomCleanup.Infrastructure.FileSystem.PhysicalFileReader();
-        Assert.IsAssignableFrom<IFileReader>(reader);
     }
 }
 

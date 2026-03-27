@@ -81,6 +81,42 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task Cors_Preflight_CustomInvalidOrigin_FallsBackToStrictLocal()
+    {
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["CorsMode"] = "custom",
+            ["CorsAllowOrigin"] = "invalid-origin"
+        });
+        using var client = factory.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/runs");
+        request.Headers.Add("Origin", "http://example.test");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Origin", out var origins));
+        Assert.Contains("http://127.0.0.1", origins);
+    }
+
+    [Fact]
+    public async Task Health_InvalidClientIdHeader_ReturnsBadRequest()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        client.DefaultRequestHeaders.Add("X-Client-Id", "bad id with spaces");
+
+        var response = await client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        AssertError(doc.RootElement, "AUTH-INVALID-CLIENT-ID", ErrorKind.Critical, "Invalid X-Client-Id");
+    }
+
+    [Fact]
     public async Task RateLimit_Exceeded_Returns429()
     {
         using var factory = CreateFactory(new Dictionary<string, string?>

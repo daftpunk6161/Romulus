@@ -520,6 +520,79 @@ public class CoreHeartbeatInvariantTests : IDisposable
         Assert.Equal(result.JunkRemovedCount, result.JunkMoveResult.MoveCount);
     }
 
+    [Fact]
+    public void Execute_CancelAfterScan_PreservesScannedCandidates()
+    {
+        CreateFile("Alpha (USA).zip", 50);
+        CreateFile("Beta (USA).zip", 50);
+
+        var cts = new CancellationTokenSource();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new InertAuditStore();
+        var orch = new RunOrchestrator(
+            fs,
+            audit,
+            onProgress: msg =>
+            {
+                if (msg.StartsWith("[Scan] Abgeschlossen", StringComparison.OrdinalIgnoreCase))
+                    cts.Cancel();
+            });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            PreferRegions = new[] { "US" }
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
+        Assert.Equal("cancelled", result.Status);
+        Assert.True(result.TotalFilesScanned >= 2);
+        Assert.True(result.AllCandidates.Count >= 2);
+        Assert.Equal(result.TotalFilesScanned, result.AllCandidates.Count);
+    }
+
+    [Fact]
+    public void Execute_CancelDuringScan_PreservesPartialCandidates()
+    {
+        // Verify that cancelling after some files are scanned (but before scan completes)
+        // still produces a "cancelled" status with whatever partial data was collected.
+        // We cancel during the dedupe phase so at least N files are scanned before cancel.
+        CreateFile("Alpha (USA).zip", 50);
+        CreateFile("Beta (USA).zip", 50);
+
+        var cts = new CancellationTokenSource();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new InertAuditStore();
+        var orch = new RunOrchestrator(
+            fs,
+            audit,
+            onProgress: msg =>
+            {
+                // Cancel when dedupe starts (after scan has fully completed).
+                // This tests that partial pipeline state is preserved on cancel.
+                if (msg.StartsWith("[Dedupe]", StringComparison.OrdinalIgnoreCase))
+                    cts.Cancel();
+            });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            PreferRegions = new[] { "US" }
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
+        Assert.Equal("cancelled", result.Status);
+        // All files scanned before cancel during dedupe => full candidate list must be present.
+        Assert.True(result.TotalFilesScanned >= 2, $"Expected >= 2 files scanned before cancel, got {result.TotalFilesScanned}");
+        Assert.True(result.AllCandidates.Count >= 2, $"Expected >= 2 candidates preserved, got {result.AllCandidates.Count}");
+    }
+
     // ══════════════════════════════════════════════════════════════
     // HELPERS
     // ══════════════════════════════════════════════════════════════

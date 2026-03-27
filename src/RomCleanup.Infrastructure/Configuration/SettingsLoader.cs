@@ -139,6 +139,14 @@ public sealed class SettingsLoader
 
             var settings = JsonSerializer.Deserialize<RomCleanupSettings>(json, JsonOptions)
                    ?? new RomCleanupSettings();
+            var validationErrors = RomCleanupSettingsValidator.Validate(settings);
+            if (validationErrors.Count > 0)
+            {
+                return new SettingsLoadResult(
+                    new RomCleanupSettings(),
+                    WasCorrupt: true,
+                    CorruptionMessage: string.Join("; ", validationErrors));
+            }
             return new SettingsLoadResult(settings);
         }
         catch (JsonException ex)
@@ -340,6 +348,14 @@ public sealed class SettingsLoader
                     settings.Dat.HashType = ValidateEnum(user.Dat.HashType, AllowedHashTypes, settings.Dat.HashType);
                 if (user.Dat.DatFallback.HasValue)
                     settings.Dat.DatFallback = user.Dat.DatFallback.Value;
+            }
+
+            var validationErrors = RomCleanupSettingsValidator.Validate(settings);
+            if (validationErrors.Count > 0)
+            {
+                // Fail closed to sane defaults if merged settings become invalid.
+                settings.General = new GeneralSettings();
+                settings.Dat = new DatSettings();
             }
         }
         catch (JsonException)

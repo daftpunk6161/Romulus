@@ -1,8 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using RomCleanup.Contracts.Models;
-using RomCleanup.Contracts.Ports;
-
 namespace RomCleanup.Infrastructure.Orchestration;
 
 /// <summary>
@@ -25,12 +20,7 @@ public static class ExecutionHelpers
 
     public static HashSet<string> GetDiscExtensions() => DiscExtensions;
 
-    /// <summary>
-    /// Default blocklist of paths that should never be processed.
-    /// </summary>
-    public static HashSet<string> GetDefaultBlocklist() => DefaultBlocklist;
-
-    private static readonly HashSet<string> DefaultBlocklist = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> DefaultBlocklist = new(StringComparer.OrdinalIgnoreCase)
     {
         "_TRASH_REGION_DEDUPE",
         "_TRASH_JUNK",
@@ -53,81 +43,4 @@ public static class ExecutionHelpers
             blocked.Any(b =>
                 s.StartsWith(b, StringComparison.OrdinalIgnoreCase) && s.Length > b.Length && !char.IsLetterOrDigit(s[b.Length])));
     }
-
-    /// <summary>
-    /// Build a unique audit filename with root path hash appended (BUG RUN-013).
-    /// </summary>
-    public static string BuildAuditFileName(string baseName, IReadOnlyList<string> roots)
-    {
-        if (roots.Count == 0) return baseName;
-
-        // Deterministic hash via SHA256 (string.GetHashCode is not stable across .NET restarts)
-        var input = roots.Count == 1 ? roots[0] : string.Join("|", roots);
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        var rootHash = Convert.ToHexString(hashBytes)[..8];
-
-        var ext = Path.GetExtension(baseName);
-        var name = Path.GetFileNameWithoutExtension(baseName);
-        return $"{name}_{rootHash}{ext}";
-    }
-
-    /// <summary>
-    /// Scan roots for standalone disc files eligible for conversion.
-    /// Port of Get-StandaloneConversionPreview.
-    /// </summary>
-    public static StandaloneConversionPreview GetConversionPreview(
-        IFileSystem fs,
-        IReadOnlyList<string> roots,
-        IReadOnlyList<string>? allowedRoots = null,
-        int previewLimit = 12)
-    {
-        var discExts = GetDiscExtensions();
-        var preview = new List<string>();
-        int candidateCount = 0;
-        var acceptedRoots = new List<string>();
-        var blockedRoots = new List<string>();
-        var scannedByRoot = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var root in roots)
-        {
-            if (allowedRoots is not null && !allowedRoots.Any(r =>
-                root.StartsWith(r, StringComparison.OrdinalIgnoreCase)))
-            {
-                blockedRoots.Add(root);
-                continue;
-            }
-
-            acceptedRoots.Add(root);
-            var files = fs.GetFilesSafe(root, discExts);
-            scannedByRoot[root] = files.Count;
-            candidateCount += files.Count;
-
-            foreach (var file in files)
-            {
-                if (preview.Count < previewLimit)
-                    preview.Add(file);
-            }
-        }
-
-        return new StandaloneConversionPreview
-        {
-            CandidateCount = candidateCount,
-            PreviewItems = preview,
-            AcceptedRoots = acceptedRoots,
-            BlockedRoots = blockedRoots,
-            ScannedFilesByRoot = scannedByRoot
-        };
-    }
-}
-
-/// <summary>
-/// Preview of standalone conversion candidates.
-/// </summary>
-public sealed class StandaloneConversionPreview
-{
-    public int CandidateCount { get; init; }
-    public IReadOnlyList<string> PreviewItems { get; init; } = [];
-    public IReadOnlyList<string> AcceptedRoots { get; init; } = [];
-    public IReadOnlyList<string> BlockedRoots { get; init; } = [];
-    public IReadOnlyDictionary<string, int> ScannedFilesByRoot { get; init; } = new Dictionary<string, int>();
 }

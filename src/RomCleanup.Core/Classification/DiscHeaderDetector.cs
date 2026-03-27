@@ -15,7 +15,7 @@ namespace RomCleanup.Core.Classification;
 public sealed class DiscHeaderDetector
 {
     private static readonly RegexOptions RxOpts = RegexOptions.IgnoreCase | RegexOptions.Compiled;
-    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan RxTimeout = SafeRegex.ShortTimeout;
 
     // Pre-compiled patterns for ResolveConsoleFromText (TASK-001 ReDoS fix)
     private static readonly Regex RxDreamcast = new(@"SEGA.SEGAKATANA|SEGA.?DREAMCAST|SEGA\s*KATANA|DREAMCAST", RxOpts, RxTimeout);

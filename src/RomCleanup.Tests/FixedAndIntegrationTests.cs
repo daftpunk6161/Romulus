@@ -1,7 +1,6 @@
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Core.GameKeys;
-using RomCleanup.Infrastructure.Diagnostics;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
 
@@ -49,40 +48,36 @@ public sealed class FixedAndIntegrationTests
     }
 
     // =========================================================================
-    //  TEST-FIX-03: CatchGuardService — verify actual error classification
+    //  TEST-FIX-03: ErrorClassifier — verify exception-based classification
     // =========================================================================
 
     [Fact]
-    public void CatchGuard_IOException_ClassifiedAsTransient()
+    public void ErrorClassifier_IOException_ClassifiedAsTransient()
     {
         var ex = new IOException("disk error");
-        var record = CatchGuardService.CreateRecord("Mod", "Act", exception: ex);
-        Assert.Equal(ErrorKind.Transient, record.ErrorClass);
+        Assert.Equal(ErrorKind.Transient, ErrorClassifier.Classify(ex));
     }
 
     [Fact]
-    public void CatchGuard_UnauthorizedAccess_ClassifiedAsCritical()
+    public void ErrorClassifier_UnauthorizedAccess_ClassifiedAsCritical()
     {
         var ex = new UnauthorizedAccessException("no access");
-        var record = CatchGuardService.CreateRecord("Mod", "Act", exception: ex);
-        Assert.Equal(ErrorKind.Critical, record.ErrorClass);
+        Assert.Equal(ErrorKind.Critical, ErrorClassifier.Classify(ex));
     }
 
     [Fact]
-    public void CatchGuard_FileNotFound_NotTransient()
+    public void ErrorClassifier_FileNotFound_NotTransient()
     {
         var ex = new FileNotFoundException("file missing");
-        var record = CatchGuardService.CreateRecord("Mod", "Act", exception: ex);
         // FileNotFound is NOT transient (no point retrying)
-        Assert.NotEqual(ErrorKind.Transient, record.ErrorClass);
+        Assert.NotEqual(ErrorKind.Transient, ErrorClassifier.Classify(ex));
     }
 
     [Fact]
-    public void CatchGuard_SecurityException_Critical()
+    public void ErrorClassifier_SecurityException_Critical()
     {
         var ex = new System.Security.SecurityException("access denied");
-        var record = CatchGuardService.CreateRecord("Mod", "Act", exception: ex);
-        Assert.Equal(ErrorKind.Critical, record.ErrorClass);
+        Assert.Equal(ErrorKind.Critical, ErrorClassifier.Classify(ex));
     }
 
     // =========================================================================
@@ -98,21 +93,6 @@ public sealed class FixedAndIntegrationTests
     {
         var result = ErrorClassifier.Classify(errorCode: code);
         Assert.Equal(expected, result);
-    }
-
-    // =========================================================================
-    //  TEST-FIX-05: CatchGuardService.Guard — Critical should rethrow
-    // =========================================================================
-
-    [Fact]
-    public void Guard_CriticalError_Rethrows()
-    {
-        var service = new CatchGuardService();
-        Assert.Throws<UnauthorizedAccessException>(() =>
-            service.Guard("Mod", "Act", () =>
-            {
-                throw new UnauthorizedAccessException("denied");
-            }));
     }
 
     // =========================================================================
@@ -209,7 +189,7 @@ public sealed class FixedAndIntegrationTests
     public void Blocklist_DiscExtensions_NoOverlap()
     {
         // Blocklist folder names should not conflict with disc extensions
-        var blocklist = ExecutionHelpers.GetDefaultBlocklist();
+        var blocklist = ExecutionHelpers.DefaultBlocklist;
         var discExts = ExecutionHelpers.GetDiscExtensions();
 
         foreach (var blocked in blocklist)

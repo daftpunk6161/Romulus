@@ -4,6 +4,7 @@ using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Scoring;
 using RomCleanup.Infrastructure.Hashing;
 using System.Runtime.CompilerServices;
+using RomCleanup.Core.SetParsing;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
@@ -59,7 +60,12 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var root = file.Root;
         var ext = file.Extension;
         var fileName = Path.GetFileNameWithoutExtension(filePath);
-        var gameKey = GameKeyNormalizer.Normalize(fileName);
+        var gameKey = GameKeyNormalizationProfile.TagPatterns is { Count: > 0 }
+            ? GameKeyNormalizer.Normalize(
+                fileName,
+                GameKeyNormalizationProfile.TagPatterns,
+                GameKeyNormalizationProfile.AlwaysAliasMap)
+            : GameKeyNormalizer.Normalize(fileName);
 
         long sizeBytes = 0;
         if (File.Exists(filePath))
@@ -218,7 +224,15 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
         var sizeTieBreak = FormatScorer.GetSizeTieBreakScore(null, ext, sizeBytes);
         var setMembers = PipelinePhaseHelpers.GetSetMembers(filePath, ext, includeM3uMembers: true);
-        var completeness = CompletenessScorer.Calculate(filePath, ext, setMembers, datMatch);
+        var missingSetMembersCount = ext switch
+        {
+            ".cue" => CueSetParser.GetMissingFiles(filePath).Count,
+            ".gdi" => GdiSetParser.GetMissingFiles(filePath).Count,
+            ".ccd" => CcdSetParser.GetMissingFiles(filePath).Count,
+            ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath).Count,
+            _ => 0
+        };
+        var completeness = CompletenessScorer.Calculate(filePath, ext, setMembers, missingSetMembersCount, datMatch);
 
         return CandidateFactory.Create(
             normalizedPath: filePath,

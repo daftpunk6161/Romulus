@@ -66,9 +66,9 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
         File.WriteAllBytes(source, [0x01]);
         var dest = Path.Combine(outside, "escaped.bin");
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            fs.MoveItemSafely(source, dest, root));
-        Assert.Contains("outside allowed root", ex.Message);
+        var result = fs.MoveItemSafely(source, dest, root);
+
+        Assert.Null(result);
         Assert.True(File.Exists(source), "Source must not have been moved");
     }
 
@@ -84,8 +84,10 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
         // Attempt to escape via ..
         var dest = Path.Combine(root, "..", "escaped.bin");
 
-        Assert.Throws<InvalidOperationException>(() =>
-            fs.MoveItemSafely(source, dest, root));
+        var result = fs.MoveItemSafely(source, dest, root);
+
+        Assert.Null(result);
+        Assert.True(File.Exists(source), "Source must not have been moved");
     }
 
     #endregion

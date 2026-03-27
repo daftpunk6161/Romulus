@@ -49,7 +49,9 @@ public sealed class RunResultBuilder
     public IReadOnlyList<DedupeGroup> DedupeGroups { get; set; } = Array.Empty<DedupeGroup>();
     public PhaseMetricsResult? PhaseMetrics { get; set; }
 
-    public RunResult Build() => new()
+    public RunResult Build()
+    {
+        var runResult = new RunResult
         {
         Status = Status,
         ExitCode = ExitCode,
@@ -91,4 +93,12 @@ public sealed class RunResultBuilder
         DedupeGroups = DedupeGroups,
         PhaseMetrics = PhaseMetrics
         };
+
+        // Defensive invariant check keeps report/output channels aligned.
+        var validationErrors = RunResultValidator.Validate(runResult);
+        if (validationErrors.Count > 0)
+            throw new InvalidOperationException($"RunResult invariant violation: {string.Join(" | ", validationErrors)}");
+
+        return runResult;
+    }
 }

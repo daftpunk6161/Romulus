@@ -18,7 +18,7 @@ public static class RuleEngine
         { "eq", "neq", "contains", "gt", "lt", "regex" };
 
     /// <summary>Timeout for user-defined regex patterns to prevent ReDoS.</summary>
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan RegexTimeout = SafeRegex.ShortTimeout;
 
     /// <summary>Cache for compiled regex patterns from user rules. Bounded to 1024 entries to prevent memory exhaustion.</summary>
     private static readonly ConcurrentDictionary<string, Regex?> _regexCache = new(StringComparer.Ordinal);

@@ -102,3 +102,26 @@ public sealed class RunResult
     /// </summary>
     public PhaseMetricsResult? PhaseMetrics { get; init; }
 }
+
+public static class RunResultValidator
+{
+    public static IReadOnlyList<string> Validate(RunResult result)
+    {
+        var errors = new List<string>();
+
+        if (result.MoveResult is { } move)
+        {
+            if (move.MoveCount < 0 || move.FailCount < 0 || move.SkipCount < 0)
+                errors.Add("MoveResult counts must not be negative.");
+        }
+
+        if (result.DatAuditResult is { } dat)
+        {
+            var total = dat.HaveCount + dat.HaveWrongNameCount + dat.MissCount + dat.UnknownCount + dat.AmbiguousCount;
+            if (total != dat.Entries.Count)
+                errors.Add("DatAuditResult summary counts must equal Entries.Count.");
+        }
+
+        return errors;
+    }
+}

@@ -24,7 +24,7 @@ public sealed class GeneralSettings
     public string LogLevel { get; set; } = "Info";
 
     [JsonPropertyName("preferredRegions")]
-    public List<string> PreferredRegions { get; set; } = new() { "EU", "US", "JP", "WORLD" };
+    public List<string> PreferredRegions { get; set; } = new(RunConstants.DefaultPreferRegions);
 
     [JsonPropertyName("aggressiveJunk")]
     public bool AggressiveJunk { get; set; }
@@ -70,4 +70,37 @@ public sealed class DatSettings
 
     [JsonPropertyName("datFallback")]
     public bool DatFallback { get; set; } = true;
+}
+
+public static class RomCleanupSettingsValidator
+{
+    public static IReadOnlyList<string> Validate(RomCleanupSettings settings)
+    {
+        var errors = new List<string>();
+        if (settings.General.PreferredRegions.Count == 0)
+        {
+            errors.Add("general.preferredRegions must contain at least one region.");
+        }
+        else
+        {
+            foreach (var region in settings.General.PreferredRegions)
+            {
+                if (string.IsNullOrWhiteSpace(region))
+                {
+                    errors.Add("general.preferredRegions must not contain empty values.");
+                    continue;
+                }
+
+                if (!region.All(ch => char.IsLetterOrDigit(ch) || ch == '-'))
+                {
+                    errors.Add($"general.preferredRegions contains invalid value '{region}'.");
+                }
+            }
+        }
+
+        if (!RunConstants.ValidHashTypes.Contains(settings.Dat.HashType))
+            errors.Add($"dat.hashType '{settings.Dat.HashType}' is invalid.");
+
+        return errors;
+    }
 }

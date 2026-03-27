@@ -153,8 +153,9 @@ public class Phase8ThemeAccessibilityTests
     [Theory]
     [InlineData("F5", "Run")]
     [InlineData("Escape", "Cancel")]
-    public void Task130_MainWindow_HasKeyboardShortcuts(string key, string _description)
+    public void Task130_MainWindow_HasKeyboardShortcuts(string key, string description)
     {
+        _ = description; // used for test readability in InlineData
         var path = FindUiFile("", "MainWindow.xaml");
         var xaml = File.ReadAllText(path);
 
@@ -236,8 +237,9 @@ public class Phase8ThemeAccessibilityTests
     [InlineData("CleanDarkPro.xaml", "#D4D6DE", "#16181D", 4.5)]
     [InlineData("RetroCRT.xaml", "#CCFFCC", "#050A05", 4.5)]
     [InlineData("ArcadeNeon.xaml", "#F0E8FF", "#0A0A1E", 4.5)]
-    public void Task132_TextPrimary_MeetsContrastRatio(string _theme, string fgHex, string bgHex, double minRatio)
+    public void Task132_TextPrimary_MeetsContrastRatio(string theme, string fgHex, string bgHex, double minRatio)
     {
+        _ = theme; // used for test readability in InlineData
         var ratio = CalculateContrastRatio(ParseColor(fgHex), ParseColor(bgHex));
         Assert.True(ratio >= minRatio,
             $"Contrast ratio {ratio:F2}:1 for {fgHex} on {bgHex} is below {minRatio}:1");
@@ -250,8 +252,9 @@ public class Phase8ThemeAccessibilityTests
     [InlineData("CleanDarkPro.xaml", "#8A8EA0", "#16181D", 4.5)]
     [InlineData("RetroCRT.xaml", "#66AA66", "#050A05", 4.5)]
     [InlineData("ArcadeNeon.xaml", "#9988CC", "#0A0A1E", 4.5)]
-    public void Task132_TextMuted_MeetsContrastRatio(string _theme, string fgHex, string bgHex, double minRatio)
+    public void Task132_TextMuted_MeetsContrastRatio(string theme, string fgHex, string bgHex, double minRatio)
     {
+        _ = theme; // used for test readability in InlineData
         var ratio = CalculateContrastRatio(ParseColor(fgHex), ParseColor(bgHex));
         Assert.True(ratio >= minRatio,
             $"Contrast ratio {ratio:F2}:1 for {fgHex} on {bgHex} is below {minRatio}:1");

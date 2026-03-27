@@ -150,7 +150,6 @@
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
           <TextBlock Text="{Binding PerfPhase}" FontSize="14" FontWeight="SemiBold"
@@ -164,22 +163,8 @@
           <TextBlock Text="{Binding Loc[Progress.CancelHint]}" FontSize="11"
                      Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
         </StackPanel>
-        <Button Grid.Column="2" Command="{Binding CancelCommand}" Style="{StaticResource DangerButton}"
-                Width="80" Height="44" VerticalAlignment="Center"
-                AutomationProperties.Name="{Binding Loc[Start.CancelButton]}"
-                AutomationProperties.AcceleratorKey="Esc">
-          <StackPanel HorizontalAlignment="Center">
-            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" FontSize="18" HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding Loc[Start.CancelButton]}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-          </StackPanel>
-        </Button>
       </Grid>
     </Border>
-
-    <!-- ── GUI-078: Progress Bar ── -->
-    <ProgressBar Grid.Row="2" Height="6" Margin="0,0,0,12" VerticalAlignment="Bottom"
-                 Maximum="100" Value="{Binding Progress}"
-                 AutomationProperties.Name="{Binding Loc[Progress.Bar]}" AutomationProperties.LiveSetting="Polite"/>
 
     <!-- ── GUI-080: Minimize-to-tray hint ── -->
     <TextBlock Grid.Row="2" Text="{Binding Loc[Progress.MinimizeHint]}" FontSize="11"

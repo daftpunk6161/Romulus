@@ -42,5 +42,6 @@
     "chat.requestQueuing.defaultAction": "queue",
     "chat.tips.enabled": true,
     "chat.useClaudeHooks": true,
-    "chat.viewProgressBadge.enabled": true
+    "chat.viewProgressBadge.enabled": true,
+    "markdown.validate.enabled": false
 }

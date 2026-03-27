@@ -7,6 +7,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.Models;
@@ -436,18 +437,13 @@ public sealed partial class FeatureCommandService
             sb.AppendLine("  Keine Deduplizierungs-Daten vorhanden.\n");
         else
         {
-            var roots = _vm.Roots.Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).ToList();
-            string? GetRoot(string filePath)
-            {
-                var full = Path.GetFullPath(filePath);
-                return roots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
-            }
+            var roots = _vm.Roots.Select(ArtifactPathResolver.NormalizeRoot).ToList();
 
             var crossRootGroups = new List<DedupeGroup>();
             foreach (var g in _vm.LastDedupeGroups)
             {
                 var allPaths = new[] { g.Winner }.Concat(g.Losers);
-                var distinctRoots = allPaths.Select(c => GetRoot(c.MainPath)).Where(r => r is not null).Distinct().Count();
+                var distinctRoots = allPaths.Select(c => ArtifactPathResolver.FindContainingRoot(c.MainPath, roots)).Where(r => r is not null).Distinct().Count();
                 if (distinctRoots > 1) crossRootGroups.Add(g);
             }
 

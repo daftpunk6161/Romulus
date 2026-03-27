@@ -137,6 +137,31 @@
         </StackPanel>
       </Border>
 
+      <!-- ── Watch-Modus (aus Dashboard verlagert) ── -->
+      <TextBlock Text="{Binding Loc[Advanced.WatchMode]}" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
+      <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}">
+        <StackPanel>
+          <TextBlock Text="{Binding Loc[Start.WatchToggleTip]}"
+                     Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                     Margin="0,0,0,8"/>
+          <ToggleButton IsChecked="{Binding IsWatchModeActive, Mode=OneWay}"
+                        Command="{Binding WatchApplyCommand}"
+                        HorizontalAlignment="Left" Padding="12,6" MinWidth="220"
+                        AutomationProperties.Name="{Binding Loc[Start.WatchToggle]}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                         VerticalAlignment="Center" Margin="0,0,6,0"/>
+              <TextBlock Text="{Binding Loc[Start.WatchToggle]}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </ToggleButton>
+
+          <CheckBox Content="{Binding Loc[Advanced.WatchAutoStart]}"
+                    Margin="0,10,0,0"
+                    IsChecked="{Binding WatchAutoStart}"
+                    ToolTip="{Binding Loc[Advanced.WatchAutoStartTip]}"/>
+        </StackPanel>
+      </Border>
+
       <!-- ── Sortier- und Bereinigungsoptionen ── -->
       <TextBlock Text="Sortierung &amp; Bereinigung" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
       <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}">

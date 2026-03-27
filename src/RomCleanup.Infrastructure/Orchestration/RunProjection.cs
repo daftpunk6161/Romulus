@@ -58,14 +58,25 @@ public static class RunProjectionFactory
         var candidates = result.AllCandidates ?? Array.Empty<Contracts.Models.RomCandidate>();
         var total = result.TotalFilesScanned;
         var dedupeGroups = result.DedupeGroups ?? Array.Empty<DedupeGroup>();
-        var winnerCount = result.WinnerCount > 0 ? result.WinnerCount : dedupeGroups.Count;
+        var gameCandidateCount = candidates.Count(c => c.Category == FileCategory.Game);
+        var isPartialCancelledOrFailed =
+            (string.Equals(result.Status, "cancelled", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(result.Status, "failed", StringComparison.OrdinalIgnoreCase))
+            && dedupeGroups.Count == 0
+            && candidates.Count > 0;
+
+        var winnerCount = result.WinnerCount > 0
+            ? result.WinnerCount
+            : isPartialCancelledOrFailed
+                ? gameCandidateCount
+                : dedupeGroups.Count;
         var loserCount = result.LoserCount > 0
             ? result.LoserCount
             : dedupeGroups.Sum(static g => g.Losers?.Count ?? 0);
         var groupCount = result.GroupCount > 0 ? result.GroupCount : dedupeGroups.Count;
         var junk = candidates.Count(c => c.Category == FileCategory.Junk);
         var bios = candidates.Count(c => c.Category == FileCategory.Bios);
-        var games = groupCount;
+        var games = groupCount > 0 ? groupCount : (isPartialCancelledOrFailed ? gameCandidateCount : 0);
         var unknown = result.UnknownCount;
         var datMatches = candidates.Count(c => c.DatMatch);
         var filteredNonGameCount = result.FilteredNonGameCount;

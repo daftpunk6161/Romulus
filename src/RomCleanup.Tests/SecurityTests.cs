@@ -45,29 +45,6 @@ public sealed class SecurityTests : IDisposable
         Assert.False(ExecutionHelpers.IsBlocklisted(path));
     }
 
-    // ── TEST-SEC-03: Tool hash verification ──
-    // (ToolRunnerAdapter hash verification is covered in unit tests;
-    //  here we test the SHA256 hash path logic)
-
-    [Fact]
-    public void BuildAuditFileName_DeterministicHash_NotGuessable()
-    {
-        // SHA256-based audit file names should be deterministic but not based on GetHashCode
-        var r1 = ExecutionHelpers.BuildAuditFileName("audit.csv", [@"D:\roms"]);
-        var r2 = ExecutionHelpers.BuildAuditFileName("audit.csv", [@"D:\roms"]);
-        Assert.Equal(r1, r2); // deterministic
-
-        // Different input = different hash
-        var r3 = ExecutionHelpers.BuildAuditFileName("audit.csv", [@"E:\different"]);
-        Assert.NotEqual(r1, r3);
-
-        // Hash suffix should be 8 hex chars
-        var nameWithoutExt = Path.GetFileNameWithoutExtension(r1);
-        var hashPart = nameWithoutExt.Split('_').Last();
-        Assert.Equal(8, hashPart.Length);
-        Assert.Matches("^[0-9A-F]+$", hashPart);
-    }
-
     // ── TEST-SEC-04: CUE prefix bypass ──
 
     [Theory]

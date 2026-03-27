@@ -22,7 +22,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_StandaloneWithoutDatMatch_Returns25()
     {
-        var score = CompletenessScorer.Calculate("game.zip", ".zip", Array.Empty<string>(), datMatch: false);
+        var score = CompletenessScorer.Calculate("game.zip", ".zip", Array.Empty<string>(), 0, datMatch: false);
 
         Assert.Equal(25, score);
     }
@@ -30,7 +30,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_StandaloneWithDatMatch_Returns75()
     {
-        var score = CompletenessScorer.Calculate("game.zip", ".zip", Array.Empty<string>(), datMatch: true);
+        var score = CompletenessScorer.Calculate("game.zip", ".zip", Array.Empty<string>(), 0, datMatch: true);
 
         Assert.Equal(75, score);
     }
@@ -38,7 +38,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_NonDescriptorWithSetMembers_DoesNotAddStandaloneBonus()
     {
-        var score = CompletenessScorer.Calculate("game.bin", ".bin", new[] { "track01.bin" }, datMatch: false);
+        var score = CompletenessScorer.Calculate("game.bin", ".bin", new[] { "track01.bin" }, 0, datMatch: false);
 
         Assert.Equal(0, score);
     }
@@ -46,12 +46,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_CueCompleteSet_Returns50()
     {
-        var cuePath = Path.Combine(_tempDir, "disc.cue");
-        var trackPath = Path.Combine(_tempDir, "track01.bin");
-        File.WriteAllText(trackPath, "dummy");
-        File.WriteAllText(cuePath, "FILE \"track01.bin\" BINARY");
-
-        var score = CompletenessScorer.Calculate(cuePath, ".cue", Array.Empty<string>(), datMatch: false);
+        var score = CompletenessScorer.Calculate("disc.cue", ".cue", Array.Empty<string>(), 0, datMatch: false);
 
         Assert.Equal(50, score);
     }
@@ -59,10 +54,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_CueMissingSet_ReturnsMinus50()
     {
-        var cuePath = Path.Combine(_tempDir, "disc-missing.cue");
-        File.WriteAllText(cuePath, "FILE \"missing.bin\" BINARY");
-
-        var score = CompletenessScorer.Calculate(cuePath, ".cue", Array.Empty<string>(), datMatch: false);
+        var score = CompletenessScorer.Calculate("disc-missing.cue", ".cue", Array.Empty<string>(), 1, datMatch: false);
 
         Assert.Equal(-50, score);
     }
@@ -70,10 +62,7 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     [Fact]
     public void Completeness_Calculate_GdiMissingSetWithDatMatch_ReturnsZero()
     {
-        var gdiPath = Path.Combine(_tempDir, "disc.gdi");
-        File.WriteAllText(gdiPath, "1\n1 0 4 2352 \"track01.bin\" 0\n");
-
-        var score = CompletenessScorer.Calculate(gdiPath, ".gdi", Array.Empty<string>(), datMatch: true);
+        var score = CompletenessScorer.Calculate("disc.gdi", ".gdi", Array.Empty<string>(), 1, datMatch: true);
 
         Assert.Equal(0, score);
     }

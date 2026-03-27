@@ -6,7 +6,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 
 public sealed partial class RunOrchestrator
 {
-    private ScanPhaseResult RunScanAndPrepareState(
+    private async Task<ScanPhaseResult> RunScanAndPrepareStateAsync(
         RunOptions options,
         RunResultBuilder result,
         PhaseMetricsCollector metrics,
@@ -31,7 +31,7 @@ public sealed partial class RunOrchestrator
         IAsyncEnumerable<ScannedFileEntry> scannedFiles = new StreamingScanPipelinePhase(scanContext)
             .EnumerateFilesAsync(options.Roots, options.Extensions, cancellationToken);
 
-        var candidates = MaterializeEnrichedCandidates(scannedFiles, scanContext, cancellationToken);
+        var candidates = await MaterializeEnrichedCandidatesAsync(scannedFiles, scanContext, cancellationToken);
 
         var unknownReasonCounts = candidates
             .Where(c => c.Category == FileCategory.Unknown)

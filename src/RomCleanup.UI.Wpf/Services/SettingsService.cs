@@ -135,6 +135,7 @@ public sealed class SettingsService : ISettingsService
                     DryRun = GetBool(ui, "dryRun", true),
                     ConvertEnabled = GetBool(ui, "convertEnabled"),
                     ConfirmMove = GetBool(ui, "confirmMove", true),
+                    WatchAutoStart = GetBool(ui, "watchAutoStart"),
                     ConflictPolicy = cp,
                     Theme = GetString(ui, "theme", "Dark")
                 };
@@ -278,6 +279,7 @@ public sealed class SettingsService : ISettingsService
         vm.DryRun = dto.DryRun;
         vm.ConvertEnabled = dto.ConvertEnabled;
         vm.ConfirmMove = dto.ConfirmMove;
+        vm.WatchAutoStart = dto.WatchAutoStart;
         vm.ConflictPolicy = dto.ConflictPolicy;
 
         // Roots
@@ -348,6 +350,7 @@ public sealed class SettingsService : ISettingsService
                         dryRun = vm.DryRun,
                         convertEnabled = vm.ConvertEnabled,
                         confirmMove = vm.ConfirmMove,
+                        watchAutoStart = vm.WatchAutoStart,
                         conflictPolicy = vm.ConflictPolicy.ToString(),
                         theme = vm.CurrentThemeName
                     }

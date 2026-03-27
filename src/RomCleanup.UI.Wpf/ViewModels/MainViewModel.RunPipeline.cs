@@ -76,7 +76,14 @@ public sealed partial class MainViewModel
     public RunResult? LastRunResult
     {
         get => _lastRunResult;
-        set { _lastRunResult = value; OnPropertyChanged(); }
+        set
+        {
+            _lastRunResult = value;
+            OnPropertyChanged();
+            // HasRunResult depends on LastRunResult for Cancelled/Failed states
+            if (Run.CurrentRunState is RunState.Cancelled or RunState.Failed)
+                OnPropertyChanged(nameof(HasRunResult));
+        }
     }
 
     private string? _lastAuditPath;
@@ -140,7 +147,10 @@ public sealed partial class MainViewModel
 
     public bool ShowStartMoveButton => CanStartMoveWithCurrentPreview;
 
-    public bool HasRunResult => Run.HasRunResult;
+    public bool HasRunResult =>
+        Run.HasRunResult ||
+        (Run.CurrentRunState is RunState.Cancelled or RunState.Failed
+         && (LastRunResult?.TotalFilesScanned ?? 0) > 0);
 
     /// <summary>TASK-115: Localized display text for the current RunState (SmartActionBar status).</summary>
     public string RunStateDisplayText => Run.CurrentRunState switch
@@ -258,6 +268,11 @@ public sealed partial class MainViewModel
 
     private string _busyHint = "";
     public string BusyHint { get => _busyHint; set => SetProperty(ref _busyHint, value); }
+
+    // Tracks in-phase progress so long scan phases don't appear stuck on a fixed percentage.
+    private string _progressPhaseKey = string.Empty;
+    private int _progressPhaseEventCount;
+    private DateTime _progressPhaseStartedUtc = DateTime.MinValue;
 
     // ═══ MISC UI STATE ══════════════════════════════════════════════════
     private string? _selectedRoot;
@@ -566,6 +581,7 @@ public sealed partial class MainViewModel
         ProgressText = "0%";
         PerfPhase = "–";
         PerfFile = "–";
+        ResetRunProgressEstimator();
         ShowMoveCompleteBanner = false;
         RunSummaryText = "";
         RunSummarySeverity = UiErrorSeverity.Info;
@@ -737,8 +753,8 @@ public sealed partial class MainViewModel
     {
         var dirs = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName, "reports"),
-            Path.Combine(Directory.GetCurrentDirectory(), "reports")
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName, RomCleanup.Contracts.AppIdentity.ArtifactDirectories.Reports),
+            Path.Combine(Directory.GetCurrentDirectory(), RomCleanup.Contracts.AppIdentity.ArtifactDirectories.Reports)
         };
 
         string? bestFile = null;
@@ -901,14 +917,8 @@ public sealed partial class MainViewModel
                         var phaseProgress = EstimatePhaseProgress(msg);
                         if (phaseProgress >= 0)
                             Progress = phaseProgress;
-                        ProgressText = msg;
-                        if (msg.StartsWith("[") && msg.Contains(']'))
-                        {
-                            var phase = msg[..(msg.IndexOf(']') + 1)];
-                            PerfPhase = $"Phase: {phase}";
-                            var rest = msg[(msg.IndexOf(']') + 1)..].Trim();
-                            if (rest.Length > 0) PerfFile = $"Datei: {rest}";
-                        }
+                        ProgressText = $"{Math.Round(Progress):0}%";
+                        UpdatePerfContext(msg);
                         AddLog(msg, "INFO");
                     }, null);
                 });
@@ -1010,24 +1020,31 @@ public sealed partial class MainViewModel
     }
 
     private void ToggleWatchMode()
+        => SetWatchMode(!IsWatchModeActive, showDialog: true);
+
+    private void SetWatchMode(bool enabled, bool showDialog)
     {
         if (Roots.Count == 0)
         { AddLog(_loc["Log.WatchModeNoRoots"], "WARN"); return; }
 
         _watchService.IsBusyCheck = () => IsBusy;
 
-        var count = _watchService.Start(Roots);
+        var count = enabled ? _watchService.Start(Roots) : 0;
         IsWatchModeActive = _watchService.IsActive;
-        if (count == 0)
+        if (count == 0 || !enabled)
         {
             AddLog(_loc["Log.WatchModeDeactivated"], "INFO");
-            _dialog.Info(_loc["Dialog.Watch.Deactivated"], _loc["Dialog.Watch.Title"]);
+            if (showDialog)
+                _dialog.Info(_loc["Dialog.Watch.Deactivated"], _loc["Dialog.Watch.Title"]);
         }
         else
         {
             AddLog(_loc.Format("Log.WatchModeActivated", count), "INFO");
-            _dialog.Info(_loc.Format("Dialog.Watch.Activated", string.Join("\n", Roots)),
-                _loc["Dialog.Watch.Title"]);
+            if (showDialog)
+            {
+                _dialog.Info(_loc.Format("Dialog.Watch.Activated", string.Join("\n", Roots)),
+                    _loc["Dialog.Watch.Title"]);
+            }
         }
     }
 
@@ -1273,24 +1290,176 @@ public sealed partial class MainViewModel
         RunSummarySeverity = severity;
     }
 
-    private static double EstimatePhaseProgress(string message)
+    private void ResetRunProgressEstimator()
+    {
+        _progressPhaseKey = string.Empty;
+        _progressPhaseEventCount = 0;
+        _progressPhaseStartedUtc = DateTime.MinValue;
+    }
+
+    private double EstimatePhaseProgress(string message)
     {
         if (string.IsNullOrEmpty(message) || !message.StartsWith("[", StringComparison.Ordinal))
             return -1;
 
-        return message switch
+        var closingBracket = message.IndexOf(']');
+        if (closingBracket <= 1)
+            return -1;
+
+        var phaseKey = message[..(closingBracket + 1)];
+        if (!TryGetPhaseRange(phaseKey, out var rangeStart, out var rangeEnd))
+            return -1;
+
+        if (phaseKey.Equals("[Fertig]", StringComparison.OrdinalIgnoreCase))
+            return 100;
+
+        if (!phaseKey.Equals(_progressPhaseKey, StringComparison.OrdinalIgnoreCase))
         {
-            var m when m.StartsWith("[Preflight]", StringComparison.OrdinalIgnoreCase) => 8,
-            var m when m.StartsWith("[Scan]", StringComparison.OrdinalIgnoreCase) => 22,
-            var m when m.StartsWith("[Dedupe]", StringComparison.OrdinalIgnoreCase) => 40,
-            var m when m.StartsWith("[Junk]", StringComparison.OrdinalIgnoreCase) => 50,
-            var m when m.StartsWith("[Move]", StringComparison.OrdinalIgnoreCase) => 65,
-            var m when m.StartsWith("[Sort]", StringComparison.OrdinalIgnoreCase) => 78,
-            var m when m.StartsWith("[Convert]", StringComparison.OrdinalIgnoreCase) => 90,
-            var m when m.StartsWith("[Report]", StringComparison.OrdinalIgnoreCase) => 96,
-            var m when m.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase) => 100,
-            _ => -1,
-        };
+            _progressPhaseKey = phaseKey;
+            _progressPhaseEventCount = 0;
+            _progressPhaseStartedUtc = DateTime.UtcNow;
+        }
+
+        _progressPhaseEventCount++;
+
+        if (TryParseProgressFraction(message, out var fraction))
+        {
+            var preciseCandidate = rangeStart + ((rangeEnd - rangeStart) * fraction);
+            return Math.Min(rangeEnd, Math.Max(Progress, preciseCandidate));
+        }
+
+        if (message.Contains("Abgeschlossen", StringComparison.OrdinalIgnoreCase))
+            return Math.Max(Progress, rangeEnd);
+
+        var elapsedSeconds = _progressPhaseStartedUtc == DateTime.MinValue
+            ? 0
+            : (DateTime.UtcNow - _progressPhaseStartedUtc).TotalSeconds;
+
+        // Grow conservatively when no explicit x/y progress is available.
+        var eventFactor = Math.Min(1d, _progressPhaseEventCount / 120d);
+        var timeFactor = Math.Min(1d, elapsedSeconds / 45d);
+        var factor = Math.Max(eventFactor, timeFactor);
+
+        var candidate = rangeStart + ((rangeEnd - rangeStart) * factor);
+        return Math.Min(rangeEnd, Math.Max(Progress, candidate));
+    }
+
+    private void UpdatePerfContext(string message)
+    {
+        if (!TrySplitProgressMessage(message, out var phase, out var detail))
+            return;
+
+        PerfPhase = $"Phase: {phase}";
+        PerfFile = detail;
+    }
+
+    private static bool TrySplitProgressMessage(string message, out string phase, out string detail)
+    {
+        phase = string.Empty;
+        detail = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(message) || !message.StartsWith("[", StringComparison.Ordinal))
+            return false;
+
+        var closingBracket = message.IndexOf(']');
+        if (closingBracket <= 1)
+            return false;
+
+        phase = message[..(closingBracket + 1)];
+        detail = message[(closingBracket + 1)..].Trim();
+        return true;
+    }
+
+    private static bool TryParseProgressFraction(string message, out double fraction)
+    {
+        fraction = 0;
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        var slash = message.IndexOf('/');
+        if (slash <= 0 || slash >= message.Length - 1)
+            return false;
+
+        var leftEnd = slash - 1;
+        while (leftEnd >= 0 && !char.IsDigit(message[leftEnd]))
+            leftEnd--;
+
+        if (leftEnd < 0)
+            return false;
+
+        var leftStart = leftEnd;
+        while (leftStart >= 0 && char.IsDigit(message[leftStart]))
+            leftStart--;
+        leftStart++;
+
+        var rightStart = slash + 1;
+        while (rightStart < message.Length && !char.IsDigit(message[rightStart]))
+            rightStart++;
+
+        if (rightStart >= message.Length)
+            return false;
+
+        var rightEnd = rightStart;
+        while (rightEnd < message.Length && char.IsDigit(message[rightEnd]))
+            rightEnd++;
+
+        if (!int.TryParse(message[leftStart..(leftEnd + 1)], out var current) ||
+            !int.TryParse(message[rightStart..rightEnd], out var total) ||
+            total <= 0 ||
+            current < 0)
+        {
+            return false;
+        }
+
+        fraction = Math.Clamp((double)current / total, 0d, 1d);
+        return true;
+    }
+
+    private static bool TryGetPhaseRange(string phaseKey, out double start, out double end)
+    {
+        switch (phaseKey)
+        {
+            case var _ when phaseKey.StartsWith("[Preflight]", StringComparison.OrdinalIgnoreCase):
+                start = 3;
+                end = 12;
+                return true;
+            case var _ when phaseKey.StartsWith("[Scan]", StringComparison.OrdinalIgnoreCase):
+                start = 12;
+                end = 58;
+                return true;
+            case var _ when phaseKey.StartsWith("[Dedupe]", StringComparison.OrdinalIgnoreCase):
+                start = 58;
+                end = 72;
+                return true;
+            case var _ when phaseKey.StartsWith("[Junk]", StringComparison.OrdinalIgnoreCase):
+                start = 72;
+                end = 78;
+                return true;
+            case var _ when phaseKey.StartsWith("[Move]", StringComparison.OrdinalIgnoreCase):
+                start = 78;
+                end = 86;
+                return true;
+            case var _ when phaseKey.StartsWith("[Sort]", StringComparison.OrdinalIgnoreCase):
+                start = 86;
+                end = 92;
+                return true;
+            case var _ when phaseKey.StartsWith("[Convert]", StringComparison.OrdinalIgnoreCase):
+                start = 92;
+                end = 96;
+                return true;
+            case var _ when phaseKey.StartsWith("[Report]", StringComparison.OrdinalIgnoreCase):
+                start = 96;
+                end = 99;
+                return true;
+            case var _ when phaseKey.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase):
+                start = 100;
+                end = 100;
+                return true;
+            default:
+                start = 0;
+                end = 0;
+                return false;
+        }
     }
 
     private static int GetConsoleSortFailureCount(object sortResult)

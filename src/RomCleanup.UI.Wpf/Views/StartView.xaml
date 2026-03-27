@@ -264,20 +264,6 @@
         </StackPanel>
       </Border>
 
-      <!-- GUI-103: Watch-Mode Toggle Button (visible alternative to Ctrl+W) -->
-      <ToggleButton IsChecked="{Binding IsWatchModeActive, Mode=OneWay}"
-                    Command="{Binding WatchApplyCommand}"
-                    HorizontalAlignment="Right" Padding="12,6" Margin="0,0,0,8"
-                    MinHeight="44"
-                    AutomationProperties.Name="{Binding Loc[Start.WatchToggle]}"
-                    ToolTip="{Binding Loc[Start.WatchToggleTip]}">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                     VerticalAlignment="Center" Margin="0,0,6,0"/>
-          <TextBlock Text="{Binding Loc[Start.WatchToggle]}" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-
       <!-- ── GUI-068: Last Run Info ── -->
       <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}"
               Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">

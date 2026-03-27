@@ -32,15 +32,17 @@ public sealed record DashboardProjection(
 {
     public static DashboardProjection From(RunProjection projection, RunResult result, bool isConvertOnlyRun)
     {
-        var winners = isConvertOnlyRun ? "–" : projection.Keep.ToString();
-        var dupes = isConvertOnlyRun ? "–" : projection.Dupes.ToString();
-        var junk = isConvertOnlyRun ? "–" : projection.Junk.ToString();
+        var isPartialCancelledOrFailed = IsPartialCancelledOrFailed(result);
+
+        var winners = isConvertOnlyRun ? "–" : MarkProvisional(projection.Keep.ToString(), isPartialCancelledOrFailed);
+        var dupes = isConvertOnlyRun ? "–" : MarkProvisional(projection.Dupes.ToString(), isPartialCancelledOrFailed);
+        var junk = isConvertOnlyRun ? "–" : MarkProvisional(projection.Junk.ToString(), isPartialCancelledOrFailed);
         var duration = $"{projection.DurationMs / 1000.0:F1}s";
         var healthScore = isConvertOnlyRun || projection.TotalFiles <= 0
             ? "–"
-            : $"{projection.HealthScore}%";
-        var games = isConvertOnlyRun ? "–" : projection.Games.ToString();
-        var datHits = isConvertOnlyRun ? "–" : projection.DatMatches.ToString();
+            : MarkProvisional($"{projection.HealthScore}%", isPartialCancelledOrFailed);
+        var games = isConvertOnlyRun ? "–" : MarkProvisional(projection.Games.ToString(), isPartialCancelledOrFailed);
+        var datHits = isConvertOnlyRun ? "–" : MarkProvisional(projection.DatMatches.ToString(), isPartialCancelledOrFailed);
         var hasDatAudit = projection.DatHaveCount > 0
                           || projection.DatHaveWrongNameCount > 0
                           || projection.DatMissCount > 0
@@ -54,7 +56,7 @@ public sealed record DashboardProjection(
         var dedupeDenominator = projection.Keep + projection.Dupes;
         var dedupeRate = isConvertOnlyRun || dedupeDenominator <= 0
             ? "–"
-            : $"{100.0 * projection.Dupes / dedupeDenominator:F0}%";
+            : MarkProvisional($"{100.0 * projection.Dupes / dedupeDenominator:F0}%", isPartialCancelledOrFailed);
 
         var consoleDistribution = BuildConsoleDistribution(result.AllCandidates);
         var dedupeGroups = BuildDedupeGroupItems(result.DedupeGroups);
@@ -62,6 +64,8 @@ public sealed record DashboardProjection(
         var totalMove = projection.MoveCount + projection.JunkRemovedCount;
         var moveConsequenceText = isConvertOnlyRun
             ? "Nur Konvertierung aktiv. Keine Dateien werden verschoben."
+            : isPartialCancelledOrFailed
+                ? "Lauf abgebrochen. Kennzahlen sind vorläufig und basieren auf bereits gescannten Dateien."
             : totalMove > 0
                 ? $"Es werden {totalMove} Dateien verschoben ({projection.Dupes} Duplikate, {projection.Junk} Junk)."
                 : "Keine Dateien zum Verschieben erkannt.";
@@ -97,6 +101,21 @@ public sealed record DashboardProjection(
             ConsoleDistribution: consoleDistribution,
             DedupeGroups: dedupeGroups);
     }
+
+    private static bool IsPartialCancelledOrFailed(RunResult result)
+    {
+        var isCancelledOrFailed =
+            string.Equals(result.Status, "cancelled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(result.Status, "failed", StringComparison.OrdinalIgnoreCase);
+
+        var hasCandidates = (result.AllCandidates?.Count ?? 0) > 0;
+        var hasDedupeGroups = (result.DedupeGroups?.Count ?? 0) > 0;
+
+        return isCancelledOrFailed && hasCandidates && !hasDedupeGroups;
+    }
+
+    private static string MarkProvisional(string value, bool isProvisional)
+        => isProvisional && value != "–" ? $"{value} (vorläufig)" : value;
 
     private static string FormatBytes(long bytes)
     {

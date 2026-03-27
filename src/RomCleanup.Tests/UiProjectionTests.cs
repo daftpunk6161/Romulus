@@ -132,6 +132,34 @@ public sealed class UiProjectionTests
         Assert.Equal("–", dashboard.DatAmbiguousDisplay);
     }
 
+    [Fact]
+    public void DashboardProjection_CancelledPartialRun_MarksTopStatsAsProvisional()
+    {
+        var result = new RunResult
+        {
+            Status = "cancelled",
+            TotalFilesScanned = 3,
+            DurationMs = 2000,
+            DedupeGroups = Array.Empty<DedupeGroup>(),
+            AllCandidates = new[]
+            {
+                new RomCandidate { MainPath = "a.zip", Category = FileCategory.Game, DatMatch = true, ConsoleKey = "3ds" },
+                new RomCandidate { MainPath = "b.zip", Category = FileCategory.Game, DatMatch = false, ConsoleKey = "3ds" },
+                new RomCandidate { MainPath = "junk.zip", Category = FileCategory.Junk, DatMatch = false, ConsoleKey = "3ds" }
+            }
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: false);
+
+        Assert.Equal("2 (vorläufig)", dashboard.Games);
+        Assert.Equal("2 (vorläufig)", dashboard.Winners);
+        Assert.Equal("0 (vorläufig)", dashboard.Dupes);
+        Assert.Equal("1 (vorläufig)", dashboard.Junk);
+        Assert.Contains("vorläufig", dashboard.HealthScore, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("vorläufig", dashboard.MoveConsequenceText, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ TASK-121: ProgressProjection ════════════════════════════════════
 
     [Fact]

@@ -63,11 +63,6 @@ public sealed class SafetyValidator
     }
 
     /// <summary>
-    /// Get all available safety profiles.
-    /// </summary>
-    public static IReadOnlyDictionary<string, SafetyProfile> GetProfiles() => Profiles;
-
-    /// <summary>
     /// Get a specific safety profile by name.
     /// </summary>
     public static SafetyProfile GetProfile(string name)

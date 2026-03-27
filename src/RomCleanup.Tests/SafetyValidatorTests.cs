@@ -12,16 +12,6 @@ public sealed class SafetyValidatorTests
     // =========================================================================
 
     [Fact]
-    public void GetProfiles_ReturnsThreeProfiles()
-    {
-        var profiles = SafetyValidator.GetProfiles();
-        Assert.Equal(3, profiles.Count);
-        Assert.Contains("Conservative", profiles.Keys);
-        Assert.Contains("Balanced", profiles.Keys);
-        Assert.Contains("Expert", profiles.Keys);
-    }
-
-    [Fact]
     public void GetProfile_Conservative_IsStrict()
     {
         var profile = SafetyValidator.GetProfile("Conservative");

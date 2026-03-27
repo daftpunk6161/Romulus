@@ -102,6 +102,8 @@
   "Advanced.AutoProfile": "Profil automatique",
   "Advanced.WatchApply": "Appliquer la surveillance",
   "Advanced.WatchMode": "Mode surveillance",
+  "Advanced.WatchAutoStart": "Activer la surveillance automatiquement au démarrage",
+  "Advanced.WatchAutoStartTip": "Active automatiquement la surveillance des dossiers au démarrage si des racines sont configurées.",
   "Advanced.ApplyLocale": "Appliquer la langue",
   "Advanced.CsvExport": "Export CSV",
   "Advanced.ExcelExport": "Export Excel",

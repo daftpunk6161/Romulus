@@ -8,6 +8,12 @@ namespace RomCleanup.Core;
 /// </summary>
 public static class SafeRegex
 {
+    /// <summary>Default timeout for heavy classification/normalization regexes.</summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Short timeout for lightweight parsing helpers.</summary>
+    public static readonly TimeSpan ShortTimeout = TimeSpan.FromMilliseconds(200);
+
     /// <summary>
     /// Timeout-safe <see cref="Regex.IsMatch(string)"/>.
     /// Returns <c>false</c> on <see cref="RegexMatchTimeoutException"/>.

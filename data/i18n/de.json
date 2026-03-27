@@ -114,6 +114,8 @@
   "Advanced.AutoProfile": "Auto-Profil",
   "Advanced.WatchApply": "Watch anwenden",
   "Advanced.WatchMode": "Watch-Mode",
+  "Advanced.WatchAutoStart": "Watch beim Start automatisch aktivieren",
+  "Advanced.WatchAutoStartTip": "Aktiviert die Ordnerüberwachung automatisch nach dem Start, wenn Roots konfiguriert sind.",
   "Advanced.ApplyLocale": "Sprache anwenden",
   "Advanced.CsvExport": "CSV Export",
   "Advanced.ExcelExport": "Excel Export",

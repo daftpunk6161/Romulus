@@ -9,7 +9,7 @@ namespace RomCleanup.Core.GameKeys;
 /// </summary>
 public static class FolderKeyNormalizer
 {
-    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan RxTimeout = SafeRegex.ShortTimeout;
 
     private static readonly Regex PreservePattern = new(
         @"(?:Disk|Disc|CD|Side)\s*[\dA-Z]|AGA|ECS|OCS|NTSC|PAL|WHDLoad|ADF",

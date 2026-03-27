@@ -7,6 +7,11 @@ namespace RomCleanup.Core.Scoring;
 /// </summary>
 public static class FormatScorer
 {
+    // Score scale rationale:
+    // - 900..700: preferred canonical disc/container formats
+    // - 699..600: common console-native dumps
+    // - 599..400: compressed/legacy/less preferred containers
+    // - 399..300: unknown fallback
     private static readonly HashSet<string> DiscExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".iso", ".bin", ".img", ".cue", ".gdi", ".ccd", ".chd", ".rvz", ".gcz", ".m3u",

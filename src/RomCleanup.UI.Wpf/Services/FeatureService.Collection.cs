@@ -10,6 +10,7 @@ using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Tools;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 
 namespace RomCleanup.UI.Wpf.Services;
@@ -84,21 +85,17 @@ public static partial class FeatureService
         var unverified = candidates.Where(c => !c.DatMatch).ToList();
         if (unverified.Count == 0) return null;
 
-        var normalizedRoots = roots
-            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-            .ToList();
+        var normalizedRoots = roots.Select(ArtifactPathResolver.NormalizeRoot).ToList();
 
         string GetSubDir(string filePath)
         {
             var full = Path.GetFullPath(filePath);
-            foreach (var root in normalizedRoots)
+            var root = ArtifactPathResolver.FindContainingRoot(filePath, normalizedRoots);
+            if (root is not null)
             {
-                if (full.Length > root.Length && full.StartsWith(root, StringComparison.OrdinalIgnoreCase) && full[root.Length] is '\\' or '/')
-                {
-                    var relative = full[(root.Length + 1)..];
-                    var sep = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-                    return sep > 0 ? relative[..sep] : "(Root)";
-                }
+                var relative = full[(root.Length + 1)..];
+                var sep = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+                return sep > 0 ? relative[..sep] : "(Root)";
             }
             return Path.GetDirectoryName(filePath) ?? "(Unbekannt)";
         }
@@ -126,21 +123,13 @@ public static partial class FeatureService
     /// </summary>
     public static string BuildCrossRootReport(IReadOnlyList<DedupeGroup> dedupeGroups, IReadOnlyList<string> roots)
     {
-        var normalizedRoots = roots
-            .Select(r => Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-            .ToList();
-
-        string? GetRoot(string filePath)
-        {
-            var full = Path.GetFullPath(filePath);
-            return normalizedRoots.FirstOrDefault(r => full.Length > r.Length && full.StartsWith(r, StringComparison.OrdinalIgnoreCase) && full[r.Length] is '\\' or '/');
-        }
+        var normalizedRoots = roots.Select(ArtifactPathResolver.NormalizeRoot).ToList();
 
         var crossRootGroups = new List<DedupeGroup>();
         foreach (var g in dedupeGroups)
         {
             var allPaths = new[] { g.Winner }.Concat(g.Losers);
-            var distinctRoots = allPaths.Select(c => GetRoot(c.MainPath)).Where(r => r is not null).Distinct().Count();
+            var distinctRoots = allPaths.Select(c => ArtifactPathResolver.FindContainingRoot(c.MainPath, normalizedRoots)).Where(r => r is not null).Distinct().Count();
             if (distinctRoots > 1)
                 crossRootGroups.Add(g);
         }

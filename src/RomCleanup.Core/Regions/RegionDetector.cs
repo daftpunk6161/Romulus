@@ -22,7 +22,7 @@ public static class RegionDetector
     /// </summary>
     public sealed record RegionRule(string Key, System.Text.RegularExpressions.Regex Pattern);
 
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan RegexTimeout = SafeRegex.DefaultTimeout;
 
     // Default rules matching rules.json RegionOrdered — full set
     private static readonly IReadOnlyList<RegionRule> DefaultOrderedRules = new[]

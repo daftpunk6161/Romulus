@@ -222,8 +222,7 @@ public sealed class FileSystemAdapter : IFileSystem
                            + Path.DirectorySeparatorChar;
 
         if (!normalizedDest.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(
-                $"Blocked: Destination '{destinationPath}' is outside allowed root '{allowedRoot}'.");
+            return null;
 
         return MoveItemSafely(sourcePath, destinationPath);
     }

@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.CLI;
 
@@ -386,10 +387,10 @@ internal static class CliArgsParser
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
         }
         .Where(p => !string.IsNullOrWhiteSpace(p))
-        .Select(p => Path.GetFullPath(p!).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        .Select(p => ArtifactPathResolver.NormalizeRoot(p!))
         .ToArray();
 
-        var normalized = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalized = ArtifactPathResolver.NormalizeRoot(fullPath);
         return protectedRoots.Any(root =>
             normalized.StartsWith(root, StringComparison.OrdinalIgnoreCase));
     }

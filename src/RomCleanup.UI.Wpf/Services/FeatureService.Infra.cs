@@ -56,7 +56,11 @@ public static partial class FeatureService
             return json.Where(kv => kv.Value.ValueKind == JsonValueKind.String)
                        .ToDictionary(kv => kv.Key, kv => kv.Value.GetString() ?? "");
         }
-        catch { return new Dictionary<string, string>(); }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FeatureService] Locale load failed for '{locale}': {ex.Message}");
+            return new Dictionary<string, string>();
+        }
     }
 
 

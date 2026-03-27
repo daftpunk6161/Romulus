@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
@@ -45,7 +46,7 @@ internal static class CliOptionsMapper
         var auditPath = cli.AuditPath;
         if (string.IsNullOrEmpty(auditPath) && cli.Mode == "Move")
         {
-            var auditDir = ArtifactPathResolver.GetArtifactDirectory(cli.Roots, "audit-logs");
+            var auditDir = ArtifactPathResolver.GetArtifactDirectory(cli.Roots, AppIdentity.ArtifactDirectories.AuditLogs);
             auditPath = Path.Combine(Path.GetFullPath(auditDir),
                 $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.csv");
         }

@@ -100,6 +100,8 @@
   "Advanced.AutoProfile": "Auto Profile",
   "Advanced.WatchApply": "Apply Watch",
   "Advanced.WatchMode": "Watch Mode",
+  "Advanced.WatchAutoStart": "Enable watch automatically on startup",
+  "Advanced.WatchAutoStartTip": "Automatically enables folder watching after startup when roots are configured.",
   "Advanced.ApplyLocale": "Apply Language",
   "Advanced.CsvExport": "CSV Export",
   "Advanced.ExcelExport": "Excel Export",

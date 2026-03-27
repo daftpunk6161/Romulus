@@ -30,7 +30,6 @@
     <KeyBinding Key="D" Modifiers="Control" Command="{Binding QuickPreviewCommand}"/>
     <KeyBinding Key="M" Modifiers="Control" Command="{Binding StartMoveCommand}"/>
     <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveSettingsCommand}"/>
-    <KeyBinding Key="W" Modifiers="Control" Command="{Binding WatchApplyCommand}"/>
     <!-- GUI-063: Navigation history -->
     <KeyBinding Key="Left" Modifiers="Control" Command="{Binding Shell.NavBackCommand}"/>
     <KeyBinding Key="Right" Modifiers="Control" Command="{Binding Shell.NavForwardCommand}"/>
@@ -67,7 +66,7 @@
         <RowDefinition Height="48"/>   <!-- Row 0: CommandBar -->
         <RowDefinition Height="*"/>    <!-- Row 1: Main content -->
         <RowDefinition Height="Auto"/> <!-- Row 2: Detail Drawer (collapsible) -->
-        <RowDefinition Height="84"/>   <!-- Row 3: ActionRail -->
+        <RowDefinition Height="Auto"/> <!-- Row 3: ActionRail -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="72"/>  <!-- Col 0: NavigationRail -->
@@ -306,7 +305,6 @@
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="Ctrl+G: GameKey-Preview"><Run FontWeight="Bold" Text="Ctrl+G"/><Run Text="  GameKey-Preview"/></TextBlock>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="Ctrl+S: Settings speichern"><Run FontWeight="Bold" Text="Ctrl+S"/><Run Text="  Settings speichern"/></TextBlock>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="Ctrl+T: Theme wechseln"><Run FontWeight="Bold" Text="Ctrl+T"/><Run Text="  Theme wechseln"/></TextBlock>
-                <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="Ctrl+W: Watch-Mode"><Run FontWeight="Bold" Text="Ctrl+W"/><Run Text="  Watch-Mode"/></TextBlock>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="Ctrl+L: Log leeren"><Run FontWeight="Bold" Text="Ctrl+L"/><Run Text="  Log leeren"/></TextBlock>
                 <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,2" AutomationProperties.Name="F1: Diese Hilfe"><Run FontWeight="Bold" Text="F1"/><Run Text="  Diese Hilfe"/></TextBlock>
               </StackPanel>

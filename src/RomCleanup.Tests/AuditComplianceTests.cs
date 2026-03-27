@@ -88,10 +88,16 @@ public sealed class AuditComplianceTests : IDisposable
             _tempDir,
             new Dictionary<string, string> { ["NES"] = "xxe.dat" });
 
-        // Entity should not have been expanded to file contents
-        // The game may or may not be indexed depending on XML parser behavior,
-        // but no external file should be read
         Assert.NotNull(index);
+        // Key assertion: external entity must NOT have been expanded into index data.
+        // If XXE were successful, win.ini content ("; for 16-bit app support") would appear as game name.
+        var gameName = index.Lookup("NES", "abc123");
+        if (gameName is not null)
+        {
+            Assert.DoesNotContain("16-bit", gameName);
+            Assert.DoesNotContain("fonts", gameName);
+            Assert.DoesNotContain("[extensions]", gameName);
+        }
     }
 
     /// <summary>
@@ -307,6 +313,8 @@ public sealed class AuditComplianceTests : IDisposable
             }
         ]);
         Assert.NotNull(shortResult);
+        Assert.Single(shortResult); // one entry for one group
+        Assert.True(shortResult[0].Total >= 1, "Heatmap entry must count at least the winner");
 
         var longPathResult = FeatureService.GetDuplicateHeatmap(
         [
@@ -317,6 +325,8 @@ public sealed class AuditComplianceTests : IDisposable
             }
         ]);
         Assert.NotNull(longPathResult);
+        Assert.Single(longPathResult);
+        Assert.Equal(0, longPathResult[0].Duplicates); // no losers → 0 duplicates
     }
 
     /// <summary>
@@ -626,7 +636,7 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit2_Test008_Commands_NotCodeBehind()
     {
-        // VM-level stub: verify all key commands are wired as ICommand
+        // VM-level stub: verify all key commands are wired as ICommand (not event handlers in code-behind)
         var vm = new MainViewModel();
         Assert.NotNull(vm.RunCommand);
         Assert.NotNull(vm.CancelCommand);
@@ -643,6 +653,13 @@ public sealed class AuditComplianceTests : IDisposable
         Assert.NotNull(vm.PresetConvertCommand);
         Assert.NotNull(vm.QuickPreviewCommand);
         Assert.NotNull(vm.StartMoveCommand);
+
+        // Verify commands are true ICommand implementations (RelayCommand/AsyncRelayCommand),
+        // not accidental null that would silently fail in XAML binding
+        Assert.IsAssignableFrom<System.Windows.Input.ICommand>(vm.RunCommand);
+        Assert.IsAssignableFrom<System.Windows.Input.ICommand>(vm.CancelCommand);
+        Assert.IsAssignableFrom<System.Windows.Input.ICommand>(vm.RollbackCommand);
+        Assert.IsAssignableFrom<System.Windows.Input.ICommand>(vm.SaveSettingsCommand);
     }
 
     /// <summary>

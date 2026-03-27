@@ -80,26 +80,12 @@ public static class DeduplicationEngine
         {
             var items = groupDict[key];
             var winner = SelectWinner(items)!;
-            var losers = new List<RomCandidate>(Math.Max(0, items.Count - 1));
-            var winnerSkipped = false;
-            foreach (var item in items)
-            {
-                if (!winnerSkipped && ReferenceEquals(item, winner))
-                {
-                    winnerSkipped = true;
-                    continue;
-                }
-
-                losers.Add(item);
-            }
-
-            if (!winnerSkipped)
-            {
-                // Defensive fallback for non-reference-equivalent winner instances.
-                losers = items
-                    .Where(x => !string.Equals(x.MainPath, winner.MainPath, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
+            // Use reference equality so same-MainPath candidates are still retained as losers.
+            var losers = items
+                .Where(x => !ReferenceEquals(x, winner))
+                .OrderBy(x => x.MainPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.MainPath, StringComparer.Ordinal)
+                .ToList();
 
             results.Add(new DedupeGroup
             {
@@ -109,27 +95,20 @@ public static class DeduplicationEngine
             });
         }
 
+        // SEC-DEDUP: A file path that is a winner in one group must not appear as a loser
+        // in another group (prevents conflicting move/keep decisions for the same physical file).
         var winnerPaths = new HashSet<string>(
-            results.Select(r => r.Winner.MainPath),
-            StringComparer.OrdinalIgnoreCase);
-
-        var sanitized = new List<DedupeGroup>(results.Count);
-        foreach (var result in results)
+            results.Select(r => r.Winner.MainPath), StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < results.Count; i++)
         {
-            var filteredLosers = result.Losers
-                .Where(l =>
-                    !winnerPaths.Contains(l.MainPath)
-                    || string.Equals(l.MainPath, result.Winner.MainPath, StringComparison.OrdinalIgnoreCase))
+            var group = results[i];
+            var filtered = group.Losers
+                .Where(l => !winnerPaths.Contains(l.MainPath) || string.Equals(l.MainPath, group.Winner.MainPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-
-            sanitized.Add(new DedupeGroup
-            {
-                Winner = result.Winner,
-                Losers = filteredLosers,
-                GameKey = result.GameKey
-            });
+            if (filtered.Count != group.Losers.Count)
+                results[i] = group with { Losers = filtered };
         }
 
-        return sanitized;
+        return results;
     }
 }

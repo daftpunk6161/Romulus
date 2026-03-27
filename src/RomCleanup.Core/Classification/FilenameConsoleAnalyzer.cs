@@ -9,7 +9,7 @@ namespace RomCleanup.Core.Classification;
 /// </summary>
 public sealed class FilenameConsoleAnalyzer
 {
-    private static readonly TimeSpan RxTimeout = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan RxTimeout = SafeRegex.ShortTimeout;
 
     /// <summary>
     /// Serial number prefix → console key mappings.

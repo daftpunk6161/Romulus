@@ -20,6 +20,7 @@ public partial class SystemActivityView : UserControl
             _logScrollTimer.Stop();
             if (listLog.Items.Count > 0)
                 listLog.ScrollIntoView(listLog.Items[^1]);
+            UpdateEmptyStateVisibility();
         };
 
         Loaded += OnLoaded;
@@ -28,10 +29,13 @@ public partial class SystemActivityView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateEmptyStateVisibility();
+
         if (DataContext is not MainViewModel vm) return;
 
         _logScrollHandler = (_, _) =>
         {
+            UpdateEmptyStateVisibility();
             if (!_logScrollTimer.IsEnabled)
                 _logScrollTimer.Start();
         };
@@ -44,5 +48,12 @@ public partial class SystemActivityView : UserControl
         if (DataContext is MainViewModel vm && _logScrollHandler is not null)
             vm.LogEntries.CollectionChanged -= _logScrollHandler;
         _logScrollHandler = null;
+    }
+
+    private void UpdateEmptyStateVisibility()
+    {
+        LogEmptyState.Visibility = listLog.Items.Count == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 }
