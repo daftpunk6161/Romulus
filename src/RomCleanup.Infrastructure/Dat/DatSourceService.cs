@@ -345,6 +345,16 @@ public sealed class DatSourceService : IDisposable
                     : name.Equals(pattern, StringComparison.OrdinalIgnoreCase);
             });
 
+            if (isWildcard)
+            {
+                match = sourceFiles
+                    .Where(f => Path.GetFileNameWithoutExtension(f)!
+                        .StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(f => Path.GetFileNameWithoutExtension(f), StringComparer.OrdinalIgnoreCase)
+                    .ThenByDescending(f => f, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+            }
+
             if (match is null) continue;
 
             var targetName = entry.Id + Path.GetExtension(match);

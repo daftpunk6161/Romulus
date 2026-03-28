@@ -77,6 +77,69 @@ public sealed class CliProgramTests : IDisposable
     }
 
     [Fact]
+    public void CliArgsParser_UpdateDats_NoRoots_ReturnsUpdateDatsCommand()
+    {
+        var result = CliArgsParser.Parse(new[] { "--update-dats", "--datroot", _tempDir });
+
+        Assert.Equal(CliCommand.UpdateDats, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.True(result.Options!.UpdateDats);
+        Assert.Equal(_tempDir, result.Options.DatRoot);
+    }
+
+    [Fact]
+    public void CliArgsParser_UpdateDats_WithMissingImportFolder_ReturnsValidationError()
+    {
+        var missingImport = Path.Combine(_tempDir, "missing-import");
+
+        var result = CliArgsParser.Parse(new[]
+        {
+            "--update-dats",
+            "--datroot", _tempDir,
+            "--import-packs-from", missingImport
+        });
+
+        Assert.Equal(CliCommand.Run, result.Command);
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains(result.Errors, e => e.Contains("Import-Packs directory not found", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CliArgsParser_UpdateDats_SmartMode_ParsesStaleThreshold()
+    {
+        var result = CliArgsParser.Parse(new[]
+        {
+            "--update-dats",
+            "--datroot", _tempDir,
+            "--smart-dat-update",
+            "--dat-stale-days", "90"
+        });
+
+        Assert.Equal(CliCommand.UpdateDats, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.True(result.Options!.SmartDatUpdate);
+        Assert.Equal(90, result.Options.DatStaleDays);
+    }
+
+    [Fact]
+    public void CliArgsParser_UpdateDats_InvalidStaleThreshold_ReturnsValidationError()
+    {
+        var result = CliArgsParser.Parse(new[]
+        {
+            "--update-dats",
+            "--datroot", _tempDir,
+            "--smart-dat-update",
+            "--dat-stale-days", "0"
+        });
+
+        Assert.Equal(CliCommand.Run, result.Command);
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains(result.Errors, e => e.Contains("Invalid DAT stale threshold", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ParseArgs_MissingModeValue_ReturnsExitCode3_AndWriteOnlyStderr()
     {
         var (opts, exitCode, stdout, stderr) = ParseArgsWithCapturedConsole(new[] { "--roots", _tempDir, "--mode" });

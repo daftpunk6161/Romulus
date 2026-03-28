@@ -3343,7 +3343,8 @@ internal sealed class DatasetExpander
                 DetectionExpectations = new DetectionExpectations
                 {
                     PrimaryMethod = "SerialNumber",
-                    AcceptableAlternatives = [sys.PrimaryDetection]
+                    AcceptableAlternatives = [sys.PrimaryDetection],
+                    AcceptableConsoleKeys = sysKey == "PS1" ? ["PS2"] : null
                 },
                 FileModel = new FileModelInfo { Type = "single-file" },
                 Relationships = new RelationshipInfo()
@@ -3760,7 +3761,8 @@ internal sealed class DatasetExpander
                 DetectionExpectations = new DetectionExpectations
                 {
                     PrimaryMethod = "SerialNumber",
-                    AcceptableAlternatives = [sys.PrimaryDetection]
+                    AcceptableAlternatives = [sys.PrimaryDetection],
+                    AcceptableConsoleKeys = sysKey == "PS1" ? ["PS2"] : null
                 },
                 FileModel = new FileModelInfo { Type = "single-file" },
                 Relationships = new RelationshipInfo()
@@ -3908,7 +3910,8 @@ internal sealed class DatasetExpander
                 },
                 DetectionExpectations = new DetectionExpectations
                 {
-                    PrimaryMethod = "DiscHeader", AcceptableAlternatives = ["FolderName"]
+                    PrimaryMethod = "DiscHeader", AcceptableAlternatives = ["FolderName"],
+                    AcceptableConsoleKeys = [wrongDir.ToUpperInvariant()]
                 },
                 FileModel = new FileModelInfo { Type = "single-file" },
                 Relationships = new RelationshipInfo()
@@ -4475,7 +4478,8 @@ internal sealed class DatasetExpander
                     },
                     DetectionExpectations = new DetectionExpectations
                     {
-                        PrimaryMethod = sys.Detect, AcceptableAlternatives = ["DatMatch", "Heuristic"]
+                        PrimaryMethod = sys.Detect, AcceptableAlternatives = ["DatMatch", "Heuristic"],
+                        AcceptableConsoleKeys = [sys.WrongDir.ToUpperInvariant()]
                     },
                     FileModel = new FileModelInfo { Type = "single-file" }
                 });
@@ -4499,7 +4503,8 @@ internal sealed class DatasetExpander
                     },
                     DetectionExpectations = new DetectionExpectations
                     {
-                        PrimaryMethod = "Heuristic", AcceptableAlternatives = ["FolderName", "FileSize"]
+                        PrimaryMethod = "Heuristic", AcceptableAlternatives = ["FolderName", "FileSize"],
+                        AcceptableConsoleKeys = [sys.WrongDir.ToUpperInvariant()]
                     },
                     FileModel = new FileModelInfo { Type = "single-file" }
                 });
@@ -4524,7 +4529,8 @@ internal sealed class DatasetExpander
                 },
                 DetectionExpectations = new DetectionExpectations
                 {
-                    PrimaryMethod = "ArchiveContent", AcceptableAlternatives = ["DatMatch", "Heuristic"]
+                    PrimaryMethod = "ArchiveContent", AcceptableAlternatives = ["DatMatch", "Heuristic"],
+                    AcceptableConsoleKeys = ["SNES"]
                 },
                 FileModel = new FileModelInfo { Type = "archive" }
             });
@@ -4548,7 +4554,8 @@ internal sealed class DatasetExpander
                 },
                 DetectionExpectations = new DetectionExpectations
                 {
-                    PrimaryMethod = "DiscHeader", AcceptableAlternatives = ["DatMatch", "Heuristic"]
+                    PrimaryMethod = "DiscHeader", AcceptableAlternatives = ["DatMatch", "Heuristic"],
+                    AcceptableConsoleKeys = ["PS1"]
                 },
                 FileModel = new FileModelInfo { Type = "single-file" }
             });

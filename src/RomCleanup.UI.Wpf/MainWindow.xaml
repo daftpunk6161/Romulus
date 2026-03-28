@@ -111,6 +111,8 @@
                   KeyboardNavigation.TabIndex="52">
               <views:ResultView x:Name="resultView"
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Results}"/>
+              <views:DecisionsView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Decisions}"/>
               <views:LibrarySafetyView
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Safety}"/>
               <views:LibraryReportView

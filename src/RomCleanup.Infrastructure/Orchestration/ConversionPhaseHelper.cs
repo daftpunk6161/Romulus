@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Conversion;
@@ -154,7 +155,7 @@ internal static class ConversionPhaseHelper
         if (root is null) return;
 
         var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-        var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
+        var trashDir = Path.Combine(trashBase, RunConstants.WellKnownFolders.TrashConverted);
         context.FileSystem.EnsureDirectory(trashDir);
 
         foreach (var member in members)
@@ -172,7 +173,7 @@ internal static class ConversionPhaseHelper
             }
 
             var memberName = Path.GetFileName(member);
-            var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", memberName));
+            var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine(RunConstants.WellKnownFolders.TrashConverted, memberName));
             if (trashDest is null) continue;
 
             try

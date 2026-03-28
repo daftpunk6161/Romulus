@@ -58,4 +58,48 @@ public static class RunConstants
 
     /// <summary>Run failed with fatal error.</summary>
     public const string StatusFailed = "failed";
+
+    // ── Well-known folder names ─────────────────────────────────────
+    // Single source of truth for special directory names used across orchestration,
+    // sorting, blocklists, and CLI rollback discovery.
+
+    /// <summary>
+    /// Canonical names for trash, staging, and special-purpose directories.
+    /// Prevents scattered magic strings across pipeline phases, sorting, and CLI.
+    /// </summary>
+    public static class WellKnownFolders
+    {
+        /// <summary>Trash folder for region-dedupe losers.</summary>
+        public const string TrashRegionDedupe = "_TRASH_REGION_DEDUPE";
+
+        /// <summary>Trash folder for junk files.</summary>
+        public const string TrashJunk = "_TRASH_JUNK";
+
+        /// <summary>Trash folder for pre-conversion source files.</summary>
+        public const string TrashConverted = "_TRASH_CONVERTED";
+
+        /// <summary>Generic trash folder (used for rollback discovery).</summary>
+        public const string TrashGeneric = "_TRASH";
+
+        /// <summary>Duplicate PS3 folder-based games.</summary>
+        public const string Ps3Dupes = "PS3_DUPES";
+
+        /// <summary>Duplicate folder-based games (generic).</summary>
+        public const string FolderDupes = "_FOLDER_DUPES";
+
+        /// <summary>BIOS files directory.</summary>
+        public const string Bios = "_BIOS";
+
+        /// <summary>Junk staging directory (sorting).</summary>
+        public const string Junk = "_JUNK";
+
+        /// <summary>Review staging directory (uncertain classification).</summary>
+        public const string Review = "_REVIEW";
+
+        /// <summary>Quarantine directory.</summary>
+        public const string Quarantine = "_QUARANTINE";
+
+        /// <summary>Backup directory.</summary>
+        public const string Backup = "_BACKUP";
+    }
 }

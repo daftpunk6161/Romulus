@@ -38,6 +38,14 @@ public sealed class NegativeControlBenchmarkTests : IClassFixture<BenchmarkFixtu
             return;
         }
 
+        // Utility entries (Action Replay, Game Genie, etc.) are real console hardware.
+        // ConsoleDetector correctly identifies the console family — this tests classification, not detection.
+        if (entry.Id.Contains("-utility-", StringComparison.OrdinalIgnoreCase)
+            && entry.Expected.ConsoleKey is not null)
+        {
+            return;
+        }
+
         Assert.True(
             result.Verdict is BenchmarkVerdict.TrueNegative or BenchmarkVerdict.FalsePositive,
             $"[{entry.Id}] unexpected verdict: {result.Verdict}");

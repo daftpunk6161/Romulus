@@ -133,6 +133,11 @@ Options:
     -DatRename         Rename DAT-verified mismatches before move (Move mode only)
   -DatRoot <path>    DAT file directory (overrides settings.json)
   -HashType <type>   Hash algorithm: SHA1|SHA256|MD5 (default: SHA1)
+    -UpdateDats        Download/update DATs from dat-catalog.json (no --roots required)
+    -ImportPacksFrom   Import local No-Intro DAT packs from folder (optional)
+    -ForceDatUpdate    Re-download DATs even if target id.dat already exists
+    -SmartDatUpdate    Update only missing and stale id.dat files
+    -DatStaleDays      Stale threshold in days for -SmartDatUpdate (default: 365)
   -ConvertFormat     Convert winners to optimal format (CHD/RVZ/ZIP)
     -ConvertOnly       Convert all candidates only (skip dedupe/move)
     -ConflictPolicy    Move conflict handling: Rename|Skip|Overwrite (default: Rename)

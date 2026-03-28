@@ -22,12 +22,12 @@ public static class ExecutionHelpers
 
     internal static readonly HashSet<string> DefaultBlocklist = new(StringComparer.OrdinalIgnoreCase)
     {
-        "_TRASH_REGION_DEDUPE",
-        "_TRASH_JUNK",
-        "_FOLDER_DUPES",
-        "PS3_DUPES",
-        "_QUARANTINE",
-        "_BACKUP"
+        Contracts.RunConstants.WellKnownFolders.TrashRegionDedupe,
+        Contracts.RunConstants.WellKnownFolders.TrashJunk,
+        Contracts.RunConstants.WellKnownFolders.FolderDupes,
+        Contracts.RunConstants.WellKnownFolders.Ps3Dupes,
+        Contracts.RunConstants.WellKnownFolders.Quarantine,
+        Contracts.RunConstants.WellKnownFolders.Backup
     };
 
     /// <summary>

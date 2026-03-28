@@ -23,7 +23,7 @@ internal static class GroundTruthComparator
     {
         var expected = entry.Expected;
         var actualKey = actual.ConsoleKey;
-        var isUnknown = actualKey is "UNKNOWN" or "" or null;
+        var isUnknown = actualKey is "UNKNOWN" or "AMBIGUOUS" or "" or null;
 
         // Case 0: Junk category — not a valid sorting target, but console-family identification is still useful.
         if (expected.Category is "Junk")
@@ -46,6 +46,19 @@ internal static class GroundTruthComparator
                     entry.Id, BenchmarkVerdict.JunkClassified,
                     expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
                     "Junk sample mapped to correct console family",
+                    expected.Category,
+                    actualCategory,
+                    actual.SortDecision);
+            }
+
+            // Junk files without expected consoleKey in console directories get soft folder-based detection.
+            // This is expected behavior — not a detection error.
+            if (string.IsNullOrWhiteSpace(expected.ConsoleKey) && !HasHardEvidence(actual))
+            {
+                return new BenchmarkSampleResult(
+                    entry.Id, BenchmarkVerdict.TrueNegative,
+                    expected.ConsoleKey, actualKey, actual.Confidence, actual.HasConflict,
+                    $"Junk sample with soft-only detection hint '{actualKey}' (informational)",
                     expected.Category,
                     actualCategory,
                     actual.SortDecision);

@@ -272,35 +272,69 @@ public sealed class RunEnvironmentBuilder
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+        List<DatCatalogEntry>? entries = null;
         if (File.Exists(catalogPath))
         {
             try
             {
                 var json = File.ReadAllText(catalogPath);
-                var entries = JsonSerializer.Deserialize<List<DatCatalogEntry>>(json,
+                entries = JsonSerializer.Deserialize<List<DatCatalogEntry>>(json,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (entries != null)
                 {
+                    // Cache datRoot DAT/XML files (recursive) for exact and PackMatch lookup.
+                    string[]? datRootFiles = null;
+
                     foreach (var entry in entries)
                     {
                         if (string.IsNullOrWhiteSpace(entry.ConsoleKey))
                             continue;
 
+                        // Already mapped by a previous entry (e.g. same ConsoleKey from different group)
+                        if (map.ContainsKey(entry.ConsoleKey))
+                            continue;
+
                         var candidates = new[]
                         {
                             Path.Combine(datRoot, entry.Id + ".dat"),
+                            Path.Combine(datRoot, entry.Id + ".xml"),
                             Path.Combine(datRoot, entry.System + ".dat"),
+                            Path.Combine(datRoot, entry.System + ".xml"),
                             Path.Combine(datRoot, entry.ConsoleKey + ".dat")
+                            ,Path.Combine(datRoot, entry.ConsoleKey + ".xml")
                         };
 
+                        var found = false;
                         foreach (var candidate in candidates)
                         {
                             if (File.Exists(candidate))
                             {
                                 map[entry.ConsoleKey] = candidate;
+                                found = true;
                                 break;
                             }
+                        }
+
+                        if (!found)
+                        {
+                            datRootFiles ??= GetDatCandidateFiles(datRoot);
+                            var exactMatch = FindExactStemMatch(datRootFiles, entry.Id, entry.System, entry.ConsoleKey);
+                            if (exactMatch is not null)
+                            {
+                                map[entry.ConsoleKey] = exactMatch;
+                                found = true;
+                            }
+                        }
+
+                        // PackMatch glob: match extracted No-Intro daily pack filenames
+                        if (!found && !string.IsNullOrWhiteSpace(entry.PackMatch))
+                        {
+                            datRootFiles ??= GetDatCandidateFiles(datRoot);
+
+                            var matched = MatchPackGlob(datRootFiles, entry.PackMatch);
+                            if (matched != null)
+                                map[entry.ConsoleKey] = matched;
                         }
                     }
                 }
@@ -313,7 +347,7 @@ public sealed class RunEnvironmentBuilder
 
         if (Directory.Exists(datRoot))
         {
-            foreach (var datFile in Directory.GetFiles(datRoot, "*.dat"))
+            foreach (var datFile in GetDatCandidateFiles(datRoot))
             {
                 var stem = Path.GetFileNameWithoutExtension(datFile).ToUpperInvariant();
                 if (!map.ContainsKey(stem))
@@ -324,12 +358,84 @@ public sealed class RunEnvironmentBuilder
         return map;
     }
 
+    private static string[] GetDatCandidateFiles(string datRoot)
+    {
+        if (!Directory.Exists(datRoot))
+            return [];
+
+        return Directory.GetFiles(datRoot, "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string? FindExactStemMatch(string[] datRootFiles, params string[] stems)
+    {
+        foreach (var stem in stems)
+        {
+            if (string.IsNullOrWhiteSpace(stem))
+                continue;
+
+            var match = datRootFiles
+                .Where(path => Path.GetFileNameWithoutExtension(path)
+                    .Equals(stem, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(path => Path.GetFileNameWithoutExtension(path), StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(path => path, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (match is not null)
+                return match;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Match a PackMatch glob pattern (supports trailing * wildcard) against DAT file stems.
+    /// If multiple files match, picks the one whose name sorts last (newest daily pack by date suffix).
+    /// </summary>
+    internal static string? MatchPackGlob(string[] datFiles, string packMatch)
+    {
+        if (string.IsNullOrWhiteSpace(packMatch) || datFiles.Length == 0)
+            return null;
+
+        // PackMatch patterns use trailing * (e.g. "Nintendo - Nintendo Entertainment System (Headered)*")
+        var trimmed = packMatch.TrimEnd('*');
+        string? best = null;
+        foreach (var file in datFiles)
+        {
+            var stem = Path.GetFileNameWithoutExtension(file);
+            if (stem.StartsWith(trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                // Pick by stem first (daily-pack timestamp in filename), then full path as deterministic tie-breaker.
+                if (best == null || CompareDatCandidatePriority(file, best) > 0)
+                    best = file;
+            }
+        }
+
+        return best;
+    }
+
+    private static int CompareDatCandidatePriority(string left, string right)
+    {
+        var leftStem = Path.GetFileNameWithoutExtension(left);
+        var rightStem = Path.GetFileNameWithoutExtension(right);
+
+        var stemCompare = string.Compare(leftStem, rightStem, StringComparison.OrdinalIgnoreCase);
+        if (stemCompare != 0)
+            return stemCompare;
+
+        return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+    }
+
     public sealed class DatCatalogEntry
     {
         public string Group { get; set; } = "";
         public string System { get; set; } = "";
         public string Id { get; set; } = "";
         public string ConsoleKey { get; set; } = "";
+        public string PackMatch { get; set; } = "";
     }
 }
 

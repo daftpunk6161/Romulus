@@ -108,7 +108,7 @@ public sealed class FolderDeduplicator
             }
 
             var dupeBase = string.IsNullOrWhiteSpace(dupeRoot)
-                ? Path.Combine(root, "PS3_DUPES")
+                ? Path.Combine(root, RunConstants.WellKnownFolders.Ps3Dupes)
                 : Path.Combine(dupeRoot, Path.GetFileName(root));
             dupeBase = Path.GetFullPath(dupeBase);
 
@@ -215,7 +215,7 @@ public sealed class FolderDeduplicator
 
             var normalizedRoot = Path.GetFullPath(rootPath);
             var dupeBase = string.IsNullOrWhiteSpace(dupeRoot)
-                ? Path.Combine(normalizedRoot, "_FOLDER_DUPES")
+                ? Path.Combine(normalizedRoot, RunConstants.WellKnownFolders.FolderDupes)
                 : Path.GetFullPath(dupeRoot);
 
             if (mode == RunConstants.ModeMove)

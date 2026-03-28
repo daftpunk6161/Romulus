@@ -40,9 +40,13 @@ public sealed class BenchmarkFixture : IAsyncLifetime
             var allForGeneration = new List<GroundTruthEntry>(AllEntries);
             allForGeneration.AddRange(holdoutEntries);
 
-            // Generate stubs if not already present
+            // Generate stubs if not already present or entry count changed
             var markerFile = Path.Combine(SamplesRoot, ".generated");
-            if (!File.Exists(markerFile))
+            var expectedMarker = $"{allForGeneration.Count} entries generated";
+            var needsRegeneration = !File.Exists(markerFile)
+                || File.ReadAllText(markerFile).Trim() != expectedMarker;
+
+            if (needsRegeneration)
             {
                 if (Directory.Exists(SamplesRoot))
                     Directory.Delete(SamplesRoot, recursive: true);
@@ -52,7 +56,7 @@ public sealed class BenchmarkFixture : IAsyncLifetime
                 dispatch.GenerateAll(allForGeneration, SamplesRoot);
 
                 // Write marker with entry count for fingerprinting
-                File.WriteAllText(markerFile, $"{allForGeneration.Count} entries generated");
+                File.WriteAllText(markerFile, expectedMarker);
             }
 
             // Load production ConsoleDetector with header detectors

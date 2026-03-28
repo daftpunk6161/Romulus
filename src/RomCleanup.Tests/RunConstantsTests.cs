@@ -84,4 +84,60 @@ public sealed class RunConstantsTests
         Assert.False(string.IsNullOrWhiteSpace(AppIdentity.ArtifactDirectories.AuditLogs));
         Assert.Equal("audit-logs", AppIdentity.ArtifactDirectories.AuditLogs);
     }
+
+    // ── WellKnownFolders regression tests ───────────────────────────
+
+    [Fact]
+    public void WellKnownFolders_TrashRegionDedupe_MatchesCanonicalName()
+        => Assert.Equal("_TRASH_REGION_DEDUPE", RunConstants.WellKnownFolders.TrashRegionDedupe);
+
+    [Fact]
+    public void WellKnownFolders_TrashJunk_MatchesCanonicalName()
+        => Assert.Equal("_TRASH_JUNK", RunConstants.WellKnownFolders.TrashJunk);
+
+    [Fact]
+    public void WellKnownFolders_TrashConverted_MatchesCanonicalName()
+        => Assert.Equal("_TRASH_CONVERTED", RunConstants.WellKnownFolders.TrashConverted);
+
+    [Fact]
+    public void WellKnownFolders_TrashGeneric_MatchesCanonicalName()
+        => Assert.Equal("_TRASH", RunConstants.WellKnownFolders.TrashGeneric);
+
+    [Fact]
+    public void WellKnownFolders_Ps3Dupes_MatchesCanonicalName()
+        => Assert.Equal("PS3_DUPES", RunConstants.WellKnownFolders.Ps3Dupes);
+
+    [Fact]
+    public void WellKnownFolders_FolderDupes_MatchesCanonicalName()
+        => Assert.Equal("_FOLDER_DUPES", RunConstants.WellKnownFolders.FolderDupes);
+
+    [Fact]
+    public void WellKnownFolders_SpecialFolders_MatchCanonicalNames()
+    {
+        Assert.Equal("_BIOS", RunConstants.WellKnownFolders.Bios);
+        Assert.Equal("_JUNK", RunConstants.WellKnownFolders.Junk);
+        Assert.Equal("_REVIEW", RunConstants.WellKnownFolders.Review);
+        Assert.Equal("_QUARANTINE", RunConstants.WellKnownFolders.Quarantine);
+        Assert.Equal("_BACKUP", RunConstants.WellKnownFolders.Backup);
+    }
+
+    [Fact]
+    public void WellKnownFolders_AllNamesStartWithUnderscore_ExceptPs3Dupes()
+    {
+        // All well-known folders except PS3_DUPES start with underscore —
+        // this is a naming invariant that ensures they sort to the top in file managers
+        // and are visually distinct from ROM directories.
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.TrashRegionDedupe);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.TrashJunk);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.TrashConverted);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.TrashGeneric);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.FolderDupes);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.Bios);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.Junk);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.Review);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.Quarantine);
+        Assert.StartsWith("_", RunConstants.WellKnownFolders.Backup);
+        // PS3_DUPES is a legacy name that doesn't follow the underscore convention
+        Assert.StartsWith("P", RunConstants.WellKnownFolders.Ps3Dupes);
+    }
 }

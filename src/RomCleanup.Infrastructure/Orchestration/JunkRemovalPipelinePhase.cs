@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 
 namespace RomCleanup.Infrastructure.Orchestration;
@@ -36,11 +37,11 @@ public sealed class JunkRemovalPipelinePhase : IPipelinePhase<JunkRemovalPhaseIn
             }
 
             var trashBase = string.IsNullOrEmpty(input.Options.TrashRoot) ? root : input.Options.TrashRoot;
-            var trashDir = Path.Combine(trashBase, "_TRASH_JUNK");
+            var trashDir = Path.Combine(trashBase, RunConstants.WellKnownFolders.TrashJunk);
             context.FileSystem.EnsureDirectory(trashDir);
 
             var fileName = Path.GetFileName(junk.MainPath);
-            var destPath = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_JUNK", fileName));
+            var destPath = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine(RunConstants.WellKnownFolders.TrashJunk, fileName));
             if (destPath is null)
             {
                 failCount++;

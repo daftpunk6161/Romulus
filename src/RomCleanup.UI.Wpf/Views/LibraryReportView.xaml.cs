@@ -29,12 +29,21 @@ public partial class LibraryReportView : UserControl
 
         if (string.IsNullOrEmpty(vm.LastReportPath) || !File.Exists(vm.LastReportPath))
         {
-            vm.ErrorSummaryItems.Clear();
-            vm.ErrorSummaryItems.Add(new Models.UiError("GUI-NOREPORT", "Kein Report vorhanden.", Models.UiErrorSeverity.Info));
+            // In DryRun mode, populate error summary from last run if available
+            if (vm.Run.HasRunData)
+                vm.PopulateErrorSummary();
+            else
+            {
+                vm.ErrorSummaryItems.Clear();
+                vm.ErrorSummaryItems.Add(new Models.UiError("GUI-NOREPORT", "Kein Report vorhanden.", Models.UiErrorSeverity.Info));
+            }
+
             await EnsureWebView2Initialized(vm);
             webReportPreview.NavigateToString(
                 "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
-                "<p>Kein Report vorhanden. Erst einen Lauf starten.</p></body></html>");
+                "<p>HTML-Report nur im Execute-Modus (Mode=Move) verfügbar.</p>" +
+                "<p style='margin-top:8px;font-size:0.9em;color:#666'>Die Fehler-Zusammenfassung oben zeigt bereits die Ergebnisse der Vorschau.</p>" +
+                "</body></html>");
             return;
         }
 

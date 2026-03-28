@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 
 namespace RomCleanup.Infrastructure.Orchestration;
@@ -53,12 +54,12 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                 }
 
                 var trashBase = string.IsNullOrEmpty(input.Options.TrashRoot) ? root : input.Options.TrashRoot;
-                var trashDir = Path.Combine(trashBase, "_TRASH_REGION_DEDUPE");
+                var trashDir = Path.Combine(trashBase, RunConstants.WellKnownFolders.TrashRegionDedupe);
                 context.FileSystem.EnsureDirectory(trashDir);
 
                 var fileName = Path.GetFileName(loser.MainPath);
                 var destPath = context.FileSystem.ResolveChildPathWithinRoot(
-                    trashBase, Path.Combine("_TRASH_REGION_DEDUPE", fileName));
+                    trashBase, Path.Combine(RunConstants.WellKnownFolders.TrashRegionDedupe, fileName));
 
                 if (destPath is null)
                 {
@@ -137,7 +138,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
 
                             var memberFileName = Path.GetFileName(member);
                             var memberDest = context.FileSystem.ResolveChildPathWithinRoot(
-                                trashBase, Path.Combine("_TRASH_REGION_DEDUPE", memberFileName));
+                                trashBase, Path.Combine(RunConstants.WellKnownFolders.TrashRegionDedupe, memberFileName));
 
                             if (memberDest is null) continue;
 

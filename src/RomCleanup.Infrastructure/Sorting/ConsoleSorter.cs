@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
@@ -18,7 +19,13 @@ public sealed class ConsoleSorter
         TimeSpan.FromMilliseconds(100));
 
     private static readonly string[] ExcludedFolders =
-        { "_TRASH_REGION_DEDUPE", "_TRASH_JUNK", "_BIOS", "_JUNK", "_REVIEW" };
+    {
+        RunConstants.WellKnownFolders.TrashRegionDedupe,
+        RunConstants.WellKnownFolders.TrashJunk,
+        RunConstants.WellKnownFolders.Bios,
+        RunConstants.WellKnownFolders.Junk,
+        RunConstants.WellKnownFolders.Review
+    };
 
     private readonly IFileSystem _fs;
     private readonly ConsoleDetector _consoleDetector;
@@ -138,7 +145,7 @@ public sealed class ConsoleSorter
                     // Junk with known console → _TRASH_JUNK/{ConsoleKey}/
                     if (string.Equals(category, "Junk", StringComparison.OrdinalIgnoreCase))
                     {
-                        var junkDir = Path.Combine(root, "_TRASH_JUNK", consoleKey);
+                        var junkDir = Path.Combine(root, RunConstants.WellKnownFolders.TrashJunk, consoleKey);
                         var junkFileName = Path.GetFileName(filePath);
                         if (MoveFile(root, filePath, junkDir, junkFileName, dryRun))
                         {
@@ -159,7 +166,7 @@ public sealed class ConsoleSorter
                 // Review files → _REVIEW/{ConsoleKey}/
                 if (string.Equals(sortDecision, "Review", StringComparison.OrdinalIgnoreCase))
                 {
-                    var reviewDir = Path.Combine(root, "_REVIEW", consoleKey);
+                    var reviewDir = Path.Combine(root, RunConstants.WellKnownFolders.Review, consoleKey);
                     var reviewFileName = Path.GetFileName(filePath);
                     if (MoveFile(root, filePath, reviewDir, reviewFileName, dryRun))
                     {

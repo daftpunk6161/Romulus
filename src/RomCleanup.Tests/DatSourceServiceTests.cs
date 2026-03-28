@@ -160,6 +160,40 @@ public class DatSourceServiceTests : IDisposable
     }
 
     [Fact]
+    public void ImportLocalDatPacks_Wildcard_PicksNewestStemAcrossFolders()
+    {
+        var sourceDir = Path.Combine(_tempDir, "source");
+        var olderDir = Path.Combine(sourceDir, "zzz-older");
+        var newerDir = Path.Combine(sourceDir, "aaa-newer");
+        Directory.CreateDirectory(olderDir);
+        Directory.CreateDirectory(newerDir);
+
+        var older = Path.Combine(olderDir, "Nintendo - Nintendo Entertainment System (Headered) (20260301-000000).dat");
+        var newer = Path.Combine(newerDir, "Nintendo - Nintendo Entertainment System (Headered) (20260327-000000).dat");
+        File.WriteAllText(older, "old");
+        File.WriteAllText(newer, "new");
+
+        var catalog = new[]
+        {
+            new DatCatalogEntry
+            {
+                Id = "nointro-nes",
+                Group = "No-Intro",
+                Format = "nointro-pack",
+                PackMatch = "Nintendo - Nintendo Entertainment System (Headered)*"
+            }
+        };
+
+        using var svc = new DatSourceService(_tempDir);
+        var imported = svc.ImportLocalDatPacks(sourceDir, catalog);
+
+        Assert.Equal(1, imported);
+        var target = Path.Combine(_tempDir, "nointro-nes.dat");
+        Assert.True(File.Exists(target));
+        Assert.Equal("new", File.ReadAllText(target));
+    }
+
+    [Fact]
     public async Task VerifyDatSignature_Sidecar404_ReturnsTrue_HttpsIntegrity()
     {
         var path = Path.Combine(_tempDir, "no-sidecar.dat");

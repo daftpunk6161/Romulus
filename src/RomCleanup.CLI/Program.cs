@@ -1,6 +1,7 @@
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Infrastructure.Audit;
+using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Logging;
 using RomCleanup.Infrastructure.Orchestration;
@@ -50,6 +51,9 @@ internal static class Program
 
                 case CliCommand.Rollback:
                     return Rollback(result.Options!);
+
+                case CliCommand.UpdateDats:
+                    return UpdateDats(result.Options!);
 
                 default:
                     return result.ExitCode;
@@ -175,6 +179,129 @@ internal static class Program
 
     // --- Backward-compatible delegates for tests ---
 
+    private static int UpdateDats(CliRunOptions cliOpts)
+    {
+        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+
+        var datRoot = cliOpts.DatRoot;
+        if (string.IsNullOrWhiteSpace(datRoot))
+            datRoot = settings.Dat?.DatRoot;
+
+        if (string.IsNullOrWhiteSpace(datRoot))
+        {
+            SafeErrorWriteLine("[Error] DAT root is required. Use --datroot <path> or configure datRoot in settings/defaults.");
+            return 3;
+        }
+
+        Directory.CreateDirectory(datRoot);
+
+        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+        var catalog = DatSourceService.LoadCatalog(catalogPath);
+        if (catalog.Count == 0)
+        {
+            SafeErrorWriteLine("[Error] DAT catalog is empty or missing.");
+            return 3;
+        }
+
+        SafeErrorWriteLine($"[DatUpdate] Catalog entries: {catalog.Count}");
+        SafeErrorWriteLine($"[DatUpdate] DAT root: {datRoot}");
+
+        int skippedExisting = 0;
+        int skippedFresh = 0;
+        int staleUpdated = 0;
+        int downloaded = 0;
+        int failed = 0;
+        var staleThresholdDays = cliOpts.DatStaleDays ?? 365;
+
+        using (var datService = new DatSourceService(datRoot))
+        {
+            // Download only URL-based catalog entries. nointro-pack entries are imported from local folders.
+            var downloadEntries = catalog
+                .Where(e => !string.IsNullOrWhiteSpace(e.Url)
+                    && !string.Equals(e.Format, "nointro-pack", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            SafeErrorWriteLine($"[DatUpdate] URL-based entries: {downloadEntries.Count}");
+
+            foreach (var entry in downloadEntries)
+            {
+                var fileName = entry.Id + ".dat";
+                var targetPath = Path.Combine(datRoot, fileName);
+
+                if (File.Exists(targetPath) && !cliOpts.ForceDatUpdate)
+                {
+                    if (cliOpts.SmartDatUpdate)
+                    {
+                        var ageDays = (DateTime.UtcNow - File.GetLastWriteTimeUtc(targetPath)).TotalDays;
+                        if (ageDays <= staleThresholdDays)
+                        {
+                            skippedFresh++;
+                            continue;
+                        }
+
+                        staleUpdated++;
+                    }
+                    else
+                    {
+                        skippedExisting++;
+                        continue;
+                    }
+                }
+
+                try
+                {
+                    var result = datService.DownloadDatByFormatAsync(entry.Url, fileName, entry.Format).GetAwaiter().GetResult();
+                    if (result is null)
+                    {
+                        failed++;
+                        SafeErrorWriteLine($"[DatUpdate][Warn] Failed: {entry.Id} ({entry.Group})");
+                    }
+                    else
+                    {
+                        downloaded++;
+                        SafeErrorWriteLine($"[DatUpdate][OK] {entry.Id}");
+                    }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    failed++;
+                    SafeErrorWriteLine($"[DatUpdate][Warn] {entry.Id}: {ex.Message}");
+                }
+                catch (HttpRequestException ex)
+                {
+                    failed++;
+                    SafeErrorWriteLine($"[DatUpdate][Warn] {entry.Id}: {ex.Message}");
+                }
+                catch (IOException ex)
+                {
+                    failed++;
+                    SafeErrorWriteLine($"[DatUpdate][Warn] {entry.Id}: {ex.Message}");
+                }
+            }
+
+            var importPath = cliOpts.ImportPacksFrom;
+            if (!string.IsNullOrWhiteSpace(importPath))
+            {
+                var imported = datService.ImportLocalDatPacks(importPath, catalog);
+                SafeErrorWriteLine($"[DatUpdate] Imported local pack DATs: {imported}");
+            }
+        }
+
+        SafeErrorWriteLine($"[DatUpdate] Downloaded: {downloaded}");
+        SafeErrorWriteLine($"[DatUpdate] Skipped existing: {skippedExisting}");
+        if (cliOpts.SmartDatUpdate)
+        {
+            SafeErrorWriteLine($"[DatUpdate] Smart stale threshold (days): {staleThresholdDays}");
+            SafeErrorWriteLine($"[DatUpdate] Skipped fresh: {skippedFresh}");
+            SafeErrorWriteLine($"[DatUpdate] Stale updates attempted: {staleUpdated}");
+        }
+        SafeErrorWriteLine($"[DatUpdate] Failed: {failed}");
+
+        // Non-zero when at least one attempted download failed.
+        return failed > 0 ? 1 : 0;
+    }
+
     private static int Rollback(CliRunOptions cliOpts)
     {
         var auditPath = cliOpts.RollbackAuditPath!;
@@ -218,10 +345,10 @@ internal static class Program
         // Also add default trash folders within each root
         foreach (var root in roots)
         {
-            var trashDir = Path.Combine(root, "_TRASH");
+            var trashDir = Path.Combine(root, RunConstants.WellKnownFolders.TrashGeneric);
             if (Directory.Exists(trashDir))
                 currentRoots.Add(trashDir);
-            var trashConv = Path.Combine(root, "_TRASH_CONVERTED");
+            var trashConv = Path.Combine(root, RunConstants.WellKnownFolders.TrashConverted);
             if (Directory.Exists(trashConv))
                 currentRoots.Add(trashConv);
         }
@@ -326,6 +453,9 @@ internal static class Program
                 return (null, result.ExitCode);
 
             case CliCommand.Run:
+                return (result.Options!, 0);
+
+            case CliCommand.UpdateDats:
                 return (result.Options!, 0);
 
             default:

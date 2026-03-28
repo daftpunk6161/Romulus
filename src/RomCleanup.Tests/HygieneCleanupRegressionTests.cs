@@ -468,4 +468,57 @@ public sealed class HygieneCleanupRegressionTests
 
         Assert.Null(type);
     }
+
+    // ═══ Round 5: Well-known folder magic strings must use RunConstants ═══
+
+    [Fact]
+    public void NoMagicTrashFolderNames_InKeyInfrastructureFiles()
+    {
+        var srcDir = ResolveSrcDir();
+        var targetFiles = new[]
+        {
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Orchestration", "MovePipelinePhase.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Orchestration", "JunkRemovalPipelinePhase.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Orchestration", "ConversionPhaseHelper.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Orchestration", "PipelinePhaseHelpers.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Orchestration", "ExecutionHelpers.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Sorting", "ConsoleSorter.cs"),
+            Path.Combine(srcDir, "RomCleanup.Infrastructure", "Deduplication", "FolderDeduplicator.cs"),
+            Path.Combine(srcDir, "RomCleanup.CLI", "Program.cs"),
+        };
+
+        var forbidden = new[]
+        {
+            "\"_TRASH_REGION_DEDUPE\"",
+            "\"_TRASH_JUNK\"",
+            "\"_TRASH_CONVERTED\"",
+            "\"_TRASH\"",
+            "\"_FOLDER_DUPES\"",
+            "\"PS3_DUPES\"",
+            "\"_QUARANTINE\"",
+            "\"_BACKUP\"",
+            "\"_BIOS\"",
+            "\"_JUNK\"",
+            "\"_REVIEW\"",
+        };
+
+        foreach (var file in targetFiles)
+        {
+            if (!File.Exists(file)) continue;
+            var lines = File.ReadAllLines(file);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var trimmed = lines[i].TrimStart();
+                if (trimmed.StartsWith("//") || trimmed.StartsWith("/*") || trimmed.StartsWith("*"))
+                    continue;
+
+                foreach (var magic in forbidden)
+                {
+                    Assert.False(
+                        lines[i].Contains(magic, StringComparison.Ordinal),
+                        $"Magic folder name {magic} found in {Path.GetFileName(file)} line {i + 1}: {trimmed}");
+                }
+            }
+        }
+    }
 }

@@ -191,6 +191,37 @@ internal static class CliArgsParser
                     opts.HashType = hashTypeVal;
                     break;
 
+                case "-update-dats" or "--update-dats":
+                    opts.UpdateDats = true;
+                    break;
+
+                case "-import-packs-from" or "--import-packs-from":
+                    if (!TryConsumeValue(args, ref i, "--import-packs-from", errors, out var importPacksFromVal))
+                        break;
+                    opts.ImportPacksFrom = importPacksFromVal;
+                    break;
+
+                case "-force-dat-update" or "--force-dat-update":
+                    opts.ForceDatUpdate = true;
+                    break;
+
+                case "-smart-dat-update" or "--smart-dat-update":
+                    opts.SmartDatUpdate = true;
+                    break;
+
+                case "-dat-stale-days" or "--dat-stale-days":
+                    if (!TryConsumeValue(args, ref i, "--dat-stale-days", errors, out var staleDaysVal))
+                        break;
+
+                    if (!int.TryParse(staleDaysVal, out var staleDays) || staleDays <= 0 || staleDays > 3650)
+                    {
+                        errors.Add($"[Error] Invalid DAT stale threshold '{staleDaysVal}'. Must be an integer between 1 and 3650.");
+                        break;
+                    }
+
+                    opts.DatStaleDays = staleDays;
+                    break;
+
                 case "-convertformat" or "--convertformat":
                     opts.ConvertFormat = true;
                     break;
@@ -238,6 +269,28 @@ internal static class CliArgsParser
             if (!File.Exists(opts.RollbackAuditPath))
                 return CliParseResult.ValidationError([$"[Error] Audit file not found: {opts.RollbackAuditPath}"]);
             return CliParseResult.Rollback(opts);
+        }
+
+        if (opts.UpdateDats)
+        {
+            var datRootError = ValidateOptionalPath(opts.DatRoot, "DAT root", allowUnc: false);
+            if (datRootError is not null)
+                return CliParseResult.ValidationError([$"[Error] {datRootError}"]);
+
+            if (!string.IsNullOrWhiteSpace(opts.ImportPacksFrom))
+            {
+                var importRootError = ValidateOptionalPath(opts.ImportPacksFrom, "Import-Packs root", allowUnc: false);
+                if (importRootError is not null)
+                    return CliParseResult.ValidationError([$"[Error] {importRootError}"]);
+
+                if (!Directory.Exists(opts.ImportPacksFrom))
+                    return CliParseResult.ValidationError([$"[Error] Import-Packs directory not found: {opts.ImportPacksFrom}"]);
+            }
+
+            if (opts.DatStaleDays is <= 0)
+                return CliParseResult.ValidationError(["[Error] DAT stale threshold must be greater than zero."]);
+
+            return CliParseResult.UpdateDats(opts);
         }
 
         if (opts.Roots.Length == 0)
@@ -400,6 +453,9 @@ internal sealed class CliParseResult
     public static CliParseResult Rollback(CliRunOptions options) =>
         new() { Command = CliCommand.Rollback, ExitCode = 0, Options = options };
 
+    public static CliParseResult UpdateDats(CliRunOptions options) =>
+        new() { Command = CliCommand.UpdateDats, ExitCode = 0, Options = options };
+
     public static CliParseResult ValidationError(IReadOnlyList<string> errors) =>
         new() { Command = CliCommand.Run, ExitCode = 3, Errors = errors };
 
@@ -407,7 +463,7 @@ internal sealed class CliParseResult
         new() { Command = CliCommand.Run, ExitCode = 0, Options = options };
 }
 
-internal enum CliCommand { Run, Help, Version, Rollback }
+internal enum CliCommand { Run, Help, Version, Rollback, UpdateDats }
 
 /// <summary>
 /// Raw parsed CLI options — before settings merge.
@@ -441,4 +497,9 @@ internal sealed class CliRunOptions
     public string LogLevel { get; set; } = "Info";
     public string? RollbackAuditPath { get; set; }
     public bool RollbackDryRun { get; set; } = true;
+    public bool UpdateDats { get; set; }
+    public string? ImportPacksFrom { get; set; }
+    public bool ForceDatUpdate { get; set; }
+    public bool SmartDatUpdate { get; set; }
+    public int? DatStaleDays { get; set; }
 }

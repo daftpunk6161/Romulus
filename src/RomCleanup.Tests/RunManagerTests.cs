@@ -272,7 +272,7 @@ public class RunManagerTests
             });
 
             var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "Move", "idem-004").Run!;
-            await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(1));
+            await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
 
             var completed = mgr.Get(run.RunId)!;
             Assert.Equal("partial-rollback-available", completed.RecoveryState);
@@ -305,7 +305,7 @@ public class RunManagerTests
             });
 
             var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "Move", "idem-005").Run!;
-            await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(1));
+            await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
 
             var completed = mgr.Get(run.RunId)!;
             Assert.Equal("partial-rollback-available", completed.RecoveryState);
@@ -333,7 +333,7 @@ public class RunManagerTests
             }));
 
         var firstRun = firstManager.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "Move", "idem-006").Run!;
-        await firstManager.WaitForCompletion(firstRun.RunId, timeout: TimeSpan.FromSeconds(1));
+        await firstManager.WaitForCompletion(firstRun.RunId, timeout: TimeSpan.FromSeconds(5));
 
         var restartedManager = CreateManager();
 

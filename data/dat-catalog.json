@@ -60,7 +60,7 @@
     "Url": "https://redump.org/datfile/fmt/",
     "System": "Fujitsu - FM Towns",
     "Id": "redump-fmt",
-    "ConsoleKey": "FMT",
+    "ConsoleKey": "FMTOWNS",
     "Format": "zip-dat"
   },
   {
@@ -108,7 +108,7 @@
     "Url": "https://redump.org/datfile/mcd/",
     "System": "Sega - Mega CD & Sega CD",
     "Id": "redump-mcd",
-    "ConsoleKey": "MCD",
+    "ConsoleKey": "SCD",
     "Format": "zip-dat"
   },
   {
@@ -156,7 +156,7 @@
     "Url": "https://redump.org/datfile/pc/",
     "System": "IBM - PC compatible",
     "Id": "redump-pc",
-    "ConsoleKey": "IBMPC",
+    "ConsoleKey": "DOS",
     "Format": "zip-dat"
   },
   {
@@ -212,7 +212,7 @@
     "Url": "https://redump.org/datfile/psx/",
     "System": "Sony - PlayStation",
     "Id": "redump-ps1",
-    "ConsoleKey": "PSX",
+    "ConsoleKey": "PS1",
     "Format": "zip-dat"
   },
   {
@@ -284,7 +284,7 @@
     "Url": "https://redump.org/datfile/ajcd/",
     "System": "Atari - Jaguar CD",
     "Id": "redump-ajcd",
-    "ConsoleKey": "AJCD",
+    "ConsoleKey": "JAGCD",
     "Format": "zip-dat"
   },
   {
@@ -439,7 +439,7 @@
     "Url": "",
     "System": "Nintendo - Switch",
     "Id": "nointro-switch",
-    "ConsoleKey": "NSW",
+    "ConsoleKey": "SWITCH",
     "Format": "nointro-pack"
   },
   {
@@ -493,7 +493,7 @@
     "Url": "",
     "System": "GCE - Vectrex",
     "Id": "nointro-vectrex",
-    "ConsoleKey": "VEC",
+    "ConsoleKey": "VECTREX",
     "Format": "nointro-pack"
   },
   {
@@ -520,7 +520,7 @@
     "Url": "",
     "System": "Watara - Supervision",
     "Id": "nointro-supervision",
-    "ConsoleKey": "SVISION",
+    "ConsoleKey": "SUPERVISION",
     "Format": "nointro-pack"
   },
   {
@@ -530,6 +530,51 @@
     "System": "Analogue - Pocket",
     "Id": "nointro-pocket",
     "ConsoleKey": "POCKET",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Sega - Game Gear*",
+    "Url": "",
+    "System": "Sega - Game Gear",
+    "Id": "nointro-gg",
+    "ConsoleKey": "GG",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Bandai - WonderSwan*",
+    "Url": "",
+    "System": "Bandai - WonderSwan",
+    "Id": "nointro-ws",
+    "ConsoleKey": "WS",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "SNK - Neo Geo Pocket*",
+    "Url": "",
+    "System": "SNK - Neo Geo Pocket",
+    "Id": "nointro-ngp",
+    "ConsoleKey": "NGP",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Atari - 8-bit Family*",
+    "Url": "",
+    "System": "Atari - 8-bit Family",
+    "Id": "nointro-a800",
+    "ConsoleKey": "A800",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Microsoft - MSX*",
+    "Url": "",
+    "System": "Microsoft - MSX",
+    "Id": "nointro-msx",
+    "ConsoleKey": "MSX",
     "Format": "nointro-pack"
   },
   {
@@ -644,7 +689,7 @@
     "Url": "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML%2C%20Sega%20SG-1000%20only).dat",
     "System": "FinalBurn Neo - Sega SG-1000 Games",
     "Id": "fbneo-sg1000",
-    "ConsoleKey": "SG1K",
+    "ConsoleKey": "SG1000",
     "Format": "raw-dat"
   },
   {
@@ -652,7 +697,7 @@
     "Url": "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML%2C%20TurboGrafx16%20only).dat",
     "System": "FinalBurn Neo - TurboGrafx-16 Games",
     "Id": "fbneo-tg16",
-    "ConsoleKey": "TG16",
+    "ConsoleKey": "PCE",
     "Format": "raw-dat"
   },
   {
@@ -660,7 +705,7 @@
     "Url": "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML%2C%20Neogeo%20only).dat",
     "System": "FinalBurn Neo - Neo Geo Games",
     "Id": "fbneo-neogeo",
-    "ConsoleKey": "NEO",
+    "ConsoleKey": "NEOGEO",
     "Format": "raw-dat"
   },
   {
@@ -708,7 +753,148 @@
     "Url": "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML%2C%20Fairchild%20Channel%20F%20Games%20only).dat",
     "System": "FinalBurn Neo - Fairchild Channel F Games",
     "Id": "fbneo-cv",
-    "ConsoleKey": "VF",
+    "ConsoleKey": "CHANNELF",
     "Format": "raw-dat"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Sega - 32X*",
+    "Url": "",
+    "System": "Sega - 32X",
+    "Id": "nointro-32x",
+    "ConsoleKey": "32X",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Nintendo - Nintendo 3DS*",
+    "Url": "",
+    "System": "Nintendo - 3DS",
+    "Id": "nointro-3ds",
+    "ConsoleKey": "3DS",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Atari - 5200*",
+    "Url": "",
+    "System": "Atari - 5200",
+    "Id": "nointro-a52",
+    "ConsoleKey": "A52",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "SNK - Neo Geo Pocket Color*",
+    "Url": "",
+    "System": "SNK - Neo Geo Pocket Color",
+    "Id": "nointro-ngpc",
+    "ConsoleKey": "NGPC",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Bandai - WonderSwan Color*",
+    "Url": "",
+    "System": "Bandai - WonderSwan Color",
+    "Id": "nointro-wsc",
+    "ConsoleKey": "WSC",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Nintendo - Pokemon Mini*",
+    "Url": "",
+    "System": "Nintendo - Pokemon Mini",
+    "Id": "nointro-pokemini",
+    "ConsoleKey": "POKEMINI",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Magnavox - Odyssey2*",
+    "Url": "",
+    "System": "Magnavox - Odyssey2",
+    "Id": "nointro-odyssey2",
+    "ConsoleKey": "ODYSSEY2",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Commodore - Amiga*",
+    "Url": "",
+    "System": "Commodore - Amiga",
+    "Id": "nointro-amiga",
+    "ConsoleKey": "AMIGA",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Commodore - 64*",
+    "Url": "",
+    "System": "Commodore - 64",
+    "Id": "nointro-c64",
+    "ConsoleKey": "C64",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Amstrad - CPC*",
+    "Url": "",
+    "System": "Amstrad - CPC",
+    "Id": "nointro-cpc",
+    "ConsoleKey": "CPC",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Atari - ST*",
+    "Url": "",
+    "System": "Atari - ST",
+    "Id": "nointro-atarist",
+    "ConsoleKey": "ATARIST",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "Redump",
+    "Url": "https://redump.org/datfile/psvita/",
+    "System": "Sony - PlayStation Vita",
+    "Id": "redump-vita",
+    "ConsoleKey": "VITA",
+    "Format": "zip-dat"
+  },
+  {
+    "Group": "Redump",
+    "Url": "https://redump.org/datfile/wiiu/",
+    "System": "Nintendo - Wii U",
+    "Id": "redump-wiiu",
+    "ConsoleKey": "WIIU",
+    "Format": "zip-dat"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "Sony - PlayStation Vita*",
+    "Url": "",
+    "System": "Sony - PlayStation Vita",
+    "Id": "nointro-vita",
+    "ConsoleKey": "VITA",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "No-Intro",
+    "PackMatch": "SNK - Neo Geo*",
+    "Url": "",
+    "System": "SNK - Neo Geo",
+    "Id": "nointro-neogeo",
+    "ConsoleKey": "NEOGEO",
+    "Format": "nointro-pack"
+  },
+  {
+    "Group": "Redump",
+    "Url": "https://redump.org/datfile/ps4/",
+    "System": "Sony - PlayStation 4",
+    "Id": "redump-ps4",
+    "ConsoleKey": "PS4",
+    "Format": "zip-dat"
   }
 ]

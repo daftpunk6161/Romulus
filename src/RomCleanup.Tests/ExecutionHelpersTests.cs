@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
 
@@ -60,11 +61,11 @@ public sealed class ExecutionHelpersTests
     public void DefaultBlocklist_ContainsExpectedEntries()
     {
         var bl = ExecutionHelpers.DefaultBlocklist;
-        Assert.Contains("_TRASH_REGION_DEDUPE", bl);
-        Assert.Contains("_FOLDER_DUPES", bl);
-        Assert.Contains("_QUARANTINE", bl);
-        Assert.Contains("PS3_DUPES", bl);
-        Assert.Contains("_BACKUP", bl);
-        Assert.Contains("_TRASH_JUNK", bl);
+        Assert.Contains(RunConstants.WellKnownFolders.TrashRegionDedupe, bl);
+        Assert.Contains(RunConstants.WellKnownFolders.FolderDupes, bl);
+        Assert.Contains(RunConstants.WellKnownFolders.Quarantine, bl);
+        Assert.Contains(RunConstants.WellKnownFolders.Ps3Dupes, bl);
+        Assert.Contains(RunConstants.WellKnownFolders.Backup, bl);
+        Assert.Contains(RunConstants.WellKnownFolders.TrashJunk, bl);
     }
 }

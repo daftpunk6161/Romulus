@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.SetParsing;
@@ -84,10 +85,10 @@ internal static class PipelinePhaseHelpers
             return;
 
         var trashBase = string.IsNullOrEmpty(options.TrashRoot) ? root : options.TrashRoot;
-        var trashDir = Path.Combine(trashBase, "_TRASH_CONVERTED");
+        var trashDir = Path.Combine(trashBase, RunConstants.WellKnownFolders.TrashConverted);
         context.FileSystem.EnsureDirectory(trashDir);
         var fileName = Path.GetFileName(sourcePath);
-        var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine("_TRASH_CONVERTED", fileName));
+        var trashDest = context.FileSystem.ResolveChildPathWithinRoot(trashBase, Path.Combine(RunConstants.WellKnownFolders.TrashConverted, fileName));
         if (trashDest is null)
             return;
 
