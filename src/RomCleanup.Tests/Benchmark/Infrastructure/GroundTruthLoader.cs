@@ -39,7 +39,25 @@ internal sealed class GroundTruthLoader
     {
         var entries = new List<GroundTruthEntry>();
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
-        var lines = File.ReadAllLines(path);
+
+        // Use FileShare.ReadWrite + retry to tolerate concurrent writes from parallel tests
+        // (e.g. Phase6BDataFillTests writing performance-scale.jsonl)
+        string[] lines;
+        const int maxRetries = 3;
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+                lines = reader.ReadToEnd().Split('\n');
+                break;
+            }
+            catch (IOException) when (attempt < maxRetries - 1)
+            {
+                Thread.Sleep(100 * (attempt + 1));
+            }
+        }
 
         for (int lineNum = 0; lineNum < lines.Length; lineNum++)
         {

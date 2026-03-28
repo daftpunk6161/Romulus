@@ -42,13 +42,21 @@ public sealed class PerformanceBenchmarkTests
             var rate = files.Count / sw.Elapsed.TotalSeconds;
             _output.WriteLine($"Processed {files.Count} files in {sw.Elapsed.TotalSeconds:F2}s ({rate:F1}/s)");
 
+            // Threshold: isolated runs achieve ~2500/s.
+            // 100/s still catches genuine regressions while tolerating parallel I/O pressure.
             Assert.True(rate > 100, $"Throughput too low: {rate:F1}/s (expected > 100/s)");
         }
         finally
         {
-            if (Directory.Exists(tempRoot))
+            try
             {
-                Directory.Delete(tempRoot, recursive: true);
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Temp cleanup may fail under parallel execution (AV, indexer, or other tests
+                // holding handles). Swallow — OS will clean temp on next boot.
             }
         }
     }
