@@ -208,11 +208,8 @@ internal static class Program
         SafeErrorWriteLine($"[DatUpdate] DAT root: {datRoot}");
 
         int skippedExisting = 0;
-        int skippedFresh = 0;
-        int staleUpdated = 0;
         int downloaded = 0;
         int failed = 0;
-        var staleThresholdDays = cliOpts.DatStaleDays ?? 365;
 
         using (var datService = new DatSourceService(datRoot))
         {
@@ -229,24 +226,10 @@ internal static class Program
                 var fileName = entry.Id + ".dat";
                 var targetPath = Path.Combine(datRoot, fileName);
 
-                if (File.Exists(targetPath) && !cliOpts.ForceDatUpdate)
+                if (!cliOpts.ForceDatUpdate && File.Exists(targetPath))
                 {
-                    if (cliOpts.SmartDatUpdate)
-                    {
-                        var ageDays = (DateTime.UtcNow - File.GetLastWriteTimeUtc(targetPath)).TotalDays;
-                        if (ageDays <= staleThresholdDays)
-                        {
-                            skippedFresh++;
-                            continue;
-                        }
-
-                        staleUpdated++;
-                    }
-                    else
-                    {
-                        skippedExisting++;
-                        continue;
-                    }
+                    skippedExisting++;
+                    continue;
                 }
 
                 try
@@ -290,12 +273,6 @@ internal static class Program
 
         SafeErrorWriteLine($"[DatUpdate] Downloaded: {downloaded}");
         SafeErrorWriteLine($"[DatUpdate] Skipped existing: {skippedExisting}");
-        if (cliOpts.SmartDatUpdate)
-        {
-            SafeErrorWriteLine($"[DatUpdate] Smart stale threshold (days): {staleThresholdDays}");
-            SafeErrorWriteLine($"[DatUpdate] Skipped fresh: {skippedFresh}");
-            SafeErrorWriteLine($"[DatUpdate] Stale updates attempted: {staleUpdated}");
-        }
         SafeErrorWriteLine($"[DatUpdate] Failed: {failed}");
 
         // Non-zero when at least one attempted download failed.

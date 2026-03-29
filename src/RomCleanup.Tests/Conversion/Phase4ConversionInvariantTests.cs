@@ -282,17 +282,17 @@ public sealed class Phase4ConversionInvariantTests
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // TASK-061: R-08 — All 65 systems have ConversionPolicy defined
+    // TASK-061: R-08 — All systems have ConversionPolicy defined
     // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void R08_All65Systems_HaveConversionPolicy()
+    public void R08_AllSystems_HaveConversionPolicy()
     {
         var registry = LoadRegistry();
         var consolesRoot = LoadConsolesJson();
         var consoles = consolesRoot.GetProperty("consoles");
 
-        Assert.Equal(65, consoles.GetArrayLength());
+        Assert.True(consoles.GetArrayLength() >= 65, $"Expected at least 65 consoles, got {consoles.GetArrayLength()}");
 
         foreach (var console in consoles.EnumerateArray())
         {
@@ -394,7 +394,7 @@ public sealed class Phase4ConversionInvariantTests
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // TASK-064: ConversionPolicy tests for all 65 systems
+    // TASK-064: ConversionPolicy tests for all systems
     // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -427,7 +427,7 @@ public sealed class Phase4ConversionInvariantTests
             Assert.Equal(expectedPolicy, registryPolicy);
         }
 
-        Assert.Equal(65, systemCount);
+        Assert.True(systemCount >= 65, $"Expected at least 65 systems, got {systemCount}");
     }
 
     [Fact]

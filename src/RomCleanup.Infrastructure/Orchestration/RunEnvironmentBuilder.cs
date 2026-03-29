@@ -211,6 +211,15 @@ public sealed class RunEnvironmentBuilder
             var datRepo = new DatRepositoryAdapter();
             hashService = new FileHashService();
             var consoleMap = BuildConsoleMap(dataDir, effectiveDatRoot);
+
+            // Diagnostic: show what BuildConsoleMap found.
+            var datFileCount = Directory.Exists(effectiveDatRoot)
+                ? Directory.GetFiles(effectiveDatRoot, "*.*", SearchOption.AllDirectories)
+                    .Count(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
+                             || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                : 0;
+            onWarning?.Invoke($"[DAT] DatRoot '{effectiveDatRoot}': {datFileCount} DAT/XML-Dateien gefunden, {consoleMap.Count} Konsolen gemappt");
+
             if (consoleMap.Count > 0)
             {
                 datIndex = datRepo.GetDatIndex(effectiveDatRoot, consoleMap,
@@ -219,7 +228,7 @@ public sealed class RunEnvironmentBuilder
             }
             else
             {
-                onWarning?.Invoke("[Warning] No DAT files mapped — check dat-catalog.json and DatRoot");
+                onWarning?.Invoke("[Warning] No DAT files mapped — check dat-catalog.json and DatRoot. Redump-DATs erfordern manuellen Download von redump.org (Login). Non-Redump-/No-Intro-Packs muessen unter DatRoot liegen.");
             }
         }
         else if (runOptions.EnableDat)

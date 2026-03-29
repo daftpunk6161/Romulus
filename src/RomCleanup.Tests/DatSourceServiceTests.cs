@@ -500,6 +500,76 @@ public class DatSourceServiceTests : IDisposable
         return ms.ToArray();
     }
 
+    // ═══ Content-Type / Login-Page Detection Tests ════════════════════
+
+    [Fact]
+    public async Task DownloadDatAsync_TextPlain_Succeeds_GitHubRawUrl()
+    {
+        // GitHub raw URLs serve .dat files as text/plain — must NOT be rejected
+        var content = "<?xml version=\"1.0\"?><datafile/>";
+        var handler = new ContentTypeHandler(content, "text/plain");
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        var result = await svc.DownloadDatAsync("https://example.invalid/test.dat", "github-raw.dat");
+        Assert.NotNull(result);
+        Assert.True(File.Exists(result));
+    }
+
+    [Fact]
+    public async Task DownloadDatAsync_TextXml_Succeeds()
+    {
+        var content = "<?xml version=\"1.0\"?><datafile/>";
+        var handler = new ContentTypeHandler(content, "text/xml");
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        var result = await svc.DownloadDatAsync("https://example.invalid/test.dat", "xml-dat.dat");
+        Assert.NotNull(result);
+        Assert.True(File.Exists(result));
+    }
+
+    [Fact]
+    public async Task DownloadDatAsync_TextHtml_ThrowsLoginPage()
+    {
+        var content = "<html><body>Please login</body></html>";
+        var handler = new ContentTypeHandler(content, "text/html");
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.DownloadDatAsync("https://example.invalid/test.dat", "login.dat"));
+    }
+
+    [Fact]
+    public async Task DownloadDatByFormatAsync_ZipDat_HtmlResponse_ThrowsLoginPage()
+    {
+        var content = "<html><body>Please login to Redump</body></html>";
+        var handler = new ContentTypeHandler(content, "text/html");
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.DownloadDatByFormatAsync("https://redump.org/datfile/ps1/", "test.dat", "zip-dat"));
+    }
+
+    private sealed class ContentTypeHandler(string content, string mediaType) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri?.ToString() ?? "";
+            if (uri.EndsWith(".sha256"))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(content))
+            };
+            resp.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType);
+            return Task.FromResult(resp);
+        }
+    }
+
     private sealed class ByteContentHandler(byte[] content) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

@@ -102,9 +102,9 @@ public sealed class DatSourceService : IDisposable
             response.EnsureSuccessStatusCode();
 
             // Reject HTML responses (login/redirect pages, e.g. Redump)
+            // Allow text/plain and text/xml — some servers serve DATs as text/*
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-            if (contentType.Contains("html", StringComparison.OrdinalIgnoreCase)
-                || contentType.Contains("text", StringComparison.OrdinalIgnoreCase))
+            if (contentType.Contains("html", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"Server returned HTML instead of a ZIP file. The source may require manual download: {url}");
 
@@ -207,9 +207,9 @@ public sealed class DatSourceService : IDisposable
             response.EnsureSuccessStatusCode();
 
             // Reject HTML responses (login/redirect pages, e.g. Redump)
+            // Allow text/plain and text/xml — GitHub raw URLs serve .dat files as text/plain
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-            if (contentType.Contains("html", StringComparison.OrdinalIgnoreCase)
-                || contentType.Contains("text", StringComparison.OrdinalIgnoreCase))
+            if (contentType.Contains("html", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"Server returned HTML instead of a DAT file. The source may require manual download: {url}");
 

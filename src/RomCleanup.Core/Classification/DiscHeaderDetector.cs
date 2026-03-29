@@ -332,7 +332,7 @@ public sealed class DiscHeaderDetector
         if (fs.Length < 8)
             return null;
 
-        var headerSize = (int)Math.Min(0x54, fs.Length);
+        var headerSize = (int)Math.Min(0x80, fs.Length);
         var header = new byte[headerSize];
         var headerRead = fs.ReadAtLeast(header, headerSize, throwOnEndOfStream: false);
 
@@ -343,13 +343,20 @@ public sealed class DiscHeaderDetector
         if (magic != "MComprHD")
             return null;
 
-        // CHD v5: read metadata at declared meta offset (first metadata block).
+        // CHD v5: parse metadata tags first, then fall back to text scan.
         if (headerRead >= 0x38)
         {
             var version = BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(12, 4));
             if (version == 5)
             {
                 var metaOffset = BinaryPrimitives.ReadUInt64BigEndian(header.AsSpan(0x30, 8));
+
+                // Structured metadata tag scan — definitively identifies GD-ROM (Dreamcast).
+                var tagResult = ScanChdMetaTags(fs, metaOffset);
+                if (tagResult is not null)
+                    return tagResult;
+
+                // Fallback: raw text scan over the metadata area.
                 if (metaOffset > 0 && metaOffset < (ulong)fs.Length)
                 {
                     fs.Position = (long)metaOffset;
@@ -379,6 +386,41 @@ public sealed class DiscHeaderDetector
         // Convert printable ASCII bytes to searchable string
         var meta = ExtractPrintableAscii(raw, 0, scanSize);
         return ResolveConsoleFromText(meta);
+    }
+
+    /// <summary>
+    /// Parse CHD v5 metadata entry tags to identify the disc system.
+    /// CHD metadata is a linked list: 4-byte tag | 4-byte flags+length | 8-byte next offset | data.
+    /// CHGD (0x43484744) = GD-ROM → definitively Dreamcast.
+    /// CHCD/CHT2 = standard CD-ROM (ambiguous, not enough to identify system alone).
+    /// </summary>
+    private static string? ScanChdMetaTags(Stream fs, ulong metaOffset)
+    {
+        if (metaOffset == 0 || metaOffset >= (ulong)fs.Length)
+            return null;
+
+        var entryHeader = new byte[16];
+        var currentOffset = metaOffset;
+        int maxEntries = 200; // Safety limit against malformed linked lists.
+
+        while (currentOffset > 0 && currentOffset < (ulong)fs.Length && maxEntries-- > 0)
+        {
+            fs.Position = (long)currentOffset;
+            var read = fs.ReadAtLeast(entryHeader, 16, throwOnEndOfStream: false);
+            if (read < 16)
+                break;
+
+            var tag = BinaryPrimitives.ReadUInt32BigEndian(entryHeader.AsSpan(0, 4));
+            var nextOffset = BinaryPrimitives.ReadUInt64BigEndian(entryHeader.AsSpan(8, 8));
+
+            // CHGD (0x43484744) = GD-ROM track metadata → definitively Dreamcast/Naomi.
+            if (tag == 0x43484744)
+                return "DC";
+
+            currentOffset = nextOffset;
+        }
+
+        return null;
     }
 
     /// <summary>

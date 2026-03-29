@@ -202,7 +202,192 @@
 
     "cd32": "CD32",
     "amiga cd32": "CD32",
-    "commodore cd32": "CD32"
+    "commodore cd32": "CD32",
+
+    "acd": "ACD",
+    "archimedes cd": "ACD",
+    "acorn archimedes": "ACD",
+    "arcadia": "ARCADIA",
+    "arcadia 2001": "ARCADIA",
+    "emerson arcadia": "ARCADIA",
+    "atomiswave": "AWAVE",
+    "awave": "AWAVE",
+    "bsx": "BSX",
+    "satellaview": "BSX",
+    "cdtv": "CDTV",
+    "amiga cdtv": "CDTV",
+    "chihiro": "CHI",
+    "creativision": "CVISION",
+    "cvision": "CVISION",
+    "daphne": "DAPHNE",
+    "fds": "FDS",
+    "famicom disk system": "FDS",
+    "gamecom": "GAMECOM",
+    "game.com": "GAMECOM",
+    "game com": "GAMECOM",
+    "gmaster": "GMASTER",
+    "game master": "GMASTER",
+    "hartung": "GMASTER",
+    "gp32": "GP32",
+    "gamewave": "GW",
+    "game wave": "GW",
+    "videonow": "HS",
+    "video now": "HS",
+    "ite": "ITE",
+    "eagle": "ITE",
+    "ixl": "IXL",
+    "ksite": "KSITE",
+    "e-amusement": "KSITE",
+    "lindbergh": "LIND",
+    "loopy": "LOOPY",
+    "casio loopy": "LOOPY",
+    "macintosh": "MAC",
+    "apple mac": "MAC",
+    "n64dd": "N64DD",
+    "64dd": "N64DD",
+    "naomi": "NAOMI",
+    "naomi2": "NAO2",
+    "naomi 2": "NAO2",
+    "ngage": "NGAGE",
+    "n-gage": "NGAGE",
+    "nokia ngage": "NGAGE",
+    "nuon": "NUON",
+    "palm": "PALM",
+    "palmos": "PALM",
+    "pc88": "PC88",
+    "pc-88": "PC88",
+    "nec pc-88": "PC88",
+    "photocd": "PCD",
+    "photo cd": "PCD",
+    "pcv2": "PCV2",
+    "pocket challenge": "PCV2",
+    "sega pico": "PICO",
+    "pippin": "PIPPIN",
+    "bandai pippin": "PIPPIN",
+    "analogue pocket": "POCKET",
+    "pocket pc": "PPC",
+    "ppc": "PPC",
+    "ps4": "PS4",
+    "playstation4": "PS4",
+    "playstation 4": "PS4",
+    "ps5": "PS5",
+    "playstation5": "PS5",
+    "playstation 5": "PS5",
+    "quizard": "QUIZ",
+    "ringedge": "RINGEDGE",
+    "ringedge2": "RINGEDGE2",
+    "ringedge 2": "RINGEDGE2",
+    "ringwide": "RINGWIDE",
+    "scv": "SCV",
+    "super cassette vision": "SCV",
+    "sgx": "SGX",
+    "supergrafx": "SGX",
+    "pc engine supergrafx": "SGX",
+    "sufami": "SUFAMI",
+    "sufami turbo": "SUFAMI",
+    "superacan": "SUPERACAN",
+    "super acan": "SUPERACAN",
+    "triforce": "TRIFORCE",
+    "vflash": "VFLASH",
+    "v.flash": "VFLASH",
+    "vsmile pro": "VFLASH",
+    "vic20": "VIC20",
+    "vic-20": "VIC20",
+    "commodore vic-20": "VIC20",
+    "vis": "VIS",
+
+    "amiga cd": "AMIGACD",
+    "amigacd": "AMIGACD",
+    "commodore amiga cd": "AMIGACD",
+    "playdia": "PLAYDIA",
+    "bandai playdia": "PLAYDIA",
+    "firebeat": "FIREBEAT",
+    "konami firebeat": "FIREBEAT",
+    "system 573": "K573",
+    "k573": "K573",
+    "konami 573": "K573",
+    "system gv": "KGV",
+    "kgv": "KGV",
+    "konami gv": "KGV",
+    "system 246": "N246",
+    "namco 246": "N246",
+    "n246": "N246",
+    "prologue 21": "PRO21",
+    "pro21": "PRO21",
+    "kiss-site": "KISSSITE",
+    "kisssite": "KISSSITE",
+    "photo play": "PHOTOPLAY",
+    "photoplay": "PHOTOPLAY",
+    "e-amusement": "EAMUSE",
+    "eamusement": "EAMUSE",
+    "msx2": "MSX2",
+    "megaduck": "MEGADUCK",
+    "mega duck": "MEGADUCK",
+    "astrocade": "ASTROCADE",
+    "bally astrocade": "ASTROCADE",
+    "vsmile": "VSMILE",
+    "v.smile": "VSMILE",
+    "v smile": "VSMILE",
+    "vc4000": "VC4000",
+    "vc 4000": "VC4000",
+    "interton": "VC4000",
+    "studio ii": "STUDIO2",
+    "studio2": "STUDIO2",
+    "rca studio ii": "STUDIO2",
+    "videopac+": "VIDEOPAC",
+    "g7000": "G7000",
+    "videopac g7000": "G7000",
+    "plus4": "PLUS4",
+    "plus/4": "PLUS4",
+    "commodore plus/4": "PLUS4",
+    "gamate": "GAMATE",
+    "game pocket": "GAMEPOCKET",
+    "gamepocket": "GAMEPOCKET",
+    "adventure vision": "AVISION",
+    "avision": "AVISION",
+    "my vision": "MYVISION",
+    "myvision": "MYVISION",
+    "pv-1000": "PV1000",
+    "pv1000": "PV1000",
+    "beena": "BEENA",
+    "sega beena": "BEENA",
+    "rx-78": "RX78",
+    "rx78": "RX78",
+    "gundam": "RX78",
+    "gizmondo": "GIZMONDO",
+    "gp2x": "GP2X",
+    "apf": "APF",
+    "mp-1000": "APF",
+    "evercade": "EVERCADE",
+    "visicom": "VISICOM",
+    "cps3": "CPS3",
+    "cps-3": "CPS3",
+    "capcom play system 3": "CPS3",
+    "konami m2": "KM2",
+    "python 2": "KPYTHON2",
+    "konami python 2": "KPYTHON2",
+    "alls": "ALLS",
+    "sega alls": "ALLS",
+    "sega nu": "NU",
+    "polymega": "POLYMEGA",
+    "electronic book": "EBOOK",
+    "audio cd": "AUDIOCD",
+    "audiocd": "AUDIOCD",
+    "dvd-video": "DVD",
+    "dvd": "DVD",
+    "bd-video": "BD",
+    "bluray": "BD",
+    "ion": "ION",
+    "zaurus": "ZAURUS",
+    "psion": "PSION",
+    "megatouch": "MEGATOUCH",
+    "dsi": "NDSI",
+    "ndsi": "NDSI",
+    "nintendo dsi": "NDSI",
+    "new 3ds": "NEW3DS",
+    "new3ds": "NEW3DS",
+    "new nintendo 3ds": "NEW3DS",
+    "hyperscan": "HYPERSCAN"
   },
   "ConsoleExtMap": {
     ".sms": "SMS",
@@ -266,7 +451,21 @@
     ".t64": "C64",
     ".tzx": "ZX",
 
-    ".o2": "ODYSSEY2"
+    ".o2": "ODYSSEY2",
+
+    ".fds": "FDS",
+    ".bs": "BSX",
+    ".sgx": "SGX",
+    ".ndd": "N64DD",
+    ".d88": "PC88",
+    ".dmg": "MAC",
+    ".pkg": "PS4",
+    ".tgc": "GAMECOM",
+    ".gxb": "GP32",
+    ".prg": "VIC20",
+    ".p00": "VIC20",
+    ".prc": "PALM",
+    ".pdb": "PALM"
   },
   "ConsoleRxMapBase": [
     {
@@ -524,6 +723,90 @@
     {
       "Key": "ARCADE",
       "Rx": "arcade|mame|fbneo|fba"
+    },
+    {
+      "Key": "PS4",
+      "Rx": "playstation\\s*4|\\bps4\\b"
+    },
+    {
+      "Key": "PS5",
+      "Rx": "playstation\\s*5|\\bps5\\b"
+    },
+    {
+      "Key": "FDS",
+      "Rx": "famicom.*disk|\\bfds\\b"
+    },
+    {
+      "Key": "SGX",
+      "Rx": "supergrafx|\\bsgx\\b"
+    },
+    {
+      "Key": "NAOMI",
+      "Rx": "\\bnaomi(?!\\s*2)\\b"
+    },
+    {
+      "Key": "NAO2",
+      "Rx": "naomi\\s*2|\\bnao2\\b"
+    },
+    {
+      "Key": "NGAGE",
+      "Rx": "\\bn-?gage\\b|nokia.*gage"
+    },
+    {
+      "Key": "PICO",
+      "Rx": "sega.*pico|\\bpico\\b"
+    },
+    {
+      "Key": "BSX",
+      "Rx": "satellaview|\\bbsx\\b"
+    },
+    {
+      "Key": "N64DD",
+      "Rx": "\\b64dd\\b|\\bn64dd\\b|nintendo.*64.*dd"
+    },
+    {
+      "Key": "AWAVE",
+      "Rx": "atomiswave|\\bawave\\b"
+    },
+    {
+      "Key": "TRIFORCE",
+      "Rx": "\\btriforce\\b"
+    },
+    {
+      "Key": "CDTV",
+      "Rx": "\\bcdtv\\b|amiga\\s*cdtv"
+    },
+    {
+      "Key": "CHI",
+      "Rx": "\\bchihiro\\b"
+    },
+    {
+      "Key": "LIND",
+      "Rx": "\\blindbergh\\b"
+    },
+    {
+      "Key": "PIPPIN",
+      "Rx": "\\bpippin\\b"
+    },
+    {
+      "Key": "MAC",
+      "Rx": "\\bmacintosh\\b|\\bmac\\b"
+    },
+    {
+      "Key": "PC88",
+      "Rx": "\\bpc-?88\\b|nec\\s*pc-?88"
+    },
+    {
+      "Key": "VIC20",
+      "Rx": "\\bvic-?20\\b|commodore\\s*vic"
+    },
+    {
+      "Key": "GAMECOM",
+      "Rx": "game\\.?com|\\bgamecom\\b"
+    },
+    {
+      "Key": "DAPHNE",
+      "Rx": "\\bdaphne\\b"
     }
   ],
   "DatConsoleRxMap": [
@@ -710,6 +993,62 @@
     {
       "Key": "CD32",
       "Rx": "\\bcd32\\b|amiga\\s*cd\\s*32|commodore\\s*cd\\s*32"
+    },
+    {
+      "Key": "PS4",
+      "Rx": "playstation\\s*4|\\bps4\\b"
+    },
+    {
+      "Key": "PS5",
+      "Rx": "playstation\\s*5|\\bps5\\b"
+    },
+    {
+      "Key": "FDS",
+      "Rx": "famicom.*disk|\\bfds\\b"
+    },
+    {
+      "Key": "SGX",
+      "Rx": "supergrafx|\\bsgx\\b"
+    },
+    {
+      "Key": "NAOMI",
+      "Rx": "\\bnaomi(?!\\s*2)\\b"
+    },
+    {
+      "Key": "NAO2",
+      "Rx": "naomi\\s*2|\\bnao2\\b"
+    },
+    {
+      "Key": "NGAGE",
+      "Rx": "\\bn-?gage\\b|nokia.*gage"
+    },
+    {
+      "Key": "PICO",
+      "Rx": "sega.*pico|\\bpico\\b"
+    },
+    {
+      "Key": "AWAVE",
+      "Rx": "atomiswave|\\bawave\\b"
+    },
+    {
+      "Key": "TRIFORCE",
+      "Rx": "\\btriforce\\b"
+    },
+    {
+      "Key": "CDTV",
+      "Rx": "\\bcdtv\\b|amiga\\s*cdtv"
+    },
+    {
+      "Key": "CHI",
+      "Rx": "\\bchihiro\\b"
+    },
+    {
+      "Key": "LIND",
+      "Rx": "\\blindbergh\\b"
+    },
+    {
+      "Key": "PIPPIN",
+      "Rx": "\\bpippin\\b"
     }
   ]
 }
