@@ -4190,16 +4190,16 @@ internal sealed class DatasetExpander
 
     private void GenerateDiscArcadeEntries(Dictionary<string, List<GroundTruthEntry>> result)
     {
-        var games = new (string id, string name, string ext, string dir, string ck, long size, string tag)[]
+        var games = new (string id, string name, string ext, string dir, string ck, long size, string tag, string altKey)[]
         {
-            ("ec-ARCADE-discarcade", "ikaruga.zip", ".zip", "naomi", "ARCADE", 33554432L, "naomi"),
-            ("ec-ARCADE-discarcade", "crazytaxi.zip", ".zip", "naomi", "ARCADE", 67108864L, "naomi"),
-            ("ec-ARCADE-discarcade", "vf4.chd", ".chd", "naomi", "ARCADE", 536870912L, "naomi"),
-            ("ec-ARCADE-discarcade", "demofist.zip", ".zip", "atomiswave", "ARCADE", 33554432L, "atomiswave"),
-            ("ec-ARCADE-discarcade", "ggisuka.zip", ".zip", "atomiswave", "ARCADE", 33554432L, "atomiswave"),
+            ("ec-ARCADE-discarcade", "ikaruga.zip", ".zip", "naomi", "ARCADE", 33554432L, "naomi", "NAOMI"),
+            ("ec-ARCADE-discarcade", "crazytaxi.zip", ".zip", "naomi", "ARCADE", 67108864L, "naomi", "NAOMI"),
+            ("ec-ARCADE-discarcade", "vf4.chd", ".chd", "naomi", "ARCADE", 536870912L, "naomi", "NAOMI"),
+            ("ec-ARCADE-discarcade", "demofist.zip", ".zip", "atomiswave", "ARCADE", 33554432L, "atomiswave", "AWAVE"),
+            ("ec-ARCADE-discarcade", "ggisuka.zip", ".zip", "atomiswave", "ARCADE", 33554432L, "atomiswave", "AWAVE"),
         };
 
-        foreach (var (idPrefix, name, ext, dir, ck, size, tag) in games)
+        foreach (var (idPrefix, name, ext, dir, ck, size, tag, altKey) in games)
         {
             var id = NextId("ec", "ARCADE", "discarcade");
             if (_existingIds.Contains(id)) continue;
@@ -4215,7 +4215,7 @@ internal sealed class DatasetExpander
                     ConsoleKey = ck, Category = "Game", Confidence = 65,
                     HasConflict = true, DatMatchLevel = "weak", DatEcosystem = "mame", SortDecision = "review"
                 },
-                DetectionExpectations = new DetectionExpectations { PrimaryMethod = "FolderName", AcceptableAlternatives = [] },
+                DetectionExpectations = new DetectionExpectations { PrimaryMethod = "FolderName", AcceptableAlternatives = [], AcceptableConsoleKeys = [altKey] },
                 FileModel = new FileModelInfo { Type = "single-file" },
                 Relationships = new RelationshipInfo()
             });
@@ -4830,18 +4830,18 @@ internal sealed class DatasetExpander
     {
         var entries = new[]
         {
-            new { Sys = "AMIGA", Game = "Turrican", Kw = "amiga", Ext = ".adf", Size = 901120L },
-            new { Sys = "AMIGA", Game = "The Settlers", Kw = "amiga", Ext = ".adf", Size = 901120L },
-            new { Sys = "C64", Game = "Impossible Mission", Kw = "c64", Ext = ".prg", Size = 16384L },
-            new { Sys = "C64", Game = "Maniac Mansion", Kw = "c64", Ext = ".d64", Size = 174848L },
-            new { Sys = "ZX", Game = "Jet Set Willy", Kw = "spectrum", Ext = ".tap", Size = 49152L },
-            new { Sys = "ZX", Game = "Manic Miner", Kw = "zxspectrum", Ext = ".tzx", Size = 32768L },
-            new { Sys = "MSX", Game = "Metal Gear", Kw = "msx", Ext = ".rom", Size = 131072L },
-            new { Sys = "MSX", Game = "Space Manbow", Kw = "msx2", Ext = ".rom", Size = 262144L },
-            new { Sys = "ATARIST", Game = "Dungeon Master", Kw = "atarist", Ext = ".st", Size = 737280L },
-            new { Sys = "ATARIST", Game = "Carrier Command", Kw = "atari-st", Ext = ".stx", Size = 737280L },
-            new { Sys = "PC98", Game = "Touhou", Kw = "pc98", Ext = ".fdi", Size = 1261568L },
-            new { Sys = "X68K", Game = "Akumajou Dracula", Kw = "x68000", Ext = ".dim", Size = 1261568L }
+            new { Sys = "AMIGA", Game = "Turrican", Kw = "amiga", Ext = ".adf", Size = 901120L, AltKeys = Array.Empty<string>() },
+            new { Sys = "AMIGA", Game = "The Settlers", Kw = "amiga", Ext = ".adf", Size = 901120L, AltKeys = Array.Empty<string>() },
+            new { Sys = "C64", Game = "Impossible Mission", Kw = "c64", Ext = ".prg", Size = 16384L, AltKeys = Array.Empty<string>() },
+            new { Sys = "C64", Game = "Maniac Mansion", Kw = "c64", Ext = ".d64", Size = 174848L, AltKeys = Array.Empty<string>() },
+            new { Sys = "ZX", Game = "Jet Set Willy", Kw = "spectrum", Ext = ".tap", Size = 49152L, AltKeys = Array.Empty<string>() },
+            new { Sys = "ZX", Game = "Manic Miner", Kw = "zxspectrum", Ext = ".tzx", Size = 32768L, AltKeys = Array.Empty<string>() },
+            new { Sys = "MSX", Game = "Metal Gear", Kw = "msx", Ext = ".rom", Size = 131072L, AltKeys = Array.Empty<string>() },
+            new { Sys = "MSX", Game = "Space Manbow", Kw = "msx2", Ext = ".rom", Size = 262144L, AltKeys = new[] { "MSX2" } },
+            new { Sys = "ATARIST", Game = "Dungeon Master", Kw = "atarist", Ext = ".st", Size = 737280L, AltKeys = Array.Empty<string>() },
+            new { Sys = "ATARIST", Game = "Carrier Command", Kw = "atari-st", Ext = ".stx", Size = 737280L, AltKeys = Array.Empty<string>() },
+            new { Sys = "PC98", Game = "Touhou", Kw = "pc98", Ext = ".fdi", Size = 1261568L, AltKeys = Array.Empty<string>() },
+            new { Sys = "X68K", Game = "Akumajou Dracula", Kw = "x68000", Ext = ".dim", Size = 1261568L, AltKeys = Array.Empty<string>() }
         };
 
         foreach (var e in entries)
@@ -4862,7 +4862,9 @@ internal sealed class DatasetExpander
                 },
                 DetectionExpectations = new DetectionExpectations
                 {
-                    PrimaryMethod = "Keyword", AcceptableAlternatives = ["FolderName"]
+                    PrimaryMethod = "Keyword",
+                    AcceptableAlternatives = ["FolderName"],
+                    AcceptableConsoleKeys = e.AltKeys.Length > 0 ? e.AltKeys : null
                 },
                 FileModel = new FileModelInfo { Type = "single-file" }
             });

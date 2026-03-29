@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using RomCleanup.Core.Caching;
 
 namespace RomCleanup.Core.Classification;
@@ -16,6 +17,7 @@ public sealed class ConsoleDetector
     private readonly Dictionary<string, string> _uniqueExtMap;  // .ext → key
     private readonly Dictionary<string, List<string>> _ambigExtMap; // .ext → [keys]
     private readonly Dictionary<string, ConsoleInfo> _consoles; // key → info
+    private readonly (Regex Pattern, string ConsoleKey)[] _keywordPatterns; // dynamic keywords
     private readonly DiscHeaderDetector? _discHeaderDetector;
     private readonly CartridgeHeaderDetector? _cartridgeHeaderDetector;
     private readonly Func<string, IReadOnlyList<string>>? _archiveEntryProvider;
@@ -37,6 +39,8 @@ public sealed class ConsoleDetector
         _uniqueExtMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         _ambigExtMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         _consoles = new Dictionary<string, ConsoleInfo>(StringComparer.OrdinalIgnoreCase);
+
+        var kwPatterns = new List<(Regex, string)>();
 
         foreach (var c in consoles)
         {
@@ -65,7 +69,47 @@ public sealed class ConsoleDetector
                 if (!list.Contains(c.Key))
                     list.Add(c.Key);
             }
+
+            // Build keyword regex patterns from consoles.json keywords
+            foreach (var kw in c.Keywords)
+            {
+                if (string.IsNullOrWhiteSpace(kw)) continue;
+                var escaped = Regex.Escape(kw);
+                var pattern = $@"\[{escaped}\]|\({escaped}\)";
+                try
+                {
+                    kwPatterns.Add((new Regex(pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase, SafeRegex.ShortTimeout), c.Key));
+                }
+                catch (ArgumentException) { /* skip malformed patterns */ }
+            }
         }
+
+        _keywordPatterns = kwPatterns.ToArray();
+    }
+
+    /// <summary>
+    /// Detect console from keyword tags in filename (e.g. "[PS1]", "(GBA)").
+    /// Uses dynamic patterns built from consoles.json keywords, with fallback to hardcoded patterns.
+    /// Returns (consoleKey, confidence=75) or null.
+    /// </summary>
+    internal (string ConsoleKey, int Confidence)? DetectByKeywordDynamic(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return null;
+
+        // Dynamic patterns from consoles.json (preferred — Single Source of Truth)
+        foreach (var (pattern, key) in _keywordPatterns)
+        {
+            try
+            {
+                if (pattern.IsMatch(fileName))
+                    return (key, 75);
+            }
+            catch (RegexMatchTimeoutException) { }
+        }
+
+        // Fallback: hardcoded patterns for backward compatibility when keywords not in JSON
+        return FilenameConsoleAnalyzer.DetectByKeyword(fileName);
     }
 
     /// <summary>
@@ -103,8 +147,9 @@ public sealed class ConsoleDetector
                 var ambigExts = ReadStringArray(item, "ambigExts");
                 var aliases = ReadStringArray(item, "folderAliases");
                 var categoryOverride = item.TryGetProperty("categoryOverride", out var co) ? co.GetString() : null;
+                var keywords = ReadStringArray(item, "keywords");
 
-                consoles.Add(new ConsoleInfo(key, displayName, discBased, uniqueExts, ambigExts, aliases, categoryOverride));
+                consoles.Add(new ConsoleInfo(key, displayName, discBased, uniqueExts, ambigExts, aliases, categoryOverride, keywords));
             }
         }
 
@@ -304,8 +349,8 @@ public sealed class ConsoleDetector
             hypotheses.Add(new DetectionHypothesis(bySerial.Value.ConsoleKey, bySerial.Value.Confidence,
                 DetectionSource.SerialNumber, $"serial={fileName}"));
 
-        // Method 8: Filename keywords
-        var byKeyword = FilenameConsoleAnalyzer.DetectByKeyword(fileName);
+        // Method 8: Filename keywords (dynamic from consoles.json + hardcoded fallback)
+        var byKeyword = DetectByKeywordDynamic(fileName);
         if (byKeyword is not null)
             hypotheses.Add(new DetectionHypothesis(byKeyword.Value.ConsoleKey, byKeyword.Value.Confidence,
                 DetectionSource.FilenameKeyword, $"keyword={fileName}"));
@@ -516,4 +561,8 @@ public sealed record ConsoleInfo(
     string[] UniqueExts,
     string[] AmbigExts,
     string[] FolderAliases,
-    string? CategoryOverride = null);
+    string? CategoryOverride = null,
+    string[] Keywords = null!)
+{
+    public string[] Keywords { get; init; } = Keywords ?? Array.Empty<string>();
+}

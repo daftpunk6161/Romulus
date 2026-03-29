@@ -160,7 +160,6 @@
       "ambigExts": [],
       "folderAliases": [
         "arcade",
-        "mame",
         "fbneo",
         "fba",
         "fbalpha"
@@ -194,7 +193,7 @@
         ".d64",
         ".t64"
       ],
-      "ambigExts": [],
+      "ambigExts": [".prg"],
       "folderAliases": [
         "c64",
         "commodore 64"
@@ -553,8 +552,7 @@
       "ambigExts": [],
       "folderAliases": [
         "msx",
-        "msx1",
-        "msx2"
+        "msx1"
       ],
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
@@ -695,8 +693,7 @@
       "ambigExts": [],
       "folderAliases": [
         "odyssey2",
-        "odyssey 2",
-        "videopac"
+        "odyssey 2"
       ],
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
@@ -707,7 +704,7 @@
       "displayName": "NEC PC-98",
       "discBased": false,
       "uniqueExts": [],
-      "ambigExts": [],
+      "ambigExts": [".d88"],
       "folderAliases": [
         "pc98",
         "pc-98"
@@ -1410,7 +1407,7 @@
       "discBased": true,
       "uniqueExts": [],
       "ambigExts": [".iso", ".bin", ".chd", ".cue", ".img"],
-      "folderAliases": ["ksite", "e-amusement"],
+      "folderAliases": ["ksite"],
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": []
@@ -1529,8 +1526,8 @@
       "key": "PC88",
       "displayName": "NEC PC-88",
       "discBased": false,
-      "uniqueExts": [".d88"],
-      "ambigExts": [],
+      "uniqueExts": [],
+      "ambigExts": [".d88"],
       "folderAliases": ["pc88", "pc-88", "nec pc-88"],
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".zip",
@@ -1738,8 +1735,8 @@
       "key": "VIC20",
       "displayName": "Commodore VIC-20",
       "discBased": false,
-      "uniqueExts": [".prg", ".p00"],
-      "ambigExts": [],
+      "uniqueExts": [".p00"],
+      "ambigExts": [".prg"],
       "folderAliases": ["vic20", "vic-20", "commodore vic-20"],
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
@@ -1882,7 +1879,7 @@
       "displayName": "Microsoft MSX2",
       "discBased": false,
       "uniqueExts": [],
-      "ambigExts": [".rom", ".mx2", ".dsk", ".cas"],
+      "ambigExts": [".dsk", ".cas"],
       "folderAliases": ["msx2"],
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
@@ -1969,8 +1966,8 @@
       "key": "PLUS4",
       "displayName": "Commodore Plus/4",
       "discBased": false,
-      "uniqueExts": [".prg", ".d64"],
-      "ambigExts": [".bin", ".tap"],
+      "uniqueExts": [],
+      "ambigExts": [".prg", ".d64", ".bin", ".tap"],
       "folderAliases": ["plus4", "commodore-plus4"],
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
@@ -2266,8 +2263,8 @@
       "key": "NDSI",
       "displayName": "Nintendo DSi",
       "discBased": false,
-      "uniqueExts": [".nds", ".dsi"],
-      "ambigExts": [],
+      "uniqueExts": [".dsi"],
+      "ambigExts": [".nds"],
       "folderAliases": ["dsi", "ndsi"],
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
@@ -2277,8 +2274,8 @@
       "key": "NEW3DS",
       "displayName": "New Nintendo 3DS",
       "discBased": false,
-      "uniqueExts": [".3ds", ".cia"],
-      "ambigExts": [],
+      "uniqueExts": [],
+      "ambigExts": [".3ds", ".cia"],
       "folderAliases": ["new3ds", "new-3ds"],
       "conversionPolicy": "None",
       "preferredConversionTarget": null,

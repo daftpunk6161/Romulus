@@ -417,6 +417,205 @@ public class ConsoleDetectorTests
         }
     }
 
+    // ── Data integrity invariants (consoles.json) ───────────────────────
+
+    [Fact]
+    public void ConsolesJson_NoUniqueExtConflicts()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var extOwners = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString()!;
+            if (!item.TryGetProperty("uniqueExts", out var exts)) continue;
+            foreach (var ext in exts.EnumerateArray())
+            {
+                var e = ext.GetString()!.ToLowerInvariant();
+                if (!extOwners.TryGetValue(e, out var list))
+                {
+                    list = new List<string>();
+                    extOwners[e] = list;
+                }
+                list.Add(key);
+            }
+        }
+
+        var conflicts = extOwners.Where(kv => kv.Value.Count > 1).ToList();
+        Assert.True(conflicts.Count == 0,
+            "UniqueExt conflicts found — same extension claimed by multiple consoles:\n" +
+            string.Join("\n", conflicts.Select(c => $"  {c.Key} → [{string.Join(", ", c.Value)}]")));
+    }
+
+    [Fact]
+    public void ConsolesJson_NoFolderAliasConflicts()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var aliasOwners = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString()!;
+            if (!item.TryGetProperty("folderAliases", out var aliases)) continue;
+            foreach (var alias in aliases.EnumerateArray())
+            {
+                var a = alias.GetString()!;
+                if (!aliasOwners.TryGetValue(a, out var list))
+                {
+                    list = new List<string>();
+                    aliasOwners[a] = list;
+                }
+                list.Add(key);
+            }
+        }
+
+        var conflicts = aliasOwners.Where(kv => kv.Value.Count > 1).ToList();
+        Assert.True(conflicts.Count == 0,
+            "FolderAlias conflicts found — same alias claimed by multiple consoles:\n" +
+            string.Join("\n", conflicts.Select(c => $"  \"{c.Key}\" → [{string.Join(", ", c.Value)}]")));
+    }
+
+    [Fact]
+    public void ConsolesJson_NoEmptyKeys()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var keys = new List<string>();
+
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString() ?? "";
+            Assert.False(string.IsNullOrWhiteSpace(key), "consoles.json contains entry with empty key");
+            keys.Add(key);
+        }
+
+        var dupes = keys.GroupBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        Assert.True(dupes.Count == 0,
+            $"Duplicate console keys: [{string.Join(", ", dupes)}]");
+    }
+
+    [Fact]
+    public void ConsolesJson_NoGenericExtensionsInUniqueExts()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        // Extensions that are too generic to be unique — they appear across many systems
+        var forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".bin", ".rom", ".iso", ".img", ".cue", ".chd", ".zip", ".7z",
+            ".cso", ".dat", ".exe", ".com", ".dsk"
+        };
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var violations = new List<string>();
+
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString()!;
+            if (!item.TryGetProperty("uniqueExts", out var exts)) continue;
+            foreach (var ext in exts.EnumerateArray())
+            {
+                var e = ext.GetString()!;
+                if (forbidden.Contains(e))
+                    violations.Add($"{key}: {e}");
+            }
+        }
+
+        Assert.True(violations.Count == 0,
+            "Generic extensions found in uniqueExts (must be in ambigExts instead):\n" +
+            string.Join("\n", violations.Select(v => $"  {v}")));
+    }
+
+    [Fact]
+    public void KeywordAndSerialPatterns_ReferenceValidConsoleKeys()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var validKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+            validKeys.Add(item.GetProperty("key").GetString()!);
+
+        // Verify keyword detection targets exist
+        var keywordTargets = new[]
+        {
+            "PS1", "PS2", "PS3", "PSP", "VITA", "GC", "WII", "NDS", "3DS", "N64",
+            "SNES", "NES", "GBA", "GBC", "GB", "MD", "SMS", "GG", "DC", "SAT",
+            "SCD", "PCE", "NEOGEO", "ARCADE", "SWITCH", "XBOX", "X360", "32X", "LYNX", "JAG"
+        };
+
+        var missing = keywordTargets.Where(k => !validKeys.Contains(k)).ToList();
+        Assert.True(missing.Count == 0,
+            $"Keyword/Serial patterns reference non-existent console keys: [{string.Join(", ", missing)}]");
+    }
+
+    [Fact]
+    public void ConsolesJson_DiscBasedConsoles_HaveDiscAmbigExts()
+    {
+        var resolvedDataDir = RomCleanup.Infrastructure.Orchestration.RunEnvironmentBuilder.TryResolveDataDir();
+        if (resolvedDataDir is null) return;
+        var jsonPath = Path.Combine(resolvedDataDir, "consoles.json");
+        if (!File.Exists(jsonPath)) return;
+
+        var json = File.ReadAllText(jsonPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var discExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".iso", ".bin", ".chd", ".cue", ".img" };
+        var violations = new List<string>();
+
+        foreach (var item in doc.RootElement.GetProperty("consoles").EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString()!;
+            var isDisc = item.TryGetProperty("discBased", out var db) && db.GetBoolean();
+            if (!isDisc) continue;
+
+            var hasDiscExt = false;
+            if (item.TryGetProperty("ambigExts", out var ambig))
+            {
+                foreach (var ext in ambig.EnumerateArray())
+                {
+                    if (discExts.Contains(ext.GetString()!))
+                    {
+                        hasDiscExt = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasDiscExt)
+                violations.Add(key);
+        }
+
+        Assert.True(violations.Count == 0,
+            $"Disc-based consoles missing disc ambigExts (.iso/.bin/.chd/.cue/.img): [{string.Join(", ", violations)}]");
+    }
+
     [Fact]
     public void AmbiguousDiscExt_SingleDiscConsole_Returns()
     {

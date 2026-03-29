@@ -5,7 +5,7 @@
     "ngc": "GC",
     "msdos": "DOS",
     "game gear": "GG",
-    "mame": "ARCADE",
+    "mame": "MAME",
     "sega cd": "SCD",
     "ds": "NDS",
     "nintendo 3ds": "3DS",
@@ -148,7 +148,6 @@
     "wsc": "WSC",
 
     "msx": "MSX",
-    "msx2": "MSX",
 
     "pc-fx": "PCFX",
     "pcfx": "PCFX",
@@ -192,7 +191,7 @@
     "fairchild": "CHANNELF",
     "odyssey2": "ODYSSEY2",
     "odyssey 2": "ODYSSEY2",
-    "videopac": "ODYSSEY2",
+    "videopac": "VIDEOPAC",
 
     "fm towns": "FMTOWNS",
     "fmtowns": "FMTOWNS",
@@ -237,7 +236,6 @@
     "eagle": "ITE",
     "ixl": "IXL",
     "ksite": "KSITE",
-    "e-amusement": "KSITE",
     "lindbergh": "LIND",
     "loopy": "LOOPY",
     "casio loopy": "LOOPY",
@@ -457,12 +455,10 @@
     ".bs": "BSX",
     ".sgx": "SGX",
     ".ndd": "N64DD",
-    ".d88": "PC88",
     ".dmg": "MAC",
     ".pkg": "PS4",
     ".tgc": "GAMECOM",
     ".gxb": "GP32",
-    ".prg": "VIC20",
     ".p00": "VIC20",
     ".prc": "PALM",
     ".pdb": "PALM"
