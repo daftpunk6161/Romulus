@@ -30,11 +30,14 @@ public sealed class DatIndex
     {
         var hashMap = _data.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
         var newEntry = new DatIndexEntry(gameName, romFileName, isBios);
+        var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
 
         // Allow updates for existing keys even when at capacity
         if (hashMap.ContainsKey(hash))
         {
             hashMap[hash] = newEntry;
+            // Keep name index in sync on update
+            nameMap[gameName] = newEntry;
             return;
         }
         if (MaxEntriesPerConsole > 0 && hashMap.Count >= MaxEntriesPerConsole)
@@ -43,7 +46,6 @@ public sealed class DatIndex
             Interlocked.Increment(ref _totalEntries);
 
         // Also index by game name (first entry per game wins — sufficient for name-based lookup)
-        var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
         nameMap.TryAdd(gameName, newEntry);
     }
 

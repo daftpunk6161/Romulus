@@ -31,59 +31,18 @@ public sealed class DatAuditPipelinePhase : IPipelinePhase<DatAuditInput, DatAud
             var fileName = Path.GetFileName(filePath);
             var consoleKey = candidate.ConsoleKey;
 
-            var status = DatAuditClassifier.Classify(hash, headerlessHash, fileName, consoleKey, input.DatIndex);
-
-            string? datGameName = null;
-            string? datRomFileName = null;
-
-            // Use headerless hash for DAT lookup when available and matching
-            var effectiveHash = !string.IsNullOrWhiteSpace(headerlessHash) ? headerlessHash : hash;
-
-            if (!string.IsNullOrWhiteSpace(effectiveHash))
-            {
-                var isRealConsole = !string.IsNullOrWhiteSpace(consoleKey)
-                    && !string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(consoleKey, "AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
-
-                if (isRealConsole)
-                {
-                    // Try headerless hash first, fall back to regular hash
-                    var match = input.DatIndex.LookupWithFilename(consoleKey!, effectiveHash);
-                    if (match is null && effectiveHash != hash && !string.IsNullOrWhiteSpace(hash))
-                        match = input.DatIndex.LookupWithFilename(consoleKey!, hash);
-
-                    if (match is not null)
-                    {
-                        datGameName = match.Value.GameName;
-                        datRomFileName = match.Value.RomFileName;
-                    }
-                }
-                else
-                {
-                    // Try headerless hash first, fall back to regular hash
-                    var matches = input.DatIndex.LookupAllByHash(effectiveHash);
-                    if (matches.Count == 0 && effectiveHash != hash && !string.IsNullOrWhiteSpace(hash))
-                        matches = input.DatIndex.LookupAllByHash(hash);
-
-                    if (matches.Count == 1)
-                    {
-                        datGameName = matches[0].Entry.GameName;
-                        datRomFileName = matches[0].Entry.RomFileName;
-                        consoleKey = matches[0].ConsoleKey;
-                    }
-                }
-            }
+            var result = DatAuditClassifier.ClassifyFull(hash, headerlessHash, fileName, consoleKey, input.DatIndex);
 
             entries.Add(new DatAuditEntry(
                 FilePath: filePath,
                 Hash: hash ?? string.Empty,
-                Status: status,
-                DatGameName: datGameName,
-                DatRomFileName: datRomFileName,
-                ConsoleKey: consoleKey,
-                Confidence: ToConfidence(status)));
+                Status: result.Status,
+                DatGameName: result.DatGameName,
+                DatRomFileName: result.DatRomFileName,
+                ConsoleKey: result.ResolvedConsoleKey ?? consoleKey,
+                Confidence: ToConfidence(result.Status)));
 
-            switch (status)
+            switch (result.Status)
             {
                 case DatAuditStatus.Have:
                     have++;

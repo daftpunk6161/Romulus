@@ -210,7 +210,7 @@ public sealed class DatAuditClassifierRegressionTests
     [Fact]
     public void RealConsoleKey_MissingHash_StillReturnsMiss()
     {
-        // Verify real console keys still correctly return Miss
+        // Verify real console keys still correctly return Miss when DAT IS loaded
         var index = new DatIndex();
         index.Add("NES", "abc123", "Contra", "Contra.nes");
 
@@ -221,5 +221,123 @@ public sealed class DatAuditClassifierRegressionTests
             datIndex: index);
 
         Assert.Equal(DatAuditStatus.Miss, status);
+    }
+
+    // ── Bug Fix: Console with no DAT → Unknown, not Miss ──
+
+    [Fact]
+    public void RealConsoleKey_NoDatLoaded_ReturnsUnknown_NotMiss()
+    {
+        // NES detected but no NES DAT loaded — cannot claim Miss
+        var index = new DatIndex();
+        index.Add("SNES", "abc123", "Zelda", "Zelda.sfc");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "abc123",
+            actualFileName: "Game.zip",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Unknown, status);
+    }
+
+    [Fact]
+    public void EmptyDatIndex_RealConsole_ReturnsUnknown()
+    {
+        var index = new DatIndex();
+
+        var status = DatAuditClassifier.Classify(
+            hash: "abc123",
+            actualFileName: "Game.zip",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Unknown, status);
+    }
+
+    [Fact]
+    public void RealConsole_DatLoaded_HashNotFound_ReturnsMiss()
+    {
+        // Confirm: when DAT IS loaded for this console, a missing hash is a real Miss
+        var index = new DatIndex();
+        index.Add("NES", "known-hash", "Contra", "Contra.nes");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "different-hash",
+            actualFileName: "Game.zip",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Miss, status);
+    }
+
+    // ── Bug Fix: Headerless Miss falls through to regular hash ──
+
+    [Fact]
+    public void HeaderlessMiss_RegularHashMatches_ReturnsHave()
+    {
+        // DAT uses headered SHA1; headerless hash doesn't match, but regular hash does
+        var index = new DatIndex();
+        index.Add("NES", "headered-sha1", "Super Mario Bros", "Super Mario Bros (USA).nes");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "headered-sha1",
+            headerlessHash: "headerless-sha1-no-match",
+            actualFileName: "Super Mario Bros (USA).nes",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Have, status);
+    }
+
+    [Fact]
+    public void HeaderlessMiss_RegularHashAlsoMiss_ReturnsMiss()
+    {
+        // Both hashes fail for a console with DAT → genuine Miss
+        var index = new DatIndex();
+        index.Add("NES", "some-hash", "Contra", "Contra.nes");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "other-hash",
+            headerlessHash: "another-hash",
+            actualFileName: "Game.nes",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Miss, status);
+    }
+
+    [Fact]
+    public void HeaderlessMiss_NoDatForConsole_ReturnsUnknown()
+    {
+        // Headerless misses AND console has no DAT → Unknown
+        var index = new DatIndex();
+        index.Add("SNES", "hash1", "Zelda", "Zelda.sfc");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "hash2",
+            headerlessHash: "hash3",
+            actualFileName: "Game.nes",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Unknown, status);
+    }
+
+    [Fact]
+    public void HeaderlessHave_ReturnsHave_WithoutTryingRegular()
+    {
+        // Headerless matches → return immediately
+        var index = new DatIndex();
+        index.Add("NES", "headerless-hash", "Contra", "Contra (USA).nes");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "regular-hash-different",
+            headerlessHash: "headerless-hash",
+            actualFileName: "Contra (USA).nes",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Have, status);
     }
 }

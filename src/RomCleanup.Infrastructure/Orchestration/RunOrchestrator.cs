@@ -208,11 +208,11 @@ public sealed partial class RunOrchestrator
         if (pipelineState.DatAuditResult is { } datAudit)
         {
             result.DatAuditResult = datAudit;
-            result.DatHaveCount = datAudit.Entries.Count(e => e.Status == DatAuditStatus.Have);
-            result.DatHaveWrongNameCount = datAudit.Entries.Count(e => e.Status == DatAuditStatus.HaveWrongName);
-            result.DatMissCount = datAudit.Entries.Count(e => e.Status == DatAuditStatus.Miss);
-            result.DatUnknownCount = datAudit.Entries.Count(e => e.Status == DatAuditStatus.Unknown);
-            result.DatAmbiguousCount = datAudit.Entries.Count(e => e.Status == DatAuditStatus.Ambiguous);
+            result.DatHaveCount = datAudit.HaveCount;
+            result.DatHaveWrongNameCount = datAudit.HaveWrongNameCount;
+            result.DatMissCount = datAudit.MissCount;
+            result.DatUnknownCount = datAudit.UnknownCount;
+            result.DatAmbiguousCount = datAudit.AmbiguousCount;
         }
 
         if (pipelineState.DatRenameResult is { } datRename)

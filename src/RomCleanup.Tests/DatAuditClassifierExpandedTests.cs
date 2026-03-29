@@ -73,9 +73,8 @@ public sealed class DatAuditClassifierExpandedTests
             consoleKey: "NES",
             datIndex: index);
 
-        // headerless doesn't match → Miss, but known console so Miss is returned before fallback
-        // Actually: headerless misses on known console → returns Miss directly
-        Assert.Equal(DatAuditStatus.Miss, status);
+        // headerless doesn't match → falls through to regular hash → Have
+        Assert.Equal(DatAuditStatus.Have, status);
     }
 
     [Fact]
@@ -172,7 +171,7 @@ public sealed class DatAuditClassifierExpandedTests
     }
 
     [Fact]
-    public void Classify_KnownConsole_HashInOtherConsole_StillReturnsMiss()
+    public void Classify_KnownConsole_NoDatLoaded_ReturnsUnknown()
     {
         var index = new DatIndex();
         index.Add("SNES", "hash1", "GameSnes", "game.sfc");
@@ -183,7 +182,8 @@ public sealed class DatAuditClassifierExpandedTests
             consoleKey: "NES",
             datIndex: index);
 
-        Assert.Equal(DatAuditStatus.Miss, status);
+        // NES has no DAT loaded → Unknown (not Miss)
+        Assert.Equal(DatAuditStatus.Unknown, status);
     }
 
     [Fact]
@@ -228,5 +228,76 @@ public sealed class DatAuditClassifierExpandedTests
             Assert.Equal(DatAuditStatus.Ambiguous,
                 DatAuditClassifier.Classify("aaa111", "ambig.bin", "", index));
         }
+    }
+
+    // ── ClassifyFull – richer result ─────────────────────────────
+
+    [Fact]
+    public void ClassifyFull_KnownConsole_ReturnsMatchedEntryDetails()
+    {
+        var index = new DatIndex();
+        index.Add("NES", "hash1", "Contra", "Contra (USA).nes");
+
+        var result = DatAuditClassifier.ClassifyFull("hash1", null, "Contra (USA).nes", "NES", index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("Contra", result.DatGameName);
+        Assert.Equal("Contra (USA).nes", result.DatRomFileName);
+        Assert.Equal("NES", result.ResolvedConsoleKey);
+    }
+
+    [Fact]
+    public void ClassifyFull_WrongName_ReturnsExpectedRomFileName()
+    {
+        var index = new DatIndex();
+        index.Add("NES", "hash1", "Contra", "Contra (USA).nes");
+
+        var result = DatAuditClassifier.ClassifyFull("hash1", null, "wrong.zip", "NES", index);
+
+        Assert.Equal(DatAuditStatus.HaveWrongName, result.Status);
+        Assert.Equal("Contra (USA).nes", result.DatRomFileName);
+    }
+
+    [Fact]
+    public void ClassifyFull_UnknownConsole_SingleMatch_ResolvesConsoleKey()
+    {
+        var index = new DatIndex();
+        index.Add("NES", "hash1", "Contra", "Contra (USA).nes");
+
+        var result = DatAuditClassifier.ClassifyFull("hash1", null, "Contra (USA).nes", null, index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("NES", result.ResolvedConsoleKey);
+        Assert.Equal("Contra", result.DatGameName);
+    }
+
+    [Fact]
+    public void ClassifyFull_Miss_ReturnsNullDetails()
+    {
+        var index = new DatIndex();
+        index.Add("NES", "hash1", "Contra", "Contra (USA).nes");
+
+        var result = DatAuditClassifier.ClassifyFull("no-match", null, "file.nes", "NES", index);
+
+        Assert.Equal(DatAuditStatus.Miss, result.Status);
+        Assert.Null(result.DatGameName);
+        Assert.Null(result.DatRomFileName);
+    }
+
+    [Fact]
+    public void ClassifyFull_HeaderlessHash_ReturnsMatchedDetails()
+    {
+        var index = new DatIndex();
+        index.Add("NES", "headerless-hash", "Contra", "Contra (USA).nes");
+
+        var result = DatAuditClassifier.ClassifyFull(
+            hash: "regular-hash",
+            headerlessHash: "headerless-hash",
+            actualFileName: "Contra (USA).nes",
+            consoleKey: "NES",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("Contra", result.DatGameName);
     }
 }
