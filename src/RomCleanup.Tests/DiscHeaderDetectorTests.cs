@@ -450,4 +450,24 @@ public class DiscHeaderDetectorTests : IDisposable
         Assert.Equal("CDTV", DiscHeaderDetector.ResolveConsoleFromText("CDTV disc"));
         Assert.Equal("CD32", DiscHeaderDetector.ResolveConsoleFromText("AMIGA BOOT disc"));
     }
+
+    // ── Neo Geo CD regex must not match bare "NEOGEO" without CD/separator ──
+
+    [Theory]
+    [InlineData("NEO-GEO game disc", "NEOCD")]     // Hyphenated form → match
+    [InlineData("NEO GEO disc data", "NEOCD")]      // Space separator → match
+    [InlineData("NEOGEO CD player", "NEOCD")]        // Explicit CD → match
+    [InlineData("NEOGEOCD boot", "NEOCD")]           // Concatenated CD → match
+    public void ResolveConsoleFromText_NeoGeoCd_ValidPatterns(string text, string expected)
+    {
+        Assert.Equal(expected, DiscHeaderDetector.ResolveConsoleFromText(text));
+    }
+
+    [Fact]
+    public void ResolveConsoleFromText_BareNeoGeo_NoFalsePositive()
+    {
+        // "NEOGEO" without separator or "CD" should NOT match NEOCD
+        // (prevents false positives for cartridge-based Neo Geo AES/MVS references)
+        Assert.Null(DiscHeaderDetector.ResolveConsoleFromText("NEOGEO game rom"));
+    }
 }

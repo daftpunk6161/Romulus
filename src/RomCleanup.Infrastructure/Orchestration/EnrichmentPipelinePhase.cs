@@ -125,9 +125,27 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         // DAT authority — set max confidence and SortDecision
         if (datResult.DatMatch && consoleKey is not "UNKNOWN" and not "")
         {
-            ApplyDatAuthority(ref detectionConfidence, ref hasHardEvidence, ref isSoftOnly,
-                ref sortDecision, ref matchEvidence,
-                detectionConflict, datResult.DatResolvedFromAmbiguousCandidates);
+            if (datResult.DatNameOnlyMatch)
+            {
+                // Name-only match: probable but not hash-verified (CHD raw SHA1 ≠ per-track SHA1)
+                detectionConfidence = Math.Max(detectionConfidence, 85);
+                sortDecision = SortDecision.Review;
+                matchEvidence = new MatchEvidence
+                {
+                    Level = MatchLevel.Probable,
+                    Reasoning = "DAT game name match (no hash verification — disc image format).",
+                    Sources = ["DatName"],
+                    HasHardEvidence = false,
+                    HasConflict = detectionConflict,
+                    DatVerified = false
+                };
+            }
+            else
+            {
+                ApplyDatAuthority(ref detectionConfidence, ref hasHardEvidence, ref isSoftOnly,
+                    ref sortDecision, ref matchEvidence,
+                    detectionConflict, datResult.DatResolvedFromAmbiguousCandidates);
+            }
         }
 
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
@@ -174,6 +192,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         bool DatMatch,
         bool DatMatchedBios,
         bool DatResolvedFromAmbiguousCandidates,
+        bool DatNameOnlyMatch,
         string? ComputedHash,
         string? ComputedHeaderlessHash,
         string ConsoleKey,
@@ -193,9 +212,10 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         bool datResolvedFromAmbiguousCandidates = false;
         string? computedHash = null;
         string? computedHeaderlessHash = null;
+        bool datNameOnlyMatch = false;
 
         if (datIndex is null || hashService is null)
-            return new DatLookupResult(false, false, false, null, null, consoleKey, detectionConflict);
+            return new DatLookupResult(false, false, false, false, null, null, consoleKey, detectionConflict);
 
         if (sizeBytes > 50_000_000)
         {
@@ -318,8 +338,70 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             }
         }
 
+        // Stage 4: Name-based fallback for disc images (CHD raw SHA1 ≠ per-track SHA1 in Redump DATs)
+        if (!datMatch && lowerExt is ".chd" or ".iso" or ".gcm" or ".img" or ".cso" or ".rvz")
+        {
+            var stem = Path.GetFileNameWithoutExtension(filePath);
+            if (!string.IsNullOrEmpty(stem))
+            {
+                if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+                {
+                    var nameMatches = datIndex.LookupAllByName(stem);
+                    if (nameMatches.Count == 1)
+                    {
+                        datMatch = true;
+                        datNameOnlyMatch = true;
+                        var previousConsole = consoleKey;
+                        consoleKey = nameMatches[0].ConsoleKey;
+                        datMatchedBios = nameMatches[0].Entry.IsBios;
+                        if (!string.IsNullOrEmpty(previousConsole) &&
+                            previousConsole != "UNKNOWN" &&
+                            !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            detectionConflict = true;
+                        }
+                        context.OnProgress?.Invoke(
+                            $"[DAT] Konsole via DAT-Name erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                    }
+                    else if (nameMatches.Count > 1 && detectionResult is not null)
+                    {
+                        var resolution = ResolveUnknownDatNameMatch(nameMatches, detectionResult);
+                        if (resolution.IsMatch)
+                        {
+                            datMatch = true;
+                            datNameOnlyMatch = true;
+                            datMatchedBios = resolution.IsBios;
+                            datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
+                            var previousConsole = consoleKey;
+                            consoleKey = resolution.ConsoleKey!;
+                            if (!string.IsNullOrEmpty(previousConsole) &&
+                                previousConsole != "UNKNOWN" &&
+                                !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                            {
+                                detectionConflict = true;
+                            }
+                            context.OnProgress?.Invoke(
+                                $"[DAT] Mehrdeutigen Name via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                        }
+                    }
+                }
+                else
+                {
+                    var byName = datIndex.LookupByName(consoleKey, stem);
+                    if (byName is not null)
+                    {
+                        datMatch = true;
+                        datNameOnlyMatch = true;
+                        datMatchedBios = byName.Value.IsBios;
+                        context.OnProgress?.Invoke(
+                            $"[DAT] Name-Match: {Path.GetFileName(filePath)} → {consoleKey}");
+                    }
+                }
+            }
+        }
+
         return new DatLookupResult(datMatch, datMatchedBios, datResolvedFromAmbiguousCandidates,
-            computedHash, computedHeaderlessHash, consoleKey, detectionConflict);
+            datNameOnlyMatch, computedHash, computedHeaderlessHash, consoleKey, detectionConflict);
     }
 
     private static void ResolveBios(
@@ -464,6 +546,55 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         bool ResolvedFromAmbiguousCandidates)
     {
         public static DatUnknownResolution NoMatch { get; } = new(false, null, false, false);
+    }
+
+    /// <summary>
+    /// Resolve UNKNOWN console via name-based DAT matches and detection hypotheses.
+    /// Same logic as ResolveUnknownDatMatch but operates on name-based matches.
+    /// </summary>
+    internal static DatUnknownResolution ResolveUnknownDatNameMatch(
+        IReadOnlyList<(string ConsoleKey, DatIndex.DatIndexEntry Entry)> nameMatches,
+        ConsoleDetectionResult? detectionResult)
+    {
+        if (nameMatches.Count == 0)
+            return DatUnknownResolution.NoMatch;
+
+        if (nameMatches.Count == 1)
+        {
+            var single = nameMatches[0];
+            return new DatUnknownResolution(true, single.ConsoleKey, single.Entry.IsBios, false);
+        }
+
+        if (detectionResult is null || detectionResult.Hypotheses.Count == 0)
+            return DatUnknownResolution.NoMatch;
+
+        var matchMap = new Dictionary<string, DatIndex.DatIndexEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (consoleKey, entry) in nameMatches)
+        {
+            if (!matchMap.ContainsKey(consoleKey))
+                matchMap[consoleKey] = entry;
+        }
+
+        var rankedHypothesisKeys = detectionResult.Hypotheses
+            .OrderByDescending(h => h.Confidence)
+            .ThenBy(h => h.ConsoleKey, StringComparer.OrdinalIgnoreCase)
+            .Select(h => h.ConsoleKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        string? selectedKey = null;
+        foreach (var hypothesisKey in rankedHypothesisKeys)
+        {
+            if (matchMap.ContainsKey(hypothesisKey))
+            {
+                selectedKey = hypothesisKey;
+                break;
+            }
+        }
+
+        if (selectedKey is null)
+            return DatUnknownResolution.NoMatch;
+
+        return new DatUnknownResolution(true, selectedKey, matchMap[selectedKey].IsBios, true);
     }
 
 }

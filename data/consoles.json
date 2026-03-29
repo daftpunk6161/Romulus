@@ -1,4 +1,4 @@
-﻿{
+{
   "_meta": {
     "description": "Single Source of Truth fuer alle Konsolen-Definitionen (REF-10). Alle Maps in Classification.ps1 und console-maps.json werden aus dieser Datei generiert.",
     "version": "1.1",
@@ -154,7 +154,11 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Atari 800",
+        "Atari XL",
+        "Atari XE"
+      ]
     },
     {
       "key": "AMIGA",
@@ -304,7 +308,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Channel F"
+      ]
     },
     {
       "key": "COLECO",
@@ -338,7 +344,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Amstrad CPC",
+        "CPC"
+      ]
     },
     {
       "key": "DC",
@@ -382,7 +391,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "MS-DOS",
+        "DOS"
+      ]
     },
     {
       "key": "FMTOWNS",
@@ -650,7 +662,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "MSX"
+      ]
     },
     {
       "key": "N64",
@@ -818,7 +832,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Odyssey 2",
+        "Odyssey2"
+      ]
     },
     {
       "key": "PC98",
@@ -835,7 +852,10 @@
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "PC-98",
+        "PC98"
+      ]
     },
     {
       "key": "PCE",
@@ -1169,7 +1189,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Supervision"
+      ]
     },
     {
       "key": "SWITCH",
@@ -1393,7 +1415,10 @@
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "X68000",
+        "X68K"
+      ]
     },
     {
       "key": "XBOX",
@@ -1458,7 +1483,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Archimedes"
+      ]
     },
     {
       "key": "ARCADIA",
@@ -1474,7 +1501,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Arcadia 2001",
+        "Arcadia"
+      ]
     },
     {
       "key": "AWAVE",
@@ -1489,7 +1519,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Atomiswave"
+      ]
     },
     {
       "key": "BSX",
@@ -1506,7 +1538,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Satellaview",
+        "BS-X"
+      ]
     },
     {
       "key": "CDTV",
@@ -1527,7 +1562,9 @@
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "CDTV"
+      ]
     },
     {
       "key": "CHI",
@@ -1562,7 +1599,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "CreatiVision"
+      ]
     },
     {
       "key": "DAPHNE",
@@ -1614,7 +1653,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Game.com",
+        "Gamecom"
+      ]
     },
     {
       "key": "GMASTER",
@@ -1646,7 +1688,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "GP32"
+      ]
     },
     {
       "key": "GW",
@@ -1822,7 +1866,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "MAME",
+        "Arcade"
+      ]
     },
     {
       "key": "N64DD",
@@ -1839,7 +1886,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "64DD",
+        "N64DD"
+      ]
     },
     {
       "key": "NAOMI",
@@ -1859,7 +1909,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Naomi"
+      ]
     },
     {
       "key": "NAO2",
@@ -1880,7 +1932,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Naomi 2"
+      ]
     },
     {
       "key": "NGAGE",
@@ -1898,7 +1952,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "N-Gage",
+        "NGage"
+      ]
     },
     {
       "key": "NUON",
@@ -1918,7 +1975,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "NUON"
+      ]
     },
     {
       "key": "PALM",
@@ -1954,7 +2013,10 @@
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "PC-88",
+        "PC88"
+      ]
     },
     {
       "key": "PCD",
@@ -2005,7 +2067,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Sega Pico"
+      ]
     },
     {
       "key": "PIPPIN",
@@ -2026,7 +2090,9 @@
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Pippin"
+      ]
     },
     {
       "key": "POCKET",
@@ -2219,7 +2285,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "SuperGrafx"
+      ]
     },
     {
       "key": "SUFAMI",
@@ -2234,7 +2302,9 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Sufami Turbo"
+      ]
     },
     {
       "key": "SUPERACAN",
@@ -2291,7 +2361,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "V.Flash"
+      ]
     },
     {
       "key": "VIC20",
@@ -2311,7 +2383,10 @@
       "conversionPolicy": "ArchiveOnly",
       "preferredConversionTarget": ".zip",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "VIC-20",
+        "VIC20"
+      ]
     },
     {
       "key": "VIS",
@@ -2352,7 +2427,9 @@
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Amiga CD"
+      ]
     },
     {
       "key": "PLAYDIA",
@@ -2372,7 +2449,9 @@
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Playdia"
+      ]
     },
     {
       "key": "FIREBEAT",
@@ -2574,7 +2653,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "MSX2"
+      ]
     },
     {
       "key": "MEGADUCK",
@@ -2591,7 +2672,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Mega Duck",
+        "MegaDuck"
+      ]
     },
     {
       "key": "ASTROCADE",
@@ -2607,7 +2691,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Astrocade"
+      ]
     },
     {
       "key": "VSMILE",
@@ -2624,7 +2710,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "V.Smile",
+        "VSmile"
+      ]
     },
     {
       "key": "VC4000",
@@ -2640,7 +2729,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "VC 4000"
+      ]
     },
     {
       "key": "STUDIO2",
@@ -2659,7 +2750,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Studio II",
+        "Studio2"
+      ]
     },
     {
       "key": "VIDEOPAC",
@@ -2676,7 +2770,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Videopac+"
+      ]
     },
     {
       "key": "G7000",
@@ -2693,7 +2789,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Videopac G7000",
+        "G7000"
+      ]
     },
     {
       "key": "PLUS4",
@@ -2713,7 +2812,10 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Plus/4",
+        "Plus4"
+      ]
     },
     {
       "key": "GAMATE",
@@ -2729,7 +2831,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Gamate"
+      ]
     },
     {
       "key": "GAMEPOCKET",
@@ -2847,7 +2951,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Gizmondo"
+      ]
     },
     {
       "key": "GP2X",
@@ -2863,7 +2969,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "GP2X"
+      ]
     },
     {
       "key": "APF",
@@ -2896,7 +3004,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "Evercade"
+      ]
     },
     {
       "key": "VISICOM",
@@ -3254,7 +3364,9 @@
       "conversionPolicy": "None",
       "preferredConversionTarget": null,
       "alternativeTargets": [],
-      "keywords": []
+      "keywords": [
+        "HyperScan"
+      ]
     }
   ]
 }

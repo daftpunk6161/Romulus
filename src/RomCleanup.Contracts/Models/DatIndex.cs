@@ -11,6 +11,7 @@ namespace RomCleanup.Contracts.Models;
 public sealed class DatIndex
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _data = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _nameIndex = new(StringComparer.OrdinalIgnoreCase);
     private int _totalEntries;
 
     public readonly record struct DatIndexEntry(string GameName, string? RomFileName, bool IsBios = false);
@@ -40,6 +41,10 @@ public sealed class DatIndex
             return;
         if (hashMap.TryAdd(hash, newEntry))
             Interlocked.Increment(ref _totalEntries);
+
+        // Also index by game name (first entry per game wins — sufficient for name-based lookup)
+        var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
+        nameMap.TryAdd(gameName, newEntry);
     }
 
     /// <summary>Look up a game name by console key and hash.</summary>
@@ -97,6 +102,33 @@ public sealed class DatIndex
 
     /// <summary>Check if a console key exists in the index.</summary>
     public bool HasConsole(string consoleKey) => _data.ContainsKey(consoleKey);
+
+    /// <summary>Look up by game name for a specific console (name-based fallback for CHD/disc files).</summary>
+    public DatIndexEntry? LookupByName(string consoleKey, string gameName)
+    {
+        if (_nameIndex.TryGetValue(consoleKey, out var nameMap) &&
+            nameMap.TryGetValue(gameName, out var entry))
+            return entry;
+        return null;
+    }
+
+    /// <summary>
+    /// Look up all console matches for a game name in deterministic order.
+    /// Used as fallback when hash matching fails (e.g. CHD raw SHA1 ≠ per-track SHA1).
+    /// </summary>
+    public IReadOnlyList<(string ConsoleKey, DatIndexEntry Entry)> LookupAllByName(string gameName)
+    {
+        var results = new List<(string ConsoleKey, DatIndexEntry Entry)>();
+        foreach (var key in _nameIndex.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+        {
+            if (_nameIndex.TryGetValue(key, out var nameMap) &&
+                nameMap.TryGetValue(gameName, out var entry))
+            {
+                results.Add((key, entry));
+            }
+        }
+        return results;
+    }
 
     /// <summary>Get all hash→gameName pairs for a console.</summary>
     public IReadOnlyDictionary<string, string>? GetConsoleEntries(string consoleKey)

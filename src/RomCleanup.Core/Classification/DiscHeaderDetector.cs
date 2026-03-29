@@ -21,7 +21,7 @@ public sealed class DiscHeaderDetector
     private static readonly Regex RxDreamcast = new(@"SEGA.SEGAKATANA|SEGA.?DREAMCAST|SEGA\s*KATANA|DREAMCAST", RxOpts, RxTimeout);
     private static readonly Regex RxSaturn = new(@"SEGA.SATURN|SEGASATURN|SEGA\s*SATURN", RxOpts, RxTimeout);
     private static readonly Regex RxSegaCd = new(@"SEGADISCSYSTEM|SEGA.MEGA.?CD|SEGA\s*CD", RxOpts, RxTimeout);
-    private static readonly Regex RxNeoGeo = new(@"NEOGEO\s*CD|NEO.?GEO", RxOpts, RxTimeout);
+    private static readonly Regex RxNeoGeoCd = new(@"NEOGEO\s*CD|NEO[\s-]GEO", RxOpts, RxTimeout);
     private static readonly Regex RxPcFx = new(@"PC-FX:Hu_CD|PC-FX|NEC.*PC-FX", RxOpts, RxTimeout);
     private static readonly Regex RxPcEngine = new(@"PC\s*Engine|NEC\s*HOME\s*ELECTRONICS|TURBOGRAFX", RxOpts, RxTimeout);
     private static readonly Regex RxJaguar = new(@"ATARI\s*JAGUAR", RxOpts, RxTimeout);
@@ -165,7 +165,7 @@ public sealed class DiscHeaderDetector
             if (RxSaturn.IsMatch(text)) return "SAT";
             if (RxSegaCd.IsMatch(text)) return "SCD";
             // SNK Neo Geo CD
-            if (RxNeoGeo.IsMatch(text)) return "NEOCD";
+            if (RxNeoGeoCd.IsMatch(text)) return "NEOCD";
             // NEC PC-FX (before PC Engine to avoid substring overlap)
             if (RxPcFx.IsMatch(text)) return "PCFX";
             // NEC PC Engine CD

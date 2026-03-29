@@ -685,4 +685,62 @@ public class ConsoleDetectorTests
         stream.Write(new byte[innerSize]);
         return zipPath;
     }
+
+    // ── DetectByKeywordDynamic from consoles.json ─────────────────────
+
+    private static ConsoleDetector CreateDetectorFromJson()
+    {
+        var json = File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data", "consoles.json"));
+        return ConsoleDetector.LoadFromJson(json);
+    }
+
+    [Theory]
+    [InlineData("[CPC] Game.dsk", "CPC")]
+    [InlineData("(Amstrad CPC) Game.dsk", "CPC")]
+    [InlineData("[SuperGrafx] Game.pce", "SGX")]
+    [InlineData("(Satellaview) Game.sfc", "BSX")]
+    [InlineData("[CDTV] Game.bin", "CDTV")]
+    [InlineData("[MSX2] Game.rom", "MSX2")]
+    [InlineData("[Atomiswave] Game.bin", "AWAVE")]
+    [InlineData("(Naomi) Game.bin", "NAOMI")]
+    public void DetectByKeywordDynamic_JsonKeywords_MatchCorrectConsole(string fileName, string expectedKey)
+    {
+        var detector = CreateDetectorFromJson();
+        var result = detector.DetectByKeywordDynamic(fileName);
+        Assert.NotNull(result);
+        Assert.Equal(expectedKey, result.Value.ConsoleKey);
+        Assert.Equal(75, result.Value.Confidence);
+    }
+
+    [Theory]
+    [InlineData("[PS1] Game.bin", "PS1")]
+    [InlineData("(GBA) Game.gba", "GBA")]
+    [InlineData("[Dreamcast] Game.gdi", "DC")]
+    public void DetectByKeywordDynamic_FallbackPatterns_StillWork(string fileName, string expectedKey)
+    {
+        // These keywords are both in consoles.json AND in hardcoded fallback.
+        // Verifies the dynamic path catches them (or fallback does).
+        var detector = CreateDetectorFromJson();
+        var result = detector.DetectByKeywordDynamic(fileName);
+        Assert.NotNull(result);
+        Assert.Equal(expectedKey, result.Value.ConsoleKey);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Game Without Tags.bin")]
+    public void DetectByKeywordDynamic_NoMatch_ReturnsNull(string fileName)
+    {
+        var detector = CreateDetectorFromJson();
+        Assert.Null(detector.DetectByKeywordDynamic(fileName));
+    }
+
+    [Fact]
+    public void DetectByKeywordDynamic_Null_ReturnsNull()
+    {
+        var detector = CreateDetectorFromJson();
+        Assert.Null(detector.DetectByKeywordDynamic(null!));
+    }
 }

@@ -5,20 +5,20 @@
     "groundTruthVersion": "2.0.0",
     "lastModified": "2026-03-29"
   },
-  "totalEntries": 7509,
+  "totalEntries": 7639,
   "holdoutEntries": 200,
   "bySet": {
     "arcade-coverage": 15,
     "bios-coverage": 15,
-    "chaos-mixed": 224,
+    "chaos-mixed": 234,
     "computer-coverage": 15,
-    "dat-coverage": 350,
-    "edge-cases": 317,
-    "golden-core": 733,
-    "golden-realworld": 624,
+    "dat-coverage": 389,
+    "edge-cases": 329,
+    "golden-core": 772,
+    "golden-realworld": 641,
     "negative-controls": 101,
     "performance-scale": 5000,
     "redump-specials": 15,
-    "repair-safety": 100
+    "repair-safety": 113
   }
 }

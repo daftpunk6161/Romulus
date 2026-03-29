@@ -41,12 +41,16 @@ public sealed class DatAuditPipelinePhase : IPipelinePhase<DatAuditInput, DatAud
 
             if (!string.IsNullOrWhiteSpace(effectiveHash))
             {
-                if (!string.IsNullOrWhiteSpace(consoleKey))
+                var isRealConsole = !string.IsNullOrWhiteSpace(consoleKey)
+                    && !string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(consoleKey, "AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
+
+                if (isRealConsole)
                 {
                     // Try headerless hash first, fall back to regular hash
-                    var match = input.DatIndex.LookupWithFilename(consoleKey, effectiveHash);
+                    var match = input.DatIndex.LookupWithFilename(consoleKey!, effectiveHash);
                     if (match is null && effectiveHash != hash && !string.IsNullOrWhiteSpace(hash))
-                        match = input.DatIndex.LookupWithFilename(consoleKey, hash);
+                        match = input.DatIndex.LookupWithFilename(consoleKey!, hash);
 
                     if (match is not null)
                     {

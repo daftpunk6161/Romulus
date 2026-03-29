@@ -29,7 +29,7 @@ public static class DatAuditClassifier
                 return result;
 
             // If headerless hash matched as Miss (known console, no match), it's a real Miss
-            if (result == DatAuditStatus.Miss && !string.IsNullOrWhiteSpace(consoleKey))
+            if (result == DatAuditStatus.Miss && IsRealConsoleKey(consoleKey))
                 return DatAuditStatus.Miss;
         }
 
@@ -54,9 +54,9 @@ public static class DatAuditClassifier
         if (string.IsNullOrWhiteSpace(hash))
             return DatAuditStatus.Unknown;
 
-        if (!string.IsNullOrWhiteSpace(consoleKey))
+        if (IsRealConsoleKey(consoleKey))
         {
-            var inConsole = datIndex.LookupWithFilename(consoleKey, hash);
+            var inConsole = datIndex.LookupWithFilename(consoleKey!, hash);
             if (inConsole is null)
                 return DatAuditStatus.Miss;
 
@@ -77,14 +77,32 @@ public static class DatAuditClassifier
             : DatAuditStatus.HaveWrongName;
     }
 
+    /// <summary>
+    /// Checks whether UNKNOWN/AMBIGUOUS sentinel values are real console keys.
+    /// These are detection sentinels, not actual console identifiers in the DAT index.
+    /// </summary>
+    private static bool IsRealConsoleKey(string? consoleKey)
+        => !string.IsNullOrWhiteSpace(consoleKey)
+           && !string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
+           && !string.Equals(consoleKey, "AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsSameFileName(string actualFileName, string? datRomFileName)
     {
         if (string.IsNullOrWhiteSpace(datRomFileName))
             return true;
 
+        var actual = Path.GetFileName(actualFileName);
+        var expected = Path.GetFileName(datRomFileName);
+
+        // Exact match (same name + extension)
+        if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Stem match: handles archive containers ("Game.zip" vs "Game.nes")
+        // and format variants ("Game.chd" vs "Game (Track 01).bin")
         return string.Equals(
-            Path.GetFileName(actualFileName),
-            Path.GetFileName(datRomFileName),
+            Path.GetFileNameWithoutExtension(actual),
+            Path.GetFileNameWithoutExtension(expected),
             StringComparison.OrdinalIgnoreCase);
     }
 }
