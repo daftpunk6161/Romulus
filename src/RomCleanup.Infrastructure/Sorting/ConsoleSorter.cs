@@ -334,7 +334,12 @@ public sealed class ConsoleSorter
         var pattern = $"{baseName}__DUP*{ext}";
 
         var matches = Directory.GetFiles(dir, pattern);
-        return matches.Length > 0 ? matches[0] : null;
+        if (matches.Length == 0) return null;
+        if (matches.Length == 1) return matches[0];
+        // SEC-SORT-01: Sort for determinism — Directory.GetFiles order is not guaranteed.
+        // Take the last alphabetically, which corresponds to the highest __DUP suffix.
+        Array.Sort(matches, StringComparer.OrdinalIgnoreCase);
+        return matches[^1];
     }
 
     private bool MoveFile(string root, string sourcePath, string destDir, string fileName, bool dryRun)

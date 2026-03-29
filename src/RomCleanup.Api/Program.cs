@@ -521,6 +521,10 @@ app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ct
     if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
         return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
 
+    // SEC-API-04: Reject oversized request bodies to prevent memory exhaustion
+    if (ctx.Request.ContentLength is > 1_048_576)
+        return ApiError(400, "RUN-PAYLOAD-TOO-LARGE", "Request body exceeds 1 MB limit.");
+
     ApiReviewApprovalRequest request;
     try
     {
@@ -531,11 +535,20 @@ app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ct
         return ApiError(400, "RUN-INVALID-JSON", "Invalid JSON.");
     }
 
+    // SEC-API-05: Limit Paths array size to prevent quadratic complexity
+    if (request.Paths is { Length: > 10_000 })
+        return ApiError(400, "RUN-TOO-MANY-PATHS", "Paths array exceeds 10,000 entries.");
+
+    // Use HashSet for O(1) lookup instead of O(n) Contains on array
+    var pathFilter = request.Paths is { Length: > 0 }
+        ? new HashSet<string>(request.Paths, StringComparer.OrdinalIgnoreCase)
+        : null;
+
     var queue = BuildReviewQueue(run);
     var matched = queue.Items.Where(item =>
             (string.IsNullOrWhiteSpace(request.ConsoleKey) || string.Equals(item.ConsoleKey, request.ConsoleKey, StringComparison.OrdinalIgnoreCase)) &&
             (string.IsNullOrWhiteSpace(request.MatchLevel) || string.Equals(item.MatchLevel, request.MatchLevel, StringComparison.OrdinalIgnoreCase)) &&
-            (request.Paths is null || request.Paths.Length == 0 || request.Paths.Contains(item.MainPath, StringComparer.OrdinalIgnoreCase)))
+            (pathFilter is null || pathFilter.Contains(item.MainPath)))
         .ToArray();
 
     foreach (var item in matched)

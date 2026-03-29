@@ -180,7 +180,6 @@ public partial class MainWindow : Window, IWindowHost
 
             _vm.SaveSettings();
             CleanupResources();
-            _isClosing = true;
             Close(); // Re-trigger close now that task is done
             return;
         }

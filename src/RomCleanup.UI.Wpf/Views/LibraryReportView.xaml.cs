@@ -27,28 +27,28 @@ public partial class LibraryReportView : UserControl
     {
         if (DataContext is not MainViewModel vm) return;
 
-        if (string.IsNullOrEmpty(vm.LastReportPath) || !File.Exists(vm.LastReportPath))
-        {
-            // In DryRun mode, populate error summary from last run if available
-            if (vm.Run.HasRunData)
-                vm.PopulateErrorSummary();
-            else
-            {
-                vm.ErrorSummaryItems.Clear();
-                vm.ErrorSummaryItems.Add(new Models.UiError("GUI-NOREPORT", "Kein Report vorhanden.", Models.UiErrorSeverity.Info));
-            }
-
-            await EnsureWebView2Initialized(vm);
-            webReportPreview.NavigateToString(
-                "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
-                "<p>HTML-Report nur im Execute-Modus (Mode=Move) verfügbar.</p>" +
-                "<p style='margin-top:8px;font-size:0.9em;color:#666'>Die Fehler-Zusammenfassung oben zeigt bereits die Ergebnisse der Vorschau.</p>" +
-                "</body></html>");
-            return;
-        }
-
         try
         {
+            if (string.IsNullOrEmpty(vm.LastReportPath) || !File.Exists(vm.LastReportPath))
+            {
+                // In DryRun mode, populate error summary from last run if available
+                if (vm.Run.HasRunData)
+                    vm.PopulateErrorSummary();
+                else
+                {
+                    vm.ErrorSummaryItems.Clear();
+                    vm.ErrorSummaryItems.Add(new Models.UiError("GUI-NOREPORT", "Kein Report vorhanden.", Models.UiErrorSeverity.Info));
+                }
+
+                await EnsureWebView2Initialized(vm);
+                webReportPreview.NavigateToString(
+                    "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
+                    "<p>HTML-Report nur im Execute-Modus (Mode=Move) verfügbar.</p>" +
+                    "<p style='margin-top:8px;font-size:0.9em;color:#666'>Die Fehler-Zusammenfassung oben zeigt bereits die Ergebnisse der Vorschau.</p>" +
+                    "</body></html>");
+                return;
+            }
+
             var fullPath = Path.GetFullPath(vm.LastReportPath);
             await EnsureWebView2Initialized(vm);
             webReportPreview.Source = new Uri(fullPath);
@@ -57,9 +57,12 @@ public partial class LibraryReportView : UserControl
         }
         catch (Exception ex)
         {
-            vm.ErrorSummaryItems.Clear();
-            vm.ErrorSummaryItems.Add(new Models.UiError("GUI-REPORTERR", ex.Message, Models.UiErrorSeverity.Error));
-            vm.AddLog($"Report-Vorschau fehlgeschlagen: {ex.Message}", "ERROR");
+            if (DataContext is MainViewModel vmCatch)
+            {
+                vmCatch.ErrorSummaryItems.Clear();
+                vmCatch.ErrorSummaryItems.Add(new Models.UiError("GUI-REPORTERR", ex.Message, Models.UiErrorSeverity.Error));
+                vmCatch.AddLog($"Report-Vorschau fehlgeschlagen: {ex.Message}", "ERROR");
+            }
         }
     }
 

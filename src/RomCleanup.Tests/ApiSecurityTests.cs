@@ -416,6 +416,58 @@ public sealed class ApiSecurityTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    //  SEC-API-05: Review Approval — Paths array size limit
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task ReviewApprove_TooManyPaths_IsRejected()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateAuthClient(factory);
+        var root = CreateTempRoot();
+
+        // Create a run first
+        var runPayload = JsonSerializer.Serialize(new { roots = new[] { root }, mode = "DryRun" });
+        using var runContent = new StringContent(runPayload, Encoding.UTF8, "application/json");
+        var runResponse = await client.PostAsync("/runs?wait=true", runContent);
+        Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
+        using var runDoc = JsonDocument.Parse(await runResponse.Content.ReadAsStringAsync());
+        var runId = runDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+
+        // Send approval with >10000 paths
+        var paths = Enumerable.Range(0, 10_001).Select(i => $"fake/path/{i}.rom").ToArray();
+        var approvePayload = JsonSerializer.Serialize(new { paths });
+        using var approveContent = new StringContent(approvePayload, Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/runs/{runId}/reviews/approve", approveContent);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("RUN-TOO-MANY-PATHS", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReviewApprove_ValidPaths_Succeeds()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateAuthClient(factory);
+        var root = CreateTempRoot();
+
+        var runPayload = JsonSerializer.Serialize(new { roots = new[] { root }, mode = "DryRun" });
+        using var runContent = new StringContent(runPayload, Encoding.UTF8, "application/json");
+        var runResponse = await client.PostAsync("/runs?wait=true", runContent);
+        Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
+        using var runDoc2 = JsonDocument.Parse(await runResponse.Content.ReadAsStringAsync());
+        var runId = runDoc2.RootElement.GetProperty("run").GetProperty("runId").GetString();
+
+        // Send approval with valid (small) paths array
+        var approvePayload = JsonSerializer.Serialize(new { paths = new[] { "some/path.rom" } });
+        using var approveContent = new StringContent(approvePayload, Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/runs/{runId}/reviews/approve", approveContent);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     //  Helpers
     // ═══════════════════════════════════════════════════════════════════
 
