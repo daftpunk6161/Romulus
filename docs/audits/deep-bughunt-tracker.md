@@ -1131,3 +1131,166 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - [x] JunkRemoval und DatRename schreiben Audit-Rows und aggregieren Failures
 
 ---
+
+## Bughunt #7 – Safety / FileSystem / Pfadlogik / Security
+
+**Datum:** 2026-03-29
+**Fokus:** Path Traversal, ADS, Extended-Length Prefix, Reparse Points, Zip-Slip, Zip-Bomb, DTD/XML Parser, Root Containment, Trailing Dot/Windows-Normalization, Locked Files/Read-Only, Unsafe Rollback, Temp File Handling, External Tool Argument Handling, Timeout/Retry/Cleanup, Partial Cleanup, Cross-Volume Move, Unsafe Delete, Hidden Data Loss Paths
+
+### Executive Verdict
+
+Die Security-Infrastruktur von Romulus ist **insgesamt solide und production-grade**. SafetyValidator, FileSystemAdapter und ToolRunnerAdapter bilden ein starkes Fundament mit Defense-in-Depth: ADS-Blocking, Reparse-Point-Erkennung, Trailing-Dot/Space-Abwehr, TOCTOU-sichere Collision-Behandlung, XXE-Schutz, Zip-Slip/Zip-Bomb-Protection, Tool-Hash-Verifizierung und Process-Tree-Kill bei Timeout.
+
+Es wurden **6 Befunde** identifiziert (2× P2, 2× P2, 2× P3). Keiner ist ein unmittelbarer P1-Release-Blocker, aber BUG-69 (DatRenamePolicy) und BUG-70 (Extraction Dir) sollten vor Release gefixt werden, da sie Defense-in-Depth-Luecken darstellen.
+
+### Kritische Sicherheitsrisiken
+
+| ID | Severity | Bereich | Kurztext |
+|----|----------|---------|----------|
+| BUG-69 | P2 | DatRenamePolicy | IsSafeFileName() prueft nicht auf Trailing Dots/Spaces |
+| BUG-70 | P2 | FormatConverterAdapter | Extraction Dir im Source-Verzeichnis statt System-Temp |
+| BUG-71 | P2 | DatSourceService | Stale Temp-Dateien (dat_download_*, dat_extract_*) nicht bereinigt |
+| BUG-72 | P3 | AuditSigningService | Path.GetFullPath auf CSV-Daten ohne Exception-Handling |
+| BUG-73 | P3 | FileSystemAdapter | Kein Cross-Volume Move Fallback (Copy+Delete) |
+| BUG-74 | P2 | AuditSigningService | HMAC Key Path ohne ADS/Traversal-Validierung |
+
+---
+
+### BUG-69: DatRenamePolicy.IsSafeFileName() – Fehlende Trailing Dot/Space Pruefung
+
+- **Schweregrad:** P2
+- **Impact:** Windows-Pfad-Normalisierung kann Defense-in-Depth unterlaufen. Dateiname mit Trailing Dots/Spaces passiert Policy-Check, Windows strippt diese still → tatsaechlicher Dateiname weicht vom validierten ab.
+- **Betroffene Datei(en):** [DatRenamePolicy.cs](src/RomCleanup.Core/Audit/DatRenamePolicy.cs#L71-L87)
+- **Reproduktion:** DAT-Game-Name `"Super Mario Bros. "` (trailing space) oder `"Game..."` (trailing dots) → `IsSafeFileName()` gibt `true` zurueck → Windows erstellt Datei ohne Trailing Chars → Name weicht ab.
+- **Erwartetes Verhalten:** `IsSafeFileName()` muss Dateinamen mit Trailing Dots oder Spaces ablehnen.
+- **Tatsaechliches Verhalten:** `Path.GetInvalidFileNameChars()` enthaelt auf Windows weder `.` noch ` ` — kein Check auf Trailing-Position.
+- **Ursache:** `GetInvalidFileNameChars()` prueft nur komplett verbotene Zeichen, nicht positionsabhaengige Windows-Normalisierung. SafetyValidator.NormalizePath (SEC-PATH-02) und FileSystemAdapter.ResolveChildPathWithinRoot fangen dies als Secondary Defense ab, aber die Policy-Schicht selbst hat die Luecke.
+- **Fix:** In `IsSafeFileName()` pruefen: `if (fileName != fileName.TrimEnd('.', ' ')) return false;`
+- **Testabsicherung:** Unit-Test mit Trailing Dots, Trailing Spaces, und Kombination. Invarianten-Test dass IsSafeFileName und ResolveChildPathWithinRoot konsistent ablehnen.
+
+---
+
+### BUG-70: FormatConverterAdapter – Extraction Dir im Source-Verzeichnis
+
+- **Schweregrad:** P2
+- **Impact:** Archive-Extraction erstellt temp Directory neben der Source-Datei statt in System-Temp. Schlaegt fehl auf Read-Only-Medien oder Verzeichnissen mit restriktiven Permissions. Stale Extraction Dirs werden nicht von CleanupStaleTempDirs() erfasst.
+- **Betroffene Datei(en):** [FormatConverterAdapter.cs](src/RomCleanup.Infrastructure/Conversion/FormatConverterAdapter.cs#L497)
+- **Reproduktion:** ROM-Archiv auf schreibgeschuetztem Netzlaufwerk → `ConvertArchiveToChdman()` → `Directory.CreateDirectory(extractDir)` schlaegt fehl → Conversion scheitert ohne klare Fehlermeldung.
+- **Erwartetes Verhalten:** Extraction Dir in System-Temp (`Path.GetTempPath()`) mit Praeffix fuer CleanupStaleTempDirs, oder im konfigurierten Temp-Root.
+- **Tatsaechliches Verhalten:** `var extractDir = Path.Combine(dir, $"_extract_{baseName}_{Guid.NewGuid():N}")` — dir ist das Source-Verzeichnis.
+- **Ursache:** Design-Entscheidung aus Einfachheit — Source-Dir ist immer bekannt. Aber: keine Pruefung ob beschreibbar, und kein Cleanup-Pattern in `CleanupStaleTempDirs()`.
+- **Fix:** Entweder (a) Extraction nach `Path.GetTempPath()` mit Prefix `romcleanup_extract_` und CleanupStaleTempDirs erweitern, oder (b) Write-Check vor CreateDirectory mit Fallback auf Temp.
+- **Testabsicherung:** Test mit Read-Only Source Dir. Test dass stale `_extract_*` Dirs nach Crash bereinigt werden.
+
+---
+
+### BUG-71: DatSourceService – Stale Temp-Dateien nicht bereinigt
+
+- **Schweregrad:** P2
+- **Impact:** Nach Crash oder Abbruch bleiben `dat_download_*.zip` und `dat_extract_*` Dateien/Verzeichnisse in System-Temp liegen. Bei wiederholten Abstuerzen waechst Temp-Verbrauch unbegrenzt.
+- **Betroffene Datei(en):** [DatSourceService.cs](src/RomCleanup.Infrastructure/Dat/DatSourceService.cs), [ArchiveHashService.cs](src/RomCleanup.Infrastructure/Hashing/ArchiveHashService.cs#L44-L57)
+- **Reproduktion:** DAT-Download starten → Prozess waehrend Download/Extraction killen → Temp-Dateien bleiben → bei naechstem Start kein Cleanup.
+- **Erwartetes Verhalten:** `CleanupStaleTempDirs()` (oder aequivalent) bereinigt auch `dat_download_*` und `dat_extract_*` Patterns.
+- **Tatsaechliches Verhalten:** Nur `romcleanup_7z_*` wird bereinigt (ArchiveHashService), die beiden DatSourceService-Patterns nicht.
+- **Ursache:** CleanupStaleTempDirs wurde fuer ArchiveHashService implementiert, aber DatSourceService Temp-Patterns nicht einbezogen.
+- **Fix:** Entweder (a) DatSourceService-Prefixes auf `romcleanup_dat_*` vereinheitlichen und in CleanupStaleTempDirs aufnehmen, oder (b) separate Cleanup-Methode in DatSourceService mit Aufruf beim Start.
+- **Testabsicherung:** Test: stale `dat_download_*` und `dat_extract_*` Dirs/Files in Temp anlegen → Cleanup aufrufen → pruefen dass bereinigt.
+
+---
+
+### BUG-72: AuditSigningService Rollback – Path.GetFullPath ohne Exception-Handling
+
+- **Schweregrad:** P3
+- **Impact:** Wenn eine Audit-CSV-Zeile einen leeren oder syntaktisch ungueltigen Pfad enthaelt, wirft `Path.GetFullPath()` eine `ArgumentException` oder `NotSupportedException`. Diese Exception ist nicht gefangen → der gesamte Rollback-Loop bricht ab, weitere gueltige Eintraege werden nicht verarbeitet.
+- **Betroffene Datei(en):** [AuditSigningService.cs](src/RomCleanup.Infrastructure/Audit/AuditSigningService.cs#L337-L338)
+- **Reproduktion:** Audit-CSV mit leerem NewPath-Feld oder Pfad mit illegalen Zeichen → Rollback → `Path.GetFullPath("")` wirft `ArgumentException` → Rollback terminiert.
+- **Erwartetes Verhalten:** Malformed Pfade sollten per try/catch uebersprungen und als `failed++` / `skippedUnsafe++` gezaehlt werden, ohne den Rest des Rollbacks zu stoppen.
+- **Tatsaechliches Verhalten:** Unhandled Exception bricht die gesamte `foreach`-Schleife ab.
+- **Ursache:** HMAC-Verifizierung garantiert CSV-Integritaet, daher wurde der Edge Case (korrupte/manipulierte CSV trotz HMAC) nicht defensiv behandelt.
+- **Fix:** `try { ... Path.GetFullPath ... } catch (Exception ex) when (ex is ArgumentException or NotSupportedException) { failed++; skippedUnsafe++; _log?.Invoke(...); continue; }`
+- **Testabsicherung:** Rollback-Test mit leerem Pfad, Pfad mit illegalen Zeichen, Pfad mit nur Spaces. Pruefen dass restliche Eintraege trotzdem verarbeitet werden.
+
+---
+
+### BUG-73: FileSystemAdapter – Kein Cross-Volume Move Fallback
+
+- **Schweregrad:** P3
+- **Impact:** `File.Move()` in .NET wirft `IOException` wenn Source und Destination auf verschiedenen Laufwerken liegen. `MoveItemSafely` faengt diese IOException und gibt `null` zurueck (behandelt wie locked file). Trash auf anderem Volume als Source fuehrt zu stillem Fehlschlag aller Moves.
+- **Betroffene Datei(en):** [FileSystemAdapter.cs](src/RomCleanup.Infrastructure/FileSystem/FileSystemAdapter.cs) (MoveItemSafely), alle Pipeline-Phasen die MoveItemSafely nutzen
+- **Reproduktion:** Source auf `D:\ROMs`, TrashRoot auf `E:\Trash` → jeder Move gibt `null` zurueck → alle Dateien bleiben liegen → Run meldet Failures aber Ursache ist unklar.
+- **Erwartetes Verhalten:** Cross-Volume Move mit Copy+Delete Fallback, oder klare Vorab-Pruefung mit Fehlermeldung.
+- **Tatsaechliches Verhalten:** `IOException` bei `File.Move` wenn Source noch existiert → return null (same path as locked file).
+- **Ursache:** .NET `File.Move` unterstuetzt kein Cross-Volume nativ. Der IOException-Catch unterscheidet nicht zwischen locked file und cross-volume.
+- **Fix:** Entweder (a) Copy+Delete Fallback nach IOException wenn Source-Volume != Dest-Volume, oder (b) Vorab-Pruefung `Path.GetPathRoot(source) != Path.GetPathRoot(dest)` mit explizitem Fehler/Warnung. Variante (b) ist sicherer (kein partielles Copy-Risiko).
+- **Testabsicherung:** Integration-Test mit Mock-FileSystem der IOException bei Cross-Volume wirft. Unit-Test fuer Volume-Root-Vergleich.
+
+---
+
+### BUG-74: AuditSigningService – HMAC Key Path ohne Traversal/ADS Validierung
+
+- **Schweregrad:** P2
+- **Impact:** `_keyFilePath` wird direkt in `File.Exists`, `File.ReadAllText`, `File.WriteAllText` genutzt ohne vorherige NormalizePath- oder ADS-Pruefung. Wenn der Key-Pfad ueber Settings konfigurierbar wird, koennte ein manipulierter Pfad (z.B. mit ADS oder Traversal) den HMAC-Key an beliebiger Stelle lesen/schreiben.
+- **Betroffene Datei(en):** [AuditSigningService.cs](src/RomCleanup.Infrastructure/Audit/AuditSigningService.cs#L48-L72)
+- **Reproduktion:** Key-Pfad auf `C:\Users\victim\secret:ads_stream` oder `..\..\Windows\key.txt` setzen → Key wird an unerwarteter Stelle geschrieben.
+- **Erwartetes Verhalten:** Key-Pfad durch SafetyValidator.NormalizePath validieren. ADS und Traversal ablehnen.
+- **Tatsaechliches Verhalten:** Pfad wird direkt genutzt. Aktuell kommt der Pfad aus `AuditSecurityPaths.GetDefaultSigningKeyPath()` (sicher), aber keine Validierung falls Pfadquelle sich aendert.
+- **Ursache:** Defense-in-Depth-Luecke — aktuell sicher durch feste Pfadquelle, aber nicht abgesichert gegen zukuenftige Konfigurierbarkeit.
+- **Fix:** `_keyFilePath = SafetyValidator.NormalizePath(keyFilePath) ?? throw new ArgumentException("Invalid key file path");` im Konstruktor.
+- **Testabsicherung:** Test mit ADS-Pfad, Traversal-Pfad, und normalem Pfad. Pruefen dass ADS/Traversal abgelehnt wird.
+
+---
+
+### TGAP-Eintraege (Bughunt #7)
+
+| ID | Bug-Ref | Beschreibung | Status |
+|----|---------|-------------|--------|
+| TGAP-59 | BUG-69 | DatRenamePolicy.IsSafeFileName trailing dot/space check ergaenzen | offen |
+| TGAP-60 | BUG-70 | FormatConverterAdapter Extraction Dir nach System-Temp verlagern | offen |
+| TGAP-61 | BUG-71 | Stale Temp Cleanup fuer dat_download_*/dat_extract_* Patterns | offen |
+| TGAP-62 | BUG-72 | Rollback Path.GetFullPath Exception-Handling ergaenzen | offen |
+| TGAP-63 | BUG-73 | Cross-Volume Move Vorab-Pruefung oder Fallback | offen |
+| TGAP-64 | BUG-74 | HMAC Key Path durch NormalizePath validieren | offen |
+
+### Datenverlust- und Security-Risiken
+
+| Risiko | Betroffene Bugs | Bewertung |
+|--------|----------------|-----------|
+| Path-Normalisierung Bypass | BUG-69 | Mitigiert durch FileSystemAdapter Secondary Defense, aber Policy-Layer sollte first-line sein |
+| Stale Temp Accumulation | BUG-70, BUG-71 | Kein Datenverlust, aber Disk-Space-Leak nach Abstuerzen |
+| Rollback Abort | BUG-72 | Partieller Rollback bei korrupter CSV — restliche Eintraege verloren |
+| Stille Move-Failures | BUG-73 | Dateien bleiben liegen statt verschoben — kein Verlust, aber falscher Status |
+| Key Path Manipulation | BUG-74 | Aktuell mitigiert durch feste Pfadquelle — Risiko bei zukuenftiger Konfigurierbarkeit |
+
+### Top 10 Fixes (priorisiert)
+
+1. **BUG-69** – `DatRenamePolicy.IsSafeFileName()`: Trailing dot/space Check ergaenzen
+2. **BUG-74** – `AuditSigningService`: Key Path durch NormalizePath validieren
+3. **BUG-72** – `AuditSigningService.Rollback`: try/catch um Path.GetFullPath
+4. **BUG-71** – `CleanupStaleTempDirs`: `dat_download_*` und `dat_extract_*` Patterns aufnehmen
+5. **BUG-70** – `FormatConverterAdapter`: Extraction nach System-Temp mit Cleanup-Pattern
+6. **BUG-73** – `FileSystemAdapter`: Cross-Volume Vorab-Pruefung mit klarer Fehlermeldung
+7. Extraction-Dir Cleanup-Pattern (`_extract_*`) in stale cleanup aufnehmen (Teil von BUG-70)
+8. Rollback robuster machen: jede CSV-Zeile einzeln absichern (Teil von BUG-72)
+9. MoveItemSafely: IOException-Logging verbessern um Cross-Volume vs Locked zu unterscheiden
+10. DatSourceService Temp-Prefixes vereinheitlichen auf `romcleanup_dat_*` (Teil von BUG-71)
+
+### Positiv-Befunde (Bughunt #7)
+
+- [x] SafetyValidator.NormalizePath: Blockt Extended-Length (\\\?\, \\.\), ADS, Trailing Dots/Spaces in Segmenten
+- [x] FileSystemAdapter.ResolveChildPathWithinRoot: SEC-PATH-01 (ADS), SEC-PATH-02 (Trailing), SEC-PATH-03 (Reserved Names), Root Containment, Reparse Ancestry Check
+- [x] FileSystemAdapter.MoveItemSafely: Traversal-Blocking, ADS-Blocking, Reparse-Check, NFC-Normalisierung, TOCTOU-sichere __DUP Collision
+- [x] FileSystemAdapter.DeleteFile: Reparse-Point-Blocking, ReadOnly-Clearing vor Delete
+- [x] FileSystemAdapter.GetFilesSafe: Iterative DFS, Visited-Set gegen Zyklen, Reparse-Dirs/Files uebersprungen
+- [x] ToolRunnerAdapter: ArgumentList.Add (kein Shell Injection), SHA256 Hash-Verifizierung mit PLACEHOLDER-Rejection, Timeout mit Process-Tree-Kill, Async stdout/stderr gegen 4KB-Deadlock
+- [x] DatRepositoryAdapter: DtdProcessing.Prohibit + XmlResolver=null (XXE-Schutz), Fallback auf Ignore, 100MB Limit
+- [x] DatSourceService: HTTPS-Enforcement, 50MB Download-Limit, HTML-Detection, Zip-Slip mit Separator-Guard, SHA256-Verifizierung
+- [x] ArchiveHashService: Zip-Slip (AreEntryPathsSafe + Post-Extraction Validation), Reparse-Check, Randomized Temp Dir, 500MB Limit
+- [x] FormatConverterAdapter: Zip-Bomb-Protection (Ratio 50x, Count 10K, Size 10GB), Per-Entry Zip-Slip, CleanupPartialOutput auf allen Fehlerpfaden, Multi-CUE Atomic Rollback
+- [x] AuditSigningService: HMAC-SHA256, Constant-Time Comparison, Atomic Key-Persist (Temp+Rename), ACL Restriction, Dry-Run Default, Reverse-Order Rollback
+- [x] AuditCsvParser: OWASP CSV Injection Prevention (Prefix-Stripping fuer =+@-)
+- [x] ConsoleSorter: Atomic Set Moves mit Rollback bei Partial Failure, Whitelist Console Key Regex
+- [x] API Program.cs: Loopback-Only Binding, Rate Limiting, Constant-Time API Key, Comprehensive Input Validation, SSE Sanitization, CORS Validation
+- [x] Report-Generation: CSP Nonce, HTML Encoding, CSV Injection Prevention
+- [x] PipelinePhaseHelpers: Separator-Guards bei FindRootForPath, Reparse-Check vor Source-Trash
+
+---
