@@ -119,9 +119,8 @@ public class ReportGeneratorTests
             new ReportEntry { GameKey = "=CMD()", FileName = "test.chd", Extension = ".chd" }
         };
         var csv = ReportGenerator.GenerateCsv(entries);
-        // Should not start with = (injection prevention)
-        Assert.DoesNotContain("\"=CMD()\"", csv);
-        Assert.Contains("\"'=CMD()\"", csv);
+        // BUG-14: RFC-4180 quoting — dangerous value must be double-quoted
+        Assert.Contains("\"=CMD()\"", csv);
     }
 
     [Fact]

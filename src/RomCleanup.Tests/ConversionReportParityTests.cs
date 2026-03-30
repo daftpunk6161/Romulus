@@ -57,6 +57,21 @@ public sealed class ConversionReportParityTests
             Results = results
         };
 
+        var candidates = Enumerable.Range(1, 5).Select(i => new RomCandidate
+        {
+            MainPath = $"C:\\roms\\game{i}.iso",
+            GameKey = $"game{i}",
+            Region = "US",
+            RegionScore = 100,
+            FormatScore = 100,
+            VersionScore = 100,
+            Extension = ".iso",
+            ConsoleKey = "PSX",
+            Category = FileCategory.Game,
+            ClassificationReasonCode = "test",
+            ClassificationConfidence = 100
+        }).ToArray();
+
         return new RunResult
         {
             Status = "ok",
@@ -69,7 +84,7 @@ public sealed class ConversionReportParityTests
             ConvertReviewCount = 1,
             ConvertSavedBytes = 1024,
             ConversionReport = report,
-            AllCandidates = Array.Empty<RomCandidate>(),
+            AllCandidates = candidates,
             DedupeGroups = Array.Empty<DedupeGroup>()
         };
     }
@@ -209,6 +224,27 @@ public sealed class ConversionReportParityTests
 
         Assert.Equal(0, doc.RootElement.GetProperty("ConversionPlans").GetArrayLength());
         Assert.Equal(0, doc.RootElement.GetProperty("ConversionBlocked").GetArrayLength());
+    }
+
+    [Fact]
+    public void CliDryRunJson_IncludesPreflightWarnings()
+    {
+        var result = BuildResultWithConversionReport();
+        var projection = RunProjectionFactory.Create(result);
+        var warnings = new[]
+        {
+            "SortConsole is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.",
+            "ConvertOnly is enabled but conversion will be skipped in DryRun mode. Use Mode=Move to apply."
+        };
+
+        var json = CliOutputWriter.FormatDryRunJson(projection, result.DedupeGroups, result.ConversionReport, warnings);
+        using var doc = JsonDocument.Parse(json);
+        var preflightWarnings = doc.RootElement.GetProperty("PreflightWarnings");
+
+        Assert.Equal(JsonValueKind.Array, preflightWarnings.ValueKind);
+        Assert.Equal(2, preflightWarnings.GetArrayLength());
+        Assert.Contains(preflightWarnings.EnumerateArray().Select(e => e.GetString()), w =>
+            string.Equals(w, warnings[0], StringComparison.Ordinal));
     }
 
     [Fact]

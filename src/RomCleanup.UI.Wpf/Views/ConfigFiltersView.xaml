@@ -15,7 +15,7 @@
         </Border>
       </DockPanel>
 
-      <TextBlock Text="Keine Auswahl = alle Konsolen werden gescannt"
+      <TextBlock Text="Anzeige-Filter: Keine Auswahl = alle Konsolen sichtbar (kein Einfluss auf die Pipeline)"
                  Style="{StaticResource CaptionText}" Margin="0,0,0,8" TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushTextMuted}"/>
 

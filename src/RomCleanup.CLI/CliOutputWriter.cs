@@ -24,7 +24,8 @@ internal static class CliOutputWriter
     /// </summary>
     internal static string FormatDryRunJson(RunProjection projection,
         IReadOnlyList<DedupeGroup> groups,
-        ConversionReport? conversionReport = null)
+        ConversionReport? conversionReport = null,
+        IReadOnlyList<string>? preflightWarnings = null)
     {
         var output = new CliDryRunOutput
         {
@@ -75,6 +76,7 @@ internal static class CliOutputWriter
             FailCount = projection.FailCount,
             SavedBytes = projection.SavedBytes,
             DurationMs = projection.DurationMs,
+            PreflightWarnings = preflightWarnings?.ToArray() ?? Array.Empty<string>(),
             Results = groups.Select(r => new CliDedupeGroup
             {
                 GameKey = r.GameKey,
@@ -250,6 +252,7 @@ internal sealed class CliDryRunOutput
     public int FailCount { get; init; }
     public long SavedBytes { get; init; }
     public long DurationMs { get; init; }
+    public string[] PreflightWarnings { get; init; } = Array.Empty<string>();
     public CliDedupeGroup[] Results { get; init; } = Array.Empty<CliDedupeGroup>();
     public CliConversionPlan[] ConversionPlans { get; init; } = Array.Empty<CliConversionPlan>();
     public CliConversionBlocked[] ConversionBlocked { get; init; } = Array.Empty<CliConversionBlocked>();

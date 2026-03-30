@@ -621,6 +621,21 @@ public sealed partial class MainViewModel
         {
             var auditPathCopy = LastAuditPath;
             var roots = Roots.ToList();
+
+            var integrity = await Task.Run(() => RomCleanup.Infrastructure.Audit.RollbackService.VerifyTrashIntegrity(auditPathCopy, roots));
+            if (integrity.Failed > 0 || integrity.SkippedMissingDest > 0)
+            {
+                var integrityWarning =
+                    $"Rollback integrity check found issues. Missing trash files: {integrity.SkippedMissingDest}, failures: {integrity.Failed}. " +
+                    "Continue anyway?";
+
+                if (!_dialog.Confirm(integrityWarning, _loc["Dialog.Rollback.Title"]))
+                {
+                    AddLog("Rollback aborted after integrity preflight warning.", "WARN");
+                    return;
+                }
+            }
+
             var restored = await Task.Run(() => RomCleanup.Infrastructure.Audit.RollbackService.Execute(auditPathCopy, roots));
             AddLog(_loc.Format("Log.RollbackDone", restored.RolledBack, restored.SkippedMissingDest, restored.SkippedCollision, restored.Failed),
                 restored.Failed > 0 ? "WARN" : "INFO");
@@ -1107,7 +1122,8 @@ public sealed partial class MainViewModel
         var isConvertOnlyRun = ConvertOnly ||
                                (result.MoveResult is null && result.JunkMoveResult is null &&
                                 (result.ConvertedCount > 0 || result.ConvertErrorCount > 0 || result.ConvertSkippedCount > 0));
-        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun);
+        var isDryRun = DryRun;
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun, isDryRun);
 
         DashWinners = dashboard.Winners;
         DashDupes = dashboard.Dupes;

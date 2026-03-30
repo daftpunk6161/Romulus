@@ -1,4 +1,5 @@
 using RomCleanup.Infrastructure.Tools;
+using System.Diagnostics;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -64,13 +65,37 @@ public sealed class ToolRunnerAdapterTests : IDisposable
         Assert.DoesNotContain("hash verification failed", result.Output, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void InvokeProcess_CancelledToken_StopsLongRunningProcess()
+    {
+        var exe = GetExistingExecutable();
+        var missingHashes = Path.Combine(_tempDir, "missing-tool-hashes.json");
+        var runner = new ToolRunnerAdapter(missingHashes, allowInsecureHashBypass: true, timeoutMinutes: 30);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
+        var sw = Stopwatch.StartNew();
+
+        var result = runner.InvokeProcess(
+            exe,
+            ["/c", "ping", "127.0.0.1", "-n", "20"],
+            "test",
+            TimeSpan.FromSeconds(30),
+            cts.Token);
+
+        sw.Stop();
+
+        Assert.False(result.Success);
+        Assert.Contains("cancel", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(8));
+    }
+
     private static string GetExistingExecutable()
     {
         var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         var candidates = new[]
         {
-            Path.Combine(winDir, "System32", "where.exe"),
-            Path.Combine(winDir, "System32", "cmd.exe")
+            Path.Combine(winDir, "System32", "cmd.exe"),
+            Path.Combine(winDir, "System32", "where.exe")
         };
 
         foreach (var candidate in candidates)

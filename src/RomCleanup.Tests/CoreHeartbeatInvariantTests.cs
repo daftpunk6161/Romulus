@@ -385,6 +385,7 @@ public class CoreHeartbeatInvariantTests : IDisposable
             Encoding.UTF8);
 
         var store = new AuditCsvStore();
+        store.WriteMetadataSidecar(auditPath, new Dictionary<string, object>());
         var restored = store.Rollback(
             auditPath,
             allowedRestoreRoots: new[] { rootDir },

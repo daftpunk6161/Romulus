@@ -34,7 +34,7 @@ internal static class ConversionPhaseHelper
         bool trackSetMembers,
         CancellationToken cancellationToken)
     {
-        if (options.DryRun)
+        if (string.Equals(options.Mode, RunConstants.ModeDryRun, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var ext = Path.GetExtension(filePath).ToLowerInvariant();

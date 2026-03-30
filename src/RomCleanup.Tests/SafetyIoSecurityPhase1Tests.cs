@@ -160,7 +160,7 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
     }
 
     [Fact]
-    public void TASK004_Rollback_DryRun_Allowed_Without_Sidecar()
+    public void TASK004_Rollback_DryRun_Blocked_Without_Sidecar()
     {
         var fs = new FileSystemAdapter();
         var audit = new AuditSigningService(fs);
@@ -169,13 +169,13 @@ public sealed class SafetyIoSecurityPhase1Tests : IDisposable
         File.WriteAllText(csvPath,
             "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n");
 
-        // DryRun without sidecar should NOT be blocked
+        // DryRun without sidecar should be blocked (Preview/Execute parity)
         var result = audit.Rollback(csvPath,
             allowedRestoreRoots: [_tempDir],
             allowedCurrentRoots: [_tempDir],
             dryRun: true);
 
-        Assert.Equal(0, result.Failed);
+        Assert.True(result.Failed > 0);
     }
 
     #endregion

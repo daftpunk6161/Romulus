@@ -363,12 +363,16 @@ public sealed class AuditComplianceTests : IDisposable
     [Fact]
     public void Audit1_Test012_CsvInjection_CoveredInSecurityTests()
     {
+        // BUG-14: RFC-4180 quoting — dangerous values are wrapped in double quotes
         var payloads = new[] { "=1+1", "+SUM(A1)", "-2+3", "@cmd" };
 
         foreach (var payload in payloads)
         {
             var safe = AuditSigningService.SanitizeCsvField(payload);
-            Assert.StartsWith("'", safe);
+            Assert.StartsWith("\"", safe);
+            Assert.EndsWith("\"", safe);
+            // Unwrapped value must match original (no data corruption)
+            Assert.Equal(payload, safe[1..^1]);
         }
     }
 
@@ -858,6 +862,7 @@ public sealed class AuditComplianceTests : IDisposable
         File.WriteAllLines(auditPath, csvLines);
 
         var signingService = new AuditSigningService(new FileSystemAdapter());
+        signingService.WriteMetadataSidecar(auditPath, 1);
         var result = signingService.Rollback(auditPath,
             allowedRestoreRoots: [sourceDir], allowedCurrentRoots: [destDir]);
 

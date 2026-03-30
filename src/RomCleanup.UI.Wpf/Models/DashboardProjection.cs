@@ -30,19 +30,19 @@ public sealed record DashboardProjection(
     IReadOnlyList<ConsoleDistributionItem> ConsoleDistribution,
     IReadOnlyList<DedupeGroupItem> DedupeGroups)
 {
-    public static DashboardProjection From(RunProjection projection, RunResult result, bool isConvertOnlyRun)
+    public static DashboardProjection From(RunProjection projection, RunResult result, bool isConvertOnlyRun, bool isDryRun = false)
     {
         var isPartialCancelledOrFailed = IsPartialCancelledOrFailed(result);
 
-        var winners = isConvertOnlyRun ? "–" : MarkProvisional(projection.Keep.ToString(), isPartialCancelledOrFailed);
-        var dupes = isConvertOnlyRun ? "–" : MarkProvisional(projection.Dupes.ToString(), isPartialCancelledOrFailed);
-        var junk = isConvertOnlyRun ? "–" : MarkProvisional(projection.Junk.ToString(), isPartialCancelledOrFailed);
+        var winners = isConvertOnlyRun ? "–" : MarkPlan(MarkProvisional(projection.Keep.ToString(), isPartialCancelledOrFailed), isDryRun);
+        var dupes = isConvertOnlyRun ? "–" : MarkPlan(MarkProvisional(projection.Dupes.ToString(), isPartialCancelledOrFailed), isDryRun);
+        var junk = isConvertOnlyRun ? "–" : MarkPlan(MarkProvisional(projection.Junk.ToString(), isPartialCancelledOrFailed), isDryRun);
         var duration = $"{projection.DurationMs / 1000.0:F1}s";
         var healthScore = isConvertOnlyRun || projection.TotalFiles <= 0
             ? "–"
-            : MarkProvisional($"{projection.HealthScore}%", isPartialCancelledOrFailed);
-        var games = isConvertOnlyRun ? "–" : MarkProvisional(projection.Games.ToString(), isPartialCancelledOrFailed);
-        var datHits = isConvertOnlyRun ? "–" : MarkProvisional(projection.DatMatches.ToString(), isPartialCancelledOrFailed);
+            : MarkPlan(MarkProvisional($"{projection.HealthScore}%", isPartialCancelledOrFailed), isDryRun);
+        var games = isConvertOnlyRun ? "–" : MarkPlan(MarkProvisional(projection.Games.ToString(), isPartialCancelledOrFailed), isDryRun);
+        var datHits = isConvertOnlyRun ? "–" : MarkPlan(MarkProvisional(projection.DatMatches.ToString(), isPartialCancelledOrFailed), isDryRun);
         var hasDatAudit = projection.DatHaveCount > 0
                           || projection.DatHaveWrongNameCount > 0
                           || projection.DatMissCount > 0
@@ -56,7 +56,7 @@ public sealed record DashboardProjection(
         var dedupeDenominator = projection.Keep + projection.Dupes;
         var dedupeRate = isConvertOnlyRun || dedupeDenominator <= 0
             ? "–"
-            : MarkProvisional($"{100.0 * projection.Dupes / dedupeDenominator:F0}%", isPartialCancelledOrFailed);
+            : MarkPlan(MarkProvisional($"{100.0 * projection.Dupes / dedupeDenominator:F0}%", isPartialCancelledOrFailed), isDryRun);
 
         var consoleDistribution = BuildConsoleDistribution(result.AllCandidates);
         var dedupeGroups = BuildDedupeGroupItems(result.DedupeGroups);
@@ -66,6 +66,8 @@ public sealed record DashboardProjection(
             ? "Nur Konvertierung aktiv. Keine Dateien werden verschoben."
             : isPartialCancelledOrFailed
                 ? "Lauf abgebrochen. Kennzahlen sind vorläufig und basieren auf bereits gescannten Dateien."
+            : isDryRun
+                ? "Vorschau (Plan): Kennzahlen zeigen geplante Aktionen, es wurden keine Dateien verschoben."
             : totalMove > 0
                 ? $"Es werden {totalMove} Dateien verschoben ({projection.Dupes} Duplikate, {projection.Junk} Junk)."
                 : "Keine Dateien zum Verschieben erkannt.";
@@ -116,6 +118,9 @@ public sealed record DashboardProjection(
 
     private static string MarkProvisional(string value, bool isProvisional)
         => isProvisional && value != "–" ? $"{value} (vorläufig)" : value;
+
+    private static string MarkPlan(string value, bool isDryRun)
+        => isDryRun && value != "–" ? $"{value} (Plan)" : value;
 
     private static string FormatBytes(long bytes)
     {

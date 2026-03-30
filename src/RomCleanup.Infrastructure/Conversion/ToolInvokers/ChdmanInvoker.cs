@@ -45,7 +45,12 @@ public sealed class ChdmanInvoker(IToolRunner tools) : IToolInvoker
         commandToken = ToolInvokerSupport.ResolveEffectiveChdmanCommand(commandToken, sourcePath);
 
         var watch = Stopwatch.StartNew();
-        var result = _tools.InvokeProcess(toolPath, [commandToken, "-i", sourcePath, "-o", targetPath], "chdman");
+        var result = _tools.InvokeProcess(
+            toolPath,
+            [commandToken, "-i", sourcePath, "-o", targetPath],
+            "chdman",
+            ToolInvokerSupport.ResolveToolTimeout("chdman"),
+            cancellationToken);
         watch.Stop();
 
         return ToolInvokerSupport.FromToolResult(targetPath, result, watch);

@@ -90,16 +90,16 @@ public sealed partial class MainViewModel
     public string ToolChdman { get => _toolChdman; set { if (SetProperty(ref _toolChdman, value)) { ValidateToolPath(value, nameof(ToolChdman)); RefreshStatus(); SyncToSetup(nameof(ToolChdman), value); } } }
 
     private string _toolDolphin = "";
-    public string ToolDolphin { get => _toolDolphin; set { if (SetProperty(ref _toolDolphin, value)) { ValidateToolPath(value, nameof(ToolDolphin)); RefreshStatus(); } } }
+    public string ToolDolphin { get => _toolDolphin; set { if (SetProperty(ref _toolDolphin, value)) { ValidateToolPath(value, nameof(ToolDolphin)); RefreshStatus(); SyncToSetup(nameof(ToolDolphin), value); } } }
 
     private string _tool7z = "";
-    public string Tool7z { get => _tool7z; set { if (SetProperty(ref _tool7z, value)) { ValidateToolPath(value, nameof(Tool7z)); RefreshStatus(); } } }
+    public string Tool7z { get => _tool7z; set { if (SetProperty(ref _tool7z, value)) { ValidateToolPath(value, nameof(Tool7z)); RefreshStatus(); SyncToSetup(nameof(Tool7z), value); } } }
 
     private string _toolPsxtract = "";
-    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) { ValidateToolPath(value, nameof(ToolPsxtract)); RefreshStatus(); } } }
+    public string ToolPsxtract { get => _toolPsxtract; set { if (SetProperty(ref _toolPsxtract, value)) { ValidateToolPath(value, nameof(ToolPsxtract)); RefreshStatus(); SyncToSetup(nameof(ToolPsxtract), value); } } }
 
     private string _toolCiso = "";
-    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) { ValidateToolPath(value, nameof(ToolCiso)); RefreshStatus(); } } }
+    public string ToolCiso { get => _toolCiso; set { if (SetProperty(ref _toolCiso, value)) { ValidateToolPath(value, nameof(ToolCiso)); RefreshStatus(); SyncToSetup(nameof(ToolCiso), value); } } }
 
     // ═══ BOOLEAN FLAGS (persisted) ══════════════════════════════════════
     [ObservableProperty]

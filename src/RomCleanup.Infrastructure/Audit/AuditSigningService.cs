@@ -233,8 +233,8 @@ public sealed class AuditSigningService
             };
         }
 
-        // SEC-ROLLBACK-03: Verify audit file integrity before executing rollback.
-        // DryRun is safe without sidecar (no files moved). Execute requires verified sidecar.
+        // SEC-ROLLBACK-03: Verify audit file integrity before rollback (dry-run and execute).
+        // Preview/Execute must make the same safety decision to keep parity deterministic.
         var metaPath = auditCsvPath + ".meta.json";
         if (File.Exists(metaPath))
         {
@@ -253,20 +253,15 @@ public sealed class AuditSigningService
                 };
             }
         }
-        else if (!dryRun)
+        else
         {
-            // Execute-mode rollback without sidecar is blocked — cannot verify audit integrity
-            _log?.Invoke("Rollback blocked: No integrity sidecar (.meta.json) found. Cannot verify audit integrity for execute-mode rollback.");
+            _log?.Invoke("Rollback blocked: No integrity sidecar (.meta.json) found. Cannot verify audit integrity.");
             return new AuditRollbackResult
             {
                 AuditCsvPath = auditCsvPath,
                 DryRun = dryRun,
                 Failed = 1
             };
-        }
-        else
-        {
-            _log?.Invoke("DryRun rollback proceeding without sidecar verification (no changes will be made).");
         }
 
         var lines = File.ReadAllLines(auditCsvPath, Encoding.UTF8);
@@ -366,10 +361,11 @@ public sealed class AuditSigningService
 
             if (dryRun)
             {
-                // SEC-ROLLBACK-01: In dry run, check reparse points → count as failed (unsafe to plan)
+                // SEC-ROLLBACK-01: In dry run, check reparse points and account as unsafe skip
+                // to keep DryRun/Execute counters semantically aligned.
                 if (_fs.IsReparsePoint(newPath))
                 {
-                    failed++;
+                    skippedUnsafe++;
                     _log?.Invoke($"DRYRUN rollback blocked (reparse point): {newPath}");
                     continue;
                 }
@@ -378,7 +374,7 @@ public sealed class AuditSigningService
                 var dryRunParent = Path.GetDirectoryName(oldPath);
                 if (dryRunParent is not null && Directory.Exists(dryRunParent) && _fs.IsReparsePoint(dryRunParent))
                 {
-                    failed++;
+                    skippedUnsafe++;
                     _log?.Invoke($"DRYRUN rollback blocked (restore parent is reparse point): {dryRunParent}");
                     continue;
                 }

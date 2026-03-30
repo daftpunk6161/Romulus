@@ -162,6 +162,27 @@ public class Phase5CEntryPointParityTests
         Assert.Empty(errors);
     }
 
+    [Fact]
+    public void TGAP44_RunOptionsFactory_InvalidOptions_ThrowsFromValidate()
+    {
+        var run = new RunRecord
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            RequestFingerprint = "fp",
+            StartedUtc = DateTime.UtcNow,
+            Roots = new[] { GetTestRoot() },
+            Mode = "DryRun",
+            OnlyGames = false,
+            KeepUnknownWhenOnlyGames = false
+        };
+
+        var factory = new RunOptionsFactory();
+        var source = new RunRecordOptionsSource(run);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => factory.Create(source, null, null));
+        Assert.Contains("OnlyGames", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ───── TASK-163: DryRun + Feature Warnings ─────
 
     [Fact]
@@ -260,6 +281,21 @@ public class Phase5CEntryPointParityTests
     }
 
     [Fact]
+    public void TGAP47_DryRunWarnings_ConvertOnly_IsWarned()
+    {
+        var options = new RunOptions
+        {
+            Roots = new[] { GetTestRoot() },
+            Mode = "DryRun",
+            ConvertOnly = true
+        };
+
+        var warnings = RunOptionsBuilder.GetDryRunFeatureWarnings(options);
+
+        Assert.Contains(warnings, w => w.Contains("ConvertOnly", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void TASK163_Preflight_Includes_DryRunFeatureWarnings()
     {
         // The orchestrator's Preflight should include DryRun+Feature warnings
@@ -348,6 +384,17 @@ public class Phase5CEntryPointParityTests
         Assert.NotNull(settings1);
         Assert.NotNull(settings2);
         Assert.Equal(settings1.General.PreferredRegions.Count, settings2.General.PreferredRegions.Count);
+    }
+
+    [Fact]
+    public void TGAP38_ConsoleFilter_LabelClearlyIndicatesDisplayOnly()
+    {
+        var xaml = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "RomCleanup.UI.Wpf", "Views", "ConfigFiltersView.xaml"));
+
+        Assert.Contains("kein Einfluss auf die Pipeline", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
     // ───── Helpers ─────

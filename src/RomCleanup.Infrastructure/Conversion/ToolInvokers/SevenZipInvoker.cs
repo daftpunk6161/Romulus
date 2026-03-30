@@ -39,7 +39,12 @@ public sealed class SevenZipInvoker(IToolRunner tools) : IToolInvoker
             return ToolInvokerSupport.ConstraintFailure(constraintError);
 
         var watch = Stopwatch.StartNew();
-        var result = _tools.InvokeProcess(toolPath, ["a", "-tzip", "-y", targetPath, sourcePath], "7z");
+        var result = _tools.InvokeProcess(
+            toolPath,
+            ["a", "-tzip", "-y", targetPath, sourcePath],
+            "7z",
+            ToolInvokerSupport.ResolveToolTimeout("7z"),
+            cancellationToken);
         watch.Stop();
 
         return ToolInvokerSupport.FromToolResult(targetPath, result, watch);

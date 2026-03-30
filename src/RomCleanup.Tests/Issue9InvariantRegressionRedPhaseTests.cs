@@ -256,8 +256,10 @@ public sealed class Issue9InvariantRegressionRedPhaseTests : IDisposable
     [InlineData("\rformula")]
     public void Should_PreventCsvInjection_When_SanitizingAuditFields_Issue9_INV11(string payload)
     {
+        // BUG-14: RFC-4180 quoting — dangerous values wrapped in double quotes
         var sanitized = AuditSigningService.SanitizeCsvField(payload);
-        Assert.StartsWith("'", sanitized, StringComparison.Ordinal);
+        Assert.StartsWith("\"", sanitized, StringComparison.Ordinal);
+        Assert.EndsWith("\"", sanitized, StringComparison.Ordinal);
     }
 
     [Fact]

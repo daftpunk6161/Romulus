@@ -21,6 +21,22 @@
 - [x] BUG-29 umgesetzt: `PsxtractInvoker.Verify` validiert ISO-artige Outputs statt CHD-Magic
 - [x] BUG-30 umgesetzt: Legacy-Pfad blockiert lossy->lossy (`.cso -> .chd`, `.nkit.* -> .rvz`)
 - [x] BUG-31 umgesetzt: Tool-Fehlerpfade behalten attempted OutputPath für verlässliches Cleanup
+- [x] BUG-05 umgesetzt: ParallelHasher respektiert Cancellation auch im Single-Thread-Pfad
+- [x] BUG-06 umgesetzt: RunReportWriter-Invariante validiert auch ohne DedupeGroups
+- [x] BUG-13 umgesetzt: Review-Approvals im API-RunRecord nur noch über lock-geschützte Methoden
+- [x] BUG-14 umgesetzt: CSV-Formula-Injection nutzt RFC-4180-Quoting statt Prefix-Manipulation
+- [x] BUG-15 umgesetzt: Rollback DryRun/Execute nutzen konsistente Unsafe-Counter-Semantik
+- [x] BUG-20 umgesetzt: AmbiguousExtension kann Review-Schwelle erreichen
+- [x] BUG-21 umgesetzt: Archive-Tie-Break ist deterministisch bei Equal-Size-Entries
+- [x] BUG-22 umgesetzt: Switch-Pakete (.nsp/.xci/.nsz/.xcz) nutzen Disc-Size-Tie-Break
+- [x] BUG-17 umgesetzt: Timeout + Cancellation werden bis in die Tool-Prozessausführung durchgereicht
+- [x] BUG-23 umgesetzt: DAT-Authority greift auch aus UNKNOWN-Startlage bei eindeutiger DAT-Auflösung
+- [x] BUG-32 umgesetzt: ToolInvokers übergeben CancellationToken an `InvokeProcess(...)`
+- [x] BUG-33 umgesetzt: SourceIntegrity klassifiziert CHD/RVZ/NSP/XCI als Lossless
+- [x] BUG-34 umgesetzt: Verify-Fail setzt ConversionOutcome auf Error (Counter/Outcome-Parität)
+- [x] BUG-35 umgesetzt: ConversionPhaseHelper schützt gegen DryRun-Ausführung
+- [x] BUG-37 umgesetzt: ConversionRegistryLoader blockiert doppelte Console-Keys
+- [x] BUG-38 umgesetzt: chdman CD/DVD-Heuristik zentralisiert in ToolInvokerSupport
 - [x] Verifikation: `dotnet build src/RomCleanup.sln` grün; fokussierter Testlauf 145 passed / 0 failed
 - [x] Verifikation: gezielte Regressionen grün (`CandidateFactoryTests`, `EnrichmentPipelinePhaseAuditPhase3And4Tests`, `ConversionMetricsPipelineTests`)
 
@@ -69,36 +85,37 @@
 
 ## Hohe Priorität (P2)
 
-- [ ] **BUG-14** – CSV-Report: Formula-Injection via Prefix statt Quoting
+- [x] **BUG-14** – CSV-Report: Formula-Injection via Prefix statt Quoting
   - Datei: `AuditCsvParser.cs:54-73`
   - Impact: Security (OWASP CSV-Injection)
   - Fix: Felder mit `=`, `+`, `-`, `@` in RFC-4180-Quotes wrappen
-  - [ ] TGAP-08: `SanitizeCsvField_FormulaPrefix_WrappedInQuotes()`
+  - [x] TGAP-08: `SanitizeCsvField_PreventsInjection()`
 
-- [ ] **BUG-06** – RunReportWriter: Invarianten-Check übersprungen ohne DedupeGroups
+- [x] **BUG-06** – RunReportWriter: Invarianten-Check übersprungen ohne DedupeGroups
   - Datei: `RunReportWriter.cs:82-88`
   - Impact: Accounting-Fehler in ConvertOnly-Mode bleiben stumm
   - Fix: Guard ändern zu `if (projection.TotalFiles > 0)`
-  - [ ] TGAP-05: `ReportWriter_ConvertOnlyRun_ValidatesAccountingInvariant()`
+  - [x] TGAP-05: `BuildSummary_NoDedupeGroups_DoesNotThrowInvariant()`
 
-- [ ] **BUG-05** – ParallelHasher: CancellationToken im Single-Thread-Pfad ignoriert
+- [x] **BUG-05** – ParallelHasher: CancellationToken im Single-Thread-Pfad ignoriert
   - Datei: `ParallelHasher.cs:46-54`
   - Impact: Cancel wird bei ≤4 Dateien nicht respektiert
   - Fix: CancellationToken an `HashFilesSingleThread()` durchreichen
-  - [ ] TGAP-04: `HashFilesAsync_SingleThread_RespectsCancellation()`
+  - [x] TGAP-04: `HashFilesAsync_SingleThread_RespectsCancellation()`
 
-- [ ] **BUG-15** – Rollback DryRun vs Execute: Unterschiedliche Zählung
+- [x] **BUG-15** – Rollback DryRun vs Execute: Unterschiedliche Zählung
   - Datei: `AuditSigningService.cs:393-410`
   - Impact: Preview/Execute zeigen unterschiedliche Zahlen
   - Fix: Unified Counter-Semantik
-  - [ ] TGAP-09: `Rollback_DryRun_Execute_SameCountSemantics()`
+  - [x] TGAP-09: `Rollback_DryRunAndExecute_ReparseUnsafe_CountSemanticsMatch()`
 
-- [ ] **BUG-17** – ToolInvokerAdapter: Kein Timeout bei Tool-Aufruf
+- [x] **BUG-17** – ToolInvokerAdapter: Kein Timeout bei Tool-Aufruf
   - Datei: `ToolInvokerAdapter.cs:64-85`
   - Impact: Hängender Tool-Prozess blockiert Pipeline unbegrenzt
   - Fix: Timeout-Parameter für `InvokeProcess()` implementieren
+  - [x] TGAP-25: `Invoke_ForwardsCancellationTokenAndTimeout_ToToolRunner()` + `InvokeProcess_CancelledToken_StopsLongRunningProcess()`
 
-- [ ] **BUG-13** – API: ApprovedReviewPaths nicht Thread-Safe
+- [x] **BUG-13** – API: ApprovedReviewPaths nicht Thread-Safe
   - Datei: `Program.cs:554`
   - Impact: Parallele POST-Requests können `List<string>` korrumpieren
   - Fix: `ConcurrentBag<string>` oder `lock()` verwenden
@@ -107,11 +124,11 @@
 
 ## Mittlere Priorität (P3)
 
-- [ ] **BUG-10** – CLI: Naive CSV-Parsing in `DeriveRootsFromAudit()`
+- [x] **BUG-10** – CLI: Naive CSV-Parsing in `DeriveRootsFromAudit()` — erledigt (2026-06-28)
   - Datei: `Program.cs:340-343`
   - Impact: Root-Pfade mit Komma werden abgeschnitten
-  - Fix: `AuditCsvParser` verwenden statt manuelles `IndexOf(',')`
-  - [ ] TGAP-06: `DeriveRootsFromAudit_PathWithComma_ExtractsFullPath()`
+  - Fix: `ExtractFirstCsvField()` mit RFC-4180-Quoting statt manuelles `IndexOf(',')`
+  - [x] TGAP-06: `ExtractFirstCsvField_HandlesQuotedPaths()` (5 Theory-Cases) — erledigt
 
 - [ ] **BUG-11** – CLI: `GetAwaiter().GetResult()` in `UpdateDats()`
   - Datei: `Program.cs:237`
@@ -180,33 +197,33 @@
 
 ### Priorität 2 (P2)
 
-- [ ] **BUG-20** – AmbiguousExtension kann Review-Schwelle nie erreichen
+- [x] **BUG-20** – AmbiguousExtension kann Review-Schwelle nie erreichen
   - Dateien: `src/RomCleanup.Core/Classification/DetectionHypothesis.cs`, `src/RomCleanup.Core/Classification/HypothesisResolver.cs`
   - Impact: AmbiguousExtension-Pfad ist praktisch tot (immer Blocked)
   - Ursache: `SingleSourceCap(AmbiguousExtension)=40` bei `ReviewThreshold=55`
   - Fix: Cap anheben oder Pfad explizit entfernen/dokumentieren
-  - [ ] TGAP-13: `AmbiguousExtension_SingleSource_CanReachReview()`
+  - [x] TGAP-13: `AmbiguousExtension_SingleSource_CanReachReview()`
 
-- [ ] **BUG-21** – ZIP-Inhaltsdetektion ist bei Gleichstand nicht deterministisch
+- [x] **BUG-21** – ZIP-Inhaltsdetektion ist bei Gleichstand nicht deterministisch
   - Datei: `src/RomCleanup.Core/Classification/ConsoleDetector.cs`
   - Impact: Gleiche ZIP-Inhalte können je nach Entry-Reihenfolge unterschiedliche ConsoleKeys liefern
   - Ursache: Largest-file-Heuristik ohne stabilen Secondary-Tie-Break
   - Fix: Sekundären Sortschlüssel (`Entry.FullName`) ergänzen
-  - [ ] TGAP-14: `ArchiveDetection_EqualSizeEntries_IsDeterministic()`
+  - [x] TGAP-14: `ArchiveDetection_EqualSizeEntries_IsDeterministic()`
 
-- [ ] **BUG-22** – Size-TieBreak für Switch-Formate bevorzugt fälschlich kleinere Dateien
+- [x] **BUG-22** – Size-TieBreak für Switch-Formate bevorzugt fälschlich kleinere Dateien
   - Datei: `src/RomCleanup.Core/Scoring/FormatScorer.cs`
   - Impact: Bei `nsp/xci` kann unvollständiger Dump gewinnen
   - Ursache: Switch-Formate sind nicht in `DiscExtensions`
   - Fix: `nsp/xci` (ggf. `nsz/xcz`) in Disc-TieBreak-Logik aufnehmen
-  - [ ] TGAP-15: `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()`
+  - [x] TGAP-15: `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()`
 
-- [ ] **BUG-23** – DAT-Match bei UNKNOWN-Konsole wird nicht sauber auf DatVerified gehoben
+- [x] **BUG-23** – DAT-Match bei UNKNOWN-Konsole wird nicht sauber auf DatVerified gehoben
   - Datei: `src/RomCleanup.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs`
   - Impact: Echte DAT-Treffer können im Review/Blocked-Korridor bleiben
   - Ursache: DAT-Authority ist an Guard `consoleKey != UNKNOWN` gekoppelt
   - Fix: DAT-Authority auch bei UNKNOWN anwenden, wenn DAT-Konsole eindeutig ist
-  - [ ] TGAP-16: `UnknownConsole_DatHashMatch_UpgradesToDatVerified()`
+  - [x] TGAP-16: `Execute_UnknownConsoleDatHashMatch_UpgradesToDatVerified()`
 
 ### Priorität 3 (P3)
 
@@ -311,56 +328,56 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
   - [x] TGAP-24: `Invoke_ToolFailure_ReturnsAttemptedOutputPath()`
   - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-32** – CancellationToken wird nicht an InvokeProcess durchgereicht
+- [x] **BUG-32** – CancellationToken wird nicht an InvokeProcess durchgereicht
   - Dateien: `src/RomCleanup.Infrastructure/Conversion/ToolInvokers/PsxtractInvoker.cs` (L33,48), `ChdmanInvoker.cs`, `DolphinToolInvoker.cs`, `SevenZipInvoker.cs`
   - Impact: Cancel-Request während laufendem Tool-Prozess hat keine Wirkung — Tool läuft bis zum Ende
   - Ursache: Token wird nur vor dem Aufruf geprüft (`ThrowIfCancellationRequested`), aber `InvokeProcess` hat keinen CT-Parameter
   - Fix: `IToolRunner.InvokeProcess` um CancellationToken erweitern, bei Cancel den Prozess killen
-  - [ ] TGAP-25: `ToolInvocation_Cancellation_KillsProcess()`
+  - [x] TGAP-25: `Invoke_ForwardsCancellationTokenAndTimeout_ToToolRunner()` + `InvokeProcess_CancelledToken_StopsLongRunningProcess()`
 
-- [ ] **BUG-33** – SourceIntegrityClassifier: CHD/RVZ/NKit als Unknown statt korrekt klassifiziert
+- [x] **BUG-33** – SourceIntegrityClassifier: CHD/RVZ/NKit als Unknown statt korrekt klassifiziert
   - Datei: `src/RomCleanup.Core/Conversion/SourceIntegrityClassifier.cs`
   - Impact: CHD (.chd) und RVZ (.rvz) sind Lossless-Kompressionsformate, werden aber als `Unknown` klassifiziert → bei Unknown+Lossy-Step wird Conversion geblockt obwohl sie sicher wäre
   - Ursache: `LosslessExtensions` enthält `.chd` und `.rvz` NICHT
   - Fix: `.chd`, `.rvz`, `.gcz`, `.wia`, `.nsp`, `.xci` in LosslessExtensions aufnehmen
-  - [ ] TGAP-26: `SourceIntegrity_Chd_IsLossless()`
+  - [x] TGAP-26: `Classify_ByExtension_ReturnsExpectedIntegrity()`
 
-- [ ] **BUG-34** – ConversionOutcome.Success ≠ counters.Converted (Report-Inkonsistenz)
+- [x] **BUG-34** – ConversionOutcome.Success ≠ counters.Converted (Report-Inkonsistenz)
   - Dateien: `src/RomCleanup.Infrastructure/Orchestration/ConversionPhaseHelper.cs` (L75-113), `RunOrchestrator.PreviewAndPipelineHelpers.cs` (L397-406)
   - Impact: `ConversionReport.Results` enthält Einträge mit `Outcome==Success` die intern als `Errors` gezählt werden (Verify-Failed). Wer direkt Results zählt bekommt andere Zahlen als die Counter
   - Ursache: ConversionPhaseHelper re-klassifiziert `Success→Error` bei Verify-Failure, aber das Outcome im Result bleibt `Success`
   - Fix: Bei Verify-Failure das Outcome im ConversionResult auf `Error` updaten, oder ein separates `FinalOutcome`-Feld einführen
-  - [ ] TGAP-27: `ConversionReport_CounterVsOutcome_AreConsistent()`
+  - [x] TGAP-27: `ConvertSingleFile_VerifyFailed_ReturnsErrorOutcomeAndIncrementsErrorCounter()`
 
 ### Priorität 3 (P3)
 
-- [ ] **BUG-35** – ConversionPhaseHelper hat keine DryRun-Absicherung
+- [x] **BUG-35** – ConversionPhaseHelper hat keine DryRun-Absicherung
   - Datei: `src/RomCleanup.Infrastructure/Orchestration/ConversionPhaseHelper.cs`
   - Impact: Wenn ein Caller versehentlich `ConvertSingleFile` im Preview-Modus aufruft, wird echte Conversion + Move ausgeführt
   - Ursache: Keine `options.DryRun`-Prüfung in dieser Helper-Klasse
   - Fix: Guard `if (options.DryRun) return null;` am Anfang von `ConvertSingleFile`
-  - [ ] TGAP-28: `ConvertSingleFile_DryRun_SkipsConversion()`
+  - [x] TGAP-28: `ConvertSingleFile_DryRun_SkipsConversion()`
 
-- [ ] **BUG-36** – kein Timeout für Tool-Prozesse
+- [x] **BUG-36** – kein Timeout für Tool-Prozesse
   - Dateien: `src/RomCleanup.Infrastructure/Conversion/ToolInvokerAdapter.cs`, alle ToolInvokers
   - Impact: Hängender chdman/dolphintool/psxtract/7z-Prozess blockiert Pipeline unbegrenzt
   - Ursache: `IToolRunner.InvokeProcess` hat keinen Timeout-Parameter
   - Fix: Konfigurierbare Timeouts pro Tool (z.B. chdman=30min, 7z=10min), Process.Kill bei Überschreitung
   - (bereits als BUG-17 separat getrackt, hier für Conversion-Kontext referenziert)
 
-- [ ] **BUG-37** – ConversionRegistryLoader: Doppelte Console-Keys werden still überschrieben
+- [x] **BUG-37** – ConversionRegistryLoader: Doppelte Console-Keys werden still überschrieben
   - Datei: `src/RomCleanup.Infrastructure/Conversion/ConversionRegistryLoader.cs` (L208)
   - Impact: Bei duplizierten Keys in consoles.json gewinnt der letzte Eintrag ohne Warnung
   - Ursache: `policies[key] = policy` ohne Duplikat-Check
   - Fix: Duplikat-Detection + Warn-Log oder Exception
-  - [ ] TGAP-29: `RegistryLoader_DuplicateConsoleKey_FailsOrWarns()`
+  - [x] TGAP-29: `Constructor_DuplicateConsoleKey_Throws()`
 
-- [ ] **BUG-38** – ToolInvokerAdapter.BuildArguments: chdman CD/DVD-Heuristik dupliziert
+- [x] **BUG-38** – ToolInvokerAdapter.BuildArguments: chdman CD/DVD-Heuristik dupliziert
   - Dateien: `src/RomCleanup.Infrastructure/Conversion/ToolInvokerAdapter.cs` (L131-137), `ChdmanInvoker.cs` (L47-51), `FormatConverterAdapter.cs` (L451-461)
   - Impact: Die "createdvd→createcd bei CD-Image"-Heuristik ist an 3 Stellen implementiert mit leicht unterschiedlichen Schwellwerten
   - Ursache: Legacy-Pfad, Adapter, und spezialisierter Invoker alle mit eigener Kopie
   - Fix: Zentralisieren in `ToolInvokerSupport.ResolveEffectiveChdmanCommand()`
-  - [ ] TGAP-30: `ChdmanCommand_CdDvdHeuristic_IsCentralized()`
+  - [x] TGAP-30: `Invoke_CreatedvdWithSmallIso_UsesCreatecd()`
 
 ### Invarianten, die aktuell verletzt werden
 
@@ -380,19 +397,19 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 | [x] TGAP-01 | `ConversionGraph_EqualCostPaths_ReturnsDeterministic()` | BUG-01 | erledigt (2026-03-30) |
 | [x] TGAP-02 | `MovePipelinePhase_SetMember_PartialFailure_RollsBack()` | BUG-03 | erledigt (2026-03-30) |
 | [x] TGAP-03 | `FindActualDestination_10PlusDuplicates_ReturnsHighest()` | BUG-04 | erledigt (2026-03-30) |
-| [ ] TGAP-04 | `HashFilesAsync_SingleThread_RespectsCancellation()` | BUG-05 | offen |
-| [ ] TGAP-05 | `ReportWriter_ConvertOnly_ValidatesInvariant()` | BUG-06 | offen |
-| [ ] TGAP-06 | `DeriveRootsFromAudit_PathWithComma_FullPath()` | BUG-10 | offen |
+| [x] TGAP-04 | `HashFilesAsync_SingleThread_RespectsCancellation()` | BUG-05 | erledigt (2026-03-30) |
+| [x] TGAP-05 | `BuildSummary_NoDedupeGroups_DoesNotThrowInvariant()` | BUG-06 | erledigt (2026-03-30) |
+| [x] TGAP-06 | `ExtractFirstCsvField_HandlesQuotedPaths()` | BUG-10 | erledigt (2026-06-28) |
 | [ ] TGAP-07 | `Api_OnlyGames_KeepUnknown_ValidationMatrix()` | BUG-12 | offen |
-| [ ] TGAP-08 | `SanitizeCsvField_Formula_QuotedCorrectly()` | BUG-14 | offen |
-| [ ] TGAP-09 | `Rollback_DryRun_Execute_SameCountSemantics()` | BUG-15 | offen |
+| [x] TGAP-08 | `SanitizeCsvField_PreventsInjection()` | BUG-14 | erledigt (2026-03-30) |
+| [x] TGAP-09 | `Rollback_DryRunAndExecute_ReparseUnsafe_CountSemanticsMatch()` | BUG-15 | erledigt (2026-03-30) |
 | [ ] TGAP-10 | `Rollback_MissingDestFile_CountsCorrectly()` | — | offen |
 | [x] TGAP-11 | `Create_BiosSameBaseKeyDifferentRegions_DifferentGameKeys()` | BUG-18 | erledigt (2026-03-30) |
 | [x] TGAP-12 | `Execute_DatHashMatch_OverridesJunkToGame()` | BUG-19 | erledigt (2026-03-30) |
-| [ ] TGAP-13 | `AmbiguousExtension_SingleSource_CanReachReview()` | BUG-20 | offen |
-| [ ] TGAP-14 | `ArchiveDetection_EqualSizeEntries_IsDeterministic()` | BUG-21 | offen |
-| [ ] TGAP-15 | `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()` | BUG-22 | offen |
-| [ ] TGAP-16 | `UnknownConsole_DatHashMatch_UpgradesToDatVerified()` | BUG-23 | offen |
+| [x] TGAP-13 | `AmbiguousExtension_SingleSource_CanReachReview()` | BUG-20 | erledigt (2026-03-30) |
+| [x] TGAP-14 | `ArchiveDetection_EqualSizeEntries_IsDeterministic()` | BUG-21 | erledigt (2026-03-30) |
+| [x] TGAP-15 | `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()` | BUG-22 | erledigt (2026-03-30) |
+| [x] TGAP-16 | `Execute_UnknownConsoleDatHashMatch_UpgradesToDatVerified()` | BUG-23 | erledigt (2026-03-30) |
 | [ ] TGAP-17 | `SnesHeaderSkip_RequiresValidHeaderConsistency()` | BUG-24 | offen |
 | [ ] TGAP-18 | `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()` | BUG-25 | offen |
 | [x] TGAP-19 | `ConversionReport_UsesByteSnapshots_WhenSourceFileNoLongerExists()` | BUG-26 | erledigt (2026-03-30) |
@@ -401,12 +418,12 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 | [x] TGAP-22 | `Verify_ValidIso9660Magic_ReturnsVerified()` | BUG-29 | erledigt (2026-03-30) |
 | [x] TGAP-23 | `Convert_LegacyCsoToChd_IsBlocked()` + `Convert_LegacyNkitToRvz_IsBlocked()` | BUG-30 | erledigt (2026-03-30) |
 | [x] TGAP-24 | `Invoke_ToolFailure_ReturnsAttemptedOutputPath()` | BUG-31 | erledigt (2026-03-30) |
-| [ ] TGAP-25 | `ToolInvocation_Cancellation_KillsProcess()` | BUG-32 | offen |
-| [ ] TGAP-26 | `SourceIntegrity_Chd_IsLossless()` | BUG-33 | offen |
-| [ ] TGAP-27 | `ConversionReport_CounterVsOutcome_AreConsistent()` | BUG-34 | offen |
-| [ ] TGAP-28 | `ConvertSingleFile_DryRun_SkipsConversion()` | BUG-35 | offen |
-| [ ] TGAP-29 | `RegistryLoader_DuplicateConsoleKey_FailsOrWarns()` | BUG-37 | offen |
-| [ ] TGAP-30 | `ChdmanCommand_CdDvdHeuristic_IsCentralized()` | BUG-38 | offen |
+| [x] TGAP-25 | `Invoke_ForwardsCancellationTokenAndTimeout_ToToolRunner()` + `InvokeProcess_CancelledToken_StopsLongRunningProcess()` | BUG-32 | erledigt (2026-03-30) |
+| [x] TGAP-26 | `Classify_ByExtension_ReturnsExpectedIntegrity()` | BUG-33 | erledigt (2026-03-30) |
+| [x] TGAP-27 | `ConvertSingleFile_VerifyFailed_ReturnsErrorOutcomeAndIncrementsErrorCounter()` | BUG-34 | erledigt (2026-03-30) |
+| [x] TGAP-28 | `ConvertSingleFile_DryRun_SkipsConversion()` | BUG-35 | erledigt (2026-03-30) |
+| [x] TGAP-29 | `Constructor_DuplicateConsoleKey_Throws()` | BUG-37 | erledigt (2026-03-30) |
+| [x] TGAP-30 | `Invoke_CreatedvdWithSmallIso_UsesCreatecd()` | BUG-38 | erledigt (2026-03-30) |
 
 ---
 
@@ -452,7 +469,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-39 · Duplicate Rollback Stacks — Dead Code in RunViewModel
+### BUG-39 · Duplicate Rollback Stacks — Dead Code in RunViewModel — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -467,7 +484,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-40 · Duplicate CancellationTokenSource — Dead Code in RunViewModel
+### BUG-40 · Duplicate CancellationTokenSource — Dead Code in RunViewModel — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -482,7 +499,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-41 · Rollback ohne Trash-Integrity-Preflight
+### BUG-41 · Rollback ohne Trash-Integrity-Preflight — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -497,7 +514,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-42 · MinimizeToTray wird nicht persistiert
+### BUG-42 · MinimizeToTray wird nicht persistiert — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -512,7 +529,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-43 · IsSimpleMode wird nicht persistiert
+### BUG-43 · IsSimpleMode wird nicht persistiert — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -527,7 +544,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-44 · Unvollständige Main→Setup Property-Synchronisation
+### BUG-44 · Unvollständige Main→Setup Property-Synchronisation — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -542,7 +559,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-45 · Console-Filter haben keinen Pipeline-Effekt
+### BUG-45 · Console-Filter haben keinen Pipeline-Effekt — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -557,7 +574,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-46 · SchedulerIntervalMinutes wird nicht persistiert
+### BUG-46 · SchedulerIntervalMinutes wird nicht persistiert — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -572,7 +589,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-47 · Dashboard unterscheidet nicht zwischen Plan (DryRun) und Actual (Move)
+### BUG-47 · Dashboard unterscheidet nicht zwischen Plan (DryRun) und Actual (Move) — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -587,7 +604,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-48 · ErrorSummaryProjection trunciert bei 50 ohne Report-Link
+### BUG-48 · ErrorSummaryProjection trunciert bei 50 ohne Report-Link — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -602,7 +619,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-49 · LibraryReportView: async void + fehlende Pfadvalidierung
+### BUG-49 · LibraryReportView: async void + fehlende Pfadvalidierung — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -632,7 +649,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-51 · Duplicate IsSimpleMode/IsExpertMode in Main+Setup ViewModel
+### BUG-51 · Duplicate IsSimpleMode/IsExpertMode in Main+Setup ViewModel — ✅ erledigt (2026-06-28)
 
 | Feld | Wert |
 |------|------|
@@ -712,15 +729,15 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 |--------|-----|------|-----|------|
 | [ ] | TGAP-31 | `Rollback_AfterDeadCodeRemoval_StillWorks()` | BUG-39 | offen |
 | [ ] | TGAP-32 | `Cancel_AfterDeadCodeRemoval_StillWorks()` | BUG-40 | offen |
-| [ ] | TGAP-33 | `Rollback_WithMissingTrashFiles_ShowsIntegrityWarning()` | BUG-41 | offen |
+| [x] | TGAP-33 | `Rollback_WithMissingTrashFiles_ShowsIntegrityWarning()` | BUG-41 | erledigt (2026-03-30) |
 | [ ] | TGAP-34 | `Settings_MinimizeToTray_RoundTrip()` | BUG-42 | offen |
 | [ ] | TGAP-35 | `Settings_IsSimpleMode_RoundTrip()` | BUG-43 | offen |
 | [ ] | TGAP-36 | `SetupVM_IsSimpleMode_DelegatesToMainVM()` | BUG-43, BUG-51 | offen |
 | [ ] | TGAP-37 | `MainVM_ToolPathChange_PropagesToSetupVM(string toolProperty)` | BUG-44 | offen |
-| [ ] | TGAP-38 | `ConsoleFilter_PipelineOrLabel_IsCorrect()` | BUG-45 | offen |
+| [x] | TGAP-38 | `ConsoleFilter_PipelineOrLabel_IsCorrect()` | BUG-45 | erledigt (2026-03-30) |
 | [ ] | TGAP-39 | `Settings_SchedulerIntervalMinutes_RoundTrip()` | BUG-46 | offen |
-| [ ] | TGAP-40 | `DashboardProjection_DryRun_ShowsPlanMarker()` | BUG-47 | offen |
-| [ ] | TGAP-41 | `LibraryReportView_InvalidPath_DoesNotThrow()` | BUG-49 | offen |
+| [x] | TGAP-40 | `DashboardProjection_DryRun_ShowsPlanMarker()` | BUG-47 | erledigt (2026-03-30) |
+| [x] | TGAP-41 | `LibraryReportViewPathTests` (`TryNormalizeReportPath_*`) | BUG-49 | erledigt (2026-03-30) |
 
 ---
 
@@ -780,7 +797,7 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 
 ---
 
-### BUG-54 · RunOptionsBuilder.Validate() nie in Produktionscode aufgerufen
+### BUG-54 · RunOptionsBuilder.Validate() nie in Produktionscode aufgerufen — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -795,7 +812,7 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 
 ---
 
-### BUG-55 · CLI DryRun JSON enthält keine PreflightWarnings
+### BUG-55 · CLI DryRun JSON enthält keine PreflightWarnings — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -810,7 +827,7 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 
 ---
 
-### BUG-56 · RunStatusDto fehlen EnableDatAudit/EnableDatRename
+### BUG-56 · RunStatusDto fehlen EnableDatAudit/EnableDatRename — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -825,7 +842,7 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 
 ---
 
-### BUG-57 · ConvertOnly + DryRun produziert Leer-Output ohne Warnung
+### BUG-57 · ConvertOnly + DryRun produziert Leer-Output ohne Warnung — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -961,10 +978,10 @@ BUG-12 beschreibt die API-OnlyGames-Validierung als "invertiert". Nach detaillie
 |--------|-----|------|-----|------|
 | [x] | TGAP-42 | `Api_DefaultPreferRegions_MatchRunConstants()` | BUG-52 | erledigt (2026-03-30) |
 | [x] | TGAP-43 | `Api_EnableDatAudit_PropagatedToRunRecord()` | BUG-53 | erledigt (2026-03-30) |
-| [ ] | TGAP-44 | `RunOptionsFactory_InvalidOptions_ThrowsFromValidate()` | BUG-54 | offen |
-| [ ] | TGAP-45 | `Cli_DryRunJson_IncludesPreflightWarnings()` | BUG-55 | offen |
-| [ ] | TGAP-46 | `RunStatusDto_IncludesAllRunRecordBooleanFlags()` | BUG-56 | offen |
-| [ ] | TGAP-47 | `DryRunWarnings_ConvertOnly_IsWarned()` | BUG-57 | offen |
+| [x] | TGAP-44 | `RunOptionsFactory_InvalidOptions_ThrowsFromValidate()` | BUG-54 | erledigt (2026-03-30) |
+| [x] | TGAP-45 | `Cli_DryRunJson_IncludesPreflightWarnings()` | BUG-55 | erledigt (2026-03-30) |
+| [x] | TGAP-46 | `RunStatusDto_IncludesAllRunRecordBooleanFlags()` | BUG-56 | erledigt (2026-03-30) |
+| [x] | TGAP-47 | `DryRunWarnings_ConvertOnly_IsWarned()` | BUG-57 | erledigt (2026-03-30) |
 | [ ] | TGAP-48 | `Api_StatusStrings_UseCentralConstants()` | BUG-58 | offen |
 | [ ] | TGAP-49 | `Cli_DryRunJson_CanonicalFieldNames_MatchApi()` | BUG-59 | offen |
 | [ ] | TGAP-50 | `Api_ArtifactPaths_DocumentedOrConfigurable()` | BUG-60 | offen |

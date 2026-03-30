@@ -87,49 +87,8 @@ public sealed class RunViewModel : ObservableObject
     public bool ShowStartMoveButton => _runState == RunState.CompletedDryRun && !IsBusy;
     public bool HasRunResult => _runState is RunState.Completed or RunState.CompletedDryRun;
 
-    // ═══ ROLLBACK HISTORY ═══════════════════════════════════════════════
-    private const int MaxRollbackDepth = 50;
-    private readonly Stack<string> _rollbackUndoStack = new();
-    private readonly Stack<string> _rollbackRedoStack = new();
-
-    public bool HasRollbackUndo => _rollbackUndoStack.Count > 0;
-    public bool HasRollbackRedo => _rollbackRedoStack.Count > 0;
-
-    public void PushRollbackUndo(string auditPath)
-    {
-        _rollbackUndoStack.Push(auditPath);
-        _rollbackRedoStack.Clear();
-        while (_rollbackUndoStack.Count > MaxRollbackDepth)
-        {
-            var items = _rollbackUndoStack.ToArray();
-            _rollbackUndoStack.Clear();
-            for (int i = MaxRollbackDepth - 1; i >= 0; i--)
-                _rollbackUndoStack.Push(items[i]);
-            break;
-        }
-        OnPropertyChanged(nameof(HasRollbackUndo));
-        OnPropertyChanged(nameof(HasRollbackRedo));
-    }
-
-    public string? PopRollbackUndo()
-    {
-        if (_rollbackUndoStack.Count == 0) return null;
-        var path = _rollbackUndoStack.Pop();
-        _rollbackRedoStack.Push(path);
-        OnPropertyChanged(nameof(HasRollbackUndo));
-        OnPropertyChanged(nameof(HasRollbackRedo));
-        return path;
-    }
-
-    public string? PopRollbackRedo()
-    {
-        if (_rollbackRedoStack.Count == 0) return null;
-        var path = _rollbackRedoStack.Pop();
-        _rollbackUndoStack.Push(path);
-        OnPropertyChanged(nameof(HasRollbackUndo));
-        OnPropertyChanged(nameof(HasRollbackRedo));
-        return path;
-    }
+    // BUG-39: Rollback stacks removed — dead code from partial refactor.
+    // Active rollback logic lives in MainViewModel.RunPipeline.cs.
 
     // ═══ PROGRESS & PERFORMANCE ═════════════════════════════════════════
     private double _progress;
@@ -348,30 +307,11 @@ public sealed class RunViewModel : ObservableObject
     public string StepLabel3 { get => _stepLabel3; set => SetProperty(ref _stepLabel3, value); }
 
     // ═══ CANCELLATION ═══════════════════════════════════════════════════
-    private CancellationTokenSource? _cts;
-    private readonly object _ctsLock = new();
-
-    public CancellationToken CreateRunCancellation()
-    {
-        var newCts = new CancellationTokenSource();
-        CancellationTokenSource? oldCts;
-        lock (_ctsLock)
-        {
-            oldCts = _cts;
-            _cts = newCts;
-        }
-        try { oldCts?.Dispose(); } catch (ObjectDisposedException) { }
-        return newCts.Token;
-    }
+    // BUG-40: CTS fields removed — dead code from partial refactor.
+    // Active CTS logic lives in MainViewModel.RunPipeline.cs.
 
     public void CancelRun()
     {
-        CancellationTokenSource? cts;
-        lock (_ctsLock)
-        {
-            cts = _cts;
-        }
-        try { cts?.Cancel(); } catch (ObjectDisposedException) { }
         CurrentRunState = RunState.Cancelled;
         BusyHint = _loc["Run.CancelRequested"];
     }

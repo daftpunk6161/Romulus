@@ -752,4 +752,18 @@ public sealed class CliProgramTests : IDisposable
             CliProgram.SetConsoleOverrides(null, null);
         }
     }
+
+    // ═══ TGAP-06: BUG-10 – ExtractFirstCsvField with RFC-4180 quoting ═══
+
+    [Theory]
+    [InlineData("C:\\Games\\NES,MOVE,file.zip", "C:\\Games\\NES")]
+    [InlineData("\"C:\\Games,ROMs\\NES\",MOVE,file.zip", "C:\\Games,ROMs\\NES")]
+    [InlineData("\"C:\\Path \"\"quoted\"\"\",MOVE,file.zip", "C:\\Path \"quoted\"")]
+    [InlineData("SimpleRoot,MOVE,file.zip", "SimpleRoot")]
+    [InlineData("", "")]
+    public void ExtractFirstCsvField_HandlesQuotedPaths(string line, string expected)
+    {
+        var result = CliProgram.ExtractFirstCsvField(line);
+        Assert.Equal(expected, result);
+    }
 }

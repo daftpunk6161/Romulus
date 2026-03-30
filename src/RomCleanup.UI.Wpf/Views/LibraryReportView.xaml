@@ -30,6 +30,24 @@
               <DataTemplate>
                 <StackPanel Margin="0,2">
                   <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextPrimary}"/>
+                  <Button Content="Vollständigen Report öffnen"
+                          Command="{Binding DataContext.OpenReportCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                          Margin="0,4,0,0"
+                          HorizontalAlignment="Left"
+                          Padding="8,2"
+                          Visibility="Collapsed"
+                          AutomationProperties.Name="Vollständigen Report öffnen">
+                    <Button.Style>
+                      <Style TargetType="Button">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Code}" Value="RUN-TRUNC">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
                   <TextBlock FontSize="10" Opacity="0.8" Foreground="{DynamicResource BrushTextMuted}">
                     <Run Text="Code: "/>
                     <Run Text="{Binding Code}"/>

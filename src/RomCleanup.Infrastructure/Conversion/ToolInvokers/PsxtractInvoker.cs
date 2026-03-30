@@ -42,7 +42,12 @@ public sealed class PsxtractInvoker(IToolRunner tools) : IToolInvoker
             return ToolInvokerSupport.ConstraintFailure(constraintError);
 
         var watch = Stopwatch.StartNew();
-        var result = _tools.InvokeProcess(toolPath, [commandToken, "-i", sourcePath, "-o", targetPath], "psxtract");
+        var result = _tools.InvokeProcess(
+            toolPath,
+            [commandToken, "-i", sourcePath, "-o", targetPath],
+            "psxtract",
+            ToolInvokerSupport.ResolveToolTimeout("psxtract"),
+            cancellationToken);
         watch.Stop();
 
         if (!result.Success)

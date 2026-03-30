@@ -824,4 +824,34 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
         public bool ConfirmDatRenamePreview(IReadOnlyList<DatAuditEntry> renameProposals) => true;
     }
+
+    // ═══ TGAP-34/35/39: BUG-42/43/46 – Settings persistence round-trip ════
+
+    [Fact]
+    public void SettingsService_ApplyToViewModel_MinimizeToTray_RoundTrip()
+    {
+        var dto = new SettingsDto { MinimizeToTray = true };
+        var vm = new MainViewModel(new StubTheme(), _dialog, _settings);
+        SettingsService.ApplyToViewModel(vm, dto);
+        Assert.True(vm.MinimizeToTray);
+    }
+
+    [Fact]
+    public void SettingsService_ApplyToViewModel_IsSimpleMode_RoundTrip()
+    {
+        var dto = new SettingsDto { IsSimpleMode = false };
+        var vm = new MainViewModel(new StubTheme(), _dialog, _settings);
+        SettingsService.ApplyToViewModel(vm, dto);
+        Assert.False(vm.IsSimpleMode);
+        Assert.True(vm.IsExpertMode);
+    }
+
+    [Fact]
+    public void SettingsService_ApplyToViewModel_SchedulerIntervalMinutes_RoundTrip()
+    {
+        var dto = new SettingsDto { SchedulerIntervalMinutes = 30 };
+        var vm = new MainViewModel(new StubTheme(), _dialog, _settings);
+        SettingsService.ApplyToViewModel(vm, dto);
+        Assert.Equal(30, vm.SchedulerIntervalMinutes);
+    }
 }

@@ -354,6 +354,7 @@ public sealed class SafetyIoRecoveryTests : IDisposable
 
         var fs = new FileSystemAdapter();
         var signingService = new AuditSigningService(fs);
+        signingService.WriteMetadataSidecar(auditPath, 2);
 
         // DryRun to check it plans to rollback
         var result = signingService.Rollback(

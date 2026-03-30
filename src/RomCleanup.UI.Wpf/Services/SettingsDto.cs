@@ -48,6 +48,11 @@ public sealed record SettingsDto
     public bool WatchAutoStart { get; init; }
     public ConflictPolicy ConflictPolicy { get; init; } = ConflictPolicy.Rename;
     public string Theme { get; init; } = "Dark";
+
+    // BUG-42/43/46: Previously missing persistence fields
+    public bool MinimizeToTray { get; init; }
+    public bool IsSimpleMode { get; init; } = true;
+    public int SchedulerIntervalMinutes { get; init; }
 }
 
 /// <summary>Serializable DAT mapping entry (console key → DAT file path).</summary>

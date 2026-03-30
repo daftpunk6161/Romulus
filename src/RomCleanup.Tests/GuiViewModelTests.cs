@@ -1340,9 +1340,9 @@ public class GuiViewModelTests
         Assert.Equal(RunState.Cancelled, vm.CurrentRunState);
         Assert.NotNull(vm.LastRunResult);
         Assert.Equal("cancelled", vm.LastRunResult!.Status);
-        Assert.Equal("1", vm.DashWinners);
-        Assert.Equal("1", vm.DashDupes);
-        Assert.Equal("1", vm.DashGames);
+        Assert.StartsWith("1", vm.DashWinners, StringComparison.Ordinal);
+        Assert.StartsWith("1", vm.DashDupes, StringComparison.Ordinal);
+        Assert.StartsWith("1", vm.DashGames, StringComparison.Ordinal);
         Assert.Equal(2, vm.LastCandidates.Count);
         Assert.Single(vm.LastDedupeGroups);
     }
@@ -1759,6 +1759,36 @@ public class GuiViewModelTests
             Path.Combine(Path.GetTempPath(), "nonexistent_audit.csv"),
             new[] { @"C:\Games" });
         Assert.Equal(0, result.RolledBack);
+    }
+
+    [Fact]
+    public async Task Rollback_WithMissingTrashFiles_ShowsIntegrityWarning()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "RomCleanup_RollbackWarn_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var auditPath = Path.Combine(tempDir, "audit.csv");
+            File.WriteAllText(auditPath, "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n", Encoding.UTF8);
+
+            var stub = new StubDialogService();
+            stub.ConfirmResponses.Enqueue(true);
+            stub.ConfirmResponses.Enqueue(false);
+
+            var vm = new MainViewModel(new ThemeService(), stub);
+            vm.Roots.Add(tempDir);
+            vm.LastAuditPath = auditPath;
+
+            await vm.RollbackCommand.ExecuteAsync(null);
+
+            Assert.Equal(2, stub.ConfirmCallCount);
+            Assert.Contains("integrity", stub.LastConfirmMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
     }
 
     // ═══ ProfileService tests ═══════════════════════════════════════════
@@ -2262,6 +2292,7 @@ public class GuiViewModelTests
         public string? BrowseFileResult { get; set; }
         public string? BrowseFolderResult { get; set; }
         public bool ConfirmReturnValue { get; set; } = true;
+        public Queue<bool> ConfirmResponses { get; } = new();
         public bool DangerConfirmResult { get; set; } = true;
         public int ConfirmCallCount { get; private set; }
         public string? LastConfirmMessage { get; private set; }
@@ -2275,6 +2306,8 @@ public class GuiViewModelTests
             ConfirmCallCount++;
             LastConfirmMessage = message;
             LastConfirmTitle = title;
+            if (ConfirmResponses.Count > 0)
+                return ConfirmResponses.Dequeue();
             return ConfirmReturnValue;
         }
         public void Info(string message, string title = "Information") { }

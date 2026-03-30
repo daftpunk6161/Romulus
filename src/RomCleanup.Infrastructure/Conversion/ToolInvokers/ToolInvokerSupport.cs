@@ -153,4 +153,17 @@ internal static class ToolInvokerSupport
 
         return requestedCommand;
     }
+
+    /// <summary>
+    /// Returns the execution timeout for a tool invocation.
+    /// </summary>
+    internal static TimeSpan ResolveToolTimeout(string toolName)
+        => toolName.ToLowerInvariant() switch
+        {
+            "chdman" => TimeSpan.FromMinutes(30),
+            "7z" => TimeSpan.FromMinutes(10),
+            "dolphintool" => TimeSpan.FromMinutes(20),
+            "psxtract" => TimeSpan.FromMinutes(20),
+            _ => TimeSpan.FromMinutes(15)
+        };
 }

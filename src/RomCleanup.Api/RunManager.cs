@@ -218,6 +218,7 @@ public sealed class RunRecord
     private string? _progressMessage;
     private string _recoveryState = "in-progress";
     private bool _cancellationRequested;
+    private readonly HashSet<string> _approvedReviewPaths = new(StringComparer.OrdinalIgnoreCase);
 
     public string RunId { get; init; } = "";
     [JsonIgnore]
@@ -266,16 +267,13 @@ public sealed class RunRecord
     }
     [JsonIgnore]
     public RunResult? CoreRunResult { get; set; }
-    [JsonIgnore]
-    public HashSet<string> ApprovedReviewPaths { get; } = new(StringComparer.OrdinalIgnoreCase);
-
     public bool TryApproveReviewPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
         lock (_lock)
-            return ApprovedReviewPaths.Add(path);
+            return _approvedReviewPaths.Add(path);
     }
 
     public int ApprovedReviewCount
@@ -283,7 +281,7 @@ public sealed class RunRecord
         get
         {
             lock (_lock)
-                return ApprovedReviewPaths.Count;
+                return _approvedReviewPaths.Count;
         }
     }
 
@@ -293,7 +291,7 @@ public sealed class RunRecord
             return false;
 
         lock (_lock)
-            return ApprovedReviewPaths.Contains(path);
+            return _approvedReviewPaths.Contains(path);
     }
     public string? ProgressMessage
     {
@@ -472,6 +470,8 @@ public sealed class RunStatusDto
     public bool AggressiveJunk { get; init; }
     public bool SortConsole { get; init; }
     public bool EnableDat { get; init; }
+    public bool EnableDatAudit { get; init; }
+    public bool EnableDatRename { get; init; }
     public bool OnlyGames { get; init; }
     public bool KeepUnknownWhenOnlyGames { get; init; }
     public string HashType { get; init; } = "SHA1";
@@ -509,6 +509,8 @@ public static class RunStatusDtoMapper
             AggressiveJunk = run.AggressiveJunk,
             SortConsole = run.SortConsole,
             EnableDat = run.EnableDat,
+            EnableDatAudit = run.EnableDatAudit,
+            EnableDatRename = run.EnableDatRename,
             OnlyGames = run.OnlyGames,
             KeepUnknownWhenOnlyGames = run.KeepUnknownWhenOnlyGames,
             HashType = run.HashType,

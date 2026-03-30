@@ -137,7 +137,10 @@ public sealed class SettingsService : ISettingsService
                     ConfirmMove = GetBool(ui, "confirmMove", true),
                     WatchAutoStart = GetBool(ui, "watchAutoStart"),
                     ConflictPolicy = cp,
-                    Theme = GetString(ui, "theme", "Dark")
+                    Theme = GetString(ui, "theme", "Dark"),
+                    MinimizeToTray = GetBool(ui, "minimizeToTray"),
+                    IsSimpleMode = GetBool(ui, "isSimpleMode", true),
+                    SchedulerIntervalMinutes = GetInt(ui, "schedulerIntervalMinutes")
                 };
             }
 
@@ -281,6 +284,9 @@ public sealed class SettingsService : ISettingsService
         vm.ConfirmMove = dto.ConfirmMove;
         vm.WatchAutoStart = dto.WatchAutoStart;
         vm.ConflictPolicy = dto.ConflictPolicy;
+        vm.MinimizeToTray = dto.MinimizeToTray;
+        vm.IsSimpleMode = dto.IsSimpleMode;
+        vm.SchedulerIntervalMinutes = dto.SchedulerIntervalMinutes;
 
         // Roots
         vm.Roots.Clear();
@@ -352,7 +358,10 @@ public sealed class SettingsService : ISettingsService
                         confirmMove = vm.ConfirmMove,
                         watchAutoStart = vm.WatchAutoStart,
                         conflictPolicy = vm.ConflictPolicy.ToString(),
-                        theme = vm.CurrentThemeName
+                        theme = vm.CurrentThemeName,
+                        minimizeToTray = vm.MinimizeToTray,
+                        isSimpleMode = vm.IsSimpleMode,
+                        schedulerIntervalMinutes = vm.SchedulerIntervalMinutes
                     }
                 };
 
@@ -381,5 +390,11 @@ public sealed class SettingsService : ISettingsService
     {
         return el.TryGetProperty(prop, out var val) && val.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? val.GetBoolean() : fallback;
+    }
+
+    private static int GetInt(JsonElement el, string prop, int fallback = 0)
+    {
+        return el.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number
+            ? val.GetInt32() : fallback;
     }
 }

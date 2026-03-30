@@ -958,6 +958,64 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         Assert.Contains(messages, w => w.Contains("Kein Match fuer", StringComparison.OrdinalIgnoreCase));
     }
 
+    // TGAP-16: BUG-23 – UNKNOWN console with matching DAT hash must upgrade to DatVerified
+    [Fact]
+    public void Enrichment_UnknownConsole_DatHashMatch_UpgradesToDatVerified()
+    {
+        // Arrange: create a file with known content so we can compute its real SHA1
+        var root = Path.Combine(_tempDir, "dat_upgrade");
+        Directory.CreateDirectory(root);
+        var filePath = Path.Combine(root, "Mystery.bin");
+        var content = System.Text.Encoding.UTF8.GetBytes("TGAP-16 test content for hash matching");
+        File.WriteAllBytes(filePath, content);
+
+        var hashService = new FileHashService();
+        var realHash = hashService.GetHash(filePath, "SHA1");
+        Assert.NotNull(realHash);
+
+        // Build a DAT that contains this hash under console "NES"
+        var datRoot = Path.Combine(_tempDir, "dat_upgrade_dats");
+        Directory.CreateDirectory(datRoot);
+        File.WriteAllText(Path.Combine(datRoot, "nes.dat"),
+            $"<?xml version=\"1.0\"?><datafile><game name=\"Mystery\"><rom sha1=\"{realHash}\" /></game></datafile>");
+        var repo = new RomCleanup.Infrastructure.Dat.DatRepositoryAdapter();
+        var datIndex = repo.GetDatIndex(datRoot, new Dictionary<string, string> { ["NES"] = "nes.dat" });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Extensions = new[] { ".bin" },
+            Mode = "DryRun"
+        };
+
+        var scanned = new ScanPipelinePhase().Execute(options, CreateContext(options), CancellationToken.None);
+        Assert.Single(scanned);
+
+        // No ConsoleDetector → consoleKey="" → cross-console DAT lookup must find it
+        var context = new PipelineContext
+        {
+            Options = options,
+            FileSystem = new FileSystemAdapter(),
+            AuditStore = new AuditCsvStore(),
+            Metrics = CreateContext(options).Metrics
+        };
+
+        // Act
+        var enriched = new EnrichmentPipelinePhase().Execute(
+            new EnrichmentPhaseInput(scanned, null, hashService, null, datIndex),
+            context,
+            CancellationToken.None);
+
+        // Assert: INVARIANT – cross-console DAT hash match upgrades UNKNOWN to DatVerified
+        Assert.Single(enriched);
+        var candidate = enriched[0];
+        Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
+        Assert.Equal("NES", candidate.ConsoleKey);
+        Assert.True(candidate.DatMatch);
+        Assert.NotEqual(MatchKind.None, candidate.PrimaryMatchKind);
+        Assert.NotEqual(EvidenceTier.Tier4_Unknown, candidate.EvidenceTier);
+    }
+
     // 10) GUI / CLI / API parity
 
     [Fact]

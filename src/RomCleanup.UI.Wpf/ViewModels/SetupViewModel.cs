@@ -179,13 +179,8 @@ public sealed partial class SetupViewModel : ObservableObject, INotifyDataErrorI
     }
 
     // ═══ UI MODE ════════════════════════════════════════════════════════
-    private bool _isSimpleMode = true;
-    public bool IsSimpleMode
-    {
-        get => _isSimpleMode;
-        set { if (SetProperty(ref _isSimpleMode, value)) OnPropertyChanged(nameof(IsExpertMode)); }
-    }
-    public bool IsExpertMode => !_isSimpleMode;
+    // IsSimpleMode/IsExpertMode lives on MainViewModel only (Single Source of Truth).
+    // SetupViewModel had a duplicate copy removed per BUG-51.
 
     [ObservableProperty]
     private int _simpleRegionIndex;

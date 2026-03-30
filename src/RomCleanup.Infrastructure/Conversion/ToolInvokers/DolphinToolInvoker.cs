@@ -54,7 +54,12 @@ public sealed class DolphinToolInvoker(IToolRunner tools) : IToolInvoker
         };
 
         var watch = Stopwatch.StartNew();
-        var result = _tools.InvokeProcess(toolPath, args, "dolphintool");
+        var result = _tools.InvokeProcess(
+            toolPath,
+            args,
+            "dolphintool",
+            ToolInvokerSupport.ResolveToolTimeout("dolphintool"),
+            cancellationToken);
         watch.Stop();
 
         return ToolInvokerSupport.FromToolResult(targetPath, result, watch);

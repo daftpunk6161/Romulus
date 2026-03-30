@@ -75,6 +75,58 @@ public sealed class ToolInvokerAdapterHardeningTests
     }
 
     [Fact]
+    public void Invoke_CreatedvdWithSmallIso_UsesCreatecd()
+    {
+        var source = CreateSizedTempIso(699L * 1024 * 1024);
+        var target = Path.ChangeExtension(source, ".chd");
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
+        var invoker = new ToolInvokerAdapter(runner);
+
+        try
+        {
+            var result = invoker.Invoke(source, target, Capability("chdman", "createdvd"));
+
+            Assert.True(result.Success);
+            Assert.NotNull(runner.LastArgs);
+            Assert.Equal("createcd", runner.LastArgs![0]);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
+    public void Invoke_ForwardsCancellationTokenAndTimeout_ToToolRunner()
+    {
+        var source = CreateTempFile(".iso");
+        var target = Path.ChangeExtension(source, ".chd");
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
+        var invoker = new ToolInvokerAdapter(runner);
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            var result = invoker.Invoke(source, target, Capability("chdman", "createcd"), cts.Token);
+
+            Assert.True(result.Success);
+            Assert.True(runner.AdvancedInvokeCalled);
+            Assert.True(runner.LastCancellationToken.CanBeCanceled);
+            Assert.NotNull(runner.LastTimeout);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
     public void Invoke_ExpectedHashMismatch_BlocksInvocation()
     {
         var source = CreateTempFile(".iso");
@@ -202,6 +254,14 @@ public sealed class ToolInvokerAdapterHardeningTests
         return path;
     }
 
+    private static string CreateSizedTempIso(long sizeBytes)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"tool_invoker_hardening_{Guid.NewGuid():N}.iso");
+        using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        fs.SetLength(sizeBytes);
+        return path;
+    }
+
     private static string GetExistingExecutablePath()
     {
         var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
@@ -231,7 +291,10 @@ public sealed class ToolInvokerAdapterHardeningTests
     private sealed class RecordingToolRunner : IToolRunner
     {
         public bool WasInvokeCalled { get; private set; }
+        public bool AdvancedInvokeCalled { get; private set; }
         public string[]? LastArgs { get; private set; }
+        public TimeSpan? LastTimeout { get; private set; }
+        public CancellationToken LastCancellationToken { get; private set; }
         public string? ToolPath { get; init; }
 
         public string? FindTool(string toolName) => ToolPath ?? $"C:\\mock\\{toolName}.exe";
@@ -252,6 +315,19 @@ public sealed class ToolInvokerAdapterHardeningTests
             }
 
             return new ToolResult(0, "ok", true);
+        }
+
+        public ToolResult InvokeProcess(
+            string filePath,
+            string[] arguments,
+            string? errorLabel,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+        {
+            AdvancedInvokeCalled = true;
+            LastTimeout = timeout;
+            LastCancellationToken = cancellationToken;
+            return InvokeProcess(filePath, arguments, errorLabel);
         }
 
         public ToolResult Invoke7z(string sevenZipPath, string[] arguments)

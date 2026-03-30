@@ -226,6 +226,42 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
     }
 
+    [Fact]
+    public void Execute_UnknownConsoleDatHashMatch_UpgradesToDatVerified()
+    {
+        var root = Path.Combine(_tempDir, "phase3_unknown_dat");
+        Directory.CreateDirectory(root);
+        var filePath = CreateFile(root, "mystery.rom", 80);
+
+        var hashService = new FileHashService();
+        var hash = hashService.GetHash(filePath, "SHA1");
+        Assert.False(string.IsNullOrWhiteSpace(hash));
+
+        var datIndex = new DatIndex();
+        datIndex.Add("PS1", hash!, "Known Game", "known-game.bin", isBios: false);
+
+        var scan = new[] { new ScannedFileEntry(root, filePath, ".rom") };
+        var options = new RunOptions
+        {
+            Roots = [root],
+            Extensions = [".rom"],
+            Mode = "DryRun",
+            HashType = "SHA1"
+        };
+
+        var phase = new EnrichmentPipelinePhase();
+        var result = phase.Execute(
+            new EnrichmentPhaseInput(scan, null, hashService, null, datIndex),
+            CreateContext(options),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(result);
+        Assert.True(candidate.DatMatch);
+        Assert.Equal("PS1", candidate.ConsoleKey);
+        Assert.Equal(FileCategory.Game, candidate.Category);
+        Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
+    }
+
     private PipelineContext CreateContext(RunOptions options)
     {
         var metrics = new PhaseMetricsCollector();

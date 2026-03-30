@@ -101,6 +101,7 @@ public class AuditCsvStoreTests : IDisposable
             "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp",
             $"{_tempDir},{oldPath},{newPath},Move,GAME,abc,dedupe,2025-01-01"
         });
+        _audit.WriteMetadataSidecar(csvPath, new Dictionary<string, object>());
 
         var result = _audit.Rollback(csvPath,
             allowedRestoreRoots: new[] { _tempDir },

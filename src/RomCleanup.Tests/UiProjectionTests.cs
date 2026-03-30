@@ -160,6 +160,60 @@ public sealed class UiProjectionTests
         Assert.Contains("vorläufig", dashboard.MoveConsequenceText, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DashboardProjection_DryRun_ShowsPlanMarker()
+    {
+        var result = new RunResult
+        {
+            TotalFilesScanned = 3,
+            DurationMs = 1000,
+            DedupeGroups = new[]
+            {
+                new DedupeGroup
+                {
+                    GameKey = "g1",
+                    Winner = new RomCandidate { MainPath = "winner.zip", Region = "US", RegionScore = 10, FormatScore = 10, VersionScore = 10 },
+                    Losers = new[]
+                    {
+                        new RomCandidate { MainPath = "loser.zip", Region = "EU", RegionScore = 9, FormatScore = 9, VersionScore = 9 }
+                    }
+                }
+            },
+            AllCandidates = new[]
+            {
+                new RomCandidate { MainPath = "winner.zip", Category = FileCategory.Game, DatMatch = true, ConsoleKey = "psx" },
+                new RomCandidate { MainPath = "loser.zip", Category = FileCategory.Game, DatMatch = false, ConsoleKey = "psx" },
+                new RomCandidate { MainPath = "junk.zip", Category = FileCategory.Junk, DatMatch = false, ConsoleKey = "psx" }
+            }
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: false, isDryRun: true);
+
+        Assert.Contains("(Plan)", dashboard.Winners, StringComparison.Ordinal);
+        Assert.Contains("(Plan)", dashboard.Dupes, StringComparison.Ordinal);
+        Assert.Contains("(Plan)", dashboard.Junk, StringComparison.Ordinal);
+        Assert.Contains("Vorschau", dashboard.MoveConsequenceText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ErrorSummaryProjection_Truncation_AddsRunTruncMarker()
+    {
+        var logs = Enumerable.Range(1, 55)
+            .Select(i => new LogEntry($"Warnung {i}", "WARN"))
+            .ToArray();
+
+        var errors = ErrorSummaryProjection.Build(
+            result: null,
+            candidates: Array.Empty<RomCandidate>(),
+            runLogs: logs);
+
+        Assert.Equal(51, errors.Count);
+        var trunc = errors.Last();
+        Assert.Equal("RUN-TRUNC", trunc.Code);
+        Assert.Contains("weitere", trunc.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ TASK-121: ProgressProjection ════════════════════════════════════
 
     [Fact]

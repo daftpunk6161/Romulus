@@ -28,10 +28,10 @@ public sealed class AuditSigningServiceTests : IDisposable
     [Theory]
     [InlineData("normal", "normal")]
     [InlineData("", "")]
-    [InlineData("=cmd", "'=cmd")]
-    [InlineData("+cmd", "'+cmd")]
-    [InlineData("-cmd", "'-cmd")]
-    [InlineData("@cmd", "'@cmd")]
+    [InlineData("=cmd", "\"=cmd\"")]
+    [InlineData("+cmd", "\"+cmd\"")]
+    [InlineData("-cmd", "\"-cmd\"")]
+    [InlineData("@cmd", "\"@cmd\"")]
     public void SanitizeCsvField_PreventsInjection(string input, string expected)
         => Assert.Equal(expected, AuditSigningService.SanitizeCsvField(input));
 
@@ -217,6 +217,7 @@ public sealed class AuditSigningServiceTests : IDisposable
 
         var fs = new MinimalFs();
         var service = new AuditSigningService(fs);
+        service.WriteMetadataSidecar(csvPath, 1);
         var result = service.Rollback(csvPath,
             allowedRestoreRoots: [srcDir],
             allowedCurrentRoots: [destDir],
@@ -262,6 +263,7 @@ public sealed class AuditSigningServiceTests : IDisposable
 
         var fs = new MinimalFs();
         var service = new AuditSigningService(fs);
+        service.WriteMetadataSidecar(csvPath, 1);
         var result = service.Rollback(csvPath,
             allowedRestoreRoots: [allowedRestore],
             allowedCurrentRoots: [allowedCurrent],
@@ -371,6 +373,44 @@ public sealed class AuditSigningServiceTests : IDisposable
         Assert.False(File.Exists(renamedPath));
     }
 
+    [Fact]
+    public void Rollback_DryRunAndExecute_ReparseUnsafe_CountSemanticsMatch()
+    {
+        var restoreDir = Path.Combine(_tempDir, "restore");
+        var currentDir = Path.Combine(_tempDir, "current");
+        Directory.CreateDirectory(restoreDir);
+        Directory.CreateDirectory(currentDir);
+
+        var oldPath = Path.Combine(restoreDir, "game.zip");
+        var newPath = Path.Combine(currentDir, "game.zip");
+        File.WriteAllText(newPath, "data");
+
+        var csvPath = Path.Combine(_tempDir, "audit_reparse_semantics.csv");
+        File.WriteAllText(csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{_tempDir},{oldPath},{newPath},MOVE\n",
+            Encoding.UTF8);
+
+        var dryRunService = new AuditSigningService(new ReparseFs(newPath));
+        dryRunService.WriteMetadataSidecar(csvPath, 1);
+        var dryRun = dryRunService.Rollback(csvPath,
+            allowedRestoreRoots: [restoreDir],
+            allowedCurrentRoots: [currentDir],
+            dryRun: true);
+
+        var executeService = new AuditSigningService(new ReparseFs(newPath));
+        executeService.WriteMetadataSidecar(csvPath, 1);
+        var execute = executeService.Rollback(csvPath,
+            allowedRestoreRoots: [restoreDir],
+            allowedCurrentRoots: [currentDir],
+            dryRun: false);
+
+        Assert.Equal(1, dryRun.SkippedUnsafe);
+        Assert.Equal(0, dryRun.Failed);
+        Assert.Equal(1, execute.SkippedUnsafe);
+        Assert.Equal(0, execute.Failed);
+    }
+
     // Minimal IFileSystem for audit tests
     private sealed class MinimalFs : IFileSystem
     {
@@ -386,6 +426,35 @@ public sealed class AuditSigningServiceTests : IDisposable
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.Combine(rootPath, relativePath);
         public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) { }
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
+    }
+
+    private sealed class ReparseFs(string reparsePath) : IFileSystem
+    {
+        public bool TestPath(string literalPath, string pathType = "Any")
+            => File.Exists(literalPath) || Directory.Exists(literalPath);
+
+        public string EnsureDirectory(string path)
+        {
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? extensions = null) => [];
+
+        public string? MoveItemSafely(string src, string dest)
+        {
+            File.Move(src, dest);
+            return dest;
+        }
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
+            => Path.Combine(rootPath, relativePath);
+
+        public bool IsReparsePoint(string path)
+            => string.Equals(Path.GetFullPath(path), Path.GetFullPath(reparsePath), StringComparison.OrdinalIgnoreCase);
+
         public void DeleteFile(string path) { }
         public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
     }

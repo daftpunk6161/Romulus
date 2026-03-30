@@ -61,6 +61,11 @@ public sealed class RunOptionsFactory : IRunOptionsFactory
             ConflictPolicy = source.ConflictPolicy
         };
 
-        return RunOptionsBuilder.Normalize(options);
+        var normalized = RunOptionsBuilder.Normalize(options);
+        var validationErrors = RunOptionsBuilder.Validate(normalized);
+        if (validationErrors.Count > 0)
+            throw new InvalidOperationException(string.Join(" ", validationErrors));
+
+        return normalized;
     }
 }

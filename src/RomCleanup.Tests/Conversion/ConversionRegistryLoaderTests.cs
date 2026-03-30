@@ -56,6 +56,27 @@ public sealed class ConversionRegistryLoaderTests
         Assert.Throws<InvalidOperationException>(() => new ConversionRegistryLoader(fixture.RegistryPath, fixture.ConsolesPath));
     }
 
+    [Fact]
+    public void Constructor_DuplicateConsoleKey_Throws()
+    {
+        using var fixture = new LoaderFixture();
+        fixture.WriteValidRegistry();
+        fixture.WriteConsolesWithRawJson(
+            """
+            {
+              "consoles": [
+                { "key": "PS1", "conversionPolicy": "Auto", "preferredConversionTarget": ".chd", "alternativeTargets": [] },
+                { "key": "PS1", "conversionPolicy": "Auto", "preferredConversionTarget": ".chd", "alternativeTargets": [] }
+              ]
+            }
+            """);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new ConversionRegistryLoader(fixture.RegistryPath, fixture.ConsolesPath));
+
+        Assert.Contains("Duplicate console key", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
         [Fact]
         public void Constructor_UnexpectedCapabilityProperty_Throws()
         {

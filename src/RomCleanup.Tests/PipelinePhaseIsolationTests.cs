@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Metrics;
@@ -248,6 +249,7 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
             Extensions = new[] { ".zip", ".chd", ".bin" },
             ConvertOnly = true,
             ConvertFormat = "chd",
+            Mode = RunConstants.ModeMove,
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 
@@ -305,6 +307,7 @@ public sealed class PipelinePhaseIsolationTests : IDisposable
             Roots = new[] { root },
             Extensions = new[] { ".zip" },
             ConvertFormat = "chd",
+            Mode = RunConstants.ModeMove,
             AuditPath = Path.Combine(_tempDir, "audit.csv")
         };
 

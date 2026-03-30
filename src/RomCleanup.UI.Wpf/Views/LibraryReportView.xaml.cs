@@ -13,23 +13,49 @@ public partial class LibraryReportView : UserControl
     {
         InitializeComponent();
 
-        btnRefreshReportPreview.Click += (_, _) => RefreshReportPreview();
+        btnRefreshReportPreview.Click += async (_, _) => await RefreshReportPreviewAsync();
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel vm && !string.IsNullOrEmpty(vm.LastReportPath) && File.Exists(vm.LastReportPath))
-            RefreshReportPreview();
+        if (DataContext is MainViewModel vm &&
+            TryNormalizeReportPath(vm.LastReportPath, out var normalizedPath) &&
+            File.Exists(normalizedPath))
+        {
+            await RefreshReportPreviewAsync();
+        }
     }
 
-    public async void RefreshReportPreview()
+    internal static bool TryNormalizeReportPath(string? value, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        try
+        {
+            var trimmed = value.Trim();
+            var fullPath = Path.GetFullPath(trimmed);
+            if (string.IsNullOrWhiteSpace(fullPath))
+                return false;
+
+            normalizedPath = fullPath;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public async Task RefreshReportPreviewAsync()
     {
         if (DataContext is not MainViewModel vm) return;
 
         try
         {
-            if (string.IsNullOrEmpty(vm.LastReportPath) || !File.Exists(vm.LastReportPath))
+            if (!TryNormalizeReportPath(vm.LastReportPath, out var fullPath) || !File.Exists(fullPath))
             {
                 // In DryRun mode, populate error summary from last run if available
                 if (vm.Run.HasRunData)
@@ -49,7 +75,6 @@ public partial class LibraryReportView : UserControl
                 return;
             }
 
-            var fullPath = Path.GetFullPath(vm.LastReportPath);
             await EnsureWebView2Initialized(vm);
             webReportPreview.Source = new Uri(fullPath);
             vm.PopulateErrorSummary();

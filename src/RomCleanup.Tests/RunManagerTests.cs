@@ -105,6 +105,24 @@ public class RunManagerTests
     }
 
     [Fact]
+    public void RunRecord_ReviewApprovalMethods_AreConsistent()
+    {
+        var run = new RunRecord
+        {
+            RunId = Guid.NewGuid().ToString(),
+            RequestFingerprint = "fp",
+            StartedUtc = DateTime.UtcNow
+        };
+
+        Assert.True(run.TryApproveReviewPath("C:\\roms\\a.iso"));
+        Assert.False(run.TryApproveReviewPath("C:\\roms\\a.iso"));
+        Assert.True(run.IsReviewPathApproved("C:\\roms\\a.iso"));
+        Assert.False(run.IsReviewPathApproved("C:\\roms\\b.iso"));
+        Assert.False(run.TryApproveReviewPath(""));
+        Assert.Equal(1, run.ApprovedReviewCount);
+    }
+
+    [Fact]
     public async Task WaitForCompletion_EmptyRoot_CompletesQuickly()
     {
         var mgr = CreateManager();
@@ -221,6 +239,28 @@ public class RunManagerTests
         Assert.True(create.Run!.EnableDat);
         Assert.True(create.Run.EnableDatAudit);
         Assert.True(create.Run.EnableDatRename);
+    }
+
+    [Fact]
+    public void TGAP46_RunStatusDto_IncludesAllRunRecordBooleanFlags()
+    {
+        var run = new RunRecord
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            RequestFingerprint = "fp",
+            StartedUtc = DateTime.UtcNow,
+            Status = "running",
+            Mode = "DryRun",
+            EnableDat = true,
+            EnableDatAudit = true,
+            EnableDatRename = true
+        };
+
+        var dto = run.ToDto();
+
+        Assert.True(dto.EnableDat);
+        Assert.True(dto.EnableDatAudit);
+        Assert.True(dto.EnableDatRename);
     }
 
     [Fact]

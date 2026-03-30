@@ -48,6 +48,9 @@ public static class RunOptionsBuilder
         if (options.EnableDatRename)
             warnings.Add("EnableDatRename is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.");
 
+        if (options.ConvertOnly)
+            warnings.Add("ConvertOnly is enabled but conversion will be skipped in DryRun mode. Use Mode=Move to apply.");
+
         return warnings;
     }
 

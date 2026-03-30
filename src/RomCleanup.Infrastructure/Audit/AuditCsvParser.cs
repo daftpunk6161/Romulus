@@ -60,7 +60,7 @@ internal static class AuditCsvParser
 
     /// <summary>
     /// Sanitize a CSV field to prevent CSV injection (OWASP).
-    /// Prefixes dangerous leading characters with single quote, but allows plain negative numbers.
+    /// Dangerous formula-like prefixes are always emitted as RFC-4180 quoted fields.
     /// </summary>
     public static string SanitizeCsvField(string value)
     {
@@ -71,10 +71,12 @@ internal static class AuditCsvParser
         // Normalize control characters to keep each CSV field on one logical line.
         value = value.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace("\t", " ");
 
-        if (hadDangerousControlPrefix || value[0] is '=' or '+' or '@')
-            value = "'" + value;
-        else if (value[0] == '-' && !IsPlainNegativeNumber(value))
-            value = "'" + value;
+        var hasDangerousFormulaPrefix = hadDangerousControlPrefix
+            || value[0] is '=' or '+' or '@'
+            || (value[0] == '-' && !IsPlainNegativeNumber(value));
+
+        if (hasDangerousFormulaPrefix)
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
 
         if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
             return "\"" + value.Replace("\"", "\"\"") + "\"";

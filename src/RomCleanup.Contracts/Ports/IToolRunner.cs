@@ -8,6 +8,13 @@ public interface IToolRunner
 {
     string? FindTool(string toolName);
     ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null);
+    ToolResult InvokeProcess(
+        string filePath,
+        string[] arguments,
+        string? errorLabel,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+        => InvokeProcess(filePath, arguments, errorLabel);
     ToolResult Invoke7z(string sevenZipPath, string[] arguments);
 }
 

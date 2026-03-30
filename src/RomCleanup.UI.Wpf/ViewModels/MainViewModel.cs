@@ -414,7 +414,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         {
             int sel = SelectedConsoleCount;
             return sel == 0
-                ? $"Alle ({ConsoleFilters.Count}) — keine Auswahl = alle"
+                ? $"Alle ({ConsoleFilters.Count}) — Anzeige-Filter (kein Pipeline-Filter)"
                 : $"{sel} von {ConsoleFilters.Count} ausgewählt";
         }
     }

@@ -182,12 +182,12 @@ public sealed class ReportParityTests : IDisposable
 
         // WPF dashboard parity vs central projection
         vm.ApplyRunResult(wpfExecution.Result);
-        Assert.Equal(projection.Keep.ToString(), vm.DashWinners);
-        Assert.Equal(projection.Dupes.ToString(), vm.DashDupes);
-        Assert.Equal(projection.Junk.ToString(), vm.DashJunk);
-        Assert.Equal(projection.Games.ToString(), vm.DashGames);
-        Assert.Equal(projection.DatMatches.ToString(), vm.DashDatHits);
-        Assert.Equal($"{projection.HealthScore}%", vm.HealthScore);
+        Assert.StartsWith(projection.Keep.ToString(), vm.DashWinners, StringComparison.Ordinal);
+        Assert.StartsWith(projection.Dupes.ToString(), vm.DashDupes, StringComparison.Ordinal);
+        Assert.StartsWith(projection.Junk.ToString(), vm.DashJunk, StringComparison.Ordinal);
+        Assert.StartsWith(projection.Games.ToString(), vm.DashGames, StringComparison.Ordinal);
+        Assert.StartsWith(projection.DatMatches.ToString(), vm.DashDatHits, StringComparison.Ordinal);
+        Assert.StartsWith($"{projection.HealthScore}%", vm.HealthScore, StringComparison.Ordinal);
     }
 
     [Fact]

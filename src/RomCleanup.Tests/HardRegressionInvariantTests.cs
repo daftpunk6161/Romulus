@@ -273,9 +273,9 @@ public sealed class HardRegressionInvariantTests : IDisposable
         vm.ApplyRunResult(result);
 
         // Dashboard fields must match RunResult
-        Assert.Equal(result.WinnerCount.ToString(), vm.DashWinners);
-        Assert.Equal(result.LoserCount.ToString(), vm.DashDupes);
-        Assert.Equal(result.DedupeGroups.Count.ToString(), vm.DashGames);
+        Assert.StartsWith(result.WinnerCount.ToString(), vm.DashWinners, StringComparison.Ordinal);
+        Assert.StartsWith(result.LoserCount.ToString(), vm.DashDupes, StringComparison.Ordinal);
+        Assert.StartsWith(result.DedupeGroups.Count.ToString(), vm.DashGames, StringComparison.Ordinal);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -527,7 +527,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
 
         // Dashboard muss aktualisiert sein — darf nicht stale vom Cancel-Run bleiben
         Assert.NotEqual("0", vm.DashWinners); // Muss > 0 sein nach normalem Run
-        Assert.Equal(result2.WinnerCount.ToString(), vm.DashWinners);
+        Assert.StartsWith(result2.WinnerCount.ToString(), vm.DashWinners, StringComparison.Ordinal);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -758,7 +758,7 @@ public sealed class HardRegressionInvariantTests : IDisposable
         // GUI
         var vm = CreateViewModel();
         vm.ApplyRunResult(result);
-        var guiGames = int.Parse(vm.DashGames);
+        var guiGames = int.Parse(vm.DashGames.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]);
 
         // CLI JSON
         var cliOptions = new CliRunOptions

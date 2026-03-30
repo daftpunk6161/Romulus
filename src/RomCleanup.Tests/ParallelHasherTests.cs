@@ -128,6 +128,24 @@ public sealed class ParallelHasherTests : IDisposable
     }
 
     [Fact]
+    public async Task HashFilesAsync_SingleThread_RespectsCancellation()
+    {
+        var files = new List<string>();
+        for (int i = 0; i < 3; i++)
+        {
+            var path = Path.Combine(_tempDir, $"cancel_{i}.bin");
+            File.WriteAllBytes(path, [42]);
+            files.Add(path);
+        }
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            ParallelHasher.HashFilesAsync(files, ct: cts.Token));
+    }
+
+    [Fact]
     public void HashFiles_LargeBatch_UsesParallel()
     {
         var files = new List<string>();

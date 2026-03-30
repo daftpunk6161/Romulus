@@ -140,7 +140,11 @@ internal static class Program
         // Output
         if (cliOpts.Mode == RunConstants.ModeDryRun)
         {
-            SafeStandardWriteLine(CliOutputWriter.FormatDryRunJson(projection, result.DedupeGroups, result.ConversionReport));
+            SafeStandardWriteLine(CliOutputWriter.FormatDryRunJson(
+                projection,
+                result.DedupeGroups,
+                result.ConversionReport,
+                result.Preflight?.Warnings));
         }
         else if (cliOpts.Mode == RunConstants.ModeMove)
         {
@@ -360,15 +364,48 @@ internal static class Program
             foreach (var line in File.ReadLines(auditCsvPath).Skip(1)) // skip header
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
-                var firstComma = line.IndexOf(',');
-                if (firstComma <= 0) continue;
-                var rootField = line[..firstComma].Trim().Trim('"');
+                var rootField = ExtractFirstCsvField(line);
                 if (!string.IsNullOrWhiteSpace(rootField) && Directory.Exists(rootField))
                     roots.Add(rootField);
             }
         }
         catch (IOException) { /* best-effort */ }
         return roots.ToArray();
+    }
+
+    /// <summary>BUG-10: Extract first CSV field with RFC-4180 quoting support.</summary>
+    internal static string ExtractFirstCsvField(string line)
+    {
+        if (string.IsNullOrEmpty(line)) return "";
+
+        if (line[0] == '"')
+        {
+            // Quoted field — find matching close-quote (escaped "" inside)
+            var sb = new System.Text.StringBuilder();
+            for (int i = 1; i < line.Length; i++)
+            {
+                if (line[i] == '"')
+                {
+                    if (i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        sb.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    sb.Append(line[i]);
+                }
+            }
+            return sb.ToString();
+        }
+
+        var firstComma = line.IndexOf(',');
+        return firstComma <= 0 ? line.Trim() : line[..firstComma].Trim();
     }
 
     internal static int RunForTests(CliRunOptions opts)

@@ -153,6 +153,8 @@ public sealed class AuditFindingsRegressionTests : IDisposable
             $"{header}\n{_tempDir},{oldPath},{newPath},MOVE,game,hash,reason,2025-01-01\n",
             Encoding.UTF8);
 
+        svc.WriteMetadataSidecar(csvPath, 1);
+
         // Use dryRun: true — SEC-ROLLBACK-04b checks parent reparse in dryRun too (Preview/Execute parity)
         var result = svc.Rollback(
             csvPath,
@@ -160,7 +162,7 @@ public sealed class AuditFindingsRegressionTests : IDisposable
             [_tempDir],
             dryRun: true);
 
-        Assert.True(result.Failed > 0,
+        Assert.True(result.SkippedUnsafe > 0,
             "Rollback should block restore when target parent is reparse point");
     }
 

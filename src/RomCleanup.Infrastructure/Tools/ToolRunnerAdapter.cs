@@ -100,6 +100,16 @@ public sealed class ToolRunnerAdapter : IToolRunner
 
     public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null)
     {
+        return InvokeProcess(filePath, arguments, errorLabel, timeout: null, cancellationToken: CancellationToken.None);
+    }
+
+    public ToolResult InvokeProcess(
+        string filePath,
+        string[] arguments,
+        string? errorLabel,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+    {
         var label = errorLabel ?? "Tool";
 
         if (!File.Exists(filePath))
@@ -108,7 +118,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (!VerifyToolHash(filePath))
             return new ToolResult(-1, $"{label}: hash verification failed for '{filePath}'", false);
 
-        return RunProcess(filePath, arguments, label);
+        return RunProcess(filePath, arguments, label, timeout, cancellationToken);
     }
 
     public ToolResult Invoke7z(string sevenZipPath, string[] arguments)
@@ -119,10 +129,15 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (!VerifyToolHash(sevenZipPath))
             return new ToolResult(-1, "7z: hash verification failed", false);
 
-        return RunProcess(sevenZipPath, arguments, "7z");
+        return RunProcess(sevenZipPath, arguments, "7z", timeout: null, cancellationToken: CancellationToken.None);
     }
 
-    private ToolResult RunProcess(string exePath, string[] arguments, string label)
+    private ToolResult RunProcess(
+        string exePath,
+        string[] arguments,
+        string label,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -153,15 +168,32 @@ public sealed class ToolRunnerAdapter : IToolRunner
             var stderrTask = Task.Run(() => stderr = process.StandardError.ReadToEnd());
             var stdoutTask = Task.Run(() => stdout = process.StandardOutput.ReadToEnd());
 
-            var completed = Task.WaitAll(new[] { stdoutTask, stderrTask },
-                TimeSpan.FromMinutes(_timeoutMinutes));
+            var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(_timeoutMinutes);
+            var deadlineUtc = DateTime.UtcNow + effectiveTimeout;
+            var completed = false;
+
+            while (!completed)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                completed = Task.WaitAll([stdoutTask, stderrTask], TimeSpan.FromMilliseconds(200));
+                if (completed)
+                    break;
+
+                if (DateTime.UtcNow >= deadlineUtc)
+                    break;
+            }
 
             if (!completed)
             {
                 if (!process.HasExited)
                     try { process.Kill(entireProcessTree: true); }
                     catch (Exception ex) { _log?.Invoke($"{label}: failed to kill timed-out process: {ex.Message}"); }
-                return new ToolResult(-1, $"{label}: process timed out after {_timeoutMinutes} minutes", false);
+
+                if (DateTime.UtcNow >= deadlineUtc)
+                    return new ToolResult(-1, $"{label}: process timed out after {effectiveTimeout.TotalMinutes:0.##} minutes", false);
+
+                return new ToolResult(-1, $"{label}: process cancelled", false);
             }
 
             process.WaitForExit();
@@ -170,6 +202,10 @@ public sealed class ToolRunnerAdapter : IToolRunner
             var success = process.ExitCode == 0;
 
             return new ToolResult(process.ExitCode, output, success);
+        }
+        catch (OperationCanceledException)
+        {
+            return new ToolResult(-1, $"{label}: process cancelled", false);
         }
         catch (Exception ex)
         {

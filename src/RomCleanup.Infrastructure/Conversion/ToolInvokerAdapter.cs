@@ -60,10 +60,14 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
         }
 
         var watch = Stopwatch.StartNew();
-        var result = _tools.InvokeProcess(toolPath, args, toolName);
+        var result = _tools.InvokeProcess(
+            toolPath,
+            args,
+            toolName,
+            ToolInvokerSupport.ResolveToolTimeout(toolName),
+            cancellationToken);
         watch.Stop();
 
-        // SEC-CONV-06: Check cancellation after long-running tool invocation
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!result.Success)

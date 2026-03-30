@@ -90,8 +90,10 @@ public sealed class SecurityTests : IDisposable
             new ReportEntry { GameKey = input, FileName = "test.chd", Extension = ".chd" }
         };
         var csv = ReportGenerator.GenerateCsv(entries);
-        // The dangerous character should be prefixed with '
-        Assert.Contains($"\"'{input[0]}", csv);
+        // BUG-14: RFC-4180 quoting — value must be wrapped in double quotes
+        // The raw dangerous prefix must NOT appear unquoted in the CSV
+        var escaped = input.Replace("\"", "\"\"");
+        Assert.Contains($"\"{escaped}\"", csv);
     }
 
     // ── TEST-SEC: HTML injection in report ──
