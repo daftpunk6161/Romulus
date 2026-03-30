@@ -208,7 +208,8 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
                 "console entry");
 
             var key = ReadRequiredString(console, "key");
-            knownKeys.Add(key);
+            if (!knownKeys.Add(key))
+                throw new InvalidOperationException($"Duplicate console key '{key}' in consoles.json.");
 
             var policyString = ReadOptionalString(console, "conversionPolicy") ?? "None";
             var policy = ParseRequiredEnum<ConversionPolicy>(policyString);

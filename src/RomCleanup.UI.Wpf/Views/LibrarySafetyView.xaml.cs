@@ -68,6 +68,7 @@ public partial class LibrarySafetyView : UserControl
             switch (c.SortDecision)
             {
                 case SortDecision.Blocked:
+                case SortDecision.Unknown:
                     blocked.Add(item);
                     break;
                 case SortDecision.Review:

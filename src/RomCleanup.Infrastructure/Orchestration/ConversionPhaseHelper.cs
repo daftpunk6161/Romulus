@@ -34,6 +34,9 @@ internal static class ConversionPhaseHelper
         bool trackSetMembers,
         CancellationToken cancellationToken)
     {
+        if (options.DryRun)
+            return null;
+
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         ConversionTarget? target = null;
         ConversionResult convResult;
@@ -55,11 +58,11 @@ internal static class ConversionPhaseHelper
             convResult = converter.Convert(filePath, target, cancellationToken);
         }
 
-        ProcessConversionResult(convResult, filePath, target, converter, options, context, counters, trackSetMembers, ext);
+        convResult = ProcessConversionResult(convResult, filePath, target, converter, options, context, counters, trackSetMembers, ext);
         return convResult;
     }
 
-    private static void ProcessConversionResult(
+    private static ConversionResult ProcessConversionResult(
         ConversionResult convResult,
         string sourcePath,
         ConversionTarget? target,
@@ -79,7 +82,7 @@ internal static class ConversionPhaseHelper
                 if (convertedPath is null)
                 {
                     counters.Errors++;
-                    return;
+                    return convResult;
                 }
 
                 counters.Converted++;
@@ -99,6 +102,7 @@ internal static class ConversionPhaseHelper
             }
             else
             {
+                convResult = convResult with { Outcome = ConversionOutcome.Error };
                 counters.Errors++;
                 if (convResult.TargetPath is not null)
                 {
@@ -135,6 +139,8 @@ internal static class ConversionPhaseHelper
                 catch (IOException) { /* best-effort cleanup — file may be locked */ }
             }
         }
+
+        return convResult;
     }
 
     /// <summary>

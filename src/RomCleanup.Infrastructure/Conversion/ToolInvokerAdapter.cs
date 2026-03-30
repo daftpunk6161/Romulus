@@ -121,12 +121,7 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
 
         if (toolName == "chdman")
         {
-            var chdCommand = command;
-            if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase)
-                && IsLikelyCdImage(sourcePath))
-            {
-                chdCommand = "createcd";
-            }
+            var chdCommand = ToolInvokerSupport.ResolveEffectiveChdmanCommand(command, sourcePath);
 
             return [chdCommand, "-i", sourcePath, "-o", targetPath];
         }
@@ -162,9 +157,6 @@ public sealed class ToolInvokerAdapter(IToolRunner tools) : IToolInvoker
 
     private static string? ValidateToolConstraints(string toolPath, ToolRequirement requirement)
         => ToolInvokerSupport.ValidateToolConstraints(toolPath, requirement);
-
-    private static bool IsLikelyCdImage(string sourcePath)
-        => ToolInvokerSupport.IsLikelyCdImage(sourcePath);
 
     private VerificationStatus VerifyChd(string targetPath)
     {

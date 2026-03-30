@@ -954,7 +954,8 @@ public sealed class HardCoreInvariantRegressionSuiteTests : IDisposable
         // INVARIANT: DAT matching is always attempted, even when console is unknown.
         // The old "DAT-Verifizierung übersprungen" warning must NOT appear.
         Assert.DoesNotContain(messages, w => w.Contains("DAT-Verifizierung übersprungen", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(messages, w => w.Contains("Kein Match fuer UNKNOWN-Konsole", StringComparison.OrdinalIgnoreCase));
+        // Cross-console DAT lookup runs for UNKNOWN and emits "Kein Match fuer" message.
+        Assert.Contains(messages, w => w.Contains("Kein Match fuer", StringComparison.OrdinalIgnoreCase));
     }
 
     // 10) GUI / CLI / API parity

@@ -42,11 +42,7 @@ public sealed class ChdmanInvoker(IToolRunner tools) : IToolInvoker
         if (constraintError is not null)
             return ToolInvokerSupport.ConstraintFailure(constraintError);
 
-        if (string.Equals(commandToken, "createdvd", StringComparison.OrdinalIgnoreCase)
-            && ToolInvokerSupport.IsLikelyCdImage(sourcePath))
-        {
-            commandToken = "createcd";
-        }
+        commandToken = ToolInvokerSupport.ResolveEffectiveChdmanCommand(commandToken, sourcePath);
 
         var watch = Stopwatch.StartNew();
         var result = _tools.InvokeProcess(toolPath, [commandToken, "-i", sourcePath, "-o", targetPath], "chdman");

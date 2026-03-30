@@ -3409,7 +3409,8 @@ public class GuiViewModelTests
         Assert.Contains(SortDecision.Review, values);
         Assert.Contains(SortDecision.Blocked, values);
         Assert.Contains(SortDecision.DatVerified, values);
-        Assert.Equal(4, values.Length);
+        Assert.Contains(SortDecision.Unknown, values);
+        Assert.Equal(5, values.Length);
     }
 
     [Fact]

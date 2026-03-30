@@ -123,7 +123,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             computedHeaderlessHash, context);
 
         // DAT authority — set max confidence and SortDecision
-        if (datResult.DatMatch && consoleKey is not "UNKNOWN" and not "")
+        if (datResult.DatMatch && consoleKey is not "")
         {
             if (datResult.DatNameOnlyMatch)
             {
@@ -405,6 +405,12 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     }
                 }
             }
+        }
+
+        if (!datMatch && consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+        {
+            context.OnProgress?.Invoke(
+                $"[DAT] Kein Match fuer {consoleKey}-Konsole: {Path.GetFileName(filePath)}");
         }
 
         return new DatLookupResult(datMatch, datMatchedBios, datResolvedFromAmbiguousCandidates,

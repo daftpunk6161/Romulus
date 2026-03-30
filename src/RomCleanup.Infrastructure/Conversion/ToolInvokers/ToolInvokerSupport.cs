@@ -138,4 +138,19 @@ internal static class ToolInvokerSupport
             return false;
         }
     }
+
+    /// <summary>
+    /// Resolves the effective chdman command for a source path.
+    /// Uses createcd for likely CD images when createdvd was requested.
+    /// </summary>
+    internal static string ResolveEffectiveChdmanCommand(string requestedCommand, string sourcePath)
+    {
+        if (string.Equals(requestedCommand, "createdvd", StringComparison.OrdinalIgnoreCase)
+            && IsLikelyCdImage(sourcePath))
+        {
+            return "createcd";
+        }
+
+        return requestedCommand;
+    }
 }

@@ -822,7 +822,7 @@ static ApiReviewQueue BuildReviewQueue(RunRecord run)
         return new ApiReviewQueue { RunId = run.RunId, Total = 0, Items = Array.Empty<ApiReviewItem>() };
 
     var items = core.AllCandidates
-        .Where(c => c.SortDecision == SortDecision.Review || c.SortDecision == SortDecision.Blocked)
+        .Where(c => c.SortDecision is SortDecision.Review or SortDecision.Blocked or SortDecision.Unknown)
         .OrderBy(c => c.ConsoleKey, StringComparer.OrdinalIgnoreCase)
         .ThenBy(c => c.MainPath, StringComparer.OrdinalIgnoreCase)
         .Select(c => new ApiReviewItem

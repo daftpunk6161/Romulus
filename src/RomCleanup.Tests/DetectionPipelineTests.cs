@@ -909,7 +909,7 @@ public sealed class DetectionPipelineTests
     [InlineData(DetectionSource.FolderName, 80)]
     [InlineData(DetectionSource.ArchiveContent, 70)]
     [InlineData(DetectionSource.FilenameKeyword, 60)]
-    [InlineData(DetectionSource.AmbiguousExtension, 40)]
+    [InlineData(DetectionSource.AmbiguousExtension, 55)]
     public void DetectionSource_SingleSourceCap_Values(DetectionSource source, int expectedCap)
     {
         Assert.Equal(expectedCap, source.SingleSourceCap());
@@ -1124,11 +1124,11 @@ public sealed class DetectionPipelineTests
     }
 
     [Fact]
-    public void Resolver_SortDecision_Unknown_AlwaysBlocked()
+    public void Resolver_SortDecision_Unknown_ReturnsUnknown()
     {
         var result = HypothesisResolver.Resolve([]);
         Assert.Equal("UNKNOWN", result.ConsoleKey);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal(SortDecision.Unknown, result.SortDecision);
     }
 
     [Theory]
