@@ -616,6 +616,33 @@ public class RunOrchestratorTests : IDisposable
         public bool Verify(string targetPath, ConversionTarget target) => true;
     }
 
+    private sealed class VerifyOutcomeConverter : IFormatConverter
+    {
+        private readonly bool _verificationOk;
+
+        public VerifyOutcomeConverter(bool verificationOk)
+        {
+            _verificationOk = verificationOk;
+        }
+
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
+            => sourceExtension == ".zip" ? new ConversionTarget(".chd", "chdman", "createcd") : null;
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
+        {
+            var targetPath = sourcePath + target.Extension;
+            return new ConversionResult(sourcePath, targetPath, ConversionOutcome.Success)
+            {
+                VerificationResult = _verificationOk ? VerificationStatus.Verified : VerificationStatus.VerifyFailed,
+                SourceIntegrity = SourceIntegrity.Lossless,
+                Safety = ConversionSafety.Safe
+            };
+        }
+
+        public bool Verify(string targetPath, ConversionTarget target)
+            => _verificationOk;
+    }
+
     [Fact]
     public void Execute_Phase6_SkipsJunkRemovedGroups()
     {
@@ -649,5 +676,82 @@ public class RunOrchestratorTests : IDisposable
         Assert.Contains("Normal (USA).zip", converter.ConvertedPaths[0]);
         // Junk file must NOT appear in conversion list
         Assert.DoesNotContain(converter.ConvertedPaths, p => p.Contains("Junkonly"));
+    }
+
+    [Fact]
+    public void VerifyFailed_TriggersCompletedWithErrorsAndHealthPenalty()
+    {
+        CreateFile("Verify (USA).zip", 80);
+
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "Move",
+            ConvertFormat = "chd",
+            PreferRegions = new[] { "USA" }
+        };
+
+        var okOrchestrator = new RunOrchestrator(fs, new FakeAuditStore(), converter: new VerifyOutcomeConverter(verificationOk: true));
+        var failOrchestrator = new RunOrchestrator(fs, new FakeAuditStore(), converter: new VerifyOutcomeConverter(verificationOk: false));
+
+        var okResult = okOrchestrator.Execute(options);
+        var failResult = failOrchestrator.Execute(options);
+
+        var okProjection = RunProjectionFactory.Create(okResult);
+        var failProjection = RunProjectionFactory.Create(failResult);
+
+        Assert.Equal("ok", okResult.Status);
+        Assert.Equal("completed_with_errors", failResult.Status);
+        Assert.True(failResult.ConvertVerifyFailedCount > 0);
+        Assert.True(failProjection.FailCount > okProjection.FailCount);
+        Assert.True(failProjection.HealthScore < okProjection.HealthScore);
+    }
+
+    [Fact]
+    public void AuditSidecarWriteFailure_MarksRunAsError()
+    {
+        CreateFile("Game (USA).zip", 100);
+        CreateFile("Game (Europe).zip", 100);
+
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new ThrowingSidecarAuditStore();
+        var orch = new RunOrchestrator(fs, audit);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "Move",
+            PreferRegions = new[] { "US" },
+            AuditPath = Path.Combine(_tempDir, "audit.csv")
+        };
+
+        var result = orch.Execute(options);
+
+        Assert.NotEqual("ok", result.Status);
+        Assert.NotEqual(0, result.ExitCode);
+    }
+
+    private sealed class ThrowingSidecarAuditStore : IAuditStore
+    {
+        public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata)
+            => throw new IOException("sidecar write failed");
+
+        public bool TestMetadataSidecar(string auditCsvPath) => false;
+
+        public IReadOnlyList<string> Rollback(string auditCsvPath, string[] allowedRestoreRoots,
+            string[] allowedCurrentRoots, bool dryRun = false)
+            => Array.Empty<string>();
+
+        public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath,
+            string newPath, string action, string category = "", string hash = "", string reason = "")
+        {
+        }
+
+        public void Flush(string auditCsvPath)
+        {
+        }
     }
 }

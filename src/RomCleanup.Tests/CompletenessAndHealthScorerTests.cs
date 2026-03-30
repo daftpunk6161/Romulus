@@ -1,4 +1,5 @@
 using RomCleanup.Core.Scoring;
+using RomCleanup.Core.SetParsing;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -65,6 +66,16 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
         var score = CompletenessScorer.Calculate("disc.gdi", ".gdi", Array.Empty<string>(), 1, datMatch: true);
 
         Assert.Equal(0, score);
+    }
+
+    [Fact]
+    public void Completeness_UsesCentralizedDescriptorExtensions_M3uIsDescriptor()
+    {
+        Assert.True(SetDescriptorSupport.IsDescriptorExtension(".m3u"));
+
+        var score = CompletenessScorer.Calculate("playlist.m3u", ".m3u", Array.Empty<string>(), 1, datMatch: false);
+
+        Assert.Equal(-50, score);
     }
 
     [Fact]

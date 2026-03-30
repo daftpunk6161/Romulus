@@ -7,6 +7,11 @@ namespace RomCleanup.Core.Regions;
 /// </summary>
 public static class RegionDetector
 {
+    /// <summary>
+    /// Diagnostic result for region detection.
+    /// </summary>
+    public sealed record RegionDetectionResult(string Region, string DiagnosticReason);
+
     /// <summary>Standard region identifiers used across the codebase.</summary>
     public static class Regions
     {
@@ -111,6 +116,12 @@ public static class RegionDetector
         => Detect(name, DefaultOrderedRules, DefaultTwoLetterRules, DefaultMultiRegionPattern);
 
     /// <summary>
+    /// Convenience overload returning region and diagnostic reason using default rules.
+    /// </summary>
+    public static RegionDetectionResult GetRegionTagWithDiagnostics(string name)
+        => DetectWithDiagnostics(name, DefaultOrderedRules, DefaultTwoLetterRules, DefaultMultiRegionPattern);
+
+    /// <summary>
     /// Detects the primary region from a ROM filename.
     /// Port of Get-RegionTag from Core.ps1.
     /// </summary>
@@ -124,44 +135,59 @@ public static class RegionDetector
         IReadOnlyList<RegionRule> orderedRules,
         IReadOnlyList<RegionRule> twoLetterRules,
         System.Text.RegularExpressions.Regex multiRegionPattern)
+        => DetectWithDiagnostics(name, orderedRules, twoLetterRules, multiRegionPattern).Region;
+
+    /// <summary>
+    /// Detects the primary region and returns diagnostics for the matched rule path.
+    /// </summary>
+    public static RegionDetectionResult DetectWithDiagnostics(
+        string name,
+        IReadOnlyList<RegionRule> orderedRules,
+        IReadOnlyList<RegionRule> twoLetterRules,
+        System.Text.RegularExpressions.Regex multiRegionPattern)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return Regions.Unknown;
+            return new RegionDetectionResult(Regions.Unknown, "empty-input");
 
         // UK / Great Britain → EU
         if (UkPattern.IsMatch(name))
         {
-            return Regions.EU;
+            return new RegionDetectionResult(Regions.EU, "uk-priority-rule");
         }
 
         // Multi-language tags: all-EU languages map to EU; mixed language families map to WORLD.
         if (TryResolveLanguageMultiTag(name, out var languageRegion))
-            return languageRegion;
+        {
+            var reason = string.Equals(languageRegion, Regions.EU, StringComparison.Ordinal)
+                ? "language-multi-eu"
+                : "language-multi-world";
+            return new RegionDetectionResult(languageRegion, reason);
+        }
 
         // Multi-region → WORLD
         if (multiRegionPattern.IsMatch(name))
-            return Regions.World;
+            return new RegionDetectionResult(Regions.World, "multi-region-pattern");
 
         // Try ordered rules (bracket-based, more specific)
         foreach (var rule in orderedRules)
         {
             if (rule.Pattern.IsMatch(name))
-                return rule.Key;
+                return new RegionDetectionResult(rule.Key, $"ordered-rule:{rule.Key}");
         }
 
         // Try token-based parsing (less specific, e.g. NTSC → US)
         var tokenResult = ResolveRegionFromTokens(name);
         if (tokenResult is not null && tokenResult != Regions.Unknown)
-            return tokenResult;
+            return new RegionDetectionResult(tokenResult, "token-fallback");
 
         // Try two-letter rules
         foreach (var rule in twoLetterRules)
         {
             if (rule.Pattern.IsMatch(name))
-                return rule.Key;
+                return new RegionDetectionResult(rule.Key, $"two-letter-rule:{rule.Key}");
         }
 
-        return Regions.Unknown;
+        return new RegionDetectionResult(Regions.Unknown, "no-match");
     }
 
     /// <summary>

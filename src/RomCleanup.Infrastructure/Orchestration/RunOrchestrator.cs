@@ -226,6 +226,7 @@ public sealed partial class RunOrchestrator
         sw.Stop();
         // TASK-151: Derive status based on ALL phase errors (incl. DatRename + ConsoleSort)
         var hasErrors = result.ConvertErrorCount > 0
+                 || result.ConvertVerifyFailedCount > 0
                      || (result.MoveResult is { FailCount: > 0 })
                      || (result.JunkMoveResult is { FailCount: > 0 })
                      || result.DatRenameFailedCount > 0
@@ -251,8 +252,20 @@ public sealed partial class RunOrchestrator
 
         // FEAT-03: Write final audit sidecar with HMAC signature after all phases.
         // TASK-145: Pass actual RunOutcome so sidecar status reflects errors.
-        new AuditSealPhaseStep(() => WriteCompletedAuditSidecar(options, result, sw.ElapsedMilliseconds, runOutcome))
-            .Execute(pipelineState, cancellationToken);
+        try
+        {
+            new AuditSealPhaseStep(() => WriteCompletedAuditSidecar(options, result, sw.ElapsedMilliseconds, runOutcome))
+                .Execute(pipelineState, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _onProgress?.Invoke($"[Audit] Sidecar write failed: {ex.GetType().Name}: {ex.Message}");
+            if (runOutcome == RunOutcome.Ok)
+            {
+                result.Status = RunOutcome.CompletedWithErrors.ToStatusString();
+                result.ExitCode = 1;
+            }
+        }
 
         _onProgress?.Invoke($"[Fertig] Pipeline abgeschlossen in {sw.ElapsedMilliseconds}ms — {result.TotalFilesScanned} Dateien, {result.GroupCount} Gruppen");
         return result.Build();
@@ -269,7 +282,14 @@ public sealed partial class RunOrchestrator
             ApplyPartialPipelineState(pipelineState, result);
 
             // Issue #19: Write partial audit sidecar so rollback is possible after cancel
-            WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
+            try
+            {
+                WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                _onProgress?.Invoke($"[Audit] Partial sidecar write failed after cancellation: {ex.GetType().Name}: {ex.Message}");
+            }
 
             return result.Build();
         }
@@ -289,7 +309,14 @@ public sealed partial class RunOrchestrator
             _onProgress?.Invoke($"[FEHLER] Pipeline abgebrochen: {ex.GetType().Name}: {ex.Message}");
 
             // Write partial audit sidecar so rollback is possible even after crash
-            WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
+            try
+            {
+                WritePartialAuditSidecar(options, result, metrics, sw.ElapsedMilliseconds);
+            }
+            catch (Exception sidecarEx) when (sidecarEx is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                _onProgress?.Invoke($"[Audit] Partial sidecar write failed after pipeline error: {sidecarEx.GetType().Name}: {sidecarEx.Message}");
+            }
 
             return result.Build();
         }

@@ -80,9 +80,11 @@ public static class RunProjectionFactory
         var unknown = result.UnknownCount;
         var datMatches = candidates.Count(c => c.DatMatch);
         var filteredNonGameCount = result.FilteredNonGameCount;
+        var verificationFailDelta = Math.Max(0, result.ConvertVerifyFailedCount - result.ConvertErrorCount);
         var failCount = (result.MoveResult?.FailCount ?? 0)
                       + (result.JunkMoveResult?.FailCount ?? 0)
                       + result.ConvertErrorCount
+                  + verificationFailDelta
                       + result.DatRenameFailedCount
                       + (result.ConsoleSortResult?.Failed ?? 0);
         var savedBytes = result.MoveResult?.SavedBytes ?? 0;

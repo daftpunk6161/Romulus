@@ -50,16 +50,6 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
             if (!executeMode)
                 continue;
 
-            // P1-3: Conflict detection — check if target already exists (different file)
-            var targetDir = Path.GetDirectoryName(entry.FilePath) ?? "";
-            var targetPath = Path.Combine(targetDir, proposal.TargetFileName);
-            if (File.Exists(targetPath))
-            {
-                skippedCount++;
-                context.OnProgress?.Invoke($"[DatRename] Konflikt: '{proposal.TargetFileName}' existiert bereits in {targetDir}");
-                continue;
-            }
-
             var renamedPath = context.FileSystem.RenameItemSafely(entry.FilePath, proposal.TargetFileName);
             if (renamedPath is null)
             {

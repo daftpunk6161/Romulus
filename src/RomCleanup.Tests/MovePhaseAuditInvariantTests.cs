@@ -240,11 +240,145 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
         Assert.True(fs.RollbackCalls > 0);
     }
 
+    [Fact]
+    public void Move_SetMemberFailure_IncrementsFailCount()
+    {
+        var root = Path.Combine(_tempDir, "tgap52-root");
+        Directory.CreateDirectory(root);
+
+        var cue = CreateSizedFile(root, "game.cue", 32,
+            "FILE \"game (track 1).bin\" BINARY\n" +
+            "  TRACK 01 MODE1/2352\n" +
+            "    INDEX 01 00:00:00\n" +
+            "FILE \"game (track 2).bin\" BINARY\n" +
+            "  TRACK 02 MODE1/2352\n" +
+            "    INDEX 01 00:00:00\n");
+        var bin1 = CreateSizedFile(root, "game (track 1).bin", 10);
+        var bin2 = CreateSizedFile(root, "game (track 2).bin", 12);
+
+        var fs = new SetAtomicFs { FailSourcePath = bin2 };
+        var audit = new InvariantAuditStore();
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Mode = "Move",
+            ConflictPolicy = "Rename",
+            AuditPath = Path.Combine(_tempDir, "audit-tgap52.csv")
+        };
+
+        var group = new DedupeGroup
+        {
+            GameKey = "tgap52",
+            Winner = Candidate(Path.Combine(root, "winner.zip")),
+            Losers = new[]
+            {
+                new RomCandidate
+                {
+                    MainPath = cue,
+                    GameKey = "tgap52",
+                    Region = "US",
+                    RegionScore = 1000,
+                    FormatScore = 500,
+                    VersionScore = 100,
+                    SizeBytes = 32,
+                    Extension = ".cue",
+                    ConsoleKey = "PSX",
+                    Category = FileCategory.Game
+                }
+            }
+        };
+
+        var result = new MovePipelinePhase().Execute(
+            new MovePhaseInput(new[] { group }, options),
+            Context(options, fs, audit),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.FailCount);
+        Assert.Equal(0, result.MoveCount);
+    }
+
+    [Fact]
+    public void Move_SetMembers_AreCountedInSavedBytes()
+    {
+        var root = Path.Combine(_tempDir, "tgap53-root");
+        Directory.CreateDirectory(root);
+
+        var cue = CreateSizedFile(root, "album.cue", 25,
+            "FILE \"album (track 1).bin\" BINARY\n" +
+            "  TRACK 01 MODE1/2352\n" +
+            "    INDEX 01 00:00:00\n" +
+            "FILE \"album (track 2).bin\" BINARY\n" +
+            "  TRACK 02 MODE1/2352\n" +
+            "    INDEX 01 00:00:00\n");
+        var bin1 = CreateSizedFile(root, "album (track 1).bin", 10);
+        var bin2 = CreateSizedFile(root, "album (track 2).bin", 15);
+
+        var fs = new InvariantFs();
+        var trashDir = Path.Combine(root, RunConstants.WellKnownFolders.TrashRegionDedupe);
+        fs.MoveResults[cue] = Path.Combine(trashDir, Path.GetFileName(cue));
+        fs.MoveResults[bin1] = Path.Combine(trashDir, Path.GetFileName(bin1));
+        fs.MoveResults[bin2] = Path.Combine(trashDir, Path.GetFileName(bin2));
+
+        var audit = new InvariantAuditStore();
+        var options = new RunOptions
+        {
+            Roots = new[] { root },
+            Mode = "Move",
+            ConflictPolicy = "Rename",
+            AuditPath = Path.Combine(_tempDir, "audit-tgap53.csv")
+        };
+
+        var group = new DedupeGroup
+        {
+            GameKey = "tgap53",
+            Winner = Candidate(Path.Combine(root, "winner.zip")),
+            Losers = new[]
+            {
+                new RomCandidate
+                {
+                    MainPath = cue,
+                    GameKey = "tgap53",
+                    Region = "US",
+                    RegionScore = 1000,
+                    FormatScore = 500,
+                    VersionScore = 100,
+                    SizeBytes = 25,
+                    Extension = ".cue",
+                    ConsoleKey = "PSX",
+                    Category = FileCategory.Game
+                }
+            }
+        };
+
+        var result = new MovePipelinePhase().Execute(
+            new MovePhaseInput(new[] { group }, options),
+            Context(options, fs, audit),
+            CancellationToken.None);
+
+        Assert.Equal(3, result.MoveCount);
+        Assert.Equal(0, result.FailCount);
+        Assert.Equal(50, result.SavedBytes);
+    }
+
     private static string CreateFile(string dir, string name)
     {
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, name);
         File.WriteAllText(path, "x");
+        return path;
+    }
+
+    private static string CreateSizedFile(string dir, string name, int sizeBytes, string? contentOverride = null)
+    {
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, name);
+        if (contentOverride is not null)
+        {
+            File.WriteAllText(path, contentOverride);
+            return path;
+        }
+
+        File.WriteAllBytes(path, Enumerable.Repeat((byte)'x', sizeBytes).ToArray());
         return path;
     }
 

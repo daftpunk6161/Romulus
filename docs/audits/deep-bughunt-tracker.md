@@ -1,7 +1,7 @@
 # Full Deep Bughunt – Romulus Tracker
 
 > **Datum:** 2026-03-29
-> **Status:** Bedingt release-fähig – weitere P1-Blocker behoben, verbleibende P2/P3 offen
+> **Status:** Bedingt release-fähig – P1/P2 geschlossen, verbleibende Restpunkte P4/Security niedrig
 > **Hinweis:** Neue Findings werden fortlaufend in diesem Dokument ergänzt.
 
 ## Update-Log (2026-03-30)
@@ -152,20 +152,20 @@
 
 ## Niedrige Priorität (P4)
 
-- [ ] **BUG-07** – DatRenamePipelinePhase: TOCTOU Race Condition
+- [x] **BUG-07** – DatRenamePipelinePhase: TOCTOU Race Condition — erledigt (2026-03-30)
   - Datei: `DatRenamePipelinePhase.cs:42-52`
   - Impact: Defensiv abgesichert durch `RenameItemSafely`
-  - Fix: Zielexistenz-Check in `RenameItemSafely()` atomar implementieren
+  - Fix: Vorab-`File.Exists`-Check in Pipeline entfernt; atomare Kollisionserkennung bleibt ausschließlich in `RenameItemSafely()`
 
-- [ ] **BUG-16** – RegionDetector: Stille Unknown-Rückgabe ohne Diagnostik
+- [x] **BUG-16** – RegionDetector: Stille Unknown-Rückgabe ohne Diagnostik — erledigt (2026-03-30)
   - Datei: `RegionDetector.cs:118-145`
   - Impact: Debugging von False-Unknown schwierig
-  - Fix: Diagnostische Info (z.B. `out string? diagnosticInfo`) zurückgeben
+  - Fix: Diagnostische API ergänzt (`GetRegionTagWithDiagnostics` / `DetectWithDiagnostics`)
 
-- [ ] **BUG-02** – CompletenessScorer: Hardcodierte Set-Descriptor-Extensions
+- [x] **BUG-02** – CompletenessScorer: Hardcodierte Set-Descriptor-Extensions — erledigt (2026-03-30)
   - Datei: `CompletenessScorer.cs:25`
   - Impact: Neue Descriptor-Formate nicht erkannt
-  - Fix: Extension-Liste aus Config oder zentrale Konstante
+  - Fix: Zentrale Descriptor-Quelle in `SetDescriptorSupport` eingeführt und in Scoring/Orchestration verdrahtet
 
 - [ ] **SEC-02** – SSE Stream ohne Max-Concurrency
   - Impact: DoS (niedrig)
@@ -410,8 +410,8 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 | [x] TGAP-14 | `ArchiveDetection_EqualSizeEntries_IsDeterministic()` | BUG-21 | erledigt (2026-03-30) |
 | [x] TGAP-15 | `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()` | BUG-22 | erledigt (2026-03-30) |
 | [x] TGAP-16 | `Execute_UnknownConsoleDatHashMatch_UpgradesToDatVerified()` | BUG-23 | erledigt (2026-03-30) |
-| [ ] TGAP-17 | `SnesHeaderSkip_RequiresValidHeaderConsistency()` | BUG-24 | offen |
-| [ ] TGAP-18 | `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()` | BUG-25 | offen |
+| [x] TGAP-17 | `SnesHeaderSkip_RequiresValidHeaderConsistency()` | BUG-24 | erledigt (2026-03-30) |
+| [x] TGAP-18 | `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()` | BUG-25 | erledigt (2026-03-30) |
 | [x] TGAP-19 | `ConversionReport_UsesByteSnapshots_WhenSourceFileNoLongerExists()` | BUG-26 | erledigt (2026-03-30) |
 | [x] TGAP-20 | `RunResultBuilder_VerifyAndLossyCounters_AreProjectedAndMapped()` | BUG-27 | erledigt (2026-03-30) |
 | [x] TGAP-21 | `Convert_MultiCueArchive_TracksAllGeneratedOutputs()` | BUG-28 | erledigt (2026-03-30) |
@@ -1002,13 +1002,13 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 ### Kritische Forensik- und Vertrauensprobleme
 
 - [x] BUG-61 (P1): ReportSummary.ErrorCount zaehlt Fehler doppelt
-- [ ] BUG-62 (P2): Set-Member-Move-Fehler werden nicht in FailCount gezaehlt
-- [ ] BUG-63 (P2): SavedBytes unterschlaegt Set-Member-Moves trotz MoveCount-Inkrement
-- [ ] BUG-64 (P2): Sidecar-Schreibfehler werden geschluckt (null-Return), keine harte Eskalation
-- [ ] BUG-65 (P2): ConvertVerifyPassed/Failed und LossyWarning bleiben in RunResult dauerhaft 0
-- [ ] BUG-66 (P2): Verify-Fails beeinflussen hasErrors/HealthScore nicht
+- [x] BUG-62 (P2): Set-Member-Move-Fehler werden nicht in FailCount gezaehlt
+- [x] BUG-63 (P2): SavedBytes unterschlaegt Set-Member-Moves trotz MoveCount-Inkrement
+- [x] BUG-64 (P2): Sidecar-Schreibfehler werden geschluckt (null-Return), keine harte Eskalation
+- [x] BUG-65 (P2): ConvertVerifyPassed/Failed und LossyWarning bleiben in RunResult dauerhaft 0
+- [x] BUG-66 (P2): Verify-Fails beeinflussen hasErrors/HealthScore nicht
 - [ ] BUG-67 (P3): AuditCsvStore.Rollback reduziert Detailergebnis auf Pfadliste (Forensikverlust)
-- [ ] BUG-68 (P3): Report-Invariante wird fuer ConvertOnly/no-dedupe nicht geprueft
+- [x] BUG-68 (P3): Report-Invariante wird fuer ConvertOnly/no-dedupe nicht geprueft
 
 ### Findings
 
@@ -1033,6 +1033,8 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 
 #### BUG-62 - Set-Member-Move-Fails fehlen in FailCount
 
+- Status: Erledigt am 2026-03-30
+
 - Schweregrad: P2
 - Impact: Partial Failure wird unterschaetzt; Exit/Status kann zu optimistisch sein
 - Betroffene Datei:
@@ -1046,9 +1048,11 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: fehlendes failCount++ im else-Zweig von memberActual == null.
 - Fix: Set-Member-Fehler in FailCount aggregieren.
 - Testabsicherung:
-  - [ ] TGAP-52: Move_SetMemberFailure_IncrementsFailCount()
+  - [x] TGAP-52: Move_SetMemberFailure_IncrementsFailCount()
 
 #### BUG-63 - SavedBytes inkonsistent zu MoveCount bei Set-Members
+
+- Status: Erledigt am 2026-03-30
 
 - Schweregrad: P2
 - Impact: SavedBytes KPI ist systematisch zu niedrig; KPI-Drift in Dashboards/Reports
@@ -1063,9 +1067,11 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: fehlende Byte-Aggregation im Set-Member-Success-Pfad.
 - Fix: Dateigroesse der erfolgreich verschobenen Member addieren oder MoveCount semantisch auf primaries begrenzen.
 - Testabsicherung:
-  - [ ] TGAP-53: Move_SetMembers_AreCountedInSavedBytes()
+  - [x] TGAP-53: Move_SetMembers_AreCountedInSavedBytes()
 
 #### BUG-64 - Sidecar-Schreibfehler laufen still weiter
+
+- Status: Erledigt am 2026-03-30
 
 - Schweregrad: P2
 - Impact: Rollback-Trust sinkt; Run kann ohne gueltigen Sidecar als erfolgreich erscheinen
@@ -1080,9 +1086,11 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: catch-all in WriteMetadataSidecar mit return null.
 - Fix: Fehler hochwerfen oder mindestens Status auf completed_with_errors erzwingen und expliziten Forensik-Fehler markieren.
 - Testabsicherung:
-  - [ ] TGAP-54: AuditSidecarWriteFailure_MarksRunAsError()
+  - [x] TGAP-54: AuditSidecarWriteFailure_MarksRunAsError()
 
 #### BUG-65 - Verify-Metriken werden nicht in RunResultBuilder befuellt
+
+- Status: Erledigt am 2026-03-30
 
 - Schweregrad: P2
 - Impact: API/CLI/WPF zeigen ConvertVerifyPassedCount, ConvertVerifyFailedCount, ConvertLossyWarningCount faktisch immer 0
@@ -1097,9 +1105,11 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: unvollstaendige Aggregation in ApplyConversionReport.
 - Fix: in ApplyConversionReport Counter fuer Verified/VerifyFailed/LossyWarning berechnen und auf Builder schreiben.
 - Testabsicherung:
-  - [ ] TGAP-55: ConversionVerifyAndLossyCounters_AreProjected()
+  - [x] TGAP-55: ConversionVerifyAndLossyCounters_AreProjected()
 
 #### BUG-66 - Verify-Fails zaehlen weder fuer hasErrors noch fuer HealthScore
+
+- Status: Erledigt am 2026-03-30
 
 - Schweregrad: P2
 - Impact: fehlgeschlagene Verifikation kann als zu gesundes Ergebnis erscheinen
@@ -1114,7 +1124,7 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: FailCount-Formel ohne ConvertVerifyFailedCount und hasErrors ohne VerifyFailed-Pruefung.
 - Fix: ConvertVerifyFailedCount in FailCount und hasErrors integrieren oder separaten VerificationErrorCount mit Statuswirkung einfuehren.
 - Testabsicherung:
-  - [ ] TGAP-56: VerifyFailed_TriggersCompletedWithErrorsAndHealthPenalty()
+  - [x] TGAP-56: VerifyFailed_TriggersCompletedWithErrorsAndHealthPenalty()
 
 #### BUG-67 - AuditCsvStore.Rollback verliert Detailergebnis
 
@@ -1134,6 +1144,8 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 
 #### BUG-68 - Report-Invariante wird fuer no-dedupe/convert-only nicht geprueft
 
+- Status: Erledigt am 2026-03-30
+
 - Schweregrad: P3
 - Impact: Accounting-Drift kann in ConvertOnly/Partial-Szenarien unentdeckt bleiben
 - Betroffene Datei:
@@ -1146,7 +1158,7 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: zu enger Guard im Summary-Build.
 - Fix: Guard auf projection.TotalFiles > 0 umstellen und ggf. statusbewusste Ausnahme fuer fruehen Cancel dokumentieren.
 - Testabsicherung:
-  - [ ] TGAP-58: ReportInvariant_AlsoValidatesConvertOnlyAndPartial()
+  - [x] TGAP-58: ReportInvariant_AlsoValidatesConvertOnlyAndPartial()
 
 ### KPI- und Audit-Divergenzen
 

@@ -1,5 +1,7 @@
 namespace RomCleanup.Core.Scoring;
 
+using RomCleanup.Core.SetParsing;
+
 /// <summary>
 /// Calculates a completeness score for ROM candidates based on DAT match,
 /// set membership and file integrity. Pure domain logic — no I/O.
@@ -23,7 +25,7 @@ public static class CompletenessScorer
         if (datMatch)
             score += 50;
 
-        if (ext is ".cue" or ".gdi" or ".ccd" or ".m3u")
+        if (SetDescriptorSupport.IsDescriptorExtension(ext))
         {
             score += missingSetMembersCount == 0 ? 50 : -50;
         }

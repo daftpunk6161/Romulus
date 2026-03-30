@@ -165,14 +165,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var headerScore = FormatScorer.GetHeaderVariantScore(root, filePath);
         var sizeTieBreak = FormatScorer.GetSizeTieBreakScore(null, ext, sizeBytes);
         var setMembers = PipelinePhaseHelpers.GetSetMembers(filePath, ext, includeM3uMembers: true);
-        var missingSetMembersCount = ext switch
-        {
-            ".cue" => CueSetParser.GetMissingFiles(filePath).Count,
-            ".gdi" => GdiSetParser.GetMissingFiles(filePath).Count,
-            ".ccd" => CcdSetParser.GetMissingFiles(filePath).Count,
-            ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath).Count,
-            _ => 0
-        };
+        var missingSetMembersCount = SetDescriptorSupport.GetMissingFilesCount(filePath, ext);
         var completeness = CompletenessScorer.Calculate(filePath, ext, setMembers, missingSetMembersCount, datResult.DatMatch);
 
         // Derive final evidence tier: DAT match takes precedence over detection-level evidence

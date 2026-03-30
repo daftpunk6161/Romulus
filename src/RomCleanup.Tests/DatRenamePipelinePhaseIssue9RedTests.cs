@@ -136,6 +136,62 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
         Assert.Equal(0, audit.AppendCalls);
     }
 
+    [Fact]
+    public void Execute_TargetAlreadyExists_StillAttemptsAtomicRename_Issue9()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "DatRenameRace_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var sourcePath = Path.Combine(tempDir, "wrong.nes");
+            var existingTargetPath = Path.Combine(tempDir, "Super Mario Bros.nes");
+            File.WriteAllText(sourcePath, "source");
+            File.WriteAllText(existingTargetPath, "target");
+
+            var options = new RunOptions
+            {
+                Mode = "Move",
+                Roots = [tempDir],
+                AuditPath = Path.Combine(tempDir, "audit.csv")
+            };
+
+            var entries = new[]
+            {
+                new DatAuditEntry(
+                    FilePath: sourcePath,
+                    Hash: "abc123",
+                    Status: DatAuditStatus.HaveWrongName,
+                    DatGameName: "Super Mario Bros",
+                    DatRomFileName: "Super Mario Bros.nes",
+                    ConsoleKey: "NES",
+                    Confidence: 100)
+            };
+
+            var fs = new TrackingFileSystem
+            {
+                RenameResult = Path.Combine(tempDir, "Super Mario Bros__DUP1.nes")
+            };
+            var audit = new TrackingAuditStore();
+            var context = CreateContext(options, fs, audit);
+
+            var result = new DatRenamePipelinePhase().Execute(
+                new DatRenameInput(entries, options),
+                context,
+                CancellationToken.None);
+
+            Assert.Equal(1, fs.RenameCalls);
+            Assert.Equal(1, result.ExecutedCount);
+            Assert.Equal(0, result.SkippedCount);
+            Assert.Equal(1, audit.AppendCalls);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     private static PipelineContext CreateContext(RunOptions options, IFileSystem fs, IAuditStore audit)
     {
         var metrics = new PhaseMetricsCollector();

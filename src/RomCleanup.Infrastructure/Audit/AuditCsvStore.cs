@@ -14,6 +14,7 @@ public sealed class AuditCsvStore : IAuditStore
 {
     private readonly AuditSigningService _signingService;
     private static readonly ConcurrentDictionary<string, object> FileLocks = new(StringComparer.OrdinalIgnoreCase);
+    private const string AuditCsvHeader = "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n";
 
     public AuditCsvStore(IFileSystem? fs = null, Action<string>? log = null, string? keyFilePath = null)
     {
@@ -28,8 +29,20 @@ public sealed class AuditCsvStore : IAuditStore
         if (string.IsNullOrWhiteSpace(auditCsvPath))
             throw new ArgumentException("Audit CSV path must not be empty.", nameof(auditCsvPath));
 
+        // Ensure checkpoint sidecar writes can run before first append in Move phase.
+        if (!File.Exists(auditCsvPath))
+        {
+            var dir = Path.GetDirectoryName(auditCsvPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            File.WriteAllText(auditCsvPath, AuditCsvHeader, Encoding.UTF8);
+        }
+
         var rowCount = CountAuditRows(auditCsvPath);
-        _signingService.WriteMetadataSidecar(auditCsvPath, rowCount, metadata);
+        var sidecarPath = _signingService.WriteMetadataSidecar(auditCsvPath, rowCount, metadata);
+        if (string.IsNullOrWhiteSpace(sidecarPath) || !File.Exists(sidecarPath))
+            throw new IOException($"Failed to write audit sidecar for '{auditCsvPath}'.");
     }
 
     public bool TestMetadataSidecar(string auditCsvPath)

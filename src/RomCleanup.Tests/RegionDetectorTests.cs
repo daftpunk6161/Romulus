@@ -216,4 +216,22 @@ public class RegionDetectorTests
             Assert.Equal("US", result);
         }
     }
+
+    [Fact]
+    public void GetRegionTagWithDiagnostics_KnownRule_ProvidesReason()
+    {
+        var result = RegionDetector.GetRegionTagWithDiagnostics("Game (USA)");
+
+        Assert.Equal("US", result.Region);
+        Assert.Equal("ordered-rule:US", result.DiagnosticReason);
+    }
+
+    [Fact]
+    public void GetRegionTagWithDiagnostics_Unknown_ProvidesNoMatchReason()
+    {
+        var result = RegionDetector.GetRegionTagWithDiagnostics("Completely Unmapped Game Name");
+
+        Assert.Equal("UNKNOWN", result.Region);
+        Assert.Equal("no-match", result.DiagnosticReason);
+    }
 }
