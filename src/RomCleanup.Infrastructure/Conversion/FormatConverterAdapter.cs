@@ -156,6 +156,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
         var targetPath = Path.Combine(dir, baseName + target.Extension);
 
+        if (IsBlockedLegacyLossyPair(sourcePath, sourceExt, target.Extension))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Blocked, "lossy-to-lossy-blocked-legacy");
+
         // Skip if already in target format
         if (string.Equals(sourceExt, target.Extension, StringComparison.OrdinalIgnoreCase))
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "already-target-format");
@@ -263,6 +266,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
         var targetPath = Path.Combine(dir, baseName + target.Extension);
 
+        if (IsBlockedLegacyLossyPair(sourcePath, sourceExt, target.Extension))
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Blocked, "lossy-to-lossy-blocked-legacy");
+
         if (string.Equals(sourceExt, target.Extension, StringComparison.OrdinalIgnoreCase))
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, "already-target-format");
 
@@ -311,6 +317,25 @@ public sealed class FormatConverterAdapter : IFormatConverter
         }
 
         return null;
+    }
+
+    private static bool IsBlockedLegacyLossyPair(string sourcePath, string sourceExtension, string targetExtension)
+    {
+        if (string.Equals(sourceExtension, ".cso", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(targetExtension, ".chd", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var fileName = Path.GetFileName(sourcePath);
+        if (!string.IsNullOrWhiteSpace(fileName)
+            && fileName.Contains(".nkit.", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(targetExtension, ".rvz", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private ConversionResult? TryExecuteSingleStepPlan(
@@ -647,9 +672,13 @@ public sealed class FormatConverterAdapter : IFormatConverter
             outputs.Add(targetPath);
         }
 
-        // Return first output as primary, note multi-disc in detail
+        // Keep first output as primary for backward compatibility and track
+        // remaining outputs explicitly for reports/audit parity.
         return new ConversionResult(sourcePath, outputs[0], ConversionOutcome.Success,
-            $"multi-disc:{cueFiles.Length}");
+            $"multi-disc:{cueFiles.Length}")
+        {
+            AdditionalTargetPaths = outputs.Skip(1).ToArray()
+        };
     }
 
     private ConversionResult ConvertWithDolphinTool(string sourcePath, string targetPath, string toolPath, string sourceExt)

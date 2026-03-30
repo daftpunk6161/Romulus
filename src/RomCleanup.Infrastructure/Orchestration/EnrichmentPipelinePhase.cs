@@ -137,14 +137,28 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     Sources = ["DatName"],
                     HasHardEvidence = false,
                     HasConflict = detectionConflict,
-                    DatVerified = false
+                    DatVerified = false,
+                    Tier = EvidenceTier.Tier2_StrongHeuristic,
+                    PrimaryMatchKind = MatchKind.DatNameOnlyMatch,
                 };
             }
             else
             {
+                // Hash-verified DAT match restores canonical game classification unless
+                // BIOS detection has already marked this file as BIOS.
+                if (category is FileCategory.Junk or FileCategory.NonGame or FileCategory.Unknown)
+                    category = FileCategory.Game;
+
                 ApplyDatAuthority(ref detectionConfidence, ref hasHardEvidence, ref isSoftOnly,
                     ref sortDecision, ref matchEvidence,
                     detectionConflict, datResult.DatResolvedFromAmbiguousCandidates);
+
+                // Enrich MatchEvidence with DAT-specific tier information
+                matchEvidence = matchEvidence with
+                {
+                    Tier = datResult.DatMatchKind.GetTier(),
+                    PrimaryMatchKind = datResult.DatMatchKind,
+                };
             }
         }
 
@@ -160,6 +174,12 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             _ => 0
         };
         var completeness = CompletenessScorer.Calculate(filePath, ext, setMembers, missingSetMembersCount, datResult.DatMatch);
+
+        // Derive final evidence tier: DAT match takes precedence over detection-level evidence
+        var finalMatchKind = datResult.DatMatchKind != MatchKind.None
+            ? datResult.DatMatchKind
+            : matchEvidence.PrimaryMatchKind;
+        var finalEvidenceTier = finalMatchKind.GetTier();
 
         return CandidateFactory.Create(
             normalizedPath: filePath,
@@ -184,8 +204,10 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             detectionConflict: detectionConflict,
             hasHardEvidence: hasHardEvidence,
             isSoftOnly: isSoftOnly,
-                sortDecision: sortDecision,
-                matchEvidence: matchEvidence);
+            sortDecision: sortDecision,
+            matchEvidence: matchEvidence,
+            evidenceTier: finalEvidenceTier,
+            primaryMatchKind: finalMatchKind);
     }
 
     private readonly record struct DatLookupResult(
@@ -196,7 +218,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         string? ComputedHash,
         string? ComputedHeaderlessHash,
         string ConsoleKey,
-        bool DetectionConflict);
+        bool DetectionConflict,
+        MatchKind DatMatchKind);
 
     private static DatLookupResult LookupDat(
         string filePath, string ext, long sizeBytes,
@@ -213,9 +236,10 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         string? computedHash = null;
         string? computedHeaderlessHash = null;
         bool datNameOnlyMatch = false;
+        var datMatchKind = MatchKind.None;
 
         if (datIndex is null || hashService is null)
-            return new DatLookupResult(false, false, false, false, null, null, consoleKey, detectionConflict);
+            return new DatLookupResult(false, false, false, false, null, null, consoleKey, detectionConflict, MatchKind.None);
 
         if (sizeBytes > 50_000_000)
         {
@@ -233,46 +257,24 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             foreach (var innerHash in innerHashes)
             {
                 computedHash ??= innerHash;
-                if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+
+                // DAT-first: always try cross-console lookup first, even when consoleKey is known.
+                // This catches misdetections where Detection assigned the wrong console.
+                var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, innerHash, consoleKey, detectionResult, context, filePath);
+                if (crossConsoleResult.IsMatch)
                 {
-                    var unknownResolution = ResolveUnknownDatMatch(datIndex, innerHash, detectionResult);
-                    if (unknownResolution.IsMatch)
+                    datMatch = true;
+                    computedHash = innerHash;
+                    datMatchedBios = crossConsoleResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
+                    datMatchKind = MatchKind.ArchiveInnerExactDat;
+                    if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
+                        && consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                     {
-                        datMatch = true;
-                        computedHash = innerHash;
-                        datMatchedBios = unknownResolution.IsBios;
-                        datResolvedFromAmbiguousCandidates = unknownResolution.ResolvedFromAmbiguousCandidates;
-                        var previousConsole = consoleKey;
-                        consoleKey = unknownResolution.ConsoleKey!;
-                        if (!string.IsNullOrEmpty(previousConsole) &&
-                            previousConsole != "UNKNOWN" &&
-                            !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            detectionConflict = true;
-                        }
-                        if (unknownResolution.ResolvedFromAmbiguousCandidates)
-                        {
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Mehrdeutigen Hash via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
-                        }
-                        else
-                        {
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
-                        }
-                        break;
+                        detectionConflict = true;
                     }
-                }
-                else
-                {
-                    var byConsole = datIndex.LookupWithFilename(consoleKey, innerHash);
-                    if (byConsole is not null)
-                    {
-                        datMatch = true;
-                        computedHash = innerHash;
-                        datMatchedBios = byConsole.Value.IsBios;
-                        break;
-                    }
+                    consoleKey = crossConsoleResult.ConsoleKey!;
+                    break;
                 }
             }
         }
@@ -283,7 +285,28 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             computedHeaderlessHash = headerlessHasher.ComputeHeaderlessHash(filePath, consoleKey, context.Options.HashType);
             if (computedHeaderlessHash is not null)
             {
-                datMatch = datIndex.Lookup(consoleKey, computedHeaderlessHash) is not null;
+                if (datIndex.Lookup(consoleKey, computedHeaderlessHash) is not null)
+                {
+                    datMatch = true;
+                    datMatchKind = MatchKind.HeaderlessDatHash;
+                }
+                else
+                {
+                    // Cross-console fallback: headerless hash might match a different console's DAT
+                    var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, computedHeaderlessHash, consoleKey, detectionResult, context, filePath);
+                    if (crossConsoleResult.IsMatch)
+                    {
+                        datMatch = true;
+                        datMatchedBios = crossConsoleResult.IsBios;
+                        datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
+                        datMatchKind = MatchKind.HeaderlessDatHash;
+                        if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            detectionConflict = true;
+                        }
+                        consoleKey = crossConsoleResult.ConsoleKey!;
+                    }
+                }
             }
         }
 
@@ -294,46 +317,27 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             computedHash ??= hash;
             if (hash is not null)
             {
-                if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+                // DAT-first: always try cross-console lookup for container hash too
+                var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, hash, consoleKey, detectionResult, context, filePath);
+                if (crossConsoleResult.IsMatch)
                 {
-                    var unknownResolution = ResolveUnknownDatMatch(datIndex, hash, detectionResult);
-                    if (unknownResolution.IsMatch)
+                    datMatch = true;
+                    computedHash = hash;
+                    datMatchedBios = crossConsoleResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
+                    datMatchKind = lowerExt == ".chd" ? MatchKind.ChdRawDatHash : MatchKind.ExactDatHash;
+                    if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
+                        && consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                     {
-                        datMatch = true;
-                        computedHash = hash;
-                        datMatchedBios = unknownResolution.IsBios;
-                        datResolvedFromAmbiguousCandidates = unknownResolution.ResolvedFromAmbiguousCandidates;
-                        var previousConsole = consoleKey;
-                        consoleKey = unknownResolution.ConsoleKey!;
-                        if (!string.IsNullOrEmpty(previousConsole) &&
-                            previousConsole != "UNKNOWN" &&
-                            !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            detectionConflict = true;
-                        }
-                        if (unknownResolution.ResolvedFromAmbiguousCandidates)
-                        {
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Mehrdeutigen Hash via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
-                        }
-                        else
-                        {
-                            context.OnProgress?.Invoke(
-                                $"[DAT] Konsole via DAT erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
-                        }
+                        detectionConflict = true;
                     }
-                    else
-                    {
-                        var hashHint = hash.Length >= 12 ? hash[..12] : hash;
-                        context.OnProgress?.Invoke(
-                            $"[DAT] Kein Match fuer UNKNOWN-Konsole: {Path.GetFileName(filePath)} (hash={hashHint})");
-                    }
+                    consoleKey = crossConsoleResult.ConsoleKey!;
                 }
-                else
+                else if (consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                 {
-                    var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
-                    datMatch = byConsole is not null;
-                    datMatchedBios = byConsole is not null && byConsole.Value.IsBios;
+                    var hashHint = hash.Length >= 12 ? hash[..12] : hash;
+                    context.OnProgress?.Invoke(
+                        $"[DAT] Kein Match: {Path.GetFileName(filePath)} (hash={hashHint})");
                 }
             }
         }
@@ -351,6 +355,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     {
                         datMatch = true;
                         datNameOnlyMatch = true;
+                        datMatchKind = MatchKind.DatNameOnlyMatch;
                         var previousConsole = consoleKey;
                         consoleKey = nameMatches[0].ConsoleKey;
                         datMatchedBios = nameMatches[0].Entry.IsBios;
@@ -370,6 +375,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                         {
                             datMatch = true;
                             datNameOnlyMatch = true;
+                            datMatchKind = MatchKind.DatNameOnlyMatch;
                             datMatchedBios = resolution.IsBios;
                             datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
                             var previousConsole = consoleKey;
@@ -392,6 +398,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     {
                         datMatch = true;
                         datNameOnlyMatch = true;
+                        datMatchKind = MatchKind.DatNameOnlyMatch;
                         datMatchedBios = byName.Value.IsBios;
                         context.OnProgress?.Invoke(
                             $"[DAT] Name-Match: {Path.GetFileName(filePath)} → {consoleKey}");
@@ -401,7 +408,46 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         }
 
         return new DatLookupResult(datMatch, datMatchedBios, datResolvedFromAmbiguousCandidates,
-            datNameOnlyMatch, computedHash, computedHeaderlessHash, consoleKey, detectionConflict);
+            datNameOnlyMatch, computedHash, computedHeaderlessHash, consoleKey, detectionConflict, datMatchKind);
+    }
+
+    /// <summary>
+    /// DAT-first cross-console lookup: searches ALL loaded DATs for a hash match.
+    /// If consoleKey is already known, tries that console first (fast path),
+    /// then falls back to cross-console search if no match in the expected console.
+    /// This is the key improvement over the old approach which only searched one console's DAT.
+    /// </summary>
+    private static DatUnknownResolution TryCrossConsoleDatLookup(
+        DatIndex datIndex, string hash, string consoleKey,
+        ConsoleDetectionResult? detectionResult, PipelineContext context, string filePath)
+    {
+        // Fast path: if consoleKey is known, try that console first
+        if (consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
+        {
+            var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
+            if (byConsole is not null)
+            {
+                return new DatUnknownResolution(true, consoleKey, byConsole.Value.IsBios, false);
+            }
+        }
+
+        // Cross-console lookup: search ALL DATs
+        var resolution = ResolveUnknownDatMatch(datIndex, hash, detectionResult);
+        if (resolution.IsMatch)
+        {
+            if (resolution.ResolvedFromAmbiguousCandidates)
+            {
+                context.OnProgress?.Invoke(
+                    $"[DAT] Mehrdeutigen Hash via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {resolution.ConsoleKey}");
+            }
+            else
+            {
+                context.OnProgress?.Invoke(
+                    $"[DAT] Konsole via DAT-Hash erkannt: {Path.GetFileName(filePath)} → {resolution.ConsoleKey}");
+            }
+        }
+
+        return resolution;
     }
 
     private static void ResolveBios(

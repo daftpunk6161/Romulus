@@ -115,7 +115,7 @@ public static class RunReportWriter
         // Invariant: report accounting must match scanned files.
         // Use canonical accounting from scanned candidates + prefilter count,
         // independent from dedupe grouping internals.
-        if (result.DedupeGroups.Count > 0)
+        if (projection.TotalFiles > 0)
         {
             var accountedTotal = projection.Candidates + projection.FilteredNonGameCount;
             if (accountedTotal != projection.TotalFiles)

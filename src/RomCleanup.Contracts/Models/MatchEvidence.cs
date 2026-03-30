@@ -24,4 +24,10 @@ public sealed record MatchEvidence
     public bool HasHardEvidence { get; init; }
     public bool HasConflict { get; init; }
     public bool DatVerified { get; init; }
+
+    /// <summary>Evidence tier for DAT-first recognition pipeline. Defaults to Unknown.</summary>
+    public EvidenceTier Tier { get; init; } = EvidenceTier.Tier4_Unknown;
+
+    /// <summary>How the match was established. Defaults to None.</summary>
+    public MatchKind PrimaryMatchKind { get; init; } = MatchKind.None;
 }

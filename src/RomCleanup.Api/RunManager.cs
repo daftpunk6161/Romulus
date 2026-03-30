@@ -268,6 +268,33 @@ public sealed class RunRecord
     public RunResult? CoreRunResult { get; set; }
     [JsonIgnore]
     public HashSet<string> ApprovedReviewPaths { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool TryApproveReviewPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        lock (_lock)
+            return ApprovedReviewPaths.Add(path);
+    }
+
+    public int ApprovedReviewCount
+    {
+        get
+        {
+            lock (_lock)
+                return ApprovedReviewPaths.Count;
+        }
+    }
+
+    public bool IsReviewPathApproved(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        lock (_lock)
+            return ApprovedReviewPaths.Contains(path);
+    }
     public string? ProgressMessage
     {
         get { lock (_lock) return _progressMessage; }

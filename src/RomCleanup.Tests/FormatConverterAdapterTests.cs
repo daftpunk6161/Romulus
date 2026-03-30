@@ -300,6 +300,44 @@ public class FormatConverterAdapterTests
         }
     }
 
+    [Fact]
+    public void Convert_LegacyCsoToChd_IsBlocked()
+    {
+        var source = Path.Combine(Path.GetTempPath(), $"legacy_lossy_{Guid.NewGuid():N}.cso");
+        try
+        {
+            File.WriteAllBytes(source, new byte[] { 1, 2, 3, 4, 5 });
+
+            var result = _converter.Convert(source, new ConversionTarget(".chd", "chdman", "createcd"));
+
+            Assert.Equal(ConversionOutcome.Blocked, result.Outcome);
+            Assert.Equal("lossy-to-lossy-blocked-legacy", result.Reason);
+        }
+        finally
+        {
+            if (File.Exists(source)) File.Delete(source);
+        }
+    }
+
+    [Fact]
+    public void Convert_LegacyNkitToRvz_IsBlocked()
+    {
+        var source = Path.Combine(Path.GetTempPath(), $"legacy_lossy_{Guid.NewGuid():N}.nkit.iso");
+        try
+        {
+            File.WriteAllBytes(source, new byte[] { 1, 2, 3, 4, 5 });
+
+            var result = _converter.Convert(source, new ConversionTarget(".rvz", "dolphintool", "convert"));
+
+            Assert.Equal(ConversionOutcome.Blocked, result.Outcome);
+            Assert.Equal("lossy-to-lossy-blocked-legacy", result.Reason);
+        }
+        finally
+        {
+            if (File.Exists(source)) File.Delete(source);
+        }
+    }
+
     /// <summary>
     /// Simple mock IToolRunner for unit testing conversion logic.
     /// </summary>

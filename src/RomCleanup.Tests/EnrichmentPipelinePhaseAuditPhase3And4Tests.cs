@@ -180,6 +180,52 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         Assert.Equal(FileCategory.Bios, candidate.Category);
     }
 
+    [Fact]
+    public void Execute_DatHashMatch_OverridesJunkToGame()
+    {
+        var root = Path.Combine(_tempDir, "phase3_dat_game");
+        Directory.CreateDirectory(root);
+        var filePath = CreateFile(root, "sample (Demo).bin", 96);
+
+        var hashService = new FileHashService();
+        var hash = hashService.GetHash(filePath, "SHA1");
+        Assert.False(string.IsNullOrWhiteSpace(hash));
+
+        var datIndex = new DatIndex();
+        datIndex.Add("PS1", hash!, "Retail Game", "sample.bin", isBios: false);
+
+        var detector = new ConsoleDetector([
+            new ConsoleInfo(
+                Key: "PS1",
+                DisplayName: "PlayStation",
+                DiscBased: true,
+                UniqueExts: ["cue"],
+                AmbigExts: ["bin"],
+                FolderAliases: ["PS1", "PlayStation"])
+        ]);
+
+        var scan = new[] { new ScannedFileEntry(root, filePath, ".bin") };
+        var options = new RunOptions
+        {
+            Roots = [root],
+            Extensions = [".bin"],
+            Mode = "DryRun",
+            HashType = "SHA1"
+        };
+
+        var phase = new EnrichmentPipelinePhase();
+        var result = phase.Execute(
+            new EnrichmentPhaseInput(scan, detector, hashService, null, datIndex),
+            CreateContext(options),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(result);
+        Assert.True(candidate.DatMatch);
+        Assert.Equal(FileCategory.Game, candidate.Category);
+        Assert.Equal("PS1", candidate.ConsoleKey);
+        Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
+    }
+
     private PipelineContext CreateContext(RunOptions options)
     {
         var metrics = new PhaseMetricsCollector();

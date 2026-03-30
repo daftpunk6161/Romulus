@@ -1,6 +1,7 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Conversion;
+using System.IO.Compression;
 using Xunit;
 
 namespace RomCleanup.Tests.Conversion;
@@ -254,6 +255,30 @@ public sealed class ConversionFacadeRegressionTests : IDisposable
         Assert.True(executor.WasCalled, "Executor should be called via TryExecuteSingleStepPlan");
     }
 
+    [Fact]
+    public void Convert_MultiCueArchive_TracksAllGeneratedOutputs()
+    {
+        var sourceZip = CreateMultiCueArchive();
+        var adapter = new FormatConverterAdapter(new StubToolRunner());
+
+        var result = adapter.Convert(sourceZip, new ConversionTarget(".chd", "chdman", "createcd"));
+
+        Assert.Equal(ConversionOutcome.Success, result.Outcome);
+        Assert.NotNull(result.TargetPath);
+        Assert.NotEmpty(result.AdditionalTargetPaths);
+        var secondary = Assert.Single(result.AdditionalTargetPaths);
+
+        var primary = result.TargetPath!;
+
+        Assert.True(File.Exists(primary));
+        Assert.True(File.Exists(secondary));
+        Assert.EndsWith("Disc 1.chd", primary, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("Disc 2.chd", secondary, StringComparison.OrdinalIgnoreCase);
+
+        _tempFiles.Add(primary);
+        _tempFiles.Add(secondary);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
@@ -273,6 +298,23 @@ public sealed class ConversionFacadeRegressionTests : IDisposable
             Verification = VerificationMethod.None,
             Condition = ConversionCondition.None
         };
+    }
+
+    private string CreateMultiCueArchive()
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"multicue_{Guid.NewGuid():N}.zip");
+        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        {
+            archive.CreateEntry("Disc 1.cue");
+            archive.CreateEntry("Disc 1.bin");
+            archive.CreateEntry("Disc 2.cue");
+            archive.CreateEntry("Disc 2.bin");
+        }
+
+        _tempFiles.Add(zipPath);
+        _tempFiles.Add(Path.Combine(Path.GetDirectoryName(zipPath)!, "Disc 1.chd"));
+        _tempFiles.Add(Path.Combine(Path.GetDirectoryName(zipPath)!, "Disc 2.chd"));
+        return zipPath;
     }
 
     // -----------------------------------------------------------------------

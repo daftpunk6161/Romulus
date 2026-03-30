@@ -32,10 +32,17 @@ public static class CandidateFactory
         bool hasHardEvidence = false,
         bool isSoftOnly = true,
         SortDecision sortDecision = SortDecision.Blocked,
-        MatchEvidence? matchEvidence = null)
+        MatchEvidence? matchEvidence = null,
+        EvidenceTier evidenceTier = EvidenceTier.Tier4_Unknown,
+        MatchKind primaryMatchKind = MatchKind.None,
+        PlatformFamily platformFamily = PlatformFamily.Unknown)
     {
+        var biosRegionKey = string.IsNullOrWhiteSpace(region)
+            ? "UNKNOWN"
+            : region.Trim().ToUpperInvariant();
+
         var effectiveGameKey = category == FileCategory.Bios
-            ? $"__BIOS__{gameKey}"
+            ? $"__BIOS__{biosRegionKey}__{gameKey}"
             : gameKey;
 
         return new RomCandidate
@@ -63,7 +70,10 @@ public static class CandidateFactory
             HasHardEvidence = hasHardEvidence,
             IsSoftOnly = isSoftOnly,
             SortDecision = sortDecision,
-            MatchEvidence = matchEvidence ?? new MatchEvidence()
+            MatchEvidence = matchEvidence ?? new MatchEvidence(),
+            EvidenceTier = evidenceTier,
+            PrimaryMatchKind = primaryMatchKind,
+            PlatformFamily = platformFamily,
         };
     }
 }

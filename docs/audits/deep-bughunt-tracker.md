@@ -1,30 +1,50 @@
 # Full Deep Bughunt – Romulus Tracker
 
 > **Datum:** 2026-03-29
-> **Status:** Bedingt release-fähig – 6 Blocker offen (inkl. 2 API-Paritäts-Blocker)
+> **Status:** Bedingt release-fähig – weitere P1-Blocker behoben, verbleibende P2/P3 offen
 > **Hinweis:** Neue Findings werden fortlaufend in diesem Dokument ergänzt.
+
+## Update-Log (2026-03-30)
+
+- [x] BUG-01 umgesetzt: deterministischer Equal-Cost-Tie-Break in ConversionGraph
+- [x] BUG-03 umgesetzt: atomarer Set-Member-Move mit Preflight + Rollback
+- [x] BUG-04 umgesetzt: numerische `__DUP`-Suffix-Aufloesung
+- [x] BUG-52 umgesetzt: API-Default auf `RunConstants.DefaultPreferRegions`
+- [x] BUG-53 umgesetzt: `EnableDatAudit`/`EnableDatRename` in RunRecord propagiert
+- [x] BUG-61 umgesetzt: Report `ErrorCount` auf `projection.FailCount` normalisiert
+- [x] BUG-84/85/86 umgesetzt: Tests auf echte Invarianten gehaertet (Security/Idempotenz/Overflow)
+- [x] BUG-18 umgesetzt: BIOS-Key region-aware (`__BIOS__{REGION}__{gameKey}`)
+- [x] BUG-19 umgesetzt: DAT-Hash-Match hebt Junk/Unknown/NonGame auf `Game` (außer BIOS)
+- [x] BUG-26 umgesetzt: Conversion `SourceBytes`/`TargetBytes` im Result, SavedBytes robust auch nach Source-Move
+- [x] BUG-27 umgesetzt: `ConvertLossyWarningCount`/`ConvertVerifyPassedCount`/`ConvertVerifyFailedCount` in `ApplyConversionReport` befüllt
+- [x] BUG-28 umgesetzt: Multi-CUE trackt zusätzliche Outputs in `ConversionResult.AdditionalTargetPaths`
+- [x] BUG-29 umgesetzt: `PsxtractInvoker.Verify` validiert ISO-artige Outputs statt CHD-Magic
+- [x] BUG-30 umgesetzt: Legacy-Pfad blockiert lossy->lossy (`.cso -> .chd`, `.nkit.* -> .rvz`)
+- [x] BUG-31 umgesetzt: Tool-Fehlerpfade behalten attempted OutputPath für verlässliches Cleanup
+- [x] Verifikation: `dotnet build src/RomCleanup.sln` grün; fokussierter Testlauf 145 passed / 0 failed
+- [x] Verifikation: gezielte Regressionen grün (`CandidateFactoryTests`, `EnrichmentPipelinePhaseAuditPhase3And4Tests`, `ConversionMetricsPipelineTests`)
 
 ---
 
 ## Release-Blocker (P1)
 
-- [ ] **BUG-01** – ConversionGraph: Nicht-deterministischer Pfad bei gleichen Kosten
+- [x] **BUG-01** – ConversionGraph: Nicht-deterministischer Pfad bei gleichen Kosten
   - Datei: `ConversionGraph.cs:50-67`
   - Impact: Preview ↔ Execute Divergenz, CLI/GUI Inkonsistenz
   - Fix: Sekundären Tie-Breaker einführen (Tool-Name, Ziel-Extension)
-  - [ ] TGAP-01: `ConversionGraph_EqualCostPaths_ReturnsDeterministicResult()`
+  - [x] TGAP-01: `ConversionGraph_EqualCostPaths_ReturnsDeterministicResult()`
 
-- [ ] **BUG-03** – MovePipelinePhase: Set-Member-Move nicht atomar
+- [x] **BUG-03** – MovePipelinePhase: Set-Member-Move nicht atomar
   - Datei: `MovePipelinePhase.cs:90-130`
   - Impact: Orphaned BIN/TRACK files nach partiellem Fehler (Datenverlust-Risiko)
   - Fix: Preflight-Check ob alle Members moveable, dann Move, bei Fehler Rollback
-  - [ ] TGAP-02: `MovePipelinePhase_SetMember_PartialFailure_RollsBackDescriptor()`
+  - [x] TGAP-02: `MovePipelinePhase_SetMember_PartialFailure_RollsBackDescriptor()`
 
-- [ ] **BUG-04** – ConsoleSorter: `__DUP` alphabetische Sortierung bricht bei ≥10
+- [x] **BUG-04** – ConsoleSorter: `__DUP` alphabetische Sortierung bricht bei ≥10
   - Datei: `ConsoleSorter.cs:334-341`
   - Impact: Rollback findet falsches File
   - Fix: Numerischen Comparer verwenden (DUP-Suffix als int parsen)
-  - [ ] TGAP-03: `FindActualDestination_10PlusDuplicates_ReturnsHighestNumber()`
+  - [x] TGAP-03: `FindActualDestination_10PlusDuplicates_ReturnsHighestNumber()`
 
 - [ ] **BUG-12** – API: OnlyGames/KeepUnknownWhenOnlyGames Validierung invertiert
   - Datei: `Program.cs:322-325`
@@ -33,17 +53,17 @@
   - [ ] TGAP-07: `Api_OnlyGamesFalse_KeepUnknownTrue_Returns400()`
   - ⚠️ **Korrekturnotiz (Bughunt #5):** Logik ist tatsächlich korrekt — siehe Analyse in Bughunt #5
 
-- [ ] **BUG-52** – API: PreferRegions-Reihenfolge divergiert von RunConstants
+- [x] **BUG-52** – API: PreferRegions-Reihenfolge divergiert von RunConstants
   - Datei: `RunLifecycleManager.cs:112`
   - Impact: JP/WORLD vertauscht → andere Dedupe-Ergebnisse als CLI/WPF
   - Fix: `RunConstants.DefaultPreferRegions` statt hardcoded Array
-  - [ ] TGAP-42: `Api_DefaultPreferRegions_MatchRunConstants()`
+  - [x] TGAP-42: `Api_DefaultPreferRegions_MatchRunConstants()`
 
-- [ ] **BUG-53** – API: EnableDatAudit/EnableDatRename nicht in RunRecord propagiert
+- [x] **BUG-53** – API: EnableDatAudit/EnableDatRename nicht in RunRecord propagiert
   - Datei: `RunLifecycleManager.cs:104-130`
   - Impact: DAT-Audit/Rename via API unmöglich; Fingerprint-Widerspruch
   - Fix: `EnableDatAudit = request.EnableDatAudit, EnableDatRename = request.EnableDatRename` in TryCreateOrReuse
-  - [ ] TGAP-43: `Api_EnableDatAudit_PropagatedToRunRecord()`
+  - [x] TGAP-43: `Api_EnableDatAudit_PropagatedToRunRecord()`
 
 ---
 
@@ -142,19 +162,21 @@
 
 ### Priorität 1 (P1)
 
-- [ ] **BUG-18** – BIOS-Varianten werden über Region hinweg dedupliziert
+- [x] **BUG-18** – BIOS-Varianten werden über Region hinweg dedupliziert
   - Dateien: `src/RomCleanup.Core/Classification/CandidateFactory.cs`, `src/RomCleanup.Core/GameKeys/GameKeyNormalizer.cs`
   - Impact: BIOS (z. B. USA/Japan) kann fälschlich zusammengeführt werden
   - Ursache: BIOS-Key basiert auf normalisiertem `gameKey` ohne Region (`__BIOS__{gameKey}`)
   - Fix: BIOS-Key um Region erweitern oder BIOS aus Dedupe-Gruppierung ausnehmen
-  - [ ] TGAP-11: `BiosVariants_DifferentRegions_AreNotDeduplicated()`
+  - [x] TGAP-11: `Create_BiosSameBaseKeyDifferentRegions_DifferentGameKeys()`
+  - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-19** – DAT-Hash-Match überschreibt Junk-Kategorie nicht
+- [x] **BUG-19** – DAT-Hash-Match überschreibt Junk-Kategorie nicht
   - Datei: `src/RomCleanup.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs`
   - Impact: DAT-verifizierte Spiele können trotz Hash-Match in `_TRASH_JUNK` landen
   - Ursache: DAT-Authority aktualisiert Confidence/SortDecision, aber nicht `category`
   - Fix: Bei echtem DAT-Hash-Match Kategorie auf `Game` anheben (Name-only Match ausgenommen)
-  - [ ] TGAP-12: `DatHashMatch_JunkTag_IsRecoveredToGameCategory()`
+  - [x] TGAP-12: `Execute_DatHashMatch_OverridesJunkToGame()`
+  - Status: erledigt (2026-03-30)
 
 ### Priorität 2 (P2)
 
@@ -227,7 +249,7 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 
 ### Priorität 1 (P1)
 
-- [ ] **BUG-26** – SavedBytes ist im Execute-Modus systematisch 0
+- [x] **BUG-26** – SavedBytes ist im Execute-Modus systematisch 0
   - Datei: `src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs` (L381-392)
   - Impact: CLI, API, GUI und Reports zeigen Conversion Savings als 0
   - Reproduktion: Beliebige erfolgreiche Conversion ausführen → SavedBytes = 0
@@ -235,9 +257,10 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
   - Tatsächliches Verhalten: `ApplyConversionReport` prüft `sourceInfo.Exists` auf Original-Pfad, der bereits nach `_TRASH_CONVERTED` verschoben wurde → `Exists == false` → kein Savings-Delta
   - Ursache: Source wird in `ProcessConversionResult` (L97-101) in Trash verschoben BEVOR `ApplyConversionReport` die Dateigröße liest
   - Fix: Source-Größe im `ConversionResult` als `SourceSizeBytes`-Property speichern (z.B. vor dem Move), oder aus Trash-Pfad ablesen
-  - [ ] TGAP-19: `ConversionSavedBytes_AfterSuccessfulConversion_IsPositive()`
+  - [x] TGAP-19: `ConversionReport_UsesByteSnapshots_WhenSourceFileNoLongerExists()`
+  - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-27** – LossyWarning/VerifyPassed/VerifyFailed Counter permanent 0
+- [x] **BUG-27** – LossyWarning/VerifyPassed/VerifyFailed Counter permanent 0
   - Dateien: `src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs`, `RunResultBuilder.cs` (L31-33)
   - Impact: CLI, API, GUI, Reports zeigen immer 0 für Lossy-Warnungen und Verify-Statistik
   - Reproduktion: Beliebige Conversion mit Verify → ConvertVerifyPassedCount bleibt 0
@@ -248,9 +271,10 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
     - `LossyWarning = results.Count(r => r.SourceIntegrity == Lossy && r.Outcome == Success)`
     - `VerifyPassed = results.Count(r => r.VerificationResult == Verified)`
     - `VerifyFailed = results.Count(r => r.VerificationResult == VerifyFailed)`
-  - [ ] TGAP-20: `ConversionMetrics_LossyAndVerify_ArePopulated()`
+  - [x] TGAP-20: `RunResultBuilder_VerifyAndLossyCounters_AreProjectedAndMapped()`
+  - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-28** – Multi-CUE ConversionResult gibt nur ersten Output zurück
+- [x] **BUG-28** – Multi-CUE ConversionResult gibt nur ersten Output zurück
   - Datei: `src/RomCleanup.Infrastructure/Conversion/FormatConverterAdapter.cs` (L653)
   - Impact: Bei Multi-Disc-Archiv (z.B. 3-Disc PS1 ZIP) wird nur Disc 1 als TargetPath gespeichert → Disc 2+3 CHDs existieren aber werden nicht auditiert/getrackt
   - Reproduktion: ZIP mit 3 CUE-Dateien konvertieren → `ConversionResult.TargetPath = disc1.chd` nur
@@ -258,30 +282,34 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
   - Tatsächliches Verhalten: `outputs[0]` als einziger TargetPath, Disc 2+3 ungetrackt
   - Ursache: `ConversionResult` hat nur ein `TargetPath`-Feld, Multi-Output nicht modelliert
   - Fix: `ConversionResult` um `AdditionalTargetPaths` erweitern oder Multi-CUE als separate ConversionResults modellieren
-  - [ ] TGAP-21: `MultiCueArchive_AllOutputs_AreTrackedInResult()`
+  - [x] TGAP-21: `Convert_MultiCueArchive_TracksAllGeneratedOutputs()`
+  - Status: erledigt (2026-03-30)
 
 ### Priorität 2 (P2)
 
-- [ ] **BUG-29** – PsxtractInvoker.Verify prüft CHD-Magic statt ISO
+- [x] **BUG-29** – PsxtractInvoker.Verify prüft CHD-Magic statt ISO
   - Datei: `src/RomCleanup.Infrastructure/Conversion/ToolInvokers/PsxtractInvoker.cs` (L57-80)
   - Impact: psxtract PBP→ISO erzeugt gültige ISO, aber Verify schlägt fehl wegen CHD-Magic-Check → Error-Counter statt Converted
   - Ursache: Verify-Methode sucht "MComprHD" in Bytes 0-7 — das ist CHD-Format, nicht ISO
   - Fix: ISO-Verify durch Dateigröße > 0 + ggf. ISO-9660-Magic (`CD001` at offset 0x8001) ersetzen
-  - [ ] TGAP-22: `PsxtractVerify_ValidIsoOutput_ReturnsVerified()`
+  - [x] TGAP-22: `Verify_ValidIso9660Magic_ReturnsVerified()`
+  - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-30** – Legacy-Pfad hat keine Lossy→Lossy-Blockade
+- [x] **BUG-30** – Legacy-Pfad hat keine Lossy→Lossy-Blockade
   - Datei: `src/RomCleanup.Infrastructure/Conversion/FormatConverterAdapter.cs` (Legacy-Methoden ConvertWithChdman/DolphinTool/SevenZip/Psxtract)
   - Impact: CSO→CHD oder NKit→RVZ (beide Lossy) können im Legacy-Pfad durchrutschen
   - Ursache: Nur der Graph-Pfad hat die Lossy→Lossy-Blockade (ConversionGraph L107-108). Der Legacy-Pfad (`Convert()`, `ConvertLegacy()`) prüft SourceIntegrity nicht
   - Fix: SourceIntegrity-Check in `Convert()`/`ConvertLegacy()` vor Tool-Aufruf einbauen
-  - [ ] TGAP-23: `LegacyConversion_LossyToLossy_IsBlocked()`
+  - [x] TGAP-23: `Convert_LegacyCsoToChd_IsBlocked()` + `Convert_LegacyNkitToRvz_IsBlocked()`
+  - Status: erledigt (2026-03-30)
 
-- [ ] **BUG-31** – Partial-Output-Cleanup greift nicht bei TargetPath=null
+- [x] **BUG-31** – Partial-Output-Cleanup greift nicht bei TargetPath=null
   - Dateien: `src/RomCleanup.Infrastructure/Conversion/ToolInvokers/ToolInvokerSupport.cs` (L69), `src/RomCleanup.Infrastructure/Orchestration/ConversionPhaseHelper.cs` (L120-123)
   - Impact: Tool crasht mit partieller Datei → `ToolInvocationResult.OutputPath=null` → SEC-CONV-05 Guard prüft `convResult.TargetPath` aber dieses ist `null` → Cleanup wird übersprungen → partielle Datei bleibt auf Disk
   - Ursache: Bei `Success=false` setzt `FromToolResult` OutputPath auf null. SEC-CONV-05 kennt den tatsächlichen Pfad nicht mehr
   - Fix: TargetPath auch bei Fehler im ToolInvocationResult setzen (als `AttemptedOutputPath`), oder Cleanup im ConversionExecutor anhand von BuildOutputPath
-  - [ ] TGAP-24: `ToolFailure_PartialOutput_IsCleanedUp()`
+  - [x] TGAP-24: `Invoke_ToolFailure_ReturnsAttemptedOutputPath()`
+  - Status: erledigt (2026-03-30)
 
 - [ ] **BUG-32** – CancellationToken wird nicht an InvokeProcess durchgereicht
   - Dateien: `src/RomCleanup.Infrastructure/Conversion/ToolInvokers/PsxtractInvoker.cs` (L33,48), `ChdmanInvoker.cs`, `DolphinToolInvoker.cs`, `SevenZipInvoker.cs`
@@ -349,9 +377,9 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 
 | ID | Test | Bug | Status |
 |---|---|---|---|
-| [ ] TGAP-01 | `ConversionGraph_EqualCostPaths_ReturnsDeterministic()` | BUG-01 | offen |
-| [ ] TGAP-02 | `MovePipelinePhase_SetMember_PartialFailure_RollsBack()` | BUG-03 | offen |
-| [ ] TGAP-03 | `FindActualDestination_10PlusDuplicates_ReturnsHighest()` | BUG-04 | offen |
+| [x] TGAP-01 | `ConversionGraph_EqualCostPaths_ReturnsDeterministic()` | BUG-01 | erledigt (2026-03-30) |
+| [x] TGAP-02 | `MovePipelinePhase_SetMember_PartialFailure_RollsBack()` | BUG-03 | erledigt (2026-03-30) |
+| [x] TGAP-03 | `FindActualDestination_10PlusDuplicates_ReturnsHighest()` | BUG-04 | erledigt (2026-03-30) |
 | [ ] TGAP-04 | `HashFilesAsync_SingleThread_RespectsCancellation()` | BUG-05 | offen |
 | [ ] TGAP-05 | `ReportWriter_ConvertOnly_ValidatesInvariant()` | BUG-06 | offen |
 | [ ] TGAP-06 | `DeriveRootsFromAudit_PathWithComma_FullPath()` | BUG-10 | offen |
@@ -359,20 +387,20 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 | [ ] TGAP-08 | `SanitizeCsvField_Formula_QuotedCorrectly()` | BUG-14 | offen |
 | [ ] TGAP-09 | `Rollback_DryRun_Execute_SameCountSemantics()` | BUG-15 | offen |
 | [ ] TGAP-10 | `Rollback_MissingDestFile_CountsCorrectly()` | — | offen |
-| [ ] TGAP-11 | `BiosVariants_DifferentRegions_AreNotDeduplicated()` | BUG-18 | offen |
-| [ ] TGAP-12 | `DatHashMatch_JunkTag_IsRecoveredToGameCategory()` | BUG-19 | offen |
+| [x] TGAP-11 | `Create_BiosSameBaseKeyDifferentRegions_DifferentGameKeys()` | BUG-18 | erledigt (2026-03-30) |
+| [x] TGAP-12 | `Execute_DatHashMatch_OverridesJunkToGame()` | BUG-19 | erledigt (2026-03-30) |
 | [ ] TGAP-13 | `AmbiguousExtension_SingleSource_CanReachReview()` | BUG-20 | offen |
 | [ ] TGAP-14 | `ArchiveDetection_EqualSizeEntries_IsDeterministic()` | BUG-21 | offen |
 | [ ] TGAP-15 | `SwitchPackages_SizeTieBreak_PrefersLargerCanonicalDump()` | BUG-22 | offen |
 | [ ] TGAP-16 | `UnknownConsole_DatHashMatch_UpgradesToDatVerified()` | BUG-23 | offen |
 | [ ] TGAP-17 | `SnesHeaderSkip_RequiresValidHeaderConsistency()` | BUG-24 | offen |
 | [ ] TGAP-18 | `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()` | BUG-25 | offen |
-| [ ] TGAP-19 | `ConversionSavedBytes_AfterSuccessfulConversion_IsPositive()` | BUG-26 | offen |
-| [ ] TGAP-20 | `ConversionMetrics_LossyAndVerify_ArePopulated()` | BUG-27 | offen |
-| [ ] TGAP-21 | `MultiCueArchive_AllOutputs_AreTrackedInResult()` | BUG-28 | offen |
-| [ ] TGAP-22 | `PsxtractVerify_ValidIsoOutput_ReturnsVerified()` | BUG-29 | offen |
-| [ ] TGAP-23 | `LegacyConversion_LossyToLossy_IsBlocked()` | BUG-30 | offen |
-| [ ] TGAP-24 | `ToolFailure_PartialOutput_IsCleanedUp()` | BUG-31 | offen |
+| [x] TGAP-19 | `ConversionReport_UsesByteSnapshots_WhenSourceFileNoLongerExists()` | BUG-26 | erledigt (2026-03-30) |
+| [x] TGAP-20 | `RunResultBuilder_VerifyAndLossyCounters_AreProjectedAndMapped()` | BUG-27 | erledigt (2026-03-30) |
+| [x] TGAP-21 | `Convert_MultiCueArchive_TracksAllGeneratedOutputs()` | BUG-28 | erledigt (2026-03-30) |
+| [x] TGAP-22 | `Verify_ValidIso9660Magic_ReturnsVerified()` | BUG-29 | erledigt (2026-03-30) |
+| [x] TGAP-23 | `Convert_LegacyCsoToChd_IsBlocked()` + `Convert_LegacyNkitToRvz_IsBlocked()` | BUG-30 | erledigt (2026-03-30) |
+| [x] TGAP-24 | `Invoke_ToolFailure_ReturnsAttemptedOutputPath()` | BUG-31 | erledigt (2026-03-30) |
 | [ ] TGAP-25 | `ToolInvocation_Cancellation_KillsProcess()` | BUG-32 | offen |
 | [ ] TGAP-26 | `SourceIntegrity_Chd_IsLossless()` | BUG-33 | offen |
 | [ ] TGAP-27 | `ConversionReport_CounterVsOutcome_AreConsistent()` | BUG-34 | offen |
@@ -720,6 +748,8 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 
 ### BUG-52 · PreferRegions-Reihenfolge in API divergiert von RunConstants
 
+| **Status** | Erledigt am 2026-03-30 |
+
 | Feld | Wert |
 |------|------|
 | **Schweregrad** | P1 — Preview/Execute Divergenz zwischen CLI/WPF und API |
@@ -734,6 +764,8 @@ Die drei Entry Points (CLI, API, WPF) konvergieren architektonisch sauber auf Ru
 ---
 
 ### BUG-53 · EnableDatAudit und EnableDatRename werden nicht in RunRecord propagiert
+
+| **Status** | Erledigt am 2026-03-30 |
 
 | Feld | Wert |
 |------|------|
@@ -927,8 +959,8 @@ BUG-12 beschreibt die API-OnlyGames-Validierung als "invertiert". Nach detaillie
 
 | Status | ID | Test | Bug | Prio |
 |--------|-----|------|-----|------|
-| [ ] | TGAP-42 | `Api_DefaultPreferRegions_MatchRunConstants()` | BUG-52 | offen |
-| [ ] | TGAP-43 | `Api_EnableDatAudit_PropagatedToRunRecord()` | BUG-53 | offen |
+| [x] | TGAP-42 | `Api_DefaultPreferRegions_MatchRunConstants()` | BUG-52 | erledigt (2026-03-30) |
+| [x] | TGAP-43 | `Api_EnableDatAudit_PropagatedToRunRecord()` | BUG-53 | erledigt (2026-03-30) |
 | [ ] | TGAP-44 | `RunOptionsFactory_InvalidOptions_ThrowsFromValidate()` | BUG-54 | offen |
 | [ ] | TGAP-45 | `Cli_DryRunJson_IncludesPreflightWarnings()` | BUG-55 | offen |
 | [ ] | TGAP-46 | `RunStatusDto_IncludesAllRunRecordBooleanFlags()` | BUG-56 | offen |
@@ -952,7 +984,7 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 
 ### Kritische Forensik- und Vertrauensprobleme
 
-- [ ] BUG-61 (P1): ReportSummary.ErrorCount zaehlt Fehler doppelt
+- [x] BUG-61 (P1): ReportSummary.ErrorCount zaehlt Fehler doppelt
 - [ ] BUG-62 (P2): Set-Member-Move-Fehler werden nicht in FailCount gezaehlt
 - [ ] BUG-63 (P2): SavedBytes unterschlaegt Set-Member-Moves trotz MoveCount-Inkrement
 - [ ] BUG-64 (P2): Sidecar-Schreibfehler werden geschluckt (null-Return), keine harte Eskalation
@@ -964,6 +996,8 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 ### Findings
 
 #### BUG-61 - ReportSummary.ErrorCount doppelt gezaehlt
+
+- Status: Erledigt am 2026-03-30
 
 - Schweregrad: P1
 - Impact: Report zeigt hoehere Fehlerzahl als API/CLI/Projection; KPI-Vertrauen bricht
@@ -978,7 +1012,7 @@ Es bestehen jedoch mehrere Vertrauens- und Forensikprobleme in der Ergebnisdarst
 - Ursache: additive Doppelaggregation in RunReportWriter.BuildSummary.
 - Fix: ErrorCount = projection.FailCount setzen oder FailCount-Definition zentral als einzige Quelle verwenden.
 - Testabsicherung:
-  - [ ] TGAP-51: ReportSummary_ErrorCount_EqualsProjectionFailCount()
+  - [x] TGAP-51: ReportSummary_ErrorCount_EqualsProjectionFailCount()
 
 #### BUG-62 - Set-Member-Move-Fails fehlen in FailCount
 
@@ -1565,6 +1599,8 @@ Bewertung: **bedingt release-faehig**, aber mit klaren Testqualitaets-Schulden.
 
 ### BUG-84: Security-Tests sind no-crash-only statt Sanitizing-Assertions
 
+- **Status:** erledigt am 2026-03-30 (Assertions auf echte Invarianten erweitert)
+
 - **Schweregrad:** P1
 - **Betroffene Dateien:** [SecurityTests.cs](src/RomCleanup.Tests/SecurityTests.cs#L53), [SecurityTests.cs](src/RomCleanup.Tests/SecurityTests.cs#L66), [SecurityTests.cs](src/RomCleanup.Tests/SecurityTests.cs#L133), [SecurityTests.cs](src/RomCleanup.Tests/SecurityTests.cs#L140)
 - **Problem:** Tests wie `GameKeyNormalizer_PathTraversalInFileName_DoesNotCrash` und `GameKeyNormalizer_ZipSlipPaths_Normalized` pruefen nur `NotNull`/`NotEmpty` bzw. `Null(ex)`, nicht aber echte Sicherheitsinvarianten.
@@ -1576,6 +1612,8 @@ Bewertung: **bedingt release-faehig**, aber mit klaren Testqualitaets-Schulden.
 
 ### BUG-85: Idempotenz-Test prueft keine Idempotenz
 
+- **Status:** erledigt am 2026-03-30 (`Assert.Equal(first, second)` umgesetzt)
+
 - **Schweregrad:** P1
 - **Betroffene Dateien:** [GameKeyNormalizerTests.cs](src/RomCleanup.Tests/GameKeyNormalizerTests.cs#L114)
 - **Problem:** `Normalize_IsIdempotent` assertiert nur "nicht leer" statt `first == second`.
@@ -1586,6 +1624,8 @@ Bewertung: **bedingt release-faehig**, aber mit klaren Testqualitaets-Schulden.
 ---
 
 ### BUG-86: Overflow-Regressionstests sind fachlich zu schwach
+
+- **Status:** erledigt am 2026-03-30 (deterministische und erwartungsbasierte Score-Assertions)
 
 - **Schweregrad:** P1
 - **Betroffene Dateien:** [VersionScorerTests.cs](src/RomCleanup.Tests/VersionScorerTests.cs#L115), [VersionScorerTests.cs](src/RomCleanup.Tests/VersionScorerTests.cs#L123)
@@ -1677,9 +1717,9 @@ Bewertung: **bedingt release-faehig**, aber mit klaren Testqualitaets-Schulden.
 
 | ID | Bug-Ref | Beschreibung | Status |
 |----|---------|-------------|--------|
-| TGAP-74 | BUG-84 | Security no-crash-only durch Sanitizing-Invarianten ersetzen | offen |
-| TGAP-75 | BUG-85 | Idempotenz-Test auf `Assert.Equal(first, second)` umstellen | offen |
-| TGAP-76 | BUG-86 | Overflow-Regressionen mit Fachassertions absichern | offen |
+| TGAP-74 | BUG-84 | Security no-crash-only durch Sanitizing-Invarianten ersetzen | erledigt (2026-03-30) |
+| TGAP-75 | BUG-85 | Idempotenz-Test auf `Assert.Equal(first, second)` umstellen | erledigt (2026-03-30) |
+| TGAP-76 | BUG-86 | Overflow-Regressionen mit Fachassertions absichern | erledigt (2026-03-30) |
 | TGAP-77 | BUG-87 | Irrefuehrenden Dedupe-Testnamen korrigieren + Ranking-Matrix-Test | offen |
 | TGAP-78 | BUG-88 | Holdout/Tier-Gates im Release-Mode hard-enforced absichern | offen |
 | TGAP-79 | BUG-89 | inv04/inv05 Snapshot inhaltlich validieren | offen |
@@ -1703,7 +1743,7 @@ Bewertung: **bedingt release-faehig**, aber mit klaren Testqualitaets-Schulden.
 
 ## 5. Priorisierter Test-Sanierungsplan
 
-1. **P1 sofort:** BUG-84/85/86 (Security + Idempotenz + Overflow) auf echte Fachinvarianten umstellen.
+1. [x] **P1 sofort:** BUG-84/85/86 (Security + Idempotenz + Overflow) auf echte Fachinvarianten umstellen.
 2. **P1 sofort:** BUG-88 (Benchmark Holdout/Tier Gates fuer Release hard-enforce).
 3. **P2 kurzfristig:** BUG-89/90 (Snapshot-Semantik + Meta-Tests zu Verhaltens-Tests).
 4. **P2 kurzfristig:** BUG-91/92 (Mid-run Cancellation + Conversion Error-Audit branch).

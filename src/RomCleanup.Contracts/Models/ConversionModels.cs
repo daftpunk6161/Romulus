@@ -43,6 +43,21 @@ public sealed record ConversionResult(
     /// End-to-end conversion duration in milliseconds.
     /// </summary>
     public long DurationMs { get; init; }
+
+    /// <summary>
+    /// Source file size captured during conversion processing.
+    /// </summary>
+    public long? SourceBytes { get; init; }
+
+    /// <summary>
+    /// Target file size captured during conversion processing.
+    /// </summary>
+    public long? TargetBytes { get; init; }
+
+    /// <summary>
+    /// Additional output paths for conversions that produce multiple primary artifacts.
+    /// </summary>
+    public IReadOnlyList<string> AdditionalTargetPaths { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>

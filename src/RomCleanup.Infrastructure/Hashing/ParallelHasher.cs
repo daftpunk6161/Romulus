@@ -57,7 +57,7 @@ public sealed class ParallelHasher
         if (files.Count <= 4 || threadCount <= 1)
         {
             // Single-threaded for small batches
-            return HashFilesSingleThread(files, algorithm, onProgress);
+            return HashFilesSingleThread(files, algorithm, onProgress, ct);
         }
 
         var results = new FileHashEntry[files.Count];
@@ -110,13 +110,15 @@ public sealed class ParallelHasher
     private static ParallelHashResult HashFilesSingleThread(
         IReadOnlyList<string> files,
         string algorithm,
-        Action<int, int>? onProgress)
+        Action<int, int>? onProgress,
+        CancellationToken ct)
     {
         var results = new List<FileHashEntry>(files.Count);
         int errors = 0;
 
         for (int i = 0; i < files.Count; i++)
         {
+            ct.ThrowIfCancellationRequested();
             var entry = HashFileSafe(files[i], algorithm);
             results.Add(entry);
             if (entry.Error is not null) errors++;

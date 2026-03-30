@@ -44,6 +44,15 @@ public sealed record RomCandidate
 
     /// <summary>Canonical evidence details for explainability and review batching.</summary>
     public MatchEvidence MatchEvidence { get; init; } = new();
+
+    /// <summary>Evidence tier from DAT-first recognition pipeline.</summary>
+    public EvidenceTier EvidenceTier { get; init; } = EvidenceTier.Tier4_Unknown;
+
+    /// <summary>How the primary match was established.</summary>
+    public MatchKind PrimaryMatchKind { get; init; } = MatchKind.None;
+
+    /// <summary>Platform family for family-based recognition routing.</summary>
+    public PlatformFamily PlatformFamily { get; init; } = PlatformFamily.Unknown;
 }
 
 /// <summary>

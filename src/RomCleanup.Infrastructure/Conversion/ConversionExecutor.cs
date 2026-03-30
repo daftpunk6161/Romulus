@@ -281,13 +281,32 @@ public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers) : ICo
         VerificationStatus verification,
         long durationMs)
     {
+        long? sourceBytes = null;
+        long? targetBytes = null;
+
+        if (File.Exists(plan.SourcePath))
+        {
+            try { sourceBytes = new FileInfo(plan.SourcePath).Length; }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetPath) && File.Exists(targetPath))
+        {
+            try { targetBytes = new FileInfo(targetPath).Length; }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         return new ConversionResult(plan.SourcePath, targetPath, outcome, reason, exitCode)
         {
             Plan = plan,
             SourceIntegrity = plan.SourceIntegrity,
             Safety = plan.Safety,
             VerificationResult = verification,
-            DurationMs = durationMs
+            DurationMs = durationMs,
+            SourceBytes = sourceBytes,
+            TargetBytes = targetBytes
         };
     }
 }

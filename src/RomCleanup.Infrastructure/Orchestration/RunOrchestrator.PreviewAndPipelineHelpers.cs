@@ -376,6 +376,9 @@ public sealed partial class RunOrchestrator
     private static void ApplyConversionReport(IReadOnlyList<ConversionResult> results, RunResultBuilder builder)
     {
         var reviewCount = results.Count(r => r.Safety == ConversionSafety.Risky);
+        var lossyWarningCount = results.Count(r => r.SourceIntegrity == SourceIntegrity.Lossy);
+        var verifyPassedCount = results.Count(r => r.VerificationResult == VerificationStatus.Verified);
+        var verifyFailedCount = results.Count(r => r.VerificationResult == VerificationStatus.VerifyFailed);
         long savedBytes = 0;
         foreach (var r in results)
         {
@@ -383,16 +386,34 @@ public sealed partial class RunOrchestrator
             {
                 try
                 {
-                    var sourceInfo = new FileInfo(r.SourcePath);
-                    var targetInfo = new FileInfo(r.TargetPath);
-                    if (sourceInfo.Exists && targetInfo.Exists)
-                        savedBytes += sourceInfo.Length - targetInfo.Length;
+                    long? sourceBytes = r.SourceBytes;
+                    if (!sourceBytes.HasValue)
+                    {
+                        var sourceInfo = new FileInfo(r.SourcePath);
+                        if (sourceInfo.Exists)
+                            sourceBytes = sourceInfo.Length;
+                    }
+
+                    long? targetBytes = r.TargetBytes;
+                    if (!targetBytes.HasValue)
+                    {
+                        var targetInfo = new FileInfo(r.TargetPath);
+                        if (targetInfo.Exists)
+                            targetBytes = targetInfo.Length;
+                    }
+
+                    if (sourceBytes.HasValue && targetBytes.HasValue)
+                        savedBytes += sourceBytes.Value - targetBytes.Value;
                 }
                 catch (IOException) { /* best-effort size delta — files may be locked or missing */ }
+                catch (UnauthorizedAccessException) { /* best-effort size delta — permissions may block file info */ }
             }
         }
 
         builder.ConvertReviewCount = reviewCount;
+        builder.ConvertLossyWarningCount = lossyWarningCount;
+        builder.ConvertVerifyPassedCount = verifyPassedCount;
+        builder.ConvertVerifyFailedCount = verifyFailedCount;
         builder.ConvertSavedBytes = savedBytes;
         builder.ConversionReport = new ConversionReport
         {

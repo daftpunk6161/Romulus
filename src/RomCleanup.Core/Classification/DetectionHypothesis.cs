@@ -40,11 +40,13 @@ public sealed record ConsoleDetectionResult(
     /// <summary>Unknown result with 0 confidence.</summary>
     public static ConsoleDetectionResult Unknown { get; } = new(
         "UNKNOWN", 0, Array.Empty<DetectionHypothesis>(), false, null,
-        HasHardEvidence: false, IsSoftOnly: true, SortDecision: SortDecision.Blocked,
+        HasHardEvidence: false, IsSoftOnly: true, SortDecision: SortDecision.Unknown,
         MatchEvidence: new MatchEvidence
         {
             Level = MatchLevel.None,
-            Reasoning = "No detection hypotheses available."
+            Reasoning = "No detection hypotheses available.",
+            Tier = EvidenceTier.Tier4_Unknown,
+            PrimaryMatchKind = MatchKind.None,
         });
 }
 
@@ -111,7 +113,7 @@ public static class DetectionSourceExtensions
         DetectionSource.ArchiveContent => 70,
         DetectionSource.FolderName => 80,
         DetectionSource.FilenameKeyword => 60,
-        DetectionSource.AmbiguousExtension => 40,
+        DetectionSource.AmbiguousExtension => 55,
         _ => 60
     };
 }

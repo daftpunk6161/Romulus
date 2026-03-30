@@ -66,7 +66,7 @@ internal static class ToolInvokerSupport
         {
             return new ToolInvocationResult(
                 false,
-                null,
+                targetPath,
                 result.ExitCode,
                 result.Output,
                 result.Output,

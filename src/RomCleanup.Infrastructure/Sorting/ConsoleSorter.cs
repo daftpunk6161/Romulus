@@ -139,8 +139,9 @@ public sealed class ConsoleSorter
                 var category = enrichedCategories is not null &&
                     enrichedCategories.TryGetValue(filePath, out var cat) ? cat : null;
 
-                // Blocked files are not moved
-                if (string.Equals(sortDecision, "Blocked", StringComparison.OrdinalIgnoreCase))
+                // Blocked or Unknown files are not moved
+                if (string.Equals(sortDecision, "Blocked", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(sortDecision, "Unknown", StringComparison.OrdinalIgnoreCase))
                 {
                     // Junk with known console → _TRASH_JUNK/{ConsoleKey}/
                     if (string.Equals(category, "Junk", StringComparison.OrdinalIgnoreCase))

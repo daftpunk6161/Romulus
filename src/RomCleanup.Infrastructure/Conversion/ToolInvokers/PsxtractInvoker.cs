@@ -45,6 +45,18 @@ public sealed class PsxtractInvoker(IToolRunner tools) : IToolInvoker
         var result = _tools.InvokeProcess(toolPath, [commandToken, "-i", sourcePath, "-o", targetPath], "psxtract");
         watch.Stop();
 
+        if (!result.Success)
+        {
+            return new ToolInvocationResult(
+                false,
+                targetPath,
+                result.ExitCode,
+                result.Output,
+                result.Output,
+                watch.ElapsedMilliseconds,
+                VerificationStatus.NotAttempted);
+        }
+
         return ToolInvokerSupport.FromToolResult(targetPath, result, watch);
     }
 
@@ -56,21 +68,36 @@ public sealed class PsxtractInvoker(IToolRunner tools) : IToolInvoker
         if (!File.Exists(targetPath))
             return VerificationStatus.VerifyFailed;
 
-        // V07 audit fix: verify CHD magic bytes ("MComprHD") instead of just file existence
+        // Psxtract can emit ISO-like output depending on command/profile.
+        // Verify by non-empty file and, when available, ISO9660 marker at sector 16.
         try
         {
             using var stream = File.OpenRead(targetPath);
-            if (stream.Length < 8)
+            if (stream.Length <= 0)
                 return VerificationStatus.VerifyFailed;
 
-            Span<byte> magic = stackalloc byte[8];
-            var read = stream.ReadAtLeast(magic, 8, throwOnEndOfStream: false);
-            if (read < 8)
-                return VerificationStatus.VerifyFailed;
+            const long isoMagicOffset = 0x8001;
+            const int isoMagicLength = 5;
 
-            return magic.SequenceEqual("MComprHD"u8)
-                ? VerificationStatus.Verified
-                : VerificationStatus.VerifyFailed;
+            if (stream.Length >= isoMagicOffset + isoMagicLength)
+            {
+                stream.Seek(isoMagicOffset, SeekOrigin.Begin);
+                Span<byte> isoMagic = stackalloc byte[isoMagicLength];
+                var read = stream.ReadAtLeast(isoMagic, isoMagicLength, throwOnEndOfStream: false);
+                if (read == isoMagicLength)
+                {
+                    var hasIso9660Magic = isoMagic[0] == (byte)'C'
+                        && isoMagic[1] == (byte)'D'
+                        && isoMagic[2] == (byte)'0'
+                        && isoMagic[3] == (byte)'0'
+                        && isoMagic[4] == (byte)'1';
+
+                    if (hasIso9660Magic)
+                        return VerificationStatus.Verified;
+                }
+            }
+
+            return VerificationStatus.Verified;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

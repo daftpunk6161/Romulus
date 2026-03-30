@@ -98,7 +98,9 @@ public static class HypothesisResolver
                             Sources = hypotheses.Select(h => h.Source.ToString()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                             HasHardEvidence = false,
                             HasConflict = true,
-                            DatVerified = false
+                            DatVerified = false,
+                            Tier = EvidenceTier.Tier4_Unknown,
+                            PrimaryMatchKind = MatchKind.None,
                         };
 
                         return new ConsoleDetectionResult(
@@ -261,6 +263,7 @@ public static class HypothesisResolver
             SortDecision.Sort => MatchLevel.Strong,
             SortDecision.Review when confidence >= 70 => MatchLevel.Probable,
             SortDecision.Review => MatchLevel.Weak,
+            SortDecision.Unknown => MatchLevel.None,
             _ when hasConflict => MatchLevel.Ambiguous,
             _ when confidence > 0 => MatchLevel.Weak,
             _ => MatchLevel.None
@@ -275,6 +278,11 @@ public static class HypothesisResolver
             ? conflictDetail!
             : $"Console={winnerKey}, Confidence={confidence}, Sources={string.Join("+", sourceLabels)}";
 
+        // Derive PrimaryMatchKind from the strongest detection source
+        var primaryMatchKind = winnerSources.Count > 0
+            ? MapDetectionSourceToMatchKind(winnerSources.OrderByDescending(s => (int)s).First())
+            : MatchKind.None;
+
         return new MatchEvidence
         {
             Level = level,
@@ -282,7 +290,26 @@ public static class HypothesisResolver
             Sources = sourceLabels,
             HasHardEvidence = hasHardEvidence,
             HasConflict = hasConflict,
-            DatVerified = sortDecision == SortDecision.DatVerified
+            DatVerified = sortDecision == SortDecision.DatVerified,
+            Tier = primaryMatchKind.GetTier(),
+            PrimaryMatchKind = primaryMatchKind,
         };
     }
+
+    /// <summary>
+    /// Maps a detection source to its corresponding MatchKind.
+    /// </summary>
+    internal static MatchKind MapDetectionSourceToMatchKind(DetectionSource source) => source switch
+    {
+        DetectionSource.DatHash => MatchKind.ExactDatHash,
+        DetectionSource.UniqueExtension => MatchKind.UniqueExtensionMatch,
+        DetectionSource.DiscHeader => MatchKind.DiscHeaderSignature,
+        DetectionSource.CartridgeHeader => MatchKind.CartridgeHeaderMagic,
+        DetectionSource.SerialNumber => MatchKind.SerialNumberMatch,
+        DetectionSource.FolderName => MatchKind.FolderNameMatch,
+        DetectionSource.ArchiveContent => MatchKind.ArchiveContentExtension,
+        DetectionSource.FilenameKeyword => MatchKind.FilenameKeywordMatch,
+        DetectionSource.AmbiguousExtension => MatchKind.AmbiguousExtensionSingle,
+        _ => MatchKind.None,
+    };
 }

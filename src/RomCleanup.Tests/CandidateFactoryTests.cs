@@ -28,7 +28,7 @@ public class CandidateFactoryTests
             consoleKey: "ps1");
 
         Assert.StartsWith("__BIOS__", candidate.GameKey);
-        Assert.Equal("__BIOS__scph1001", candidate.GameKey);
+        Assert.Equal("__BIOS__US__scph1001", candidate.GameKey);
     }
 
     [Fact]
@@ -98,6 +98,28 @@ public class CandidateFactoryTests
             sizeTieBreakScore: 500_000, datMatch: false, consoleKey: "ps1");
 
         Assert.NotEqual(bios.GameKey, game.GameKey);
+    }
+
+    [Fact]
+    public void Create_BiosSameBaseKeyDifferentRegions_DifferentGameKeys()
+    {
+        var biosUs = CandidateFactory.Create(
+            normalizedPath: "bios-us.bin", extension: ".bin", sizeBytes: 1024,
+            category: FileCategory.Bios, gameKey: "scph1001",
+            region: "US", regionScore: 1000, formatScore: 700,
+            versionScore: 0, headerScore: 0, completenessScore: 50,
+            sizeTieBreakScore: 1024, datMatch: true, consoleKey: "ps1");
+
+        var biosEu = CandidateFactory.Create(
+            normalizedPath: "bios-eu.bin", extension: ".bin", sizeBytes: 1024,
+            category: FileCategory.Bios, gameKey: "scph1001",
+            region: "EU", regionScore: 1000, formatScore: 700,
+            versionScore: 0, headerScore: 0, completenessScore: 50,
+            sizeTieBreakScore: 1024, datMatch: true, consoleKey: "ps1");
+
+        Assert.NotEqual(biosUs.GameKey, biosEu.GameKey);
+        Assert.Equal("__BIOS__US__scph1001", biosUs.GameKey);
+        Assert.Equal("__BIOS__EU__scph1001", biosEu.GameKey);
     }
 
     // --- All properties are correctly forwarded ---

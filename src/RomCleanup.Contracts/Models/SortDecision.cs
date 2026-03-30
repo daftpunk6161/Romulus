@@ -17,4 +17,8 @@ public enum SortDecision
 
     /// <summary>DAT-verified — hash match, always sortable.</summary>
     DatVerified,
+
+    /// <summary>No evidence at all. File is genuinely unknown.
+    /// Different from Blocked: no conflicting evidence, just no evidence.</summary>
+    Unknown,
 }

@@ -552,14 +552,14 @@ app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ct
         .ToArray();
 
     foreach (var item in matched)
-        run.ApprovedReviewPaths.Add(item.MainPath);
+        run.TryApproveReviewPath(item.MainPath);
 
     var updated = BuildReviewQueue(run);
     return Results.Ok(new
     {
         runId,
         approvedCount = matched.Length,
-        totalApproved = run.ApprovedReviewPaths.Count,
+        totalApproved = run.ApprovedReviewCount,
         queue = updated
     });
 });
@@ -834,7 +834,7 @@ static ApiReviewQueue BuildReviewQueue(RunRecord run)
             MatchLevel = c.MatchEvidence.Level.ToString(),
             MatchReasoning = c.MatchEvidence.Reasoning,
             DetectionConfidence = c.DetectionConfidence,
-            Approved = run.ApprovedReviewPaths.Contains(c.MainPath)
+            Approved = run.IsReviewPathApproved(c.MainPath)
         })
         .ToArray();
 

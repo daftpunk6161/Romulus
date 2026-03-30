@@ -15,7 +15,8 @@ public static class FormatScorer
     private static readonly HashSet<string> DiscExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".iso", ".bin", ".img", ".cue", ".gdi", ".ccd", ".chd", ".rvz", ".gcz", ".m3u",
-        ".wbfs", ".wia", ".wbf1", ".cso", ".pbp", ".nrg", ".mdf", ".mds", ".cdi", ".wud", ".wux"
+        ".wbfs", ".wia", ".wbf1", ".cso", ".pbp", ".nrg", ".mdf", ".mds", ".cdi", ".wud", ".wux",
+        ".nsp", ".xci", ".nsz", ".xcz"
     };
 
     /// <summary>

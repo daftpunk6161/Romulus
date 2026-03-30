@@ -414,7 +414,13 @@ public sealed class ConsoleDetector
             foreach (var entry in archive.Entries)
             {
                 if (string.IsNullOrEmpty(entry.Name)) continue; // skip directories
-                if (bestEntry is null || entry.Length > bestEntry.Length)
+                if (bestEntry is null
+                    || entry.Length > bestEntry.Length
+                    || (entry.Length == bestEntry.Length
+                        && string.Compare(entry.FullName, bestEntry.FullName, StringComparison.OrdinalIgnoreCase) < 0)
+                    || (entry.Length == bestEntry.Length
+                        && string.Equals(entry.FullName, bestEntry.FullName, StringComparison.OrdinalIgnoreCase)
+                        && string.Compare(entry.Name, bestEntry.Name, StringComparison.OrdinalIgnoreCase) < 0))
                     bestEntry = entry;
             }
 
