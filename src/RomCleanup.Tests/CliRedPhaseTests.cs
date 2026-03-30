@@ -356,7 +356,6 @@ public sealed class CliRedPhaseTests : IDisposable
 
         Assert.Equal(root.GetProperty("Keep").GetInt32(), root.GetProperty("Winners").GetInt32());
         Assert.Equal(root.GetProperty("Dupes").GetInt32(), root.GetProperty("Losers").GetInt32());
-        Assert.Equal(root.GetProperty("Dupes").GetInt32(), root.GetProperty("Duplicates").GetInt32());
     }
 
     // ═══════════════════════════════════════════════════════════════════

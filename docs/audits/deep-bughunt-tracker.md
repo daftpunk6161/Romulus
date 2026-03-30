@@ -62,11 +62,11 @@
   - Fix: Numerischen Comparer verwenden (DUP-Suffix als int parsen)
   - [x] TGAP-03: `FindActualDestination_10PlusDuplicates_ReturnsHighestNumber()`
 
-- [ ] **BUG-12** – API: OnlyGames/KeepUnknownWhenOnlyGames Validierung invertiert
+- [x] **BUG-12** – API: OnlyGames/KeepUnknownWhenOnlyGames Validierung invertiert (false positive)
   - Datei: `Program.cs:322-325`
-  - Impact: Ungültige Konfigurationen akzeptiert, gültige rejected
-  - Fix: `if (!request.OnlyGames && request.KeepUnknownWhenOnlyGames)` → Error
-  - [ ] TGAP-07: `Api_OnlyGamesFalse_KeepUnknownTrue_Returns400()`
+  - Impact: Kein produktiver Defekt; bestehende Guard-Logik ist konsistent mit CLI/RunOptions-Validierung
+  - Fix: Als false positive geschlossen, kein Code-Fix erforderlich
+  - [x] TGAP-07: `Api_OnlyGames_KeepUnknown_ValidationMatrix()` (als nicht erforderlich/false positive geschlossen)
   - ⚠️ **Korrekturnotiz (Bughunt #5):** Logik ist tatsächlich korrekt — siehe Analyse in Bughunt #5
 
 - [x] **BUG-52** – API: PreferRegions-Reihenfolge divergiert von RunConstants
@@ -135,7 +135,7 @@
   - Impact: Deadlock-Risiko (gering im CLI, aber Anti-Pattern)
   - Fix: Methode async machen oder `.Result` mit `ConfigureAwait(false)`
 
-- [ ] **BUG-09** – GUI: `async void` Public Method `RefreshReportPreview()`
+- [x] **BUG-09** – GUI: `async void` Public Method `RefreshReportPreview()` — erledigt (2026-03-30)
   - Datei: `LibraryReportView.xaml.cs:26`
   - Impact: Exceptions können unobserved bleiben
   - Fix: Return-Type auf `async Task` ändern, Caller anpassen
@@ -145,7 +145,7 @@
   - Impact: Audit-Trail inkonsistent (funktional mitigiert durch OrdinalIgnoreCase)
   - Fix: Zentrale Action-Constants einführen (`AuditActions.Move`, etc.)
 
-- [ ] **SEC-01** – API JSON Deserialization ohne TypeInfo
+- [x] **SEC-01** – API JSON Deserialization ohne TypeInfo — erledigt (2026-03-30)
   - Impact: Security (niedrig)
 
 ---
@@ -227,19 +227,19 @@
 
 ### Priorität 3 (P3)
 
-- [ ] **BUG-24** – SNES Copier-Header-Bypass nur über Dateigröße
+- [x] **BUG-24** – SNES Copier-Header-Bypass nur über Dateigröße — erledigt (2026-03-30)
   - Datei: `src/RomCleanup.Core/Classification/CartridgeHeaderDetector.cs`
   - Impact: False Positives bei Dateien mit `size % 1024 == 512`
   - Ursache: Header-Skip ohne zusätzliche SNES-Header-Validierung
   - Fix: Checksum/Complement-Validierung oder zusätzliche Magic-Prüfung
-  - [ ] TGAP-17: `SnesHeaderSkip_RequiresValidHeaderConsistency()`
+  - [x] TGAP-17: `SnesHeaderSkip_RequiresValidHeaderConsistency()` — erledigt (2026-03-30)
 
-- [ ] **BUG-25** – Regex-Timeouts in Keyword-Detection werden still geschluckt
+- [x] **BUG-25** – Regex-Timeouts in Keyword-Detection werden still geschluckt — erledigt (2026-03-30)
   - Datei: `src/RomCleanup.Core/Classification/ConsoleDetector.cs`
   - Impact: Diagnose schwierig bei fehlerhaften/teuren Patterns
   - Ursache: Leerer Catch bei `RegexMatchTimeoutException`
   - Fix: mind. Warn-Logging/Telemetry bei Timeout
-  - [ ] TGAP-18: `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()`
+  - [x] TGAP-18: `KeywordDetection_RegexTimeout_IsLoggedAndNonFatal()` — erledigt (2026-03-30)
 
 ---
 
@@ -400,7 +400,7 @@ systematisch 0** (P1), **3 Metriken-Counter permanent 0** (P2), **Legacy-Pfad ha
 | [x] TGAP-04 | `HashFilesAsync_SingleThread_RespectsCancellation()` | BUG-05 | erledigt (2026-03-30) |
 | [x] TGAP-05 | `BuildSummary_NoDedupeGroups_DoesNotThrowInvariant()` | BUG-06 | erledigt (2026-03-30) |
 | [x] TGAP-06 | `ExtractFirstCsvField_HandlesQuotedPaths()` | BUG-10 | erledigt (2026-06-28) |
-| [ ] TGAP-07 | `Api_OnlyGames_KeepUnknown_ValidationMatrix()` | BUG-12 | offen |
+| [x] TGAP-07 | `Api_OnlyGames_KeepUnknown_ValidationMatrix()` | BUG-12 | false positive (2026-06-28) |
 | [x] TGAP-08 | `SanitizeCsvField_PreventsInjection()` | BUG-14 | erledigt (2026-03-30) |
 | [x] TGAP-09 | `Rollback_DryRunAndExecute_ReparseUnsafe_CountSemanticsMatch()` | BUG-15 | erledigt (2026-03-30) |
 | [ ] TGAP-10 | `Rollback_MissingDestFile_CountsCorrectly()` | — | offen |
@@ -634,7 +634,7 @@ Die kritischsten Risiken: Ein Entwickler könnte versehentlich die toten Rollbac
 
 ---
 
-### BUG-50 · MissionControlViewModel unvollständig
+### BUG-50 · MissionControlViewModel unvollständig — ✅ erledigt (2026-03-30)
 
 | Feld | Wert |
 |------|------|
@@ -982,9 +982,9 @@ BUG-12 beschreibt die API-OnlyGames-Validierung als "invertiert". Nach detaillie
 | [x] | TGAP-45 | `Cli_DryRunJson_IncludesPreflightWarnings()` | BUG-55 | erledigt (2026-03-30) |
 | [x] | TGAP-46 | `RunStatusDto_IncludesAllRunRecordBooleanFlags()` | BUG-56 | erledigt (2026-03-30) |
 | [x] | TGAP-47 | `DryRunWarnings_ConvertOnly_IsWarned()` | BUG-57 | erledigt (2026-03-30) |
-| [ ] | TGAP-48 | `Api_StatusStrings_UseCentralConstants()` | BUG-58 | offen |
-| [ ] | TGAP-49 | `Cli_DryRunJson_CanonicalFieldNames_MatchApi()` | BUG-59 | offen |
-| [ ] | TGAP-50 | `Api_ArtifactPaths_DocumentedOrConfigurable()` | BUG-60 | offen |
+| [x] | TGAP-48 | `Api_StatusStrings_UseCentralConstants()` | BUG-58 | erledigt (2026-06-28) |
+| [x] | TGAP-49 | `Cli_DryRunJson_CanonicalFieldNames_MatchApi()` | BUG-59 | erledigt (2026-06-28) |
+| [x] | TGAP-50 | `Api_ArtifactPaths_DocumentedOrConfigurable()` | BUG-60 | erledigt (2026-06-28) |
 
 ---
 

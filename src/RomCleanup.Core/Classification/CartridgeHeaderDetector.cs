@@ -155,11 +155,20 @@ public sealed class CartridgeHeaderDetector
             using var fs = ClassificationIo.OpenRead(path);
             Span<byte> titleBuf = stackalloc byte[21];
             Span<byte> checksumBuf = stackalloc byte[4];
+            Span<byte> mapModeBuf = stackalloc byte[1];
+
+            // Classic copier headers are 512-byte prefixes.
+            // Only probe header-shifted offsets when that layout is plausible.
+            var hasCopierHeader = (fileSize % 1024) == 512;
 
             // Check standard offsets (with and without 512-byte copier header)
             int[] offsets = fileSize > 0x10000
-                ? [0x7FC0, 0xFFC0, 0x7FC0 + 512, 0xFFC0 + 512]
-                : [0x7FC0, 0x7FC0 + 512];
+                ? (hasCopierHeader
+                    ? [0x7FC0, 0xFFC0, 0x7FC0 + 512, 0xFFC0 + 512]
+                    : [0x7FC0, 0xFFC0])
+                : (hasCopierHeader
+                    ? [0x7FC0, 0x7FC0 + 512]
+                    : [0x7FC0]);
 
             foreach (var offset in offsets)
             {
@@ -174,6 +183,10 @@ public sealed class CartridgeHeaderDetector
                 // Valid title bytes are ASCII printable (0x20-0x7E) or Japanese characters (0x80+)
                 if (IsSnesTitle(titleBuf))
                 {
+                    fs.Seek(offset + 21, SeekOrigin.Begin);
+                    if (fs.Read(mapModeBuf) != 1 || !IsLikelySnesMapMode(mapModeBuf[0]))
+                        continue;
+
                     // Verify checksum complement at offset+28..31
                     fs.Seek(offset + 28, SeekOrigin.Begin);
                     if (fs.Read(checksumBuf) == 4)
@@ -190,6 +203,12 @@ public sealed class CartridgeHeaderDetector
         catch (UnauthorizedAccessException) { }
 
         return null;
+    }
+
+    private static bool IsLikelySnesMapMode(byte mapMode)
+    {
+        // Common SNES map mode values observed in No-Intro/GoodTools sets.
+        return mapMode is 0x20 or 0x21 or 0x22 or 0x23 or 0x25 or 0x30 or 0x31 or 0x32 or 0x35 or 0x3A;
     }
 
     private static bool IsSnesTitle(ReadOnlySpan<byte> title)

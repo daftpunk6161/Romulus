@@ -66,7 +66,7 @@ public sealed class RunManager
         IAuditStore audit,
         CancellationToken ct)
     {
-        var (auditPath, reportPath) = RunLifecycleManager.GetArtifactPaths(run.RunId);
+        var (auditPath, reportPath) = RunLifecycleManager.GetArtifactPaths(run.RunId, run.Roots);
 
         var options = _runOptionsFactory.Create(new RunRecordOptionsSource(run), auditPath, reportPath);
         var env = _runEnvironmentFactory.Create(options,
@@ -91,12 +91,12 @@ public sealed class RunManager
         var projection = RunProjectionFactory.Create(result);
         var status = RunOutcomeExtensions.ParseRunOutcome(result.Status) switch
         {
-            RunOutcome.Ok => "completed",
-            RunOutcome.CompletedWithErrors => "completed_with_errors",
-            RunOutcome.Cancelled => "cancelled",
-            RunOutcome.Blocked => "failed",
-            RunOutcome.Failed => "failed",
-            _ => result.ExitCode == 0 ? "completed" : "failed"
+            RunOutcome.Ok => ApiRunStatus.Completed,
+            RunOutcome.CompletedWithErrors => ApiRunStatus.CompletedWithErrors,
+            RunOutcome.Cancelled => ApiRunStatus.Cancelled,
+            RunOutcome.Blocked => ApiRunStatus.Failed,
+            RunOutcome.Failed => ApiRunStatus.Failed,
+            _ => result.ExitCode == 0 ? ApiRunStatus.Completed : ApiRunStatus.Failed
         };
 
         return new RunExecutionOutcome(
@@ -212,7 +212,7 @@ public sealed class RunRequest
 public sealed class RunRecord
 {
     private readonly object _lock = new();
-    private string _status = "running";
+    private string _status = ApiRunStatus.Running;
     private DateTime? _completedUtc;
     private ApiRunResult? _result;
     private string? _progressMessage;

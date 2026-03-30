@@ -548,4 +548,17 @@ public sealed class HygieneCleanupRegressionTests
 
         Assert.Contains("RunConstants.AuditActions.Move", code, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ApiReviewApproval_UsesTypeInfoDeserialization()
+    {
+        var srcDir = ResolveSrcDir();
+        var codePath = Path.Combine(srcDir, "RomCleanup.Api", "Program.cs");
+        Assert.True(File.Exists(codePath), $"Missing file: {codePath}");
+
+        var code = File.ReadAllText(codePath);
+
+        Assert.DoesNotContain("ReadFromJsonAsync<ApiReviewApprovalRequest>()", code, StringComparison.Ordinal);
+        Assert.Contains("ReadFromJsonAsync(ApiJsonSerializerContext.Default.ApiReviewApprovalRequest)", code, StringComparison.Ordinal);
+    }
 }

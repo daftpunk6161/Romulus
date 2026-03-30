@@ -69,7 +69,7 @@ public sealed class RunLifecycleManager
             if (_activeRunId is not null)
             {
                 var activeRun = Get(_activeRunId);
-                if (activeRun is null || activeRun.Status != "running")
+                if (activeRun is null || activeRun.Status != ApiRunStatus.Running)
                 {
                     // Stale active marker from a run that already completed.
                     // This closes a race where status flips before finally clears _activeRunId.
@@ -103,7 +103,7 @@ public sealed class RunLifecycleManager
             var record = new RunRecord
             {
                 RunId = runId,
-                Status = "running",
+                Status = ApiRunStatus.Running,
                 Mode = mode,
                 Roots = request.Roots!,
                 PreferRegions = request.PreferRegions is { Length: > 0 }
@@ -159,7 +159,7 @@ public sealed class RunLifecycleManager
         if (!_runs.TryGetValue(runId, out var run))
             return new RunCancelResult(RunCancelDisposition.NotFound, null);
 
-        if (run.Status == "running")
+        if (run.Status == ApiRunStatus.Running)
         {
             run.CancellationRequested = true;
             run.CancelledAtUtc = DateTime.UtcNow;
@@ -181,7 +181,7 @@ public sealed class RunLifecycleManager
 
         while (_runs.TryGetValue(runId, out var run))
         {
-            if (run.Status != "running")
+            if (run.Status != ApiRunStatus.Running)
                 return new RunWaitResult(RunWaitDisposition.Completed, run);
 
             if (timeout is not null && DateTime.UtcNow - start >= timeout.Value)
@@ -233,10 +233,20 @@ public sealed class RunLifecycleManager
         }
     }
 
-    internal static (string AuditPath, string ReportPath) GetArtifactPaths(string runId)
+    internal static (string AuditPath, string ReportPath) GetArtifactPaths(string runId, IReadOnlyList<string>? roots = null)
     {
-        var auditDir = RomCleanup.Infrastructure.Audit.AuditSecurityPaths.GetDefaultAuditDirectory();
-        var reportDir = RomCleanup.Infrastructure.Audit.AuditSecurityPaths.GetDefaultReportDirectory();
+        var resolvedRoots = roots?
+            .Where(root => !string.IsNullOrWhiteSpace(root))
+            .ToArray();
+
+        var auditDir = resolvedRoots is { Length: > 0 }
+            ? ArtifactPathResolver.GetArtifactDirectory(resolvedRoots, AppIdentity.ArtifactDirectories.AuditLogs)
+            : RomCleanup.Infrastructure.Audit.AuditSecurityPaths.GetDefaultAuditDirectory();
+
+        var reportDir = resolvedRoots is { Length: > 0 }
+            ? ArtifactPathResolver.GetArtifactDirectory(resolvedRoots, AppIdentity.ArtifactDirectories.Reports)
+            : RomCleanup.Infrastructure.Audit.AuditSecurityPaths.GetDefaultReportDirectory();
+
         Directory.CreateDirectory(auditDir);
         Directory.CreateDirectory(reportDir);
         return (
@@ -246,7 +256,7 @@ public sealed class RunLifecycleManager
 
     private void ExecuteRun(RunRecord run)
     {
-        var (auditPath, reportPath) = GetArtifactPaths(run.RunId);
+        var (auditPath, reportPath) = GetArtifactPaths(run.RunId, run.Roots);
 
         try
         {
@@ -256,16 +266,16 @@ public sealed class RunLifecycleManager
             run.Result = outcome.Result;
             run.ProgressPercent = 100;
             // SEC: If run completed despite cancellation request, clear misleading CancelledAtUtc
-            if (run.Status is "completed" or "completed_with_errors" && run.CancelledAtUtc is not null)
+            if (run.Status is ApiRunStatus.Completed or ApiRunStatus.CompletedWithErrors && run.CancelledAtUtc is not null)
                 run.CancelledAtUtc = null;
         }
         catch (OperationCanceledException)
         {
             var elapsedMs = (long)Math.Max(0, (DateTime.UtcNow - run.StartedUtc).TotalMilliseconds);
-            run.Status = "cancelled";
+            run.Status = ApiRunStatus.Cancelled;
             run.Result = new ApiRunResult
             {
-                OrchestratorStatus = "cancelled",
+                OrchestratorStatus = ApiRunStatus.Cancelled,
                 ExitCode = 2,
                 DurationMs = elapsedMs
             };
@@ -273,12 +283,12 @@ public sealed class RunLifecycleManager
         }
         catch (Exception ex)
         {
-            run.Status = "failed";
+            run.Status = ApiRunStatus.Failed;
             // SEC: Do not leak exception details to clients — log internally, return generic message
             SafeLog($"[ERROR] Run {run.RunId} failed: {ex}");
             run.Result = new ApiRunResult
             {
-                OrchestratorStatus = "failed",
+                OrchestratorStatus = ApiRunStatus.Failed,
                 ExitCode = 1,
                 Error = new OperationError("RUN-INTERNAL-ERROR", "An internal error occurred during execution.", ErrorKind.Critical, "API")
             };
@@ -307,7 +317,7 @@ public sealed class RunLifecycleManager
     {
         if (_runs.Count <= MaxRunHistory) return;
         var oldest = _runs.Values
-            .Where(r => r.Status != "running")
+            .Where(r => r.Status != ApiRunStatus.Running)
             .OrderBy(r => r.StartedUtc)
             .Take(_runs.Count - MaxRunHistory)
             .ToList();
@@ -324,12 +334,12 @@ public sealed class RunLifecycleManager
         var hasAudit = !string.IsNullOrWhiteSpace(run.AuditPath);
         run.RecoveryState = run.Status switch
         {
-            "running" => "in-progress",
-            "completed" when hasAudit => "rollback-available",
-            "completed" => "not-required",
-            "cancelled" when hasAudit => "partial-rollback-available",
-            "failed" when hasAudit => "partial-rollback-available",
-            "cancelled" or "failed" => "manual-cleanup-may-be-required",
+            ApiRunStatus.Running => "in-progress",
+            ApiRunStatus.Completed when hasAudit => "rollback-available",
+            ApiRunStatus.Completed => "not-required",
+            ApiRunStatus.Cancelled when hasAudit => "partial-rollback-available",
+            ApiRunStatus.Failed when hasAudit => "partial-rollback-available",
+            ApiRunStatus.Cancelled or ApiRunStatus.Failed => "manual-cleanup-may-be-required",
             _ => "unknown"
         };
     }
@@ -339,7 +349,8 @@ public sealed class RunLifecycleManager
         if (string.IsNullOrWhiteSpace(runId))
             return;
 
-        var (auditPath, _) = GetArtifactPaths(runId);
+        var roots = _runs.TryGetValue(runId, out var run) ? run.Roots : null;
+        var (auditPath, _) = GetArtifactPaths(runId, roots);
         if (!File.Exists(auditPath))
             return;
 

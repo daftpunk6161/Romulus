@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using RomCleanup.Core.Caching;
 
 namespace RomCleanup.Core.Classification;
@@ -17,10 +18,11 @@ public sealed class ConsoleDetector
     private readonly Dictionary<string, string> _uniqueExtMap;  // .ext → key
     private readonly Dictionary<string, List<string>> _ambigExtMap; // .ext → [keys]
     private readonly Dictionary<string, ConsoleInfo> _consoles; // key → info
-    private readonly (Regex Pattern, string ConsoleKey)[] _keywordPatterns; // dynamic keywords
+    private (Regex Pattern, string ConsoleKey)[] _keywordPatterns; // dynamic keywords
     private readonly DiscHeaderDetector? _discHeaderDetector;
     private readonly CartridgeHeaderDetector? _cartridgeHeaderDetector;
     private readonly Func<string, IReadOnlyList<string>>? _archiveEntryProvider;
+    private long _keywordRegexTimeoutCount;
 
     // V2-H11: Folder-level detection cache — avoids re-scanning path segments per file
     // V2-BUG-H01: Bounded LruCache instead of unbounded Dictionary to prevent OOM at scale
@@ -88,6 +90,17 @@ public sealed class ConsoleDetector
     }
 
     /// <summary>
+    /// Number of Regex timeout events seen while evaluating dynamic keyword patterns.
+    /// Exposed for diagnostics and regression tests.
+    /// </summary>
+    public long KeywordRegexTimeoutCount => Interlocked.Read(ref _keywordRegexTimeoutCount);
+
+    internal void SetKeywordPatternsForTesting((Regex Pattern, string ConsoleKey)[] patterns)
+    {
+        _keywordPatterns = patterns ?? Array.Empty<(Regex Pattern, string ConsoleKey)>();
+    }
+
+    /// <summary>
     /// Detect console from keyword tags in filename (e.g. "[PS1]", "(GBA)").
     /// Uses dynamic patterns built from consoles.json keywords, with fallback to hardcoded patterns.
     /// Returns (consoleKey, confidence=75) or null.
@@ -105,7 +118,10 @@ public sealed class ConsoleDetector
                 if (pattern.IsMatch(fileName))
                     return (key, 75);
             }
-            catch (RegexMatchTimeoutException) { }
+            catch (RegexMatchTimeoutException)
+            {
+                Interlocked.Increment(ref _keywordRegexTimeoutCount);
+            }
         }
 
         // Fallback: hardcoded patterns for backward compatibility when keywords not in JSON

@@ -39,7 +39,6 @@ internal static class CliOutputWriter
             Winners = projection.Keep,
             Dupes = projection.Dupes,
             Losers = projection.Dupes,
-            Duplicates = projection.Dupes,
             Games = projection.Games,
             Unknown = projection.Unknown,
             Junk = projection.Junk,
@@ -215,7 +214,6 @@ internal sealed class CliDryRunOutput
     public int Winners { get; init; }
     public int Dupes { get; init; }
     public int Losers { get; init; }
-    public int Duplicates { get; init; }
     public int Games { get; init; }
     public int Unknown { get; init; }
     public int Junk { get; init; }

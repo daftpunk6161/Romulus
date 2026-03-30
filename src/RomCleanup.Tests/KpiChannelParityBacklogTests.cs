@@ -118,7 +118,6 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         Assert.Equal(projection.Keep, cliJson.RootElement.GetProperty("Winners").GetInt32());
         Assert.Equal(projection.Dupes, cliJson.RootElement.GetProperty("Dupes").GetInt32());
         Assert.Equal(projection.Dupes, cliJson.RootElement.GetProperty("Losers").GetInt32());
-        Assert.Equal(projection.Dupes, cliJson.RootElement.GetProperty("Duplicates").GetInt32());
         Assert.Equal(projection.Games, cliJson.RootElement.GetProperty("Games").GetInt32());
         Assert.Equal(projection.Junk, cliJson.RootElement.GetProperty("Junk").GetInt32());
         Assert.Equal(projection.Bios, cliJson.RootElement.GetProperty("Bios").GetInt32());

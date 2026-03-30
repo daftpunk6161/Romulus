@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using RomCleanup.Core.Classification;
 using Xunit;
 
@@ -241,6 +242,22 @@ public class ConsoleDetectorTests
         Assert.True(detector.IsKnownConsole("TEST"));
         Assert.Equal("TEST", detector.DetectByExtension(".tst"));
         Assert.Equal("TEST", detector.DetectByFolder(@"C:\roms\test\game.bin", @"C:\roms"));
+    }
+
+    [Fact]
+    public void DetectByKeywordDynamic_RegexTimeout_IsNonFatalAndCounted()
+    {
+        var detector = CreateDetector();
+        detector.SetKeywordPatternsForTesting(
+        [
+            (new Regex("(a+)+$", RegexOptions.Compiled, TimeSpan.FromMilliseconds(1)), "SNES")
+        ]);
+
+        var input = new string('a', 50_000) + "!";
+        var result = detector.DetectByKeywordDynamic(input);
+
+        Assert.Null(result);
+        Assert.True(detector.KeywordRegexTimeoutCount > 0);
     }
 
     // ── Spaceless folder aliases (fix for user folders like atari2600) ───

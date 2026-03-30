@@ -251,6 +251,7 @@ public sealed class DetectionPipelineTests
             // Write a valid SNES title at 0x7FC0 (21 printable ASCII bytes)
             var title = "SUPER MARIO WORLD    "u8; // 21 bytes
             title.CopyTo(data.AsSpan(0x7FC0));
+            data[0x7FD5] = 0x20; // map mode (LoROM)
             // Checksum complement/checksum at 0x7FC0+28 = 0x7FDC
             // complement XOR checksum must == 0xFFFF
             ushort checksum = 0xAB12;
@@ -262,6 +263,31 @@ public sealed class DetectionPipelineTests
             File.WriteAllBytes(path, data);
 
             Assert.Equal("SNES", detector.Detect(path));
+        }
+        finally { DeleteQuietly(path); }
+    }
+
+    [Fact]
+    public void CartridgeHeader_Snes_InvalidMapMode_ReturnsNull()
+    {
+        var detector = new CartridgeHeaderDetector();
+        var path = TempFile();
+        try
+        {
+            var data = new byte[0x8000];
+            var title = "SUPER MARIO WORLD    "u8;
+            title.CopyTo(data.AsSpan(0x7FC0));
+            data[0x7FD5] = 0x01; // invalid map mode
+
+            ushort checksum = 0xAB12;
+            ushort complement = (ushort)(checksum ^ 0xFFFF);
+            data[0x7FDC] = (byte)(complement & 0xFF);
+            data[0x7FDD] = (byte)(complement >> 8);
+            data[0x7FDE] = (byte)(checksum & 0xFF);
+            data[0x7FDF] = (byte)(checksum >> 8);
+            File.WriteAllBytes(path, data);
+
+            Assert.Null(detector.Detect(path));
         }
         finally { DeleteQuietly(path); }
     }

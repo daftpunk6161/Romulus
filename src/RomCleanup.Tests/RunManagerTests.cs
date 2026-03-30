@@ -3,6 +3,7 @@ using RomCleanup.Contracts;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.FileSystem;
+using RomCleanup.Infrastructure.Paths;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -325,6 +326,46 @@ public class RunManagerTests
         var finalWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(2));
         Assert.Equal(RunWaitDisposition.Completed, finalWait.Disposition);
         Assert.Equal("completed", mgr.Get(run.RunId)!.Status);
+    }
+
+    [Fact]
+    public async Task TGAP48_Api_StatusStrings_UseCentralConstants()
+    {
+        var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
+            new RunExecutionOutcome(ApiRunStatus.CompletedWithErrors, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            }));
+
+        var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "tgap-48").Run!;
+
+        Assert.Equal(ApiRunStatus.Running, run.Status);
+
+        await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
+
+        var completed = mgr.Get(run.RunId)!;
+        Assert.Equal(ApiRunStatus.CompletedWithErrors, completed.Status);
+    }
+
+    [Fact]
+    public void TGAP50_Api_ArtifactPaths_UsesRootAdjacentDirectoriesWhenRootsProvided()
+    {
+        var root = CreateTempDir();
+        try
+        {
+            var expectedAuditDir = ArtifactPathResolver.GetArtifactDirectory(new[] { root }, AppIdentity.ArtifactDirectories.AuditLogs);
+            var expectedReportDir = ArtifactPathResolver.GetArtifactDirectory(new[] { root }, AppIdentity.ArtifactDirectories.Reports);
+
+            var (auditPath, reportPath) = RunLifecycleManager.GetArtifactPaths("tgap50", new[] { root });
+
+            Assert.StartsWith(Path.GetFullPath(expectedAuditDir), Path.GetFullPath(auditPath), StringComparison.OrdinalIgnoreCase);
+            Assert.StartsWith(Path.GetFullPath(expectedReportDir), Path.GetFullPath(reportPath), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            CleanupDir(root);
+        }
     }
 
     [Fact]

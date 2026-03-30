@@ -528,7 +528,7 @@ app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ct
     ApiReviewApprovalRequest request;
     try
     {
-        request = await ctx.Request.ReadFromJsonAsync<ApiReviewApprovalRequest>() ?? new ApiReviewApprovalRequest();
+        request = await ctx.Request.ReadFromJsonAsync(ApiJsonSerializerContext.Default.ApiReviewApprovalRequest) ?? new ApiReviewApprovalRequest();
     }
     catch (JsonException)
     {
