@@ -104,10 +104,11 @@ public sealed class KpiChannelParityBacklogTests : IDisposable
         }, "DryRun");
 
         Assert.NotNull(apiRun);
-        await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var waitResult = await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(10));
         var apiCompleted = manager.Get(apiRun.RunId);
 
         Assert.Equal(0, cliExitCode);
+        Assert.Equal(RunWaitDisposition.Completed, waitResult.Disposition);
         Assert.NotNull(apiCompleted?.Result);
 
         // CLI parity (all KPI fields exposed by CLI summary)

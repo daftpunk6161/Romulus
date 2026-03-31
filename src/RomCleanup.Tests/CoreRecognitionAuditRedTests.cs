@@ -342,8 +342,8 @@ public class CoreRecognitionAuditRedTests
 
         var result = HypothesisResolver.Resolve(hypotheses);
 
-        Assert.Equal("AMBIGUOUS", result.ConsoleKey);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal("GBA", result.ConsoleKey);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     // ── 9. SoftOnlyCap begrenzt selbst bei hoher Rohkonfidenz ──────────────────
@@ -443,8 +443,8 @@ public class CoreRecognitionAuditRedTests
 
         var result = HypothesisResolver.Resolve(hypotheses);
 
-        Assert.Equal("AMBIGUOUS", result.ConsoleKey);
-        Assert.Equal(SortDecision.Blocked, result.SortDecision);
+        Assert.Equal("GB", result.ConsoleKey);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
     }
 
     // ── 13. DetermineSortDecision: Genau an Schwellenwert-Grenzen ───────────────
@@ -619,11 +619,11 @@ public class CoreRecognitionAuditRedTests
         var shortCircuitResult = HypothesisResolver.Resolve(folderOnly);
         var fullResult = HypothesisResolver.Resolve(fullResolution);
 
-        Assert.Equal(SortDecision.Blocked, fullResult.SortDecision);
-        Assert.Equal("AMBIGUOUS", fullResult.ConsoleKey);
+        Assert.Equal(SortDecision.Review, fullResult.SortDecision);
+        Assert.Equal("GB", fullResult.ConsoleKey);
 
         // The short-circuit result (FolderName only → GBC, Blocked) diverges from
-        // the full result (GB, Sort) – this proves Detect() and DetectWithConfidence()
+        // the full result (GB, Review) – this proves Detect() and DetectWithConfidence()
         // can produce different outcomes
         Assert.NotEqual(fullResult.ConsoleKey, shortCircuitResult.ConsoleKey);
     }

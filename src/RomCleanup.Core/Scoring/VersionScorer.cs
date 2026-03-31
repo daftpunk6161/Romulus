@@ -32,7 +32,7 @@ public sealed class VersionScorer
         : this(
             verifiedPattern: @"\[!\]",
             revisionPattern: @"\(rev\s*([a-z0-9.]+)\)",
-            versionPattern: @"\(v\s*(\d+)\.?(\d*)\)",
+            versionPattern: @"\(v\s*([\d.]+)\)",
             langPattern: @"\((en|fr|de|es|it|pt|nl|sv|no|da|fi|ru|pl|zh|ko|ja|cs|hu|el|tr|ar|he|th|vi|id|ms|ro|bg|uk|hr|sk|sl|et|lv|lt|af|ca|gd|eu)(?:,\s*(?:en|fr|de|es|it|pt|nl|sv|no|da|fi|ru|pl|zh|ko|ja|cs|hu|el|tr|ar|he|th|vi|id|ms|ro|bg|uk|hr|sk|sl|et|lv|lt|af|ca|gd|eu))*\)")
     {
     }

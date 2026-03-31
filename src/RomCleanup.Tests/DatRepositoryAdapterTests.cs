@@ -124,10 +124,52 @@ public class DatRepositoryAdapterTests : IDisposable
                         _tempDir,
                         new Dictionary<string, string> { ["PSX"] = "psx.dat" });
 
-                var match = index.LookupWithFilename("PSX", "bioshash1");
-                Assert.NotNull(match);
-                Assert.True(match.Value.IsBios);
+        var match = index.LookupWithFilename("PSX", "bioshash1");
+        Assert.NotNull(match);
+        Assert.True(match.Value.IsBios);
         }
+
+    [Fact]
+    public void GetDatIndex_MachineWithIsBiosAttribute_SetsIsBiosFlag()
+    {
+        var datContent = @"<?xml version=""1.0""?>
+<mame>
+  <machine name=""neogeo"" isbios=""yes"">
+    <rom name=""neogeo.zip"" size=""100"" sha1=""biosarcade1"" />
+  </machine>
+</mame>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "arcade-bios.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["ARCADE"] = "arcade-bios.dat" });
+
+        var match = index.LookupWithFilename("ARCADE", "biosarcade1");
+        Assert.NotNull(match);
+        Assert.True(match.Value.IsBios);
+    }
+
+    [Fact]
+    public void GetDatIndex_MachineWithIsDeviceAttribute_SetsIsBiosFlag()
+    {
+        var datContent = @"<?xml version=""1.0""?>
+<mame>
+  <machine name=""naomi"" isdevice=""yes"">
+    <rom name=""naomi.zip"" size=""100"" sha1=""devicehash1"" />
+  </machine>
+</mame>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "arcade-device.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["ARCADE"] = "arcade-device.dat" });
+
+        var match = index.LookupWithFilename("ARCADE", "devicehash1");
+        Assert.NotNull(match);
+        Assert.True(match.Value.IsBios);
+    }
 
     [Fact]
     public void GetDatParentCloneIndex_ParsesCloneRelations()

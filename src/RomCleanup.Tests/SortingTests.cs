@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
 using RomCleanup.Infrastructure.Sorting;
@@ -353,12 +354,57 @@ public class ConsoleSorterTests : IDisposable
         var intended = Path.Combine(_tempDir, "Game.chd");
         File.WriteAllText(Path.Combine(_tempDir, "Game__DUP2.chd"), "2");
         File.WriteAllText(Path.Combine(_tempDir, "Game__DUP10.chd"), "10");
+        var sorter = new ConsoleSorter(new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter(), BuildDetector());
 
-        var method = typeof(ConsoleSorter).GetMethod("FindActualDestination", BindingFlags.NonPublic | BindingFlags.Static);
+        var method = typeof(ConsoleSorter).GetMethod("FindActualDestination", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
-        var actual = (string?)method!.Invoke(null, new object[] { intended });
+        var actual = (string?)method!.Invoke(sorter, new object[] { intended });
         Assert.Equal(Path.Combine(_tempDir, "Game__DUP10.chd"), actual);
+    }
+
+    [Fact]
+    public void Sort_UsesProvidedCandidatePaths_InsteadOfRescanningRoot()
+    {
+        var planned = CreateFile("Planned.nes", "planned");
+        CreateFile("Unplanned.nes", "unplanned");
+
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var sorter = new ConsoleSorter(fs, detector);
+
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".nes" },
+            dryRun: true,
+            enrichedConsoleKeys: EnrichedKeys((planned, "NES")),
+            candidatePaths: new[] { planned });
+
+        Assert.Equal(1, result.Total);
+        Assert.Equal(1, result.Moved);
+        Assert.Equal(0, result.Unknown);
+    }
+
+    [Fact]
+    public void Sort_SetRollback_UsesFileSystemLookupForDupDestination()
+    {
+        var cuePath = CreateFile("Rollback.cue", "FILE \"Rollback.bin\" BINARY\r\n  TRACK 01 MODE1/2352\r\n    INDEX 01 00:00:00");
+        _ = CreateFile("Rollback.bin", "binary data");
+
+        var fs = new RollbackAwareFileSystem();
+        var sorter = new ConsoleSorter(fs, BuildDetector());
+
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".cue" },
+            dryRun: false,
+            enrichedConsoleKeys: EnrichedKeys((cuePath, "PS1")),
+            candidatePaths: new[] { cuePath });
+
+        Assert.Equal(2, result.Failed);
+        Assert.Contains(fs.MoveLog, move =>
+            move.src.EndsWith("Rollback__DUP10.cue", StringComparison.OrdinalIgnoreCase)
+            && move.dst.EndsWith("Rollback.cue", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -380,6 +426,85 @@ public class ConsoleSorterTests : IDisposable
         Assert.True(result.SetMembersMoved >= 1, "BIN should move with CUE");
         Assert.True(File.Exists(Path.Combine(_tempDir, "PS1", "Game.cue")));
         Assert.True(File.Exists(Path.Combine(_tempDir, "PS1", "Game.bin")));
+    }
+
+    private sealed class RollbackAwareFileSystem : IFileSystem
+    {
+        private readonly HashSet<string> _virtualFiles = new(StringComparer.OrdinalIgnoreCase);
+
+        public List<(string src, string dst)> MoveLog { get; } = new();
+
+        public bool TestPath(string literalPath, string pathType = "Any")
+            => pathType != "Leaf" || _virtualFiles.Contains(literalPath) || File.Exists(literalPath);
+
+        public string EnsureDirectory(string path) => path;
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+            => Array.Empty<string>();
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath)
+        {
+            MoveLog.Add((sourcePath, destinationPath));
+
+            if (sourcePath.EndsWith(".cue", StringComparison.OrdinalIgnoreCase)
+                && !sourcePath.Contains("__DUP", StringComparison.OrdinalIgnoreCase))
+            {
+                var actualDest = Path.Combine(
+                    Path.GetDirectoryName(destinationPath) ?? string.Empty,
+                    Path.GetFileNameWithoutExtension(destinationPath) + "__DUP10" + Path.GetExtension(destinationPath));
+                _virtualFiles.Add(actualDest);
+                return actualDest;
+            }
+
+            if (sourcePath.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            if (_virtualFiles.Remove(sourcePath))
+            {
+                _virtualFiles.Add(destinationPath);
+                return destinationPath;
+            }
+
+            return destinationPath;
+        }
+
+        public bool FileExists(string literalPath)
+            => _virtualFiles.Contains(literalPath);
+
+        public bool DirectoryExists(string literalPath)
+            => true;
+
+        public IReadOnlyList<string> GetDirectoryFiles(string directoryPath, string searchPattern)
+            => _virtualFiles
+                .Where(path => string.Equals(Path.GetDirectoryName(path), directoryPath, StringComparison.OrdinalIgnoreCase))
+                .Where(path => MatchesPattern(Path.GetFileName(path), searchPattern))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
+            => Path.Combine(rootPath, relativePath);
+
+        public bool IsReparsePoint(string path) => false;
+
+        public void DeleteFile(string path)
+        {
+        }
+
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
+        {
+        }
+
+        private static bool MatchesPattern(string fileName, string pattern)
+        {
+            if (pattern == "*")
+                return true;
+
+            var regex = "^" + Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".") + "$";
+
+            return Regex.IsMatch(fileName, regex, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
     }
 }
 

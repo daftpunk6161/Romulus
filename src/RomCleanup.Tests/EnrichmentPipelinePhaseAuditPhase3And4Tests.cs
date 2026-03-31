@@ -68,6 +68,7 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         var candidate = Assert.Single(result);
         Assert.True(candidate.DatMatch);
         Assert.Equal("PSX", candidate.ConsoleKey);
+        Assert.Equal("PlayStation BIOS", candidate.DatGameName);
         Assert.Equal(FileCategory.Bios, candidate.Category);
         Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
     }
@@ -130,6 +131,7 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         var candidate = Assert.Single(result);
         Assert.True(candidate.DatMatch);
         Assert.Equal("PS1", candidate.ConsoleKey);
+        Assert.Equal("Game PS1", candidate.DatGameName);
         Assert.Equal(SortDecision.Review, candidate.SortDecision);
     }
 

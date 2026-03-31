@@ -146,7 +146,7 @@ public sealed class PhasePlanBuilder : IPhasePlanBuilder
         if (options.Mode == RunConstants.ModeMove)
             phases.Add(new ActionPhaseStep("Move", actions.Move));
 
-        if (options.SortConsole && options.Mode == RunConstants.ModeMove)
+        if (options.SortConsole)
             phases.Add(new ActionPhaseStep("ConsoleSort", actions.ConsoleSort));
 
         if (options.ConvertFormat is not null && options.Mode == RunConstants.ModeMove)

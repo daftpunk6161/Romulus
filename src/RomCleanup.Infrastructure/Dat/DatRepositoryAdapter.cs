@@ -39,6 +39,7 @@ public sealed class DatRepositoryAdapter
             if (!File.Exists(datPath))
                 continue;
 
+            var parentMap = GetDatParentCloneIndex(datPath);
             var games = ParseDatFile(datPath, hashType);
             foreach (var game in games)
             {
@@ -48,8 +49,11 @@ public sealed class DatRepositoryAdapter
                     if (rom.TryGetValue("hash", out var hash) && !string.IsNullOrWhiteSpace(hash))
                     {
                         rom.TryGetValue("name", out var romFileName);
-                        var isBios = IsLikelyBiosGameName(game.Key, romFileName);
-                        index.Add(consoleKey, hash, game.Key, romFileName, isBios);
+                        var isBios = rom.TryGetValue("isbios", out var biosFlag)
+                            ? IsTruthyFlag(biosFlag)
+                            : IsLikelyBiosGameName(game.Key, romFileName);
+                        var parentGameName = ResolveParentName(game.Key, parentMap);
+                        index.Add(consoleKey, hash, game.Key, romFileName, isBios, parentGameName);
                     }
                 }
             }
@@ -88,7 +92,20 @@ public sealed class DatRepositoryAdapter
         catch (XmlException) when (settings.DtdProcessing == DtdProcessing.Prohibit)
         {
             _log?.Invoke($"[Info] DAT file '{datPath}' triggered DTD prohibition. Retrying with DtdProcessing.Ignore.");
-            return ReadParentCloneIndex(datPath, CreateFallbackXmlSettings());
+            try
+            {
+                return ReadParentCloneIndex(datPath, CreateFallbackXmlSettings());
+            }
+            catch (XmlException ex)
+            {
+                _log?.Invoke($"[Warning] Could not read parent/clone map from DAT '{datPath}': {ex.Message}. Empty map returned.");
+                return parentMap;
+            }
+        }
+        catch (XmlException ex)
+        {
+            _log?.Invoke($"[Warning] Could not read parent/clone map from DAT '{datPath}': {ex.Message}. Empty map returned.");
+            return parentMap;
         }
     }
 
@@ -190,6 +207,7 @@ public sealed class DatRepositoryAdapter
                         continue;
 
                     var gameElementName = reader.LocalName;
+                    var gameIsBios = IsDatBiosOrDevice(reader) || IsLikelyBiosGameName(gameName, romFileName: null);
 
                     var roms = new List<Dictionary<string, string>>();
 
@@ -217,6 +235,7 @@ public sealed class DatRepositoryAdapter
 
                             var size = reader.GetAttribute("size");
                             if (size is not null) rom["size"] = size;
+                            if (gameIsBios) rom["isbios"] = "true";
 
                             roms.Add(rom);
                         }
@@ -265,6 +284,23 @@ public sealed class DatRepositoryAdapter
         if (ContainsBiosToken(romFileName))
             return true;
         return false;
+    }
+
+    private static bool IsDatBiosOrDevice(XmlReader reader)
+    {
+        return IsTruthyFlag(reader.GetAttribute("isbios"))
+            || IsTruthyFlag(reader.GetAttribute("isdevice"))
+            || IsTruthyFlag(reader.GetAttribute("bios"));
+    }
+
+    private static bool IsTruthyFlag(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("1", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsBiosToken(string? value)

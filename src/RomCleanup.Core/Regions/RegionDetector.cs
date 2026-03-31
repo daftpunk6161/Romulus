@@ -252,7 +252,7 @@ public static class RegionDetector
         // World
         ["world"] = Regions.World, ["export"] = Regions.World,
         // Asia
-        ["asia"] = "ASIA", ["china"] = "ASIA", ["taiwan"] = "ASIA",
+        ["asia"] = "ASIA", ["china"] = "CN", ["taiwan"] = "ASIA",
         ["hong kong"] = "ASIA", ["india"] = "ASIA",
         ["singapore"] = "ASIA", ["thailand"] = "ASIA",
         ["vietnam"] = "ASIA", ["indonesia"] = "ASIA",
@@ -275,7 +275,7 @@ public static class RegionDetector
         ["ch"] = Regions.EU, ["dk"] = Regions.EU, ["fi"] = Regions.EU,
         ["no"] = Regions.EU, ["cz"] = Regions.EU, ["hu"] = Regions.EU,
         ["tw"] = "ASIA", ["hk"] = "ASIA", ["in"] = "ASIA",
-        ["cn"] = "ASIA",
+        ["cn"] = "CN",
         // New Zealand / South Africa
         ["new zealand"] = "AU", ["nz"] = "AU",
         ["south africa"] = Regions.EU, ["za"] = Regions.EU,

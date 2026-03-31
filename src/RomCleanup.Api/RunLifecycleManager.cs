@@ -139,7 +139,11 @@ public sealed class RunLifecycleManager
                 _idempotencyIndex[idempotencyKey] = runId;
             _activeRunId = runId;
 
-            _activeTask = Task.Run(() => ExecuteRun(record));
+            _activeTask = Task.Factory.StartNew(
+                () => ExecuteRun(record),
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
 
             return new RunCreateResult(RunCreateDisposition.Created, record);
         }

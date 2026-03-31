@@ -89,6 +89,48 @@ public class CrossRootDeduplicatorTests
         var advice = CrossRootDeduplicator.GetMergeAdvice(group);
         Assert.Equal(200, advice.Keep.SizeBytes); // larger wins tiebreak
     }
+
+    [Fact]
+    public void GetMergeAdvice_UsesSameWinnerTruthAsDeduplicationEngine()
+    {
+        var group = new CrossRootDuplicateGroup
+        {
+            Hash = "samehash",
+            Files =
+            [
+                new CrossRootFile
+                {
+                    Path = @"C:\R1\Game.chd",
+                    Root = @"C:\R1",
+                    Hash = "samehash",
+                    Extension = ".chd",
+                    SizeBytes = 500,
+                    FormatScore = 850,
+                    Category = FileCategory.Unknown,
+                    CompletenessScore = 0,
+                    DatMatch = false
+                },
+                new CrossRootFile
+                {
+                    Path = @"D:\R2\Game.iso",
+                    Root = @"D:\R2",
+                    Hash = "samehash",
+                    Extension = ".iso",
+                    SizeBytes = 400,
+                    FormatScore = 700,
+                    Category = FileCategory.Game,
+                    CompletenessScore = 50,
+                    DatMatch = true
+                }
+            ]
+        };
+
+        var advice = CrossRootDeduplicator.GetMergeAdvice(group);
+
+        Assert.Equal(@".iso", advice.Keep.Extension);
+        Assert.Single(advice.Remove);
+        Assert.Equal(@".chd", advice.Remove[0].Extension);
+    }
 }
 
 public class HardlinkServiceTests

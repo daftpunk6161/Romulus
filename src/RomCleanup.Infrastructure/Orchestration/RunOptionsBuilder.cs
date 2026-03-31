@@ -27,7 +27,7 @@ public static class RunOptionsBuilder
     }
 
     /// <summary>
-    /// Returns warnings for features that are silently skipped in DryRun mode (TASK-163).
+    /// Returns warnings for features that are still move-only in DryRun mode (TASK-163).
     /// These features require Mode=Move to have any effect.
     /// </summary>
     public static IReadOnlyList<string> GetDryRunFeatureWarnings(RunOptions options)
@@ -38,9 +38,6 @@ public static class RunOptionsBuilder
             return Array.Empty<string>();
 
         var warnings = new List<string>();
-
-        if (options.SortConsole)
-            warnings.Add("SortConsole is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.");
 
         if (options.ConvertFormat is not null)
             warnings.Add("ConvertFormat is set but will be skipped in DryRun mode. Use Mode=Move to apply.");

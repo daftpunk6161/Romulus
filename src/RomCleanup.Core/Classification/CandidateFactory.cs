@@ -36,7 +36,8 @@ public static class CandidateFactory
         MatchEvidence? matchEvidence = null,
         EvidenceTier evidenceTier = EvidenceTier.Tier4_Unknown,
         MatchKind primaryMatchKind = MatchKind.None,
-        PlatformFamily platformFamily = PlatformFamily.Unknown)
+        PlatformFamily platformFamily = PlatformFamily.Unknown,
+        string? datGameName = null)
     {
         var biosRegionKey = string.IsNullOrWhiteSpace(region)
             ? "UNKNOWN"
@@ -65,6 +66,7 @@ public static class CandidateFactory
             Extension = extension,
             DatMatch = datMatch,
             ConsoleKey = consoleKey,
+            DatGameName = datGameName,
             Hash = hash,
             HeaderlessHash = headerlessHash,
             ClassificationReasonCode = classificationReasonCode,

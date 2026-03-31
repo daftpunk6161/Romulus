@@ -186,7 +186,7 @@ public class Phase5CEntryPointParityTests
     // ───── TASK-163: DryRun + Feature Warnings ─────
 
     [Fact]
-    public void TASK163_PhasePlanBuilder_DryRun_With_SortConsole_EmitsWarning()
+    public void TASK163_PhasePlanBuilder_DryRun_With_SortConsole_NoLongerWarns()
     {
         var options = new RunOptions
         {
@@ -197,8 +197,7 @@ public class Phase5CEntryPointParityTests
 
         var warnings = RunOptionsBuilder.GetDryRunFeatureWarnings(options);
 
-        Assert.NotEmpty(warnings);
-        Assert.Contains(warnings, w => w.Contains("SortConsole", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(warnings);
     }
 
     [Fact]
@@ -218,7 +217,7 @@ public class Phase5CEntryPointParityTests
     }
 
     [Fact]
-    public void TASK163_PhasePlanBuilder_DryRun_With_Both_EmitsTwoWarnings()
+    public void TASK163_PhasePlanBuilder_DryRun_With_Both_EmitsOnlyMoveOnlyWarning()
     {
         var options = new RunOptions
         {
@@ -230,7 +229,8 @@ public class Phase5CEntryPointParityTests
 
         var warnings = RunOptionsBuilder.GetDryRunFeatureWarnings(options);
 
-        Assert.Equal(2, warnings.Count);
+        Assert.Single(warnings);
+        Assert.Contains(warnings, w => w.Contains("ConvertFormat", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -314,7 +314,6 @@ public class Phase5CEntryPointParityTests
 
         var preflight = orchestrator.Preflight(options);
 
-        Assert.Contains(preflight.Warnings, w => w.Contains("SortConsole", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(preflight.Warnings, w => w.Contains("ConvertFormat", StringComparison.OrdinalIgnoreCase));
     }
 

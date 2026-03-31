@@ -134,9 +134,17 @@ public sealed class CrossRootFile
 {
     public string Path { get; set; } = "";
     public string Root { get; set; } = "";
+    public string Region { get; set; } = "UNKNOWN";
     public string Extension { get; set; } = "";
     public long SizeBytes { get; set; }
+    public int RegionScore { get; set; }
     public int FormatScore { get; set; }
+    public long VersionScore { get; set; }
+    public int HeaderScore { get; set; }
+    public int CompletenessScore { get; set; }
+    public long SizeTieBreakScore { get; set; }
+    public bool DatMatch { get; set; }
+    public FileCategory Category { get; set; } = FileCategory.Game;
     public string Hash { get; set; } = "";
 }
 

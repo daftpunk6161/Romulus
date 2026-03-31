@@ -9,6 +9,27 @@ public interface IFileSystem
     bool TestPath(string literalPath, string pathType = "Any");
     string EnsureDirectory(string path);
     IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null);
+    bool FileExists(string literalPath) => File.Exists(literalPath);
+    bool DirectoryExists(string literalPath) => Directory.Exists(literalPath);
+    IReadOnlyList<string> GetDirectoryFiles(string directoryPath, string searchPattern)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) || string.IsNullOrWhiteSpace(searchPattern))
+            return Array.Empty<string>();
+
+        try
+        {
+            if (!Directory.Exists(directoryPath))
+                return Array.Empty<string>();
+
+            var files = Directory.GetFiles(directoryPath, searchPattern);
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+            return files;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return Array.Empty<string>();
+        }
+    }
     string? MoveItemSafely(string sourcePath, string destinationPath);
     /// <summary>
     /// SEC-MOVE-04: Move with explicit root containment validation.

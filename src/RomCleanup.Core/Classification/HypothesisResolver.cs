@@ -115,8 +115,9 @@ public static class HypothesisResolver
             conflictDetail = $"Conflict: {winner.Key}({winner.Value.TotalConfidence}) vs {runner.Key}({runner.Value.TotalConfidence})";
         }
 
-        // Check for AMBIGUOUS: two strong competing consoles both ≥ 60
-        // Only trigger when no side has a clear hard-evidence advantage
+        // Check for AMBIGUOUS: two strong competing consoles both ≥ 60.
+        // Only trigger when evidence quality is genuinely comparable; a clearly
+        // stronger source class should degrade to Review, not erase the winner.
         if (hasConflict && sorted.Count >= 2)
         {
             var runnerMax = sorted[1].Value.MaxSingleConfidence;
@@ -124,10 +125,13 @@ public static class HypothesisResolver
             {
                 var winnerHasHard = winner.Value.Items.Any(h => h.Source.IsHardEvidence());
                 var runnerHasHard = sorted[1].Value.Items.Any(h => h.Source.IsHardEvidence());
+                var winnerPriority = winner.Value.MaxSourcePriority;
+                var runnerPriority = sorted[1].Value.MaxSourcePriority;
 
                 // Only AMBIGUOUS when evidence quality is comparable:
                 // both have hard evidence, or neither has hard evidence
-                if (winnerHasHard == runnerHasHard)
+                // and the strongest source tier is the same on both sides.
+                if (winnerHasHard == runnerHasHard && winnerPriority == runnerPriority)
                 {
                     var ratio = (double)sorted[1].Value.TotalConfidence / winner.Value.TotalConfidence;
                     if (ratio >= 0.7)

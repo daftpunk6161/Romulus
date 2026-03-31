@@ -194,6 +194,18 @@ public class FileClassifierTests
         Assert.True(decision.Confidence >= 95);
     }
 
+    [Theory]
+    [InlineData("data001", ".bin")]
+    [InlineData("track01", ".bin")]
+    [InlineData("disc1", ".img")]
+    public void GenericRawBinaryNames_AreNotPromotedToGame(string baseName, string extension)
+    {
+        var decision = FileClassifier.Analyze(baseName, extension, sizeBytes: 1024, aggressiveJunk: false);
+
+        Assert.Equal(FileCategory.Unknown, decision.Category);
+        Assert.Equal("generic-raw-binary", decision.ReasonCode);
+    }
+
     // ── Edge cases ──────────────────────────────────────────────────────
 
     [Fact]

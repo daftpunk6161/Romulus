@@ -184,12 +184,12 @@ public class Phase6QualityAssuranceTests
 
         Assert.DoesNotContain("DatRename", names);
         Assert.DoesNotContain("Move", names);
-        Assert.DoesNotContain("ConsoleSort", names);
+        Assert.Contains("ConsoleSort", names);
         Assert.DoesNotContain("WinnerConversion", names);
     }
 
     [Fact]
-    public void PhasePlanBuilder_SortConsoleWithoutMove_Excluded()
+    public void PhasePlanBuilder_SortConsoleWithoutMove_IncludedForPreviewParity()
     {
         var builder = new PhasePlanBuilder();
         var options = new RunOptions
@@ -201,7 +201,7 @@ public class Phase6QualityAssuranceTests
         var phases = builder.Build(options, CreateNoOpActions());
         var names = phases.Select(p => p.Name).ToArray();
 
-        Assert.DoesNotContain("ConsoleSort", names);
+        Assert.Contains("ConsoleSort", names);
     }
 
     [Fact]

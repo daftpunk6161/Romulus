@@ -14,7 +14,7 @@ public sealed class DatIndex
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _nameIndex = new(StringComparer.OrdinalIgnoreCase);
     private int _totalEntries;
 
-    public readonly record struct DatIndexEntry(string GameName, string? RomFileName, bool IsBios = false);
+    public readonly record struct DatIndexEntry(string GameName, string? RomFileName, bool IsBios = false, string? ParentGameName = null);
 
     /// <summary>Maximum entries per console to prevent OOM from malicious DATs. 0 = unlimited.</summary>
     public int MaxEntriesPerConsole { get; init; }
@@ -26,10 +26,10 @@ public sealed class DatIndex
     public int TotalEntries => Volatile.Read(ref _totalEntries);
 
     /// <summary>Add or update a hash→gameName mapping for a console.</summary>
-    public void Add(string consoleKey, string hash, string gameName, string? romFileName = null, bool isBios = false)
+    public void Add(string consoleKey, string hash, string gameName, string? romFileName = null, bool isBios = false, string? parentGameName = null)
     {
         var hashMap = _data.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
-        var newEntry = new DatIndexEntry(gameName, romFileName, isBios);
+        var newEntry = new DatIndexEntry(gameName, romFileName, isBios, parentGameName);
         var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
 
         // Allow updates for existing keys even when at capacity

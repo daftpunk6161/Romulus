@@ -1,4 +1,5 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Core.Deduplication;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Regions;
 using RomCleanup.Core.Scoring;
@@ -34,7 +35,8 @@ public sealed class CrossRootDeduplicator
     }
 
     /// <summary>
-    /// Recommends which file to keep based on region score, format score, version score, and size.
+    /// Recommends which file to keep using the same deterministic winner truth as the
+    /// main deduplication engine whenever the relevant projection data is available.
     /// </summary>
     public static CrossRootMergeAdvice GetMergeAdvice(CrossRootDuplicateGroup group, string[]? preferRegions = null)
     {
@@ -51,28 +53,57 @@ public sealed class CrossRootDeduplicator
 
         var regions = preferRegions ?? ["EU", "US", "WORLD", "JP"];
         var versionScorer = new VersionScorer();
-
-        // Score each file by region, format, version, then size
-        var scored = group.Files
-            .Select(f =>
+        var mappedCandidates = group.Files
+            .Select(file =>
             {
-                var fileName = Path.GetFileNameWithoutExtension(f.Path);
-                var regionTag = RegionDetector.GetRegionTag(fileName);
-                var regionScore = FormatScorer.GetRegionScore(regionTag, regions);
-                var formatScore = FormatScorer.GetFormatScore(f.Extension);
-                var versionScore = versionScorer.GetVersionScore(fileName);
-                return (File: f, RegionScore: regionScore, FormatScore: formatScore,
-                        VersionScore: versionScore, Size: f.SizeBytes);
+                var fileName = Path.GetFileNameWithoutExtension(file.Path);
+                var regionTag = string.IsNullOrWhiteSpace(file.Region) ||
+                    string.Equals(file.Region, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
+                    ? RegionDetector.GetRegionTag(fileName)
+                    : file.Region;
+                var regionScore = file.RegionScore != 0
+                    ? file.RegionScore
+                    : FormatScorer.GetRegionScore(regionTag, regions);
+                var formatScore = file.FormatScore != 0
+                    ? file.FormatScore
+                    : FormatScorer.GetFormatScore(file.Extension);
+                var versionScore = file.VersionScore != 0
+                    ? file.VersionScore
+                    : versionScorer.GetVersionScore(fileName);
+                var sizeTieBreakScore = file.SizeTieBreakScore != 0
+                    ? file.SizeTieBreakScore
+                    : FormatScorer.GetSizeTieBreakScore(null, file.Extension, file.SizeBytes);
+
+                var candidate = new RomCandidate
+                {
+                    MainPath = file.Path,
+                    GameKey = GameKeyNormalizer.Normalize(Path.GetFileName(file.Path)),
+                    Region = regionTag,
+                    RegionScore = regionScore,
+                    FormatScore = formatScore,
+                    VersionScore = versionScore,
+                    HeaderScore = file.HeaderScore,
+                    CompletenessScore = file.CompletenessScore,
+                    SizeTieBreakScore = sizeTieBreakScore,
+                    SizeBytes = file.SizeBytes,
+                    Extension = file.Extension,
+                    DatMatch = file.DatMatch,
+                    Category = file.Category
+                };
+
+                return (File: file, Candidate: candidate);
             })
-            .OrderByDescending(x => x.RegionScore)
-            .ThenByDescending(x => x.FormatScore)
-            .ThenByDescending(x => x.VersionScore)
-            .ThenByDescending(x => x.Size)
-            .ThenBy(x => x.File.Path, StringComparer.Ordinal)
             .ToList();
 
-        var keep = scored[0].File;
-        var remove = scored.Skip(1).Select(x => x.File).ToList();
+        var winner = DeduplicationEngine.SelectWinner(mappedCandidates.Select(x => x.Candidate).ToList());
+        var keep = mappedCandidates
+            .First(x => string.Equals(x.Candidate.MainPath, winner?.MainPath, StringComparison.OrdinalIgnoreCase))
+            .File;
+        var remove = mappedCandidates
+            .Where(x => !string.Equals(x.File.Path, keep.Path, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.File)
+            .OrderBy(x => x.Path, StringComparer.Ordinal)
+            .ToList();
 
         return new CrossRootMergeAdvice
         {

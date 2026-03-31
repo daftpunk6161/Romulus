@@ -188,8 +188,17 @@ public sealed partial class RunOrchestrator
                     Path = c.MainPath,
                     Root = root,
                     Hash = hash ?? string.Empty,
+                    Region = c.Region,
                     Extension = c.Extension,
-                    SizeBytes = c.SizeBytes
+                    SizeBytes = c.SizeBytes,
+                    RegionScore = c.RegionScore,
+                    FormatScore = c.FormatScore,
+                    VersionScore = c.VersionScore,
+                    HeaderScore = c.HeaderScore,
+                    CompletenessScore = c.CompletenessScore,
+                    SizeTieBreakScore = c.SizeTieBreakScore,
+                    DatMatch = c.DatMatch,
+                    Category = c.Category
                 };
             })
             .Where(f => !string.IsNullOrWhiteSpace(f.Root) && !string.IsNullOrWhiteSpace(f.Hash))

@@ -44,7 +44,12 @@ public sealed class RunOptions
 /// <summary>
 /// Result of the move phase.
 /// </summary>
-public sealed record MovePhaseResult(int MoveCount, int FailCount, long SavedBytes, int SkipCount = 0);
+public sealed record MovePhaseResult(
+    int MoveCount,
+    int FailCount,
+    long SavedBytes,
+    int SkipCount = 0,
+    IReadOnlySet<string>? MovedSourcePaths = null);
 
 /// <summary>
 /// Full result of a pipeline execution.
@@ -114,6 +119,9 @@ public static class RunResultValidator
         {
             if (move.MoveCount < 0 || move.FailCount < 0 || move.SkipCount < 0)
                 errors.Add("MoveResult counts must not be negative.");
+
+            if (move.MovedSourcePaths is not null && move.MovedSourcePaths.Count != move.MoveCount)
+                errors.Add("MoveResult.MovedSourcePaths count must equal MoveCount.");
         }
 
         if (result.DatAuditResult is { } dat)

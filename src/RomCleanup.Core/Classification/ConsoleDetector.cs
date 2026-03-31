@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using RomCleanup.Core.Caching;
+using RomCleanup.Core.SetParsing;
 using RomCleanup.Contracts.Models;
 
 namespace RomCleanup.Core.Classification;
@@ -415,10 +416,9 @@ public sealed class ConsoleDetector
 
 
     /// <summary>
-    /// Detect console by inspecting the file extensions of entries inside a ZIP or 7z archive.
-    /// For .zip files: opens the archive, finds the largest non-directory entry,
-    /// and runs unique/ambiguous extension detection on its extension.
-    /// For .7z files: uses the injected archive entry provider to list entry names.
+    /// Detect console by inspecting informative entries inside a ZIP or 7z archive.
+    /// Scans all entries and chooses the strongest deterministic signal instead of
+    /// relying only on the largest or longest entry.
     /// Returns null if not a supported archive or no match found.
     /// </summary>
     public string? DetectByArchiveContent(string filePath, string outerExt)
@@ -435,7 +435,7 @@ public sealed class ConsoleDetector
             return DetectByZipContent(filePath);
 
         if (lowerExt == ".7z" && _archiveEntryProvider is not null)
-            return DetectByArchiveEntryNames(_archiveEntryProvider(filePath));
+            return DetectByArchiveEntryNames(_archiveEntryProvider(filePath), filePath);
 
         return null;
     }
@@ -445,49 +445,22 @@ public sealed class ConsoleDetector
         try
         {
             using var archive = ClassificationIo.OpenZipRead(filePath);
-            // Find the largest entry (most likely the actual ROM, not readme/nfo)
-            ZipArchiveEntry? bestEntry = null;
+            ArchiveEntryDetectionCandidate? bestEntry = null;
             foreach (var entry in archive.Entries)
             {
                 if (string.IsNullOrEmpty(entry.Name)) continue; // skip directories
-                if (bestEntry is null
-                    || entry.Length > bestEntry.Length
-                    || (entry.Length == bestEntry.Length
-                        && string.Compare(entry.FullName, bestEntry.FullName, StringComparison.OrdinalIgnoreCase) < 0)
-                    || (entry.Length == bestEntry.Length
-                        && string.Equals(entry.FullName, bestEntry.FullName, StringComparison.OrdinalIgnoreCase)
-                        && string.Compare(entry.Name, bestEntry.Name, StringComparison.OrdinalIgnoreCase) < 0))
-                    bestEntry = entry;
+                var candidate = CreateArchiveEntryDetectionCandidate(entry.FullName, entry.Length, filePath);
+                if (candidate is null)
+                    continue;
+
+                if (bestEntry is null || CompareArchiveCandidates(candidate, bestEntry) < 0)
+                    bestEntry = candidate;
             }
 
             if (bestEntry is null)
                 return null;
 
-            var innerExt = Path.GetExtension(bestEntry.Name);
-            if (string.IsNullOrEmpty(innerExt))
-                return null;
-
-            // Try unique extension first
-            var byExt = DetectByExtension(innerExt);
-            if (byExt is not null)
-                return byExt;
-
-            // Try ambiguous extension
-            var ambig = GetAmbiguousMatches(innerExt);
-            if (ambig.Count == 1)
-                return ambig[0];
-
-            // For disc-type inner files, try disc header detection
-            if (_discHeaderDetector is not null)
-            {
-                var discExt = innerExt.ToLowerInvariant();
-                if (discExt is ".iso" or ".bin" or ".img" or ".cue" or ".gcm")
-                {
-                    // Extract inner extension info only — actual disc header reading
-                    // on compressed entries is not feasible without full extraction.
-                    // The inner extension combined with ambiguous matching is sufficient.
-                }
-            }
+            return bestEntry.ConsoleKey;
         }
         catch (InvalidDataException) { /* corrupt/not-a-zip */ }
         catch (IOException) { }
@@ -500,37 +473,106 @@ public sealed class ConsoleDetector
     /// Detect console from a list of archive entry names (e.g. from 7z listing).
     /// Finds the entry with the longest name (heuristic: largest ROM path) and runs extension detection.
     /// </summary>
-    private string? DetectByArchiveEntryNames(IReadOnlyList<string> entryNames)
+    private string? DetectByArchiveEntryNames(IReadOnlyList<string> entryNames, string? outerArchivePath)
     {
         if (entryNames.Count == 0)
             return null;
 
-        // Pick the entry with the longest filename (heuristic for the main ROM vs readme/nfo)
-        string? bestEntry = null;
+        ArchiveEntryDetectionCandidate? bestEntry = null;
         foreach (var name in entryNames)
         {
             if (string.IsNullOrWhiteSpace(name)) continue;
-            if (bestEntry is null || name.Length > bestEntry.Length)
-                bestEntry = name;
+            var candidate = CreateArchiveEntryDetectionCandidate(name, sizeBytes: null, outerArchivePath);
+            if (candidate is null)
+                continue;
+
+            if (bestEntry is null || CompareArchiveCandidates(candidate, bestEntry) < 0)
+                bestEntry = candidate;
         }
 
         if (bestEntry is null)
             return null;
 
-        var innerExt = Path.GetExtension(bestEntry);
+        return bestEntry.ConsoleKey;
+    }
+
+    private ArchiveEntryDetectionCandidate? CreateArchiveEntryDetectionCandidate(
+        string entryName,
+        long? sizeBytes,
+        string? outerArchivePath)
+    {
+        if (string.IsNullOrWhiteSpace(entryName))
+            return null;
+
+        var fileName = Path.GetFileName(entryName);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return null;
+
+        var innerExt = Path.GetExtension(fileName);
         if (string.IsNullOrEmpty(innerExt))
             return null;
 
-        var byExt = DetectByExtension(innerExt);
-        if (byExt is not null)
-            return byExt;
+        var normalizedExt = innerExt.ToLowerInvariant();
+        if (FileClassifier.IsNonRomExtension(normalizedExt))
+            return null;
 
-        var ambig = GetAmbiguousMatches(innerExt);
+        var outerBaseName = string.IsNullOrWhiteSpace(outerArchivePath)
+            ? null
+            : Path.GetFileNameWithoutExtension(outerArchivePath);
+        var innerBaseName = Path.GetFileNameWithoutExtension(fileName);
+
+        var byExt = DetectByExtension(normalizedExt);
+        if (byExt is not null)
+            return new ArchiveEntryDetectionCandidate(byExt, 4, sizeBytes ?? 0, entryName, normalizedExt);
+
+        var serial = FilenameConsoleAnalyzer.DetectBySerial(innerBaseName)
+            ?? (outerBaseName is null ? null : FilenameConsoleAnalyzer.DetectBySerial(outerBaseName));
+        if (serial is not null)
+            return new ArchiveEntryDetectionCandidate(serial.Value.ConsoleKey, 3, sizeBytes ?? 0, entryName, normalizedExt);
+
+        var keyword = DetectByKeywordDynamic(innerBaseName)
+            ?? (outerBaseName is null ? null : DetectByKeywordDynamic(outerBaseName));
+        if (keyword is not null)
+        {
+            var priority = SetDescriptorSupport.IsDescriptorExtension(normalizedExt) ? 3 : 2;
+            return new ArchiveEntryDetectionCandidate(keyword.Value.ConsoleKey, priority, sizeBytes ?? 0, entryName, normalizedExt);
+        }
+
+        var ambig = GetAmbiguousMatches(normalizedExt);
         if (ambig.Count == 1)
-            return ambig[0];
+            return new ArchiveEntryDetectionCandidate(ambig[0], 1, sizeBytes ?? 0, entryName, normalizedExt);
 
         return null;
     }
+
+    private static int CompareArchiveCandidates(ArchiveEntryDetectionCandidate left, ArchiveEntryDetectionCandidate right)
+    {
+        var byPriority = right.Priority.CompareTo(left.Priority);
+        if (byPriority != 0)
+            return byPriority;
+
+        var bySize = right.SizeBytes.CompareTo(left.SizeBytes);
+        if (bySize != 0)
+            return bySize;
+
+        var leftIsDescriptor = SetDescriptorSupport.IsDescriptorExtension(left.Extension);
+        var rightIsDescriptor = SetDescriptorSupport.IsDescriptorExtension(right.Extension);
+        if (leftIsDescriptor != rightIsDescriptor)
+            return rightIsDescriptor.CompareTo(leftIsDescriptor);
+
+        var byPath = string.Compare(left.EntryName, right.EntryName, StringComparison.OrdinalIgnoreCase);
+        if (byPath != 0)
+            return byPath;
+
+        return string.Compare(left.EntryName, right.EntryName, StringComparison.Ordinal);
+    }
+
+    private sealed record ArchiveEntryDetectionCandidate(
+        string ConsoleKey,
+        int Priority,
+        long SizeBytes,
+        string EntryName,
+        string Extension);
 
     /// <summary>
     /// Check if a console key is valid (exists in registry).

@@ -38,7 +38,9 @@ public class RegionDetectorTests
     [InlineData("Game (Taiwan)", "ASIA")]
     [InlineData("Game (Hong Kong)", "ASIA")]
     [InlineData("Game (India)", "ASIA")]
-    public void AsiaCountryTags_MapToASIA(string input, string expected)
+    [InlineData("Game (CN)", "CN")]
+    [InlineData("Game (China)", "CN")]
+    public void AsiaAndCnCountryTags_DetectedCorrectly(string input, string expected)
     {
         Assert.Equal(expected, RegionDetector.GetRegionTag(input));
     }

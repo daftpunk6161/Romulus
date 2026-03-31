@@ -187,16 +187,58 @@ Diese Zusammenfassung konsolidiert das externe Audit mit einer Code-Pruefung des
   - Invalidierung bei Dateiaenderung
   - Persistenz-Leerung nach `ClearCache`
 
+### Batch 8: Recognition- und Dedupe-Korrekturen
+
+- `CrossRoot nutzt jetzt dieselbe Winner-Wahrheit wie die Haupt-Dedupe`
+  Die separate Vergleichslogik im CrossRoot-Pfad wurde auf `DeduplicationEngine.SelectWinner` zurueckgefuehrt, damit Keep-/Lose-Entscheidungen nicht mehr zwischen Preview, normaler Dedupe und CrossRoot auseinanderlaufen.
+
+- `Descriptor- und Region-Drift korrigiert`
+  `.mds` ist jetzt zentral als Set-Descriptor modelliert, und `CN` wird in der Region-Erkennung nicht mehr vorzeitig zu `ASIA` degradiert.
+
+- `Archiv-Erkennung auf informative Entries umgestellt`
+  ZIP-/7z-Klassifikation betrachtet nicht mehr nur den groessten oder laengsten Entry, sondern waehlt einen fachlich informativen Repräsentanten. Dadurch sinken False-Negatives bei Multi-File-Disc-Sets und gemischten Archiven.
+
+- `Resolver blockt klare Prioritaeten nicht mehr unnötig`
+  `UniqueExtension`-Treffer werden nicht mehr allein durch schwaecheren Folder-Kontext auf `AMBIGUOUS` gekippt.
+
+- `Generische Raw-Binaries konservativer`
+  Neutrale `.bin/.img`-Dateien ohne positives ROM-Signal fallen nicht mehr blind auf `Game`.
+
+- `VersionScore versteht jetzt mehrsegmentige Revisionsnummern`
+  Formate wie `v1.2.3` tragen jetzt konsistent zur Winner-Selection bei.
+
+- `DAT-BIOS-Flags und DAT-Spielname sauber im Kandidatenmodell`
+  `isbios`/`isdevice` aus DAT-Dateien werden jetzt im aktiven Laufzeitpfad beruecksichtigt, und der gematchte DAT-Spielname wird bis in den `RomCandidate` durchgereicht.
+
+### Batch 9: ConsoleSort-Paritaet und Safety
+
+- `ConsoleSort nutzt angereicherte Kandidaten statt Rescan`
+  Der redundante zweite Dateisystem-Scan in `ConsoleSorter` wurde durch die bereits im Run bekannten Kandidatenpfade ersetzt.
+
+- `DryRun und Move teilen jetzt dieselbe ConsoleSort-Entscheidungsbasis`
+  `ConsoleSort` ist nicht mehr Move-only. Preview und Execute verwenden denselben fachlichen Bestand und dieselben Ausschlussregeln fuer bereits geplante bzw. bereits durchgefuehrte Moves.
+
+- `Rollback-Existenzpruefung laeuft ueber IFileSystem`
+  Rohes `File.Exists` im `ConsoleSorter`-Rollback wurde auf die Dateisystemabstraktion gezogen, damit Safety-/Testpfade konsistent bleiben.
+
+- `Move-Ergebnis traegt erfolgreich verschobene Quellpfade`
+  Der Move-Pfad liefert jetzt die tatsaechlich bewegten Source-Pfade mit, damit spaetere Phasen keine Schattenlogik oder Heuristiken fuer bereits entfernte Dateien brauchen.
+
+### Batch 10: API-Run-Lifecycle stabilisiert
+
+- `API-Runs laufen als Long-Running-Tasks`
+  Der `RunManager` startet produktive Runs nicht mehr ueber den normalen ThreadPool-Standardpfad, sondern als dedizierte Long-Running-Aufgabe. Das reduziert Starvation-/Timeout-Risiken unter Test- und Parallel-Last.
+
+- `Parity-Regressionstests auf expliziten Completion-Wait gezogen`
+  API-Kanaltests validieren jetzt den Abschluss eines Runs bewusst ueber `RunWaitDisposition.Completed`, statt implizit von einem festen 5s-Zeitfenster auszugehen.
+
 ## Naechste sinnvolle Umsetzungsbloecke
 
-1. `Enrichment parallelisieren`
-   Umgesetzt.
+1. `Conversion parallelisieren`
+   Die Winner-/ConvertOnly-Pfade arbeiten weiterhin sequentiell und bleiben bei grossen Disc-Sammlungen ein Laufzeithebel.
 
-2. `Legacy-Views bereinigen`
-   Umgesetzt.
+2. `API-Artefakt- und History-Endpunkte ergaenzen`
+   Ein Run-Listing sowie Report-/Audit-Downloads fehlen weiterhin als Komfort- und Automationspfade.
 
-3. `Legacy-Views tatsaechlich abbauen`
-   Umgesetzt.
-
-4. `ConsoleSort-Rescan abbauen`
-   Nach dem Hash-Caching ist der naechste klare Performance-Hebel, den redundanten zweiten Dateisystem-Scan in `ConsoleSorter` durch die bereits angereicherten Kandidaten zu ersetzen.
+3. `OpenAPI-Generierung automatisieren`
+   Der Spec-Stand ist aktuell konsistent, bleibt aber manuell gepflegt und damit drift-anfaellig.

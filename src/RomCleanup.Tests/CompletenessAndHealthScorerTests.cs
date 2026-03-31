@@ -79,6 +79,16 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     }
 
     [Fact]
+    public void Completeness_UsesCentralizedDescriptorExtensions_MdsIsDescriptor()
+    {
+        Assert.True(SetDescriptorSupport.IsDescriptorExtension(".mds"));
+
+        var score = CompletenessScorer.Calculate("disc.mds", ".mds", Array.Empty<string>(), 1, datMatch: false);
+
+        Assert.Equal(-50, score);
+    }
+
+    [Fact]
     public void Health_GetHealthScore_ZeroTotal_ReturnsZero()
     {
         var score = HealthScorer.GetHealthScore(0, dupes: 10, junk: 10, verified: 10);

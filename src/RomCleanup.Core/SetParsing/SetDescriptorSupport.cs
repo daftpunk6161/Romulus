@@ -12,6 +12,7 @@ public static class SetDescriptorSupport
         ".gdi",
         ".ccd",
         ".m3u",
+        ".mds",
     };
 
     public static bool IsDescriptorExtension(string extension)
@@ -30,6 +31,7 @@ public static class SetDescriptorSupport
             ".gdi" => GdiSetParser.GetRelatedFiles(filePath),
             ".ccd" => CcdSetParser.GetRelatedFiles(filePath),
             ".m3u" => includeM3uMembers ? M3uPlaylistParser.GetRelatedFiles(filePath) : Array.Empty<string>(),
+            ".mds" => MdsSetParser.GetRelatedFiles(filePath),
             _ => Array.Empty<string>(),
         };
     }
@@ -42,6 +44,7 @@ public static class SetDescriptorSupport
             ".gdi" => GdiSetParser.GetMissingFiles(filePath).Count,
             ".ccd" => CcdSetParser.GetMissingFiles(filePath).Count,
             ".m3u" => M3uPlaylistParser.GetMissingFiles(filePath).Count,
+            ".mds" => MdsSetParser.GetMissingFiles(filePath).Count,
             _ => 0,
         };
     }

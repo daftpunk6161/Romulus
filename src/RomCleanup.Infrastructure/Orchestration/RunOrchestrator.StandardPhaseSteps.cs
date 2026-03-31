@@ -133,7 +133,7 @@ public sealed partial class RunOrchestrator
         PhaseMetricsCollector metrics,
         CancellationToken cancellationToken)
     {
-        if (!options.SortConsole || options.Mode != RunConstants.ModeMove || _consoleDetector is null)
+        if (!options.SortConsole || _consoleDetector is null)
             return PhaseStepResult.Skipped();
 
         metrics.StartPhase("ConsoleSort");
@@ -180,16 +180,64 @@ public sealed partial class RunOrchestrator
             }
         }
 
+        var candidatePaths = BuildConsoleSortCandidatePaths(state, options, result);
+        var dryRunSort = !string.Equals(options.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase);
+
         var sorter = new ConsoleSorter(_fs, _consoleDetector, _audit, options.AuditPath);
         result.ConsoleSortResult = sorter.Sort(
-            options.Roots, options.Extensions, dryRun: false, cancellationToken,
+            options.Roots, options.Extensions, dryRun: dryRunSort, cancellationToken,
             enrichedConsoleKeys: enrichedConsoleKeys,
             enrichedSortDecisions: enrichedSortDecisions,
-            enrichedCategories: enrichedCategories);
+            enrichedCategories: enrichedCategories,
+            candidatePaths: candidatePaths);
 
         _onProgress?.Invoke("[Sort] Konsolen-Sortierung abgeschlossen");
         metrics.CompletePhase();
         return PhaseStepResult.Ok(result.ConsoleSortResult?.Moved ?? 0, result.ConsoleSortResult);
+    }
+
+    private static IReadOnlyList<string> BuildConsoleSortCandidatePaths(
+        PipelineState state,
+        RunOptions options,
+        RunResultBuilder result)
+    {
+        if (state.AllCandidates is null || state.AllCandidates.Count == 0)
+            return Array.Empty<string>();
+
+        var remainingPaths = new HashSet<string>(
+            state.AllCandidates.Select(static c => c.MainPath),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (string.Equals(options.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase))
+        {
+            if (result.MoveResult?.MovedSourcePaths is { Count: > 0 } movedPaths)
+                remainingPaths.ExceptWith(movedPaths);
+
+            if (state.JunkRemovedPaths is { Count: > 0 } removedJunkPaths)
+                remainingPaths.ExceptWith(removedJunkPaths);
+        }
+        else
+        {
+            if (state.GameGroups is not null)
+            {
+                foreach (var loserPath in state.GameGroups.SelectMany(static g => g.Losers).Select(static c => c.MainPath))
+                    remainingPaths.Remove(loserPath);
+            }
+
+            if (options.RemoveJunk && state.AllGroups is not null)
+            {
+                foreach (var junkWinnerPath in state.AllGroups
+                    .Where(static g => g.Losers.Count == 0 && g.Winner.Category == FileCategory.Junk)
+                    .Select(static g => g.Winner.MainPath))
+                {
+                    remainingPaths.Remove(junkWinnerPath);
+                }
+            }
+        }
+
+        return remainingPaths
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private PhaseStepResult RunWinnerConversionStep(

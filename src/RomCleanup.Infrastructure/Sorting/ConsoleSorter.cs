@@ -61,6 +61,10 @@ public sealed class ConsoleSorter
     /// Optional: pre-enriched category mappings (filePath → "Game"/"Junk"/"NonGame"/"Bios"/"Unknown").
     /// When provided, Junk files with a known console go to _TRASH_JUNK/{ConsoleKey}/.
     /// </param>
+    /// <param name="candidatePaths">
+    /// Optional: pre-enumerated file paths to sort. When provided, avoids a second filesystem
+    /// scan and keeps preview/execute aligned with the orchestrator's already enriched candidate set.
+    /// </param>
     /// <returns>Sort result with counters.</returns>
     public ConsoleSortResult Sort(
         IReadOnlyList<string> roots,
@@ -69,7 +73,8 @@ public sealed class ConsoleSorter
         CancellationToken cancellationToken = default,
         IReadOnlyDictionary<string, string>? enrichedConsoleKeys = null,
         IReadOnlyDictionary<string, string>? enrichedSortDecisions = null,
-        IReadOnlyDictionary<string, string>? enrichedCategories = null)
+        IReadOnlyDictionary<string, string>? enrichedCategories = null,
+        IReadOnlyList<string>? candidatePaths = null)
     {
         int total = 0, moved = 0, skipped = 0, unknown = 0, setMembersMoved = 0, failed = 0, reviewed = 0, blocked = 0;
         var unknownReasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -79,10 +84,7 @@ public sealed class ConsoleSorter
             if (cancellationToken.IsCancellationRequested) break;
             if (!_fs.TestPath(root, "Container")) continue;
 
-            var files = _fs.GetFilesSafe(root, extensions)
-                .Where(f => !IsInExcludedFolder(f, root))
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var files = GetFilesForRoot(root, extensions, candidatePaths);
 
             // Pre-scan: identify set members (CUE+BIN, GDI, CCD, M3U, MDS)
             var setDependents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -285,7 +287,7 @@ public sealed class ConsoleSorter
                 try
                 {
                     var actualDest = FindActualDestination(dest);
-                    if (actualDest is not null && File.Exists(actualDest))
+                    if (actualDest is not null && _fs.FileExists(actualDest))
                         _ = _fs.MoveItemSafely(actualDest, source);
                 }
                 catch (Exception rbEx)
@@ -320,21 +322,21 @@ public sealed class ConsoleSorter
     /// Finds the actual file on disk, accounting for __DUP collision renaming.
     /// Returns the exact path if found, or null.
     /// </summary>
-    private static string? FindActualDestination(string intendedDest)
+    private string? FindActualDestination(string intendedDest)
     {
-        if (File.Exists(intendedDest))
+        if (_fs.FileExists(intendedDest))
             return intendedDest;
 
         // Check for __DUP renamed versions using directory listing
         var dir = Path.GetDirectoryName(intendedDest) ?? "";
-        if (!Directory.Exists(dir))
+        if (!_fs.DirectoryExists(dir))
             return null;
 
         var baseName = Path.GetFileNameWithoutExtension(intendedDest);
         var ext = Path.GetExtension(intendedDest);
         var pattern = $"{baseName}__DUP*{ext}";
 
-        var matches = Directory.GetFiles(dir, pattern);
+        var matches = _fs.GetDirectoryFiles(dir, pattern).ToArray();
         if (matches.Length == 0) return null;
         if (matches.Length == 1) return matches[0];
         // SEC-SORT-01: Sort for determinism using numeric DUP suffix first.
@@ -386,6 +388,37 @@ public sealed class ConsoleSorter
         return _fs.MoveItemSafely(sourcePath, destPath) is not null;
     }
 
+    private List<string> GetFilesForRoot(
+        string root,
+        IEnumerable<string>? extensions,
+        IReadOnlyList<string>? candidatePaths)
+    {
+        if (candidatePaths is null)
+        {
+            return _fs.GetFilesSafe(root, extensions)
+                .Where(f => !IsInExcludedFolder(f, root))
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        HashSet<string>? extensionSet = null;
+        if (extensions is not null)
+        {
+            extensionSet = extensions
+                .Where(static e => !string.IsNullOrWhiteSpace(e))
+                .Select(static e => e.StartsWith('.') ? e : "." + e)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return candidatePaths
+            .Where(path => IsPathWithinRoot(path, root))
+            .Where(path => extensionSet is null || extensionSet.Contains(Path.GetExtension(path)))
+            .Where(path => !IsInExcludedFolder(path, root))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static void BuildSetMemberships(
         List<string> files,
         HashSet<string> setDependents,
@@ -419,6 +452,25 @@ public sealed class ConsoleSorter
         var firstSegment = relative.Split(new[] { '/', '\\' }, 2, StringSplitOptions.RemoveEmptyEntries);
         return firstSegment.Length > 0 &&
                ExcludedFolders.Any(e => e.Equals(firstSegment[0], StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsPathWithinRoot(string filePath, string root)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(root))
+            return false;
+
+        try
+        {
+            var normalizedRoot = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            var normalizedPath = Path.GetFullPath(filePath);
+            return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private void WriteAuditRow(string root, string oldPath, string newPath, string consoleKey)

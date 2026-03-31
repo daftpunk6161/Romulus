@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Core.Classification;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
@@ -120,11 +121,61 @@ public sealed class PreviewExecuteParityTests : IDisposable
         }
     }
 
+    [Fact]
+    public void DryRunAndMoveMode_KeepConsoleSortPlanInParity_WhenMovesSucceed()
+    {
+        var dryRoot = Path.Combine(_tempDir, "dry-sort");
+        var moveRoot = Path.Combine(_tempDir, "move-sort");
+        Directory.CreateDirectory(dryRoot);
+        Directory.CreateDirectory(moveRoot);
+
+        File.WriteAllText(Path.Combine(dryRoot, "Alpha.nes"), "a");
+        File.WriteAllText(Path.Combine(dryRoot, "Beta.nes"), "b");
+        File.WriteAllText(Path.Combine(moveRoot, "Alpha.nes"), "a");
+        File.WriteAllText(Path.Combine(moveRoot, "Beta.nes"), "b");
+
+        var detector = BuildConsoleDetector();
+        var fs = new FileSystemAdapter();
+
+        var dry = new RunOrchestrator(fs, new NullAuditStore(), consoleDetector: detector).Execute(new RunOptions
+        {
+            Roots = new[] { dryRoot },
+            Mode = "DryRun",
+            Extensions = new[] { ".nes" },
+            SortConsole = true,
+            RemoveJunk = false
+        });
+
+        var execute = new RunOrchestrator(fs, new NullAuditStore(), consoleDetector: detector).Execute(new RunOptions
+        {
+            Roots = new[] { moveRoot },
+            Mode = "Move",
+            Extensions = new[] { ".nes" },
+            SortConsole = true,
+            RemoveJunk = false
+        });
+
+        Assert.NotNull(dry.ConsoleSortResult);
+        Assert.NotNull(execute.ConsoleSortResult);
+        Assert.Equal(dry.ConsoleSortResult!.Total, execute.ConsoleSortResult!.Total);
+        Assert.Equal(dry.ConsoleSortResult!.Moved, execute.ConsoleSortResult!.Moved);
+        Assert.Equal(dry.ConsoleSortResult.Reviewed, execute.ConsoleSortResult.Reviewed);
+        Assert.Equal(dry.ConsoleSortResult.Blocked, execute.ConsoleSortResult.Blocked);
+    }
+
     private static void SeedDataset(string root)
     {
         File.WriteAllText(Path.Combine(root, "Mega Game (US).zip"), "us");
         File.WriteAllText(Path.Combine(root, "Mega Game (EU).zip"), "eu");
         File.WriteAllText(Path.Combine(root, "Another Game (JP).zip"), "jp");
+    }
+
+    private static ConsoleDetector BuildConsoleDetector()
+    {
+        return new ConsoleDetector(
+        [
+            new ConsoleInfo("NES", "Nintendo", false, [".nes"], Array.Empty<string>(), ["NES"])
+        ]);
     }
 
     private sealed class NullAuditStore : IAuditStore

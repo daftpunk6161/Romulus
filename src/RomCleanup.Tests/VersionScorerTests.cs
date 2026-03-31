@@ -51,6 +51,16 @@ public class VersionScorerTests
         Assert.True(v11 > v10);
     }
 
+    [Fact]
+    public void MultiSegmentVersionNumbers_AreScored()
+    {
+        var v120 = _sut.GetVersionScore("Game (v1.2.0)");
+        var v123 = _sut.GetVersionScore("Game (v1.2.3)");
+
+        Assert.True(v120 > 0);
+        Assert.True(v123 > v120);
+    }
+
     // --- Language Bonus ---
 
     [Fact]

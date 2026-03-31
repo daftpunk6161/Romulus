@@ -1136,6 +1136,19 @@ public sealed class DetectionPipelineTests
     }
 
     [Fact]
+    public void Resolver_UniqueExtension_BeatsFolderConflict_WithReview()
+    {
+        var result = HypothesisResolver.Resolve([
+            new("GB", 95, DetectionSource.UniqueExtension, "ext=.gb"),
+            new("GBC", 85, DetectionSource.FolderName, "folder=Game Boy Color"),
+        ]);
+
+        Assert.Equal("GB", result.ConsoleKey);
+        Assert.True(result.HasConflict);
+        Assert.Equal(SortDecision.Review, result.SortDecision);
+    }
+
+    [Fact]
     public void Resolver_AMBIGUOUS_TwoHardCompetition()
     {
         // Two hard-evidence competing consoles → AMBIGUOUS

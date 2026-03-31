@@ -80,7 +80,7 @@ public sealed class ReportParityTests : IDisposable
 
         Assert.NotNull(apiRun);
 
-        var waitResult = await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var waitResult = await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(10));
         var apiCompleted = manager.Get(apiRun.RunId);
 
         Assert.Equal(0, cliExitCode);
@@ -149,10 +149,11 @@ public sealed class ReportParityTests : IDisposable
         }, "DryRun");
 
         Assert.NotNull(apiRun);
-        await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var waitResult = await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(10));
         var apiCompleted = manager.Get(apiRun.RunId);
 
         Assert.Equal(0, cliExitCode);
+        Assert.Equal(RunWaitDisposition.Completed, waitResult.Disposition);
         Assert.NotNull(apiCompleted?.Result);
 
         // CLI parity vs central projection
@@ -229,10 +230,11 @@ public sealed class ReportParityTests : IDisposable
         }, "DryRun");
 
         Assert.NotNull(apiRun);
-        await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(5));
+        var waitResult = await manager.WaitForCompletion(apiRun!.RunId, timeout: TimeSpan.FromSeconds(10));
         var apiCompleted = manager.Get(apiRun.RunId);
 
         Assert.Equal(0, cliExitCode);
+        Assert.Equal(RunWaitDisposition.Completed, waitResult.Disposition);
         Assert.NotNull(apiCompleted?.Result);
 
         var cliTotal = cliJson.RootElement.GetProperty("TotalFiles").GetInt32();

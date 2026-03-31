@@ -233,7 +233,6 @@ public sealed class ConversionReportParityTests
         var projection = RunProjectionFactory.Create(result);
         var warnings = new[]
         {
-            "SortConsole is enabled but will be skipped in DryRun mode. Use Mode=Move to apply.",
             "ConvertOnly is enabled but conversion will be skipped in DryRun mode. Use Mode=Move to apply."
         };
 
@@ -242,7 +241,7 @@ public sealed class ConversionReportParityTests
         var preflightWarnings = doc.RootElement.GetProperty("PreflightWarnings");
 
         Assert.Equal(JsonValueKind.Array, preflightWarnings.ValueKind);
-        Assert.Equal(2, preflightWarnings.GetArrayLength());
+        Assert.Single(preflightWarnings.EnumerateArray());
         Assert.Contains(preflightWarnings.EnumerateArray().Select(e => e.GetString()), w =>
             string.Equals(w, warnings[0], StringComparison.Ordinal));
     }

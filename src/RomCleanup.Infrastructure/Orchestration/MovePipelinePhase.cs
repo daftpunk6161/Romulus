@@ -16,6 +16,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         int failCount = 0;
         int skipCount = 0;
         long savedBytes = 0;
+        var movedSourcePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sidecarPrimed = false;
         var hasAuditPath = !string.IsNullOrEmpty(input.Options.AuditPath);
 
@@ -209,6 +210,8 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     {
                         moveCount += movedItems.Count;
                         savedBytes += loser.SizeBytes + plannedMemberMoves.Sum(static m => m.SizeBytes);
+                        foreach (var movedItem in movedItems)
+                            movedSourcePaths.Add(movedItem.SourcePath);
 
                         foreach (var movedItem in movedItems)
                         {
@@ -266,7 +269,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
             });
         }
 
-        return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount);
+        return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount, movedSourcePaths);
     }
 
 

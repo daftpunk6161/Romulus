@@ -56,6 +56,10 @@ public static class FileClassifier
         @"\b(driver|utility|utilities|tool|editor|workbench|operating\s*system|encyclopedia|reference|manual|documentation|tutorial|music\s*disk|tracker|composer|word\s*processor|spreadsheet|database|desktop\s*publishing|paint\s*program)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 
+    private static readonly Regex RxGenericRawBinaryName = new(
+        @"^(?:data|track|trk|disc|disk|cd|dvd|session|file|rom|image|audio|video|part|chunk|unknown|backup|dump)[ _-]*\d*[a-z]?$|^\d+$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
+
     // Conservative allow-deny prefilter: extensions that are clearly non-ROM/user-content.
     private static readonly HashSet<string> NonRomExtensions =
     [
@@ -65,6 +69,11 @@ public static class FileClassifier
         ".html", ".htm", ".exe", ".dll", ".msi",
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
         ".nfo", ".diz", ".url", ".lnk"
+    ];
+
+    private static readonly HashSet<string> LowSignalBinaryExtensions =
+    [
+        ".bin", ".img", ".iso", ".mdf", ".mds", ".ccd", ".cue", ".gdi", ".sub", ".nrg", ".cdi"
     ];
 
     /// <summary>
@@ -117,6 +126,14 @@ public static class FileClassifier
 
             if (NonRomExtensions.Contains(normalizedExt))
                 return new ClassificationDecision(FileCategory.NonGame, 98, "non-rom-extension");
+
+            // Conservative raw-binary gate: generic track/data image names should
+            // not become synthetic GAME entries without any positive evidence.
+            if (LowSignalBinaryExtensions.Contains(normalizedExt) &&
+                SafeRegex.IsMatch(RxGenericRawBinaryName, baseName))
+            {
+                return new ClassificationDecision(FileCategory.Unknown, 35, "generic-raw-binary");
+            }
         }
 
         // Empty files are never valid game candidates.

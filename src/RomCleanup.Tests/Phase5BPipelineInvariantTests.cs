@@ -216,7 +216,7 @@ public class Phase5BPipelineInvariantTests
     }
 
     [Fact]
-    public void PhasePlanBuilder_DryRunMode_ExcludesMoveSortConvert()
+    public void PhasePlanBuilder_DryRunMode_ExcludesMoveAndConvert_ButKeepsConsoleSortForParity()
     {
         var builder = new PhasePlanBuilder();
         var options = new RunOptions
@@ -233,9 +233,8 @@ public class Phase5BPipelineInvariantTests
 
         var names = phases.Select(p => p.Name).ToArray();
 
-        Assert.Equal(["DatAudit", "Deduplicate", "JunkRemoval"], names);
+        Assert.Equal(["DatAudit", "Deduplicate", "JunkRemoval", "ConsoleSort"], names);
         Assert.DoesNotContain("Move", names);
-        Assert.DoesNotContain("ConsoleSort", names);
         Assert.DoesNotContain("WinnerConversion", names);
     }
 

@@ -397,6 +397,67 @@ public class ConsoleDetectorTests
     }
 
     [Fact]
+    public void DetectByArchiveContent_SmallerRomEntry_BeatsLargerNonRomEntry()
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"archive_signal_{Guid.NewGuid():N}.zip");
+        using (var fs = new FileStream(zipPath, FileMode.Create))
+        using (var archive = new ZipArchive(fs, ZipArchiveMode.Create))
+        {
+            var image = archive.CreateEntry("cover.png");
+            using (var stream = image.Open()) stream.Write(new byte[8192]);
+
+            var rom = archive.CreateEntry("game.nes");
+            using (var stream = rom.Open()) stream.Write(new byte[1024]);
+        }
+
+        try
+        {
+            var detector = CreateDetector();
+            Assert.Equal("NES", detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_DescriptorWithSerialInnerName_ReturnsConsole()
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"archive_descriptor_{Guid.NewGuid():N}.zip");
+        using (var fs = new FileStream(zipPath, FileMode.Create))
+        using (var archive = new ZipArchive(fs, ZipArchiveMode.Create))
+        {
+            var cue = archive.CreateEntry("SLUS-00001.cue");
+            using (var writer = new StreamWriter(cue.Open()))
+                writer.WriteLine("FILE \"track01.bin\" BINARY");
+
+            var bin = archive.CreateEntry("track01.bin");
+            using (var stream = bin.Open()) stream.Write(new byte[4096]);
+        }
+
+        try
+        {
+            var detector = CreateDetector();
+            Assert.Equal("PS1", detector.DetectByArchiveContent(zipPath, ".zip"));
+        }
+        finally { File.Delete(zipPath); }
+    }
+
+    [Fact]
+    public void DetectByArchiveContent_7zProvider_UsesBestInformativeEntry()
+    {
+        var detector = new ConsoleDetector(
+            [
+                new ConsoleInfo("NES", "Nintendo Entertainment System", false, [".nes"], Array.Empty<string>(), ["nes", "famicom"]),
+            ],
+            archiveEntryProvider: _ =>
+            [
+                "docs/this_is_a_very_long_readme_file_name.txt",
+                "roms/game.nes",
+            ]);
+
+        Assert.Equal("NES", detector.DetectByArchiveContent(@"D:\Roms\game.7z", ".7z"));
+    }
+
+    [Fact]
     public void Detect_ZipInUnknownFolder_UsesArchiveContent()
     {
         var detector = CreateDetector();
