@@ -126,6 +126,7 @@ src/
 │   ├── Scoring/                 #   FormatScorer, VersionScorer
 │   └── SetParsing/              #   CueSetParser, GdiSetParser, CcdSetParser, M3uPlaylistParser
 ├── RomCleanup.Infrastructure/   # I/O-Adapter & Services
+│   ├── Analysis/                #   Collection-/DAT-/Integrity-Analyse
 │   ├── Audit/                   #   AuditCsvStore, AuditSigningService
 │   ├── Configuration/           #   SettingsLoader
 │   ├── Conversion/              #   FormatConverterAdapter
@@ -133,12 +134,18 @@ src/
 │   ├── Deduplication/           #   CrossRootDeduplicator, FolderDeduplicator
 │   ├── FileSystem/              #   FileSystemAdapter (Path-Traversal-Schutz)
 │   ├── Hashing/                 #   FileHashService, Crc32, ArchiveHashService
+│   ├── Metrics/                 #   PhaseMetricsCollector
 │   ├── Logging/                 #   JsonlLogWriter (strukturiertes JSONL)
 │   ├── Orchestration/           #   RunOrchestrator (Full Pipeline)
+│   ├── Paths/                   #   ArtifactPathResolver, ToolPathValidator
+│   ├── Quarantine/              #   QuarantineService
 │   ├── Reporting/               #   ReportGenerator (HTML, CSV)
 │   ├── Safety/                  #   SafetyValidator
+│   ├── Sorting/                 #   ConsoleSorter, ZipSorter
+│   ├── State/                   #   AppStateStore
+│   ├── Time/                    #   SystemTimeProvider
 │   ├── Tools/                   #   ToolRunnerAdapter (Hash-Verifizierung)
-│   └── ...                      #   Analytics, Events, History, Metrics, etc.
+│   └── Version/                 #   VersionHelper
 ├── RomCleanup.CLI/              # Headless Entry Point
 ├── RomCleanup.Api/              # ASP.NET Core Minimal API (REST + SSE)
 ├── RomCleanup.UI.Wpf/           # WPF GUI (MVVM, net10.0-windows)
@@ -146,7 +153,7 @@ src/
 │   ├── Services/                #   ThemeService, DialogService, SettingsService
 │   ├── Converters/              #   WPF Value Converters
 │   └── Themes/                  #   ResourceDictionary (Dark + Neon Accent)
-└── RomCleanup.Tests/            # xUnit Tests (5200+ Tests)
+└── RomCleanup.Tests/            # xUnit Tests (aktuell 6996 Tests)
 
 docs/                            # Permanente Referenzdokumentation
 ├── architecture/                #   Technische Specs, Architektur, API, OpenAPI, Strategien
@@ -201,7 +208,7 @@ Clean Architecture (Ports & Adapters). Abhängigkeiten nur abwärts:
 # Build
 dotnet build src/RomCleanup.sln
 
-# Alle Tests (5200+)
+# Alle Tests (aktuell 6996)
 dotnet test src/RomCleanup.sln
 
 # Einzelnes Testprojekt

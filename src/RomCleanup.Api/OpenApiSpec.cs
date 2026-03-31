@@ -53,7 +53,14 @@ public static class OpenApiSpec
       "get": {
         "summary": "Get run status",
         "responses": {
-          "200": { "description": "Run status" },
+          "200": {
+            "description": "Run status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RunEnvelope" }
+              }
+            }
+          },
           "403": { "description": "Run belongs to another client" },
           "404": { "description": "Run not found" }
         }
@@ -63,7 +70,14 @@ public static class OpenApiSpec
       "get": {
         "summary": "Get completed run result",
         "responses": {
-          "200": { "description": "Full result" },
+          "200": {
+            "description": "Full result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RunResultEnvelope" }
+              }
+            }
+          },
           "403": { "description": "Run belongs to another client" },
           "404": { "description": "Run not found" },
           "409": { "description": "Run still in progress" }
@@ -73,6 +87,10 @@ public static class OpenApiSpec
     "/runs/{runId}/reviews": {
       "get": {
         "summary": "Get review queue for a run",
+        "parameters": [
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 }, "description": "Optional zero-based start offset for pagination" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000 }, "description": "Optional page size for pagination" }
+        ],
         "responses": {
           "200": {
             "description": "Review queue",
@@ -110,9 +128,37 @@ public static class OpenApiSpec
       "post": {
         "summary": "Cancel a run idempotently",
         "responses": {
-          "200": { "description": "Cancel accepted or no-op for an already terminal run" },
+          "200": {
+            "description": "Cancel accepted or no-op for an already terminal run",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RunCancelEnvelope" }
+              }
+            }
+          },
           "403": { "description": "Run belongs to another client" },
           "404": { "description": "Run not found" }
+        }
+      }
+    },
+    "/runs/{runId}/rollback": {
+      "post": {
+        "summary": "Preview or execute audit-based rollback for a completed run",
+        "parameters": [
+          { "name": "dryRun", "in": "query", "schema": { "type": "boolean" }, "description": "Defaults to true. Pass false to execute the rollback." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rollback preview or execution result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RunRollbackEnvelope" }
+              }
+            }
+          },
+          "403": { "description": "Run belongs to another client" },
+          "404": { "description": "Run not found" },
+          "409": { "description": "Rollback not available or run still in progress" }
         }
       }
     },
@@ -380,6 +426,10 @@ public static class OpenApiSpec
         "properties": {
           "runId": { "type": "string" },
           "total": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "returned": { "type": "integer" },
+          "hasMore": { "type": "boolean" },
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/ApiReviewItem" } }
         }
       },
@@ -389,6 +439,91 @@ public static class OpenApiSpec
           "consoleKey": { "type": "string", "nullable": true },
           "matchLevel": { "type": "string", "nullable": true },
           "paths": { "type": "array", "items": { "type": "string" }, "nullable": true }
+        }
+      },
+      "RunEnvelope": {
+        "type": "object",
+        "properties": {
+          "run": { "$ref": "#/components/schemas/RunStatusDto" }
+        }
+      },
+      "RunResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "run": { "$ref": "#/components/schemas/RunStatusDto" },
+          "result": { "$ref": "#/components/schemas/ApiRunResult", "nullable": true }
+        }
+      },
+      "RunCancelEnvelope": {
+        "type": "object",
+        "properties": {
+          "run": { "$ref": "#/components/schemas/RunStatusDto", "nullable": true },
+          "cancelAccepted": { "type": "boolean" },
+          "idempotent": { "type": "boolean" },
+          "cancelledAtUtc": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "RunRollbackEnvelope": {
+        "type": "object",
+        "properties": {
+          "run": { "$ref": "#/components/schemas/RunStatusDto" },
+          "dryRun": { "type": "boolean" },
+          "rollback": { "$ref": "#/components/schemas/AuditRollbackResult" }
+        }
+      },
+      "RunStatusDto": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "status": { "type": "string" },
+          "mode": { "type": "string" },
+          "preferRegions": { "type": "array", "items": { "type": "string" } },
+          "removeJunk": { "type": "boolean" },
+          "aggressiveJunk": { "type": "boolean" },
+          "sortConsole": { "type": "boolean" },
+          "enableDat": { "type": "boolean" },
+          "enableDatAudit": { "type": "boolean" },
+          "enableDatRename": { "type": "boolean" },
+          "onlyGames": { "type": "boolean" },
+          "keepUnknownWhenOnlyGames": { "type": "boolean" },
+          "hashType": { "type": "string" },
+          "convertFormat": { "type": "string", "nullable": true },
+          "convertOnly": { "type": "boolean" },
+          "approveReviews": { "type": "boolean" },
+          "conflictPolicy": { "type": "string" },
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "startedUtc": { "type": "string", "format": "date-time" },
+          "completedUtc": { "type": "string", "format": "date-time", "nullable": true },
+          "elapsedMs": { "type": "integer", "format": "int64" },
+          "progressPercent": { "type": "integer" },
+          "progressMessage": { "type": "string", "nullable": true },
+          "cancelledAtUtc": { "type": "string", "format": "date-time", "nullable": true },
+          "recoveryModel": { "type": "string" },
+          "restartRecovery": { "type": "string" },
+          "resumeSupported": { "type": "boolean" },
+          "canRetry": { "type": "boolean" },
+          "canRollback": { "type": "boolean" },
+          "recoveryState": { "type": "string" },
+          "cancellationRequested": { "type": "boolean" }
+        }
+      },
+      "AuditRollbackResult": {
+        "type": "object",
+        "properties": {
+          "auditCsvPath": { "type": "string" },
+          "totalRows": { "type": "integer" },
+          "eligibleRows": { "type": "integer" },
+          "skippedUnsafe": { "type": "integer" },
+          "rolledBack": { "type": "integer" },
+          "dryRunPlanned": { "type": "integer" },
+          "skippedMissingDest": { "type": "integer" },
+          "skippedCollision": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "dryRun": { "type": "boolean" },
+          "rollbackAuditPath": { "type": "string", "nullable": true },
+          "rollbackTrailPath": { "type": "string", "nullable": true },
+          "restoredPaths": { "type": "array", "items": { "type": "string" } },
+          "plannedPaths": { "type": "array", "items": { "type": "string" } }
         }
       },
       "MatchEvidence": {

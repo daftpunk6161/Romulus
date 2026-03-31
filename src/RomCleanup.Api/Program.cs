@@ -68,6 +68,8 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.Remove("X-Powered-By");
     ctx.Response.Headers["Cache-Control"] = "no-store";
     ctx.Response.Headers["X-Api-Version"] = ApiVersion;
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
 
     // CORS
     if (corsMode != "none")
@@ -509,7 +511,22 @@ app.MapGet("/runs/{runId}/reviews", (string runId, HttpContext ctx, RunLifecycle
     if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
         return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
 
-    var queue = BuildReviewQueue(run);
+    var offset = 0;
+    if (ctx.Request.Query.TryGetValue("offset", out var offsetValue))
+    {
+        if (!int.TryParse(offsetValue, out offset) || offset < 0)
+            return ApiError(400, "RUN-INVALID-REVIEW-OFFSET", "offset must be a non-negative integer.");
+    }
+
+    int? limit = null;
+    if (ctx.Request.Query.TryGetValue("limit", out var limitValue))
+    {
+        if (!int.TryParse(limitValue, out var parsedLimit) || parsedLimit < 1 || parsedLimit > 1000)
+            return ApiError(400, "RUN-INVALID-REVIEW-LIMIT", "limit must be an integer between 1 and 1000.");
+        limit = parsedLimit;
+    }
+
+    var queue = BuildReviewQueue(run, offset, limit);
     return Results.Ok(queue);
 });
 
@@ -1211,11 +1228,22 @@ static bool CanAccessRun(RunRecord run, string requesterClientId)
     return string.Equals(run.OwnerClientId, requesterClientId, StringComparison.Ordinal);
 }
 
-static ApiReviewQueue BuildReviewQueue(RunRecord run)
+static ApiReviewQueue BuildReviewQueue(RunRecord run, int offset = 0, int? limit = null)
 {
     var core = run.CoreRunResult;
     if (core is null)
-        return new ApiReviewQueue { RunId = run.RunId, Total = 0, Items = Array.Empty<ApiReviewItem>() };
+    {
+        return new ApiReviewQueue
+        {
+            RunId = run.RunId,
+            Total = 0,
+            Offset = offset,
+            Limit = limit ?? 0,
+            Returned = 0,
+            HasMore = false,
+            Items = Array.Empty<ApiReviewItem>()
+        };
+    }
 
     var items = core.AllCandidates
         .Where(c => c.SortDecision is SortDecision.Review or SortDecision.Blocked or SortDecision.Unknown)
@@ -1238,11 +1266,21 @@ static ApiReviewQueue BuildReviewQueue(RunRecord run)
         })
         .ToArray();
 
+    var safeOffset = Math.Min(offset, items.Length);
+    var pageSize = limit ?? Math.Max(items.Length - safeOffset, 0);
+    var pageItems = limit is null
+        ? items.Skip(safeOffset).ToArray()
+        : items.Skip(safeOffset).Take(limit.Value).ToArray();
+
     return new ApiReviewQueue
     {
         RunId = run.RunId,
         Total = items.Length,
-        Items = items
+        Offset = offset,
+        Limit = pageSize,
+        Returned = pageItems.Length,
+        HasMore = safeOffset + pageItems.Length < items.Length,
+        Items = pageItems
     };
 }
 

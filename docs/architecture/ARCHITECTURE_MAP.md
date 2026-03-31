@@ -1,6 +1,6 @@
 # Romulus — Architektur-Map & Modul-Verantwortlichkeiten
 
-Stand: 2026-03-15
+Stand: 2026-03-31
 Plattform: C# .NET 10 (net10.0, LangVersion 14)
 Referenzen: ADR 0002 (Ports/Services), ADR 0004 (Clean Architecture)
 
@@ -32,16 +32,13 @@ Referenzen: ADR 0002 (Ports/Services), ADR 0004 (Clean Architecture)
 │  Safety/            SafetyValidator                                │
 │  Sorting/           ConsoleSorter, ZipSorter                       │
 │  Deduplication/     CrossRootDeduplicator, FolderDeduplicator      │
-│  Events/            EventBus (Pub/Sub, Wildcard-Topics)            │
-│  Pipeline/          PipelineEngine (Conditional Steps)             │
+│  Analysis/          CollectionAnalysisService, DatAnalysisService  │
 │  Quarantine/        QuarantineService                              │
-│  History/           RunHistoryService, ScanIndexService             │
 │  Metrics/           PhaseMetricsCollector                          │
 │  Linking/           HardlinkService                                │
-│  Analytics/         InsightsEngine                                 │
-│  Diagnostics/       CatchGuardService                              │
+│  Paths/             ArtifactPathResolver, ToolPathValidator         │
 │  State/             AppStateStore (Undo/Redo, Watch)               │
-│  Services/          ApplicationServiceFacade                       │
+│  Time/              SystemTimeProvider                             │
 │  Version/           VersionHelper                                  │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
@@ -93,7 +90,7 @@ src/
 ├── RomCleanup.CLI/            ← Headless Entry Point
 ├── RomCleanup.Api/            ← ASP.NET Core Minimal API
 ├── RomCleanup.UI.Wpf/         ← WPF GUI (MVVM, net10.0-windows)
-└── RomCleanup.Tests/          ← xUnit Tests (5200+ Tests, 136 Testdateien)
+└── RomCleanup.Tests/          ← xUnit Tests (aktuell 6996 Tests, 200+ Testdateien)
 ```
 
 ---
@@ -151,16 +148,13 @@ src/
 | `Safety/` | `SafetyValidator` | Preflight-Checks, Ampel |
 | `Sorting/` | `ConsoleSorter`, `ZipSorter` | Konsolen-Sortierung, ZIP-Sortierung |
 | `Deduplication/` | `CrossRootDeduplicator`, `FolderDeduplicator` | Cross-Root-Duplikate, Ordner-Deduplizierung |
-| `Events/` | `EventBus` | Pub/Sub mit Wildcard-Topics |
-| `Pipeline/` | `PipelineEngine` | Conditional Step-Chains |
+| `Analysis/` | `CollectionAnalysisService`, `DatAnalysisService` | Sammlungs-, DAT- und Integritätsanalysen |
 | `Quarantine/` | `QuarantineService` | ROM-Quarantäne |
-| `History/` | `RunHistoryService`, `ScanIndexService` | Run-Historie, Scan-Index |
 | `Metrics/` | `PhaseMetricsCollector` | Phasen-Zeitmessung |
 | `Linking/` | `HardlinkService` | Hardlink-Operationen |
-| `Analytics/` | `InsightsEngine` | Sammlungs-Analyse, Cross-Collection-Hints |
-| `Diagnostics/` | `CatchGuardService` | Exception-Governance, strukturierte Error-Records |
+| `Paths/` | `ArtifactPathResolver`, `ToolPathValidator` | Artefakt- und Tool-Pfadvalidierung |
 | `State/` | `AppStateStore` | Undo/Redo, Watch-Pattern |
-| `Services/` | `ApplicationServiceFacade` | Service-Fassade für Entry Points |
+| `Time/` | `SystemTimeProvider` | Zeitquelle für Laufzeit-/Auditlogik |
 | `Version/` | `VersionHelper` | Versions-Verwaltung |
 
 ### 3.4 Entry Points
@@ -177,7 +171,7 @@ src/
 | `RomCleanup.UI.Wpf/Services/ThemeService.cs` | Dark/Light-Theme-Verwaltung |
 | `RomCleanup.UI.Wpf/Services/DialogService.cs` | Dialoge |
 | `RomCleanup.UI.Wpf/Services/SettingsService.cs` | Settings-Verwaltung |
-| `RomCleanup.UI.Wpf/Services/StatusBarService.cs` | Statusleiste |
+| `RomCleanup.UI.Wpf/Services/RunService.cs` | WPF-Run-Ausführung und Orchestrator-Integration |
 
 ---
 
@@ -218,6 +212,6 @@ src/
 
 ## 6 — Tests
 
-5200+ xUnit-Tests in 136 Testdateien (`src/RomCleanup.Tests/`).
+Aktuell 6996 xUnit-Tests in 200+ Testdateien (`src/RomCleanup.Tests/`).
 
 Detaillierte Teststrategie: siehe `TEST_STRATEGY.md`.

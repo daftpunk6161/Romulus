@@ -424,6 +424,62 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task Runs_ReviewsEndpoint_SupportsOffsetAndLimitPagination()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "alpha_unknown.bin"), "a");
+            File.WriteAllText(Path.Combine(root, "beta_unknown.bin"), "b");
+            File.WriteAllText(Path.Combine(root, "gamma_unknown.bin"), "c");
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                roots = new[] { root },
+                mode = "DryRun"
+            });
+
+            using var createContent = new StringContent(payload, Encoding.UTF8, "application/json");
+            var createResponse = await client.PostAsync("/runs?wait=true", createContent);
+            Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+            using var createDoc = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
+            var runId = createDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(runId));
+
+            var fullResponse = await client.GetAsync($"/runs/{runId}/reviews");
+            Assert.Equal(HttpStatusCode.OK, fullResponse.StatusCode);
+
+            using var fullDoc = JsonDocument.Parse(await fullResponse.Content.ReadAsStringAsync());
+            var fullItems = fullDoc.RootElement.GetProperty("items");
+            Assert.True(fullItems.GetArrayLength() >= 3);
+
+            var pagedResponse = await client.GetAsync($"/runs/{runId}/reviews?offset=1&limit=1");
+            Assert.Equal(HttpStatusCode.OK, pagedResponse.StatusCode);
+
+            using var pagedDoc = JsonDocument.Parse(await pagedResponse.Content.ReadAsStringAsync());
+            var pagedRoot = pagedDoc.RootElement;
+            Assert.Equal(1, pagedRoot.GetProperty("offset").GetInt32());
+            Assert.Equal(1, pagedRoot.GetProperty("limit").GetInt32());
+            Assert.Equal(1, pagedRoot.GetProperty("returned").GetInt32());
+            Assert.True(pagedRoot.TryGetProperty("hasMore", out _));
+
+            var pagedItems = pagedRoot.GetProperty("items");
+            Assert.Equal(1, pagedItems.GetArrayLength());
+            Assert.Equal(
+                fullItems[1].GetProperty("mainPath").GetString(),
+                pagedItems[0].GetProperty("mainPath").GetString());
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
+    [Fact]
     public async Task Runs_IdempotencyKey_RetryReusesCompletedRun()
     {
         using var factory = CreateFactory();

@@ -412,6 +412,10 @@ public sealed class ApiReviewQueue
 {
     public string RunId { get; init; } = string.Empty;
     public int Total { get; init; }
+    public int Offset { get; init; }
+    public int Limit { get; init; }
+    public int Returned { get; init; }
+    public bool HasMore { get; init; }
     public ApiReviewItem[] Items { get; init; } = Array.Empty<ApiReviewItem>();
 }
 

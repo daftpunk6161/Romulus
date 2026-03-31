@@ -1,6 +1,6 @@
 # Romulus – Test-Strategie
 
-**Stand:** 2026-03-22  
+**Stand:** 2026-03-31  
 **Framework:** xUnit (.NET 10, `src/RomCleanup.Tests/`)  
 **Grundsatz:** Kein Alibi-Test. Jeder Test hat eine **Failure-First-Anforderung** – er muss ohne den zu testenden Code rot werden.
 
@@ -12,16 +12,17 @@
         ┌──────────────────┐
         │   Integration    │  RunOrchestrator, API-RunManager, FileSystem-Ops
         ├──────────────────┤
-        │   Unit           │  136 Testdateien, 6900+ Tests
+        │   Unit           │  200+ Testdateien, aktuell 6996 Tests
         └──────────────────┘
-        Gesamt: 6900+ Tests (xUnit, alle grün)
+        Gesamt: aktuell 6996 Tests (xUnit, Stand 2026-03-31 grün)
 ```
 
 ---
 
 ## 2. Testdateien-Übersicht
 
-Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 136 Testdateien, inkl. Unterordner `Benchmark/` und `Conversion/`):
+Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 200+ Testdateien, inkl. Unterordner `Benchmark/` und `Conversion/`).
+Die folgende Übersicht ist thematisch gruppiert; Datei- und Fallzahlen ändern sich regelmäßig.
 
 ### 2.1 Core-/Engine-Tests (17 Dateien)
 
