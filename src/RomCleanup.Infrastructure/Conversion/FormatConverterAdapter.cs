@@ -38,6 +38,12 @@ public sealed class FormatConverterAdapter : IFormatConverter
             "XBOX", "X360", "WIIU", "PC98", "X68K"
         };
 
+    /// <summary>Forwarded ZIP entry-count safety limit used by archive-to-CHD conversion.</summary>
+    internal const int MaxZipEntryCount = ChdmanToolConverter.MaxZipEntryCount;
+
+    /// <summary>Forwarded ZIP extraction size limit used by archive-to-CHD conversion.</summary>
+    internal const long MaxExtractedTotalBytes = ChdmanToolConverter.MaxExtractedTotalBytes;
+
     /// <summary>SEC-CONV-04: Maximum allowed compression ratio per entry (zip bomb protection). Forwarded from ChdmanToolConverter.</summary>
     internal static readonly double MaxCompressionRatio = ChdmanToolConverter.MaxCompressionRatio;
 

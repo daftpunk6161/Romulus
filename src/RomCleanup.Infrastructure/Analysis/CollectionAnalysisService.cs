@@ -111,7 +111,7 @@ public static class CollectionAnalysisService
                 linkCount++;
             }
         }
-        return $"Hardlink mode: {linkCount} links possible, {Formatting.FormatSize(savedBytes)} storage saved (100% efficiency on NTFS)";
+        return $"Hardlink-Modus: {linkCount} Links möglich, {Formatting.FormatSize(savedBytes)} Speicher sparbar (100% Effizienz auf NTFS)";
     }
 
     public static string GetNasInfo(IReadOnlyList<string> roots)
@@ -174,7 +174,7 @@ public static class CollectionAnalysisService
     public static string BuildCloneTree(IReadOnlyList<DedupeGroup> groups)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Parent/Clone Tree");
+        sb.AppendLine("Parent/Clone-Baum");
         sb.AppendLine(new string('=', 50));
         foreach (var g in groups.Take(50))
         {
@@ -184,14 +184,14 @@ public static class CollectionAnalysisService
                 sb.AppendLine($"    +-- {Path.GetFileName(l.MainPath)} [{l.Region}] {l.Extension}");
         }
         if (groups.Count > 50)
-            sb.AppendLine($"\n  ... and {groups.Count - 50} more groups");
+            sb.AppendLine($"\n  ... und {groups.Count - 50} weitere Gruppen");
         return sb.ToString();
     }
 
     public static string BuildVirtualFolderPreview(IReadOnlyList<RomCandidate> candidates)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Virtual Folder Preview");
+        sb.AppendLine("Virtuelle Ordner-Vorschau");
         sb.AppendLine(new string('=', 50));
 
         var byConsole = candidates.GroupBy(c => DetectConsoleFromPath(c.MainPath))
