@@ -44,22 +44,26 @@ public static class ZipSorter
     }
 
     /// <summary>
-    /// Sort ZIPs contained in the given roots into PS1/PS2 subdirectories
-    /// based on their internal file extensions.
-    /// Port of Invoke-ZipSortPS1PS2.
+    /// Sort ZIPs contained in the given roots into console-specific subdirectories
+    /// based on their internal file extensions matched against a console-to-extensions mapping.
+    /// Generalized version that supports any number of consoles.
     /// </summary>
-    /// <param name="ps1Extensions">Override PS1 extensions; defaults to <see cref="DefaultPs1Extensions"/>.</param>
-    /// <param name="ps2Extensions">Override PS2 extensions; defaults to <see cref="DefaultPs2Extensions"/>.</param>
-    public static ZipSortResult SortPS1PS2(
+    /// <param name="roots">Root directories to scan for ZIP files.</param>
+    /// <param name="fs">Filesystem abstraction.</param>
+    /// <param name="consoleExtensionMap">
+    /// Mapping from console key (e.g. "PS1", "PS2", "SAT") to the set of
+    /// internal-ZIP extensions that uniquely identify that console.
+    /// Typically loaded from consoles.json zipIdentifyingExts.
+    /// </param>
+    /// <param name="dryRun">When true, only counts without moving files.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static ZipSortResult SortByConsole(
         IReadOnlyList<string> roots,
         IFileSystem fs,
+        IReadOnlyDictionary<string, IReadOnlySet<string>> consoleExtensionMap,
         bool dryRun = true,
-        CancellationToken cancellationToken = default,
-        IReadOnlySet<string>? ps1Extensions = null,
-        IReadOnlySet<string>? ps2Extensions = null)
+        CancellationToken cancellationToken = default)
     {
-        var ps1Exts = ps1Extensions ?? DefaultPs1Extensions;
-        var ps2Exts = ps2Extensions ?? DefaultPs2Extensions;
         int total = 0, moved = 0, skipped = 0, errors = 0;
 
         foreach (var root in roots)
@@ -81,24 +85,31 @@ public static class ZipSorter
                     continue;
                 }
 
-                bool hasPs1 = extensions.Any(e => ps1Exts.Contains(e));
-                bool hasPs2 = extensions.Any(e => ps2Exts.Contains(e));
+                // N-way classification: find all console matches
+                string? matchedConsole = null;
+                bool ambiguous = false;
 
-                // Ambiguous: contains both PS1 and PS2 extensions — skip
-                if (hasPs1 && hasPs2)
+                foreach (var (consoleKey, identifyingExts) in consoleExtensionMap)
+                {
+                    if (extensions.Any(e => identifyingExts.Contains(e)))
+                    {
+                        if (matchedConsole is not null)
+                        {
+                            // Multiple consoles match — ambiguous
+                            ambiguous = true;
+                            break;
+                        }
+                        matchedConsole = consoleKey;
+                    }
+                }
+
+                if (ambiguous || matchedConsole is null)
                 {
                     skipped++;
                     continue;
                 }
 
-                string? targetConsole = hasPs1 ? "PS1" : hasPs2 ? "PS2" : null;
-                if (targetConsole is null)
-                {
-                    skipped++;
-                    continue;
-                }
-
-                var targetDir = Path.Combine(root, targetConsole);
+                var targetDir = Path.Combine(root, matchedConsole);
                 var fileName = Path.GetFileName(zipPath);
 
                 // Already in correct folder?
@@ -116,7 +127,7 @@ public static class ZipSorter
                 }
 
                 fs.EnsureDirectory(targetDir);
-                var destPath = fs.ResolveChildPathWithinRoot(root, Path.Combine(targetConsole, fileName));
+                var destPath = fs.ResolveChildPathWithinRoot(root, Path.Combine(matchedConsole, fileName));
                 if (destPath is null)
                 {
                     errors++;
@@ -131,5 +142,28 @@ public static class ZipSorter
         }
 
         return new ZipSortResult(total, moved, skipped, errors);
+    }
+
+    /// <summary>
+    /// Sort ZIPs contained in the given roots into PS1/PS2 subdirectories
+    /// based on their internal file extensions.
+    /// Port of Invoke-ZipSortPS1PS2. Delegates to <see cref="SortByConsole"/>.
+    /// </summary>
+    /// <param name="ps1Extensions">Override PS1 extensions; defaults to <see cref="DefaultPs1Extensions"/>.</param>
+    /// <param name="ps2Extensions">Override PS2 extensions; defaults to <see cref="DefaultPs2Extensions"/>.</param>
+    public static ZipSortResult SortPS1PS2(
+        IReadOnlyList<string> roots,
+        IFileSystem fs,
+        bool dryRun = true,
+        CancellationToken cancellationToken = default,
+        IReadOnlySet<string>? ps1Extensions = null,
+        IReadOnlySet<string>? ps2Extensions = null)
+    {
+        var map = new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["PS1"] = ps1Extensions ?? DefaultPs1Extensions,
+            ["PS2"] = ps2Extensions ?? DefaultPs2Extensions
+        };
+        return SortByConsole(roots, fs, map, dryRun, cancellationToken);
     }
 }

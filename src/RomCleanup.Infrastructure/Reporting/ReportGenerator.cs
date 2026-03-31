@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using RomCleanup.Contracts;
 using RomCleanup.Infrastructure.Audit;
 
@@ -164,6 +166,39 @@ public static class ReportGenerator
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Generates a JSON report.
+    /// </summary>
+    public static string GenerateJson(ReportSummary summary, IReadOnlyList<ReportEntry> entries)
+    {
+        var report = new JsonReport
+        {
+            Summary = summary,
+            Entries = entries
+        };
+
+        return JsonSerializer.Serialize(report, JsonReportContext.Default.JsonReport);
+    }
+
+    /// <summary>
+    /// Writes JSON report to file with path-traversal validation.
+    /// </summary>
+    public static void WriteJsonToFile(string jsonPath, string workingDir, ReportSummary summary, IReadOnlyList<ReportEntry> entries)
+    {
+        var fullPath = Path.GetFullPath(jsonPath);
+        var fullDir = Path.GetFullPath(workingDir).TrimEnd(Path.DirectorySeparatorChar)
+                      + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Report path '{jsonPath}' is outside working directory.");
+
+        var dir = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = GenerateJson(summary, entries);
+        File.WriteAllText(fullPath, json, Encoding.UTF8);
     }
 
     /// <summary>
@@ -387,4 +422,25 @@ tr:hover { background: rgba(137,180,250,0.05); }
 
     private static string FormatSize(long bytes)
         => Formatting.FormatSize(bytes);
+}
+
+/// <summary>
+/// Wrapper record for JSON report serialization.
+/// </summary>
+public sealed record JsonReport
+{
+    public ReportSummary Summary { get; init; } = new();
+    public IReadOnlyList<ReportEntry> Entries { get; init; } = [];
+}
+
+/// <summary>
+/// Source-generated JSON serializer context for ReportGenerator.
+/// </summary>
+[JsonSourceGenerationOptions(
+    WriteIndented = true,
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
+[JsonSerializable(typeof(JsonReport))]
+internal partial class JsonReportContext : JsonSerializerContext
+{
 }

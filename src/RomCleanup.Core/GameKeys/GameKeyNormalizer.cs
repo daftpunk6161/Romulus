@@ -16,137 +16,48 @@ namespace RomCleanup.Core.GameKeys;
 /// </summary>
 public static class GameKeyNormalizer
 {
-    // Default tag patterns — comprehensive set from rules.json GameKeyPatterns
-    private static readonly IReadOnlyList<System.Text.RegularExpressions.Regex> DefaultTagPatterns =
-        BuildDefaultTagPatterns();
+    private static readonly TimeSpan RegexTimeout = SafeRegex.DefaultTimeout;
 
-    private static System.Text.RegularExpressions.Regex[] BuildDefaultTagPatterns()
+    /// <summary>
+    /// Registered tag patterns from rules.json. Set by Infrastructure at startup via
+    /// <see cref="RegisterDefaultPatterns"/>. When set, the convenience <see cref="Normalize(string)"/>
+    /// overload uses these instead of requiring explicit pattern injection.
+    /// </summary>
+    private static IReadOnlyList<System.Text.RegularExpressions.Regex>? _registeredPatterns;
+    private static IReadOnlyDictionary<string, string>? _registeredAliasMap;
+    private static Func<(IReadOnlyList<System.Text.RegularExpressions.Regex>? Patterns, IReadOnlyDictionary<string, string> Aliases)>? _patternFactory;
+
+    /// <summary>
+    /// Registers the default tag patterns and alias map (typically loaded from rules.json).
+    /// Call once at application startup from Infrastructure.
+    /// </summary>
+    public static void RegisterDefaultPatterns(
+        IReadOnlyList<System.Text.RegularExpressions.Regex> tagPatterns,
+        IReadOnlyDictionary<string, string> alwaysAliasMap)
     {
-        var opts = System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled;
-        var timeout = SafeRegex.DefaultTimeout;
-        return new[]
-        {
-            // 1. Region tags (all countries/codes from rules.json GameKeyPatterns[0])
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((?:" +
-                // Major regions
-                @"europe|eu|eur|pal|usa|us|u\.s\.a\.|u\.s\.|japan|jp|jpn|world|export|" +
-                // Asia
-                @"asia|as|korea|kr|kor|china|cn|chn|taiwan|tw|hong\s*kong|hk|india|in|singapore|thailand|vietnam|indonesia|malaysia|philippines|" +
-                // Americas
-                @"brazil|br|bra|australia|au|aus|canada|ca|can|latin\s*america|" +
-                // EU countries (full + ISO codes)
-                @"france|fr|fra|germany|de|deu|spain|es|esp|italy|it|ita|netherlands|nl|nld|sweden|se|swe|scandinavia|" +
-                @"uk|united\s*kingdom|great\s*britain|england|belgium|be|austria|at|portugal|pt|switzerland|ch|" +
-                @"denmark|dk|finland|fi|norway|no|czech|cz|hungary|hu|croatia|hr|greece|el|ireland|ie|" +
-                @"luxembourg|romania|ro|bulgaria|bg|slovakia|sk|slovenia|si|estonia|et|latvia|lv|lithuania|lt|" +
-                // Other
-                @"russia|ru|rus|poland|pl|pol|turkey|tr|united\s*arab\s*emirates|ntsc-u|ntsc-j|ntsc|" +
-                @"south\s*africa|za|new\s*zealand|nz|nzl" +
-                @")(?:,\s*(?:" +
-                // Same list for multi-region combos like (USA, Asia) or (Europe, Australia)
-                @"europe|eu|eur|pal|usa|us|japan|jp|jpn|world|asia|as|korea|kr|china|cn|brazil|br|australia|au|" +
-                @"france|fr|germany|de|spain|es|italy|it|netherlands|nl|sweden|se|scandinavia|canada|ca|" +
-                @"russia|ru|rus|poland|pl|pol|uk|united\s*kingdom|great\s*britain|england|belgium|be|austria|at|" +
-                @"portugal|pt|switzerland|ch|denmark|dk|finland|fi|norway|no|czech|cz|hungary|hu|taiwan|tw|" +
-                @"hong\s*kong|hk|india|in|latin\s*america|turkey|tr|south\s*africa|new\s*zealand|nz" +
-                @"))*\)\s*", opts, timeout),
-
-            // 2. Headered/Headerless
-            new System.Text.RegularExpressions.Regex(@"\s*\((headered|headerless)\)\s*", opts, timeout),
-
-            // 3. Revision tags
-            new System.Text.RegularExpressions.Regex(@"\s*\((rev\s*[a-z0-9.]+|revision\s*[a-z0-9.]+)\)\s*", opts, timeout),
-
-            // 4. Version tags (v1.0, v02.01, etc.)
-            new System.Text.RegularExpressions.Regex(@"\s*\((v\s*[0-9][0-9.]*[a-z]?)\)\s*", opts, timeout),
-
-            // 5. Demo/Beta/Proto/Kiosk/Trial/Taikenban and other pre-release tags
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program)\)\s*", opts, timeout),
-
-            // 6. Utility/Program tags
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((program|application|utility|enhancement\s*chip|test\s*program|test\s*cartridge|competition\s*cart|service\s*disc|diagnostic|check\s*program)\)\s*", opts, timeout),
-
-            // 7. Hack/Pirate/Homebrew
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((hack|pirate|bootleg|homebrew|aftermarket|translated|translation)\)\s*", opts, timeout),
-
-            // 8. Unlicensed/NFR
-            new System.Text.RegularExpressions.Regex(@"\s*\((unl|unlicensed|not\s*for\s*resale|nfr)\)\s*", opts, timeout),
-
-            // 9. BIOS/Firmware/FW Update/IDU
-            new System.Text.RegularExpressions.Regex(@"\s*\((bios|firmware)\)\s*", opts, timeout),
-            new System.Text.RegularExpressions.Regex(@"\s*\b(?:IDU|FW\s*Update|FW\s*\d+\.\d+)\b\s*", opts, timeout),
-
-            // 10. Language tags (full set including Af, Ca, Gd, Eu etc.)
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((en|fr|de|es|it|pt|nl|sv|no|da|fi|ru|pl|zh|ko|ja|cs|hu|el|tr|ar|he|th|vi|id|ms|ro|bg|uk|hr|sk|sl|et|lv|lt|af|ca|gd|eu)" +
-                @"(?:,\s*(?:en|fr|de|es|it|pt|nl|sv|no|da|fi|ru|pl|zh|ko|ja|cs|hu|el|tr|ar|he|th|vi|id|ms|ro|bg|uk|hr|sk|sl|et|lv|lt|af|ca|gd|eu))*\)\s*", opts, timeout),
-
-            // 11. Bracket tags: [!] [b] [h] [o] [p] [t] [f] [a] [cr...] [tr...] [m ...]
-            new System.Text.RegularExpressions.Regex(@"\s*\[(?:\!|b\d*|h\d*|o\d*|p\d*|t\d*|f\d*|a\d*|cr[^\]]*|tr[^\]]*|m\s[^\]]*)\]\s*", opts, timeout),
-
-            // 12. Virtual Console / Switch Online / Classic Mini
-            new System.Text.RegularExpressions.Regex(@"\s*\((virtual\s*console|switch\s*online|classic\s*mini|wii\s*u|gamecube)\)\s*", opts, timeout),
-
-            // 13. Reprint/Alt/Collection labels
-            new System.Text.RegularExpressions.Regex(@"\s*\((reprint|rerelease|rerip|alt|alt\s*\d*|collection)\)\s*", opts, timeout),
-
-            // 14. Collection/Anniversary/Archives/Museum/Classics (with optional surrounding text)
-            new System.Text.RegularExpressions.Regex(@"\s*\(([^\)]*\b(?:collection|classics?|anniversary|antholog(?:y|ies)|archives?|museum|evercade|retro-?bit(?:\s*generations)?)\b[^\)]*)\)\s*", opts, timeout),
-
-            // 15. EDC/Subchannel/LibCrypt
-            new System.Text.RegularExpressions.Regex(@"\s*\((edc|no\s*edc|libcrypt|sbi|subchannel)\)\s*", opts, timeout),
-
-            // 16. Sector count tags like (2S, 3S)
-            new System.Text.RegularExpressions.Regex(@"\s*\((\d+S(?:,\s*\d+S)*)\)\s*", opts, timeout),
-
-            // 17. "Made in X" tags
-            new System.Text.RegularExpressions.Regex(@"\s*\((Made\s+in\s+\w+)\)\s*", opts, timeout),
-
-            // 18. Parenthesized Edition catch-all (Gold Edition, Target Limited Edition, etc.)
-            new System.Text.RegularExpressions.Regex(@"\s*\([^)]*\bEdition\b[^)]*\)\s*", opts, timeout),
-
-            // 19. Non-parenthesized edition/budget labels (word-boundary fallback)
-            new System.Text.RegularExpressions.Regex(
-                @"\s*(?:-\s*)?\b(?:Collector'?s\s*Edition|Game\s*of\s*the\s*Year\s*Edition|Legendary\s*Edition|" +
-                @"Ultimate\s*Edition|Complete\s*Edition|Special\s*Edition|Limited\s*Edition|Gold\s*Edition|" +
-                @"National\s*Treasure\s*Edition|Game\s*of\s*the\s*Century\s*Edition|" +
-                @"5th\s*Anniversary\s*Edition|Double\s*Pack|HD\s*(?:Collection|Edition|Remaster)|" +
-                @"PlayStation\s*3\s*the\s*Best|Rockstar\s*Classics|Platinum|Greatest\s*Hits|" +
-                @"Player'?s\s*Choice|Nintendo\s*Selects|PlayStation\s*Hits|Budget|Essentials|" +
-                @"Best\s*Price|The\s*Best|Taikenban)\b\s*", opts, timeout),
-
-            // 20. Date-stamped beta/proto tags like (Beta) (2010-07-08) or (2011-07-16)
-            new System.Text.RegularExpressions.Regex(@"\s*\(\d{4}-\d{2}-\d{2}\)\s*", opts, timeout),
-
-            // 21. FW version tags like (FW3.40), (FW3.50) and IDU prefixes
-            new System.Text.RegularExpressions.Regex(@"\s*\(FW\d+\.\d+\)\s*", opts, timeout),
-
-            // 22. Budget/re-release labels in parentheses
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((?:Greatest\s*Hits|PlayStation\s*\d+\s*the\s*Best|Platinum|Essentials|Budget|Best\s*Price|" +
-                @"The\s*Best|Player'?s\s*Choice|Nintendo\s*Selects|PlayStation\s*Hits|Rockstar\s*Classics|" +
-                @"Aquaprice\s*\d+)\)\s*", opts, timeout),
-
-            // 23. Serial number tags (BLES-01384, BLUS-30905, BCUS-98152, etc.)
-            new System.Text.RegularExpressions.Regex(@"\s*\([A-Z]{4}-\d{4,5}\)\s*", opts, timeout),
-
-            // 24. Japanese-specific metadata and feature markers
-            new System.Text.RegularExpressions.Regex(
-                @"\s*\((?:Fukikaeban|Jimakuban|PlayStation\s*Move\s*Taiou|3D\s*Compatible)\)\s*", opts, timeout),
-
-            // 25. Version prefix form: (Version 2.0)
-            new System.Text.RegularExpressions.Regex(@"\s*\(Version\s*\d+\.?\d*\)\s*", opts, timeout),
-
-            // 26. Empty parentheses cleanup (left after tag content removal)
-            new System.Text.RegularExpressions.Regex(@"\s*\(\s*\)\s*", opts, timeout),
-        };
+        _registeredPatterns = tagPatterns ?? throw new ArgumentNullException(nameof(tagPatterns));
+        _registeredAliasMap = alwaysAliasMap ?? throw new ArgumentNullException(nameof(alwaysAliasMap));
     }
 
-    private static readonly TimeSpan RegexTimeout = SafeRegex.DefaultTimeout;
+    /// <summary>
+    /// Registers a lazy pattern factory. Called by Infrastructure so that the convenience
+    /// <see cref="Normalize(string)"/> overload can resolve patterns on first use without
+    /// coupling Core to Infrastructure at compile time.
+    /// </summary>
+    public static void RegisterPatternFactory(
+        Func<(IReadOnlyList<System.Text.RegularExpressions.Regex>? Patterns, IReadOnlyDictionary<string, string> Aliases)> factory)
+    {
+        _patternFactory = factory ?? throw new ArgumentNullException(nameof(factory));
+    }
+
+    private static void EnsurePatternsLoaded()
+    {
+        if (_registeredPatterns is not null) return;
+        if (_patternFactory is null) return;
+        var (patterns, aliases) = _patternFactory();
+        if (patterns is not null)
+            RegisterDefaultPatterns(patterns, aliases);
+    }
 
     private static readonly System.Text.RegularExpressions.Regex MsDosTrailingBracketRegex =
         new(@"\s*(?:\[[^\]]+\]\s*)+$",
@@ -171,10 +82,14 @@ public static class GameKeyNormalizer
         new Dictionary<string, string>();
 
     /// <summary>
-    /// Convenience overload using default tag patterns from rules.json.
+    /// Convenience overload using registered tag patterns from rules.json.
+    /// Patterns are resolved lazily via the registered pattern factory if not yet loaded.
     /// </summary>
     public static string Normalize(string baseName)
-        => Normalize(baseName, DefaultTagPatterns, EmptyAliasMap);
+    {
+        EnsurePatternsLoaded();
+        return Normalize(baseName, _registeredPatterns ?? [], _registeredAliasMap ?? EmptyAliasMap);
+    }
 
     /// <summary>
     /// Folds Unicode text to ASCII by removing diacritical marks.

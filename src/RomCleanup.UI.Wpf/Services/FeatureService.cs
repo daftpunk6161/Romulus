@@ -57,7 +57,7 @@ public static partial class FeatureService
     {
         var parts = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
         // Typically: root/ConsoleName/game.ext → take second-to-last dir
-        return parts.Length >= 2 ? parts[^2] : "Unbekannt";
+        return parts.Length >= 2 ? parts[^2] : "Unknown";
     }
 
 
@@ -150,31 +150,17 @@ public static partial class FeatureService
 }
 
 
-// ═══ RECORD TYPES ═══════════════════════════════════════════════════
-
-public sealed record ConversionEstimateResult(
-    long TotalSourceBytes, long EstimatedTargetBytes, long SavedBytes, double CompressionRatio,
-    IReadOnlyList<ConversionDetail> Details,
-    string Disclaimer = "Schätzwerte basieren auf statischen Durchschnitts-Kompressionsraten. Tatsächliche Ergebnisse können abweichen.");
-
-public sealed record ConversionDetail(
-    string FileName, string SourceFormat, string TargetFormat, long SourceBytes, long EstimatedBytes);
-
-public sealed record HeatmapEntry(string Console, int Total, int Duplicates, double DuplicatePercent);
-public sealed record DuplicateSourceEntry(string Directory, int Count);
-public sealed record JunkReportEntry(string Tag, string Reason, string Level);
-
-public sealed record DryRunCompareResult(
-    IReadOnlyList<ReportEntry> OnlyInA, IReadOnlyList<ReportEntry> OnlyInB,
-    IReadOnlyList<(ReportEntry left, ReportEntry right)> Different, int Identical);
-
-public sealed record TrendSnapshot(
-    DateTime Timestamp, int TotalFiles, long SizeBytes, int Verified, int Dupes, int Junk, int QualityScore);
-
-public sealed record IntegrityEntry(string Hash, long Size, DateTime LastModified);
-public sealed record IntegrityBaseline(string Root, Dictionary<string, IntegrityEntry> Entries);
-public sealed record IntegrityCheckResult(
-    IReadOnlyList<string> Changed, IReadOnlyList<string> Missing,
-    IReadOnlyList<string> Intact, bool BitRotRisk, string? Message = null);
-public sealed record ConfigDiffEntry(string Key, string SavedValue, string CurrentValue);
-public sealed record DatDiffResult(IReadOnlyList<string> Added, IReadOnlyList<string> Removed, int ModifiedCount, int UnchangedCount);
+// Record types moved to RomCleanup.Contracts.Models.AnalysisModels.
+// Type aliases for backward compatibility within WPF layer:
+using ConversionEstimateResult = RomCleanup.Contracts.Models.ConversionEstimateResult;
+using ConversionDetail = RomCleanup.Contracts.Models.ConversionDetail;
+using HeatmapEntry = RomCleanup.Contracts.Models.HeatmapEntry;
+using DuplicateSourceEntry = RomCleanup.Contracts.Models.DuplicateSourceEntry;
+using JunkReportEntry = RomCleanup.Contracts.Models.JunkReportEntry;
+using DryRunCompareResult = RomCleanup.Contracts.Models.DryRunCompareResult;
+using TrendSnapshot = RomCleanup.Contracts.Models.TrendSnapshot;
+using IntegrityEntry = RomCleanup.Contracts.Models.IntegrityEntry;
+using IntegrityBaseline = RomCleanup.Contracts.Models.IntegrityBaseline;
+using IntegrityCheckResult = RomCleanup.Contracts.Models.IntegrityCheckResult;
+using ConfigDiffEntry = RomCleanup.Contracts.Models.ConfigDiffEntry;
+using DatDiffResult = RomCleanup.Contracts.Models.DatDiffResult;

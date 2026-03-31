@@ -461,6 +461,9 @@ internal sealed class CliParseResult
     public static CliParseResult UpdateDats(CliRunOptions options) =>
         new() { Command = CliCommand.UpdateDats, ExitCode = 0, Options = options };
 
+    public static CliParseResult Subcommand(CliCommand command, CliRunOptions options) =>
+        new() { Command = command, ExitCode = 0, Options = options };
+
     public static CliParseResult ValidationError(IReadOnlyList<string> errors) =>
         new() { Command = CliCommand.Run, ExitCode = 3, Errors = errors };
 
@@ -468,7 +471,7 @@ internal sealed class CliParseResult
         new() { Command = CliCommand.Run, ExitCode = 0, Options = options };
 }
 
-internal enum CliCommand { Run, Help, Version, Rollback, UpdateDats }
+internal enum CliCommand { Run, Help, Version, Rollback, UpdateDats, Analyze, Export, DatDiff, IntegrityCheck, IntegrityBaseline, Convert, Header, JunkReport }
 
 /// <summary>
 /// Raw parsed CLI options — before settings merge.
@@ -507,4 +510,13 @@ internal sealed class CliRunOptions
     public bool ForceDatUpdate { get; set; }
     public bool SmartDatUpdate { get; set; }
     public int? DatStaleDays { get; set; }
+
+    // Subcommand-specific options
+    public string? InputPath { get; set; }
+    public string? OutputPath { get; set; }
+    public string? ExportFormat { get; set; }
+    public string? ConsoleKey { get; set; }
+    public string? TargetFormat { get; set; }
+    public string? DatFileA { get; set; }
+    public string? DatFileB { get; set; }
 }

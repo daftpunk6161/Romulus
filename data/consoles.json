@@ -1215,7 +1215,8 @@
         "PS1",
         "PSX",
         "PlayStation"
-      ]
+      ],
+      "zipIdentifyingExts": [".ccd", ".sub", ".pbp"]
     },
     {
       "key": "PS2",
@@ -1246,7 +1247,8 @@
       "keywords": [
         "PS2",
         "PlayStation 2"
-      ]
+      ],
+      "zipIdentifyingExts": [".nrg", ".mdf", ".mds"]
     },
     {
       "key": "PS3",

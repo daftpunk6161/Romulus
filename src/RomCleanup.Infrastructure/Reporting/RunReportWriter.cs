@@ -197,6 +197,10 @@ public static class RunReportWriter
             var csv = ReportGenerator.GenerateCsv(entries);
             File.WriteAllText(fullPath, csv, Encoding.UTF8);
         }
+        else if (fullPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            ReportGenerator.WriteJsonToFile(fullPath, reportDir, summary, entries);
+        }
         else
         {
             ReportGenerator.WriteHtmlToFile(fullPath, reportDir, summary, entries);

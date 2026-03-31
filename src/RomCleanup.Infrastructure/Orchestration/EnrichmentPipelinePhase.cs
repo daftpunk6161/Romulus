@@ -61,12 +61,10 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var root = file.Root;
         var ext = file.Extension;
         var fileName = Path.GetFileNameWithoutExtension(filePath);
-        var gameKey = GameKeyNormalizationProfile.TagPatterns is { Count: > 0 }
-            ? GameKeyNormalizer.Normalize(
+        var gameKey = GameKeyNormalizer.Normalize(
                 fileName,
-                GameKeyNormalizationProfile.TagPatterns,
-                GameKeyNormalizationProfile.AlwaysAliasMap)
-            : GameKeyNormalizer.Normalize(fileName);
+                GameKeyNormalizationProfile.TagPatterns ?? [],
+                GameKeyNormalizationProfile.AlwaysAliasMap);
 
         long sizeBytes = 0;
         if (File.Exists(filePath))
@@ -127,6 +125,12 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         detectionConflict = datResult.DetectionConflict;
         var computedHash = datResult.ComputedHash;
         var computedHeaderlessHash = datResult.ComputedHeaderlessHash;
+
+        if (!datResult.DatMatch && consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+        {
+            context.OnProgress?.Invoke(
+                $"[DAT] Kein Match fuer {consoleKey}-Konsole: {Path.GetFileName(filePath)}");
+        }
 
         // BIOS classification (from DAT metadata and known BIOS hash catalog)
         ResolveBios(ref category, ref matchEvidence, ref computedHash,
@@ -421,12 +425,6 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     }
                 }
             }
-        }
-
-        if (!datMatch && consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
-        {
-            context.OnProgress?.Invoke(
-                $"[DAT] Kein Match fuer {consoleKey}-Konsole: {Path.GetFileName(filePath)}");
         }
 
         return new DatLookupResult(datMatch, datMatchedBios, datResolvedFromAmbiguousCandidates,

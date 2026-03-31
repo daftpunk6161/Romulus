@@ -174,10 +174,10 @@ public sealed class Phase4ConversionInvariantTests
         // and FormatConverterAdapter's ConvertMultiCueArchive method.
         // Here we verify the invariant structurally: multi-disc archives
         // with multiple CUE files produce either all outputs or none.
-        // The implementation is in FormatConverterAdapter.ConvertMultiCueArchive.
+        // The implementation is in ChdmanToolConverter.ConvertMultiCueArchive.
         // This test confirms the method signature pattern exists.
-        var adapterType = typeof(FormatConverterAdapter);
-        var method = adapterType.GetMethod("ConvertMultiCueArchive",
+        var converterType = typeof(ChdmanToolConverter);
+        var method = converterType.GetMethod("ConvertMultiCueArchive",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         Assert.NotNull(method); // Multi-CUE atomicity handler must exist

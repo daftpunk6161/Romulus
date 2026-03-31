@@ -782,7 +782,10 @@ public sealed partial class MainViewModel
         }
         try
         {
-            GameKeyPreviewOutput = Core.GameKeys.GameKeyNormalizer.Normalize(GameKeyPreviewInput);
+            GameKeyPreviewOutput = Core.GameKeys.GameKeyNormalizer.Normalize(
+                GameKeyPreviewInput,
+                Infrastructure.Orchestration.GameKeyNormalizationProfile.TagPatterns ?? [],
+                Infrastructure.Orchestration.GameKeyNormalizationProfile.AlwaysAliasMap);
         }
         catch (Exception ex)
         {

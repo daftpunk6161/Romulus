@@ -1,15 +1,29 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using RomCleanup.Core;
+using RomCleanup.Core.GameKeys;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
-internal static class GameKeyNormalizationProfile
+public static class GameKeyNormalizationProfile
 {
     private static readonly Lazy<GameKeyNormalizationData> _lazy = new(Load);
 
     public static IReadOnlyList<Regex>? TagPatterns => _lazy.Value.TagPatterns;
     public static IReadOnlyDictionary<string, string> AlwaysAliasMap => _lazy.Value.AlwaysAliasMap;
+
+    /// <summary>
+    /// Registers the lazy pattern factory with Core. Called automatically via
+    /// <see cref="GameKeyNormalizationModuleInit"/> module initializer.
+    /// </summary>
+    internal static void EnsureRegistered()
+    {
+        GameKeyNormalizer.RegisterPatternFactory(() =>
+        {
+            var data = _lazy.Value;
+            return (data.TagPatterns, data.AlwaysAliasMap);
+        });
+    }
 
     private static GameKeyNormalizationData Load()
     {
@@ -54,7 +68,12 @@ internal static class GameKeyNormalizationProfile
             if (patterns.Count == 0 && aliases.Count == 0)
                 return GameKeyNormalizationData.Empty;
 
-            return new GameKeyNormalizationData(patterns, aliases);
+            var data = new GameKeyNormalizationData(patterns, aliases);
+
+            // Register with Core so the convenience Normalize(string) overload works
+            GameKeyNormalizer.RegisterDefaultPatterns(patterns, aliases);
+
+            return data;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {

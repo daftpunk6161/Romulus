@@ -196,7 +196,7 @@ public sealed class FeatureServiceTests : IDisposable
     [Fact]
     public void DetectConsoleFromPath_SingleLevel_ReturnsUnbekannt()
     {
-        Assert.Equal("Unbekannt", FeatureService.DetectConsoleFromPath("game.sfc"));
+        Assert.Equal("Unknown", FeatureService.DetectConsoleFromPath("game.sfc"));
     }
 
     // ═══ ComputeSha256 ══════════════════════════════════════════════════
@@ -855,7 +855,7 @@ public sealed class FeatureServiceTests : IDisposable
         File.WriteAllBytes(path, new byte[512]);
         var result = FeatureService.AnalyzeHeader(path);
         Assert.NotNull(result);
-        Assert.Equal("Unbekannt", result.Platform);
+        Assert.Equal("Unknown", result.Platform);
     }
 
     // ═══ RepairNesHeader ════════════════════════════════════════════════

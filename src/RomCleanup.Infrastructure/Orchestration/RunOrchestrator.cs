@@ -117,9 +117,9 @@ public sealed partial class RunOrchestrator
     /// Execute the full pipeline: Scan → Dedupe → JunkRemoval → Move → Sort → (optional Convert) → Report.
     /// </summary>
     public RunResult Execute(RunOptions options, CancellationToken cancellationToken = default)
-        => ExecuteAsync(options, cancellationToken).GetAwaiter().GetResult();
+        => Task.Run(() => ExecuteAsync(options, cancellationToken), cancellationToken).GetAwaiter().GetResult();
 
-    private async Task<RunResult> ExecuteAsync(RunOptions options, CancellationToken cancellationToken = default)
+    public async Task<RunResult> ExecuteAsync(RunOptions options, CancellationToken cancellationToken = default)
     {
         var result = new RunResultBuilder();
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -329,6 +329,17 @@ public sealed partial class RunOrchestrator
             result.AllCandidates = allCandidates;
             if (result.TotalFilesScanned == 0)
                 result.TotalFilesScanned = allCandidates.Count;
+        }
+
+        // Preserve DatAudit results from partial runs (runs before cancellation/failure)
+        if (pipelineState.DatAuditResult is { } datAudit && result.DatAuditResult is null)
+        {
+            result.DatAuditResult = datAudit;
+            result.DatHaveCount = datAudit.HaveCount;
+            result.DatHaveWrongNameCount = datAudit.HaveWrongNameCount;
+            result.DatMissCount = datAudit.MissCount;
+            result.DatUnknownCount = datAudit.UnknownCount;
+            result.DatAmbiguousCount = datAudit.AmbiguousCount;
         }
 
         if (pipelineState.AllGroups is not { } allGroups)

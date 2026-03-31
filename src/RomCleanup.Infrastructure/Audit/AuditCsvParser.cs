@@ -6,7 +6,7 @@ namespace RomCleanup.Infrastructure.Audit;
 /// Shared CSV line parser used by AuditCsvStore and AuditSigningService.
 /// Handles RFC 4180 quoting (double-quotes escaped as "").
 /// </summary>
-internal static class AuditCsvParser
+public static class AuditCsvParser
 {
     public static string[] ParseCsvLine(string line)
     {
