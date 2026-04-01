@@ -196,6 +196,8 @@ public sealed partial class FeatureCommandService
         cmds[FeatureCommandKeys.CollectionManager] = new RelayCommand(CollectionManager);
         cmds[FeatureCommandKeys.CloneListViewer] = new RelayCommand(CloneListViewer);
         cmds[FeatureCommandKeys.VirtualFolderPreview] = new RelayCommand(VirtualFolderPreview);
+        cmds[FeatureCommandKeys.CollectionDiff] = new RelayCommand(CollectionDiff);
+        cmds[FeatureCommandKeys.CollectionMerge] = new RelayCommand(CollectionMerge);
 
         // ── Sicherheit & Integrität ─────────────────────────────────────
         cmds[FeatureCommandKeys.IntegrityMonitor] = new AsyncRelayCommand(IntegrityMonitorAsync);

@@ -139,6 +139,8 @@ Subcommands:
   romulus profiles export --id <profile-id> --output <file>
   romulus profiles delete --id <profile-id>
   romulus workflows [--id <workflow-id>]
+  romulus diff --left-roots <paths> --right-roots <paths> [--offset <n>] [--limit <n>] [-o <file>]
+  romulus merge --left-roots <paths> --right-roots <paths> --target-root <path> [--plan|--apply] [--allow-moves] [--audit <file>] [-o <file>]
   romulus compare --run <run-id> --compare-to <run-id> [-o <file>]
   romulus trends [--limit <n>] [-o <file>]
   romulus dat diff --old <path> --new <path>  Compare two Logiqx DAT files

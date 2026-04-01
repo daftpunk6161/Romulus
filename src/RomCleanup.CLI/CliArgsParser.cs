@@ -424,6 +424,8 @@ internal static class CliArgsParser
             "analyze" => ParseSubcommandWithRoots(CliCommand.Analyze, rest),
             "export" => ParseExportSubcommand(rest),
             "profiles" => ParseProfilesSubcommand(rest),
+            "diff" => ParseDiffSubcommand(rest),
+            "merge" => ParseMergeSubcommand(rest),
             "compare" => ParseCompareSubcommand(rest),
             "trends" => ParseTrendsSubcommand(rest),
             "workflows" => ParseWorkflowsSubcommand(rest),
@@ -937,6 +939,198 @@ internal static class CliArgsParser
         };
     }
 
+    private static CliParseResult ParseDiffSubcommand(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--left-roots":
+                    if (!TryConsumeValue(args, ref i, "--left-roots", errors, out var leftRootsRaw)) break;
+                    if (TryParseRootsArgument(leftRootsRaw, out var leftRoots, out var leftErr))
+                        opts.LeftRoots = leftRoots;
+                    else
+                        errors.Add($"[Error] {leftErr}");
+                    break;
+                case "--right-roots":
+                    if (!TryConsumeValue(args, ref i, "--right-roots", errors, out var rightRootsRaw)) break;
+                    if (TryParseRootsArgument(rightRootsRaw, out var rightRoots, out var rightErr))
+                        opts.RightRoots = rightRoots;
+                    else
+                        errors.Add($"[Error] {rightErr}");
+                    break;
+                case "--left-label":
+                    if (!TryConsumeValue(args, ref i, "--left-label", errors, out var leftLabel)) break;
+                    opts.LeftLabel = leftLabel;
+                    break;
+                case "--right-label":
+                    if (!TryConsumeValue(args, ref i, "--right-label", errors, out var rightLabel)) break;
+                    opts.RightLabel = rightLabel;
+                    break;
+                case "--extensions":
+                    if (!TryConsumeValue(args, ref i, "--extensions", errors, out var extsRaw)) break;
+                    opts.Extensions = new HashSet<string>(
+                        extsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(static ext => ext.StartsWith('.') ? ext : "." + ext),
+                        StringComparer.OrdinalIgnoreCase);
+                    break;
+                case "--offset":
+                    if (!TryConsumeValue(args, ref i, "--offset", errors, out var offsetRaw)) break;
+                    if (!int.TryParse(offsetRaw, out var parsedOffset) || parsedOffset < 0)
+                    {
+                        errors.Add("[Error] diff offset must be a non-negative integer.");
+                        break;
+                    }
+                    opts.CollectionOffset = parsedOffset;
+                    break;
+                case "--limit":
+                    if (!TryConsumeValue(args, ref i, "--limit", errors, out var limitRaw)) break;
+                    if (!int.TryParse(limitRaw, out var parsedLimit) || parsedLimit < 1 || parsedLimit > 5000)
+                    {
+                        errors.Add("[Error] diff limit must be an integer between 1 and 5000.");
+                        break;
+                    }
+                    opts.CollectionLimit = parsedLimit;
+                    break;
+                case "--output" or "-o":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal)) break;
+                    opts.OutputPath = outputVal;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for diff.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        if (opts.LeftRoots.Length == 0 || opts.RightRoots.Length == 0)
+            return CliParseResult.ValidationError(["[Error] diff requires --left-roots <paths> and --right-roots <paths>."]);
+
+        var rootValidationError = ValidateCollectionRoots(opts.LeftRoots, "left-roots")
+            ?? ValidateCollectionRoots(opts.RightRoots, "right-roots");
+        if (rootValidationError is not null)
+            return CliParseResult.ValidationError([$"[Error] {rootValidationError}"]);
+
+        var outputPathError = ValidateOptionalPath(opts.OutputPath, "diff output path", allowUnc: false);
+        if (outputPathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {outputPathError}"]);
+
+        return CliParseResult.Subcommand(CliCommand.Diff, opts);
+    }
+
+    private static CliParseResult ParseMergeSubcommand(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--left-roots":
+                    if (!TryConsumeValue(args, ref i, "--left-roots", errors, out var leftRootsRaw)) break;
+                    if (TryParseRootsArgument(leftRootsRaw, out var leftRoots, out var leftErr))
+                        opts.LeftRoots = leftRoots;
+                    else
+                        errors.Add($"[Error] {leftErr}");
+                    break;
+                case "--right-roots":
+                    if (!TryConsumeValue(args, ref i, "--right-roots", errors, out var rightRootsRaw)) break;
+                    if (TryParseRootsArgument(rightRootsRaw, out var rightRoots, out var rightErr))
+                        opts.RightRoots = rightRoots;
+                    else
+                        errors.Add($"[Error] {rightErr}");
+                    break;
+                case "--target-root":
+                    if (!TryConsumeValue(args, ref i, "--target-root", errors, out var targetRootVal)) break;
+                    opts.TargetRoot = targetRootVal;
+                    break;
+                case "--left-label":
+                    if (!TryConsumeValue(args, ref i, "--left-label", errors, out var leftLabel)) break;
+                    opts.LeftLabel = leftLabel;
+                    break;
+                case "--right-label":
+                    if (!TryConsumeValue(args, ref i, "--right-label", errors, out var rightLabel)) break;
+                    opts.RightLabel = rightLabel;
+                    break;
+                case "--extensions":
+                    if (!TryConsumeValue(args, ref i, "--extensions", errors, out var extsRaw)) break;
+                    opts.Extensions = new HashSet<string>(
+                        extsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(static ext => ext.StartsWith('.') ? ext : "." + ext),
+                        StringComparer.OrdinalIgnoreCase);
+                    break;
+                case "--offset":
+                    if (!TryConsumeValue(args, ref i, "--offset", errors, out var offsetRaw)) break;
+                    if (!int.TryParse(offsetRaw, out var parsedOffset) || parsedOffset < 0)
+                    {
+                        errors.Add("[Error] merge offset must be a non-negative integer.");
+                        break;
+                    }
+                    opts.CollectionOffset = parsedOffset;
+                    break;
+                case "--limit":
+                    if (!TryConsumeValue(args, ref i, "--limit", errors, out var limitRaw)) break;
+                    if (!int.TryParse(limitRaw, out var parsedLimit) || parsedLimit < 1 || parsedLimit > 5000)
+                    {
+                        errors.Add("[Error] merge limit must be an integer between 1 and 5000.");
+                        break;
+                    }
+                    opts.CollectionLimit = parsedLimit;
+                    break;
+                case "--allow-moves":
+                    opts.AllowMoves = true;
+                    break;
+                case "--apply":
+                    opts.MergeApply = true;
+                    break;
+                case "--plan":
+                    opts.MergeApply = false;
+                    break;
+                case "--audit":
+                    if (!TryConsumeValue(args, ref i, "--audit", errors, out var auditVal)) break;
+                    opts.AuditPath = auditVal;
+                    break;
+                case "--output" or "-o":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal)) break;
+                    opts.OutputPath = outputVal;
+                    break;
+                case "--yes" or "-y":
+                    opts.Yes = true;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for merge.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        if (opts.LeftRoots.Length == 0 || opts.RightRoots.Length == 0 || string.IsNullOrWhiteSpace(opts.TargetRoot))
+        {
+            return CliParseResult.ValidationError(["[Error] merge requires --left-roots <paths> --right-roots <paths> --target-root <path>."]);
+        }
+
+        var rootValidationError = ValidateCollectionRoots(opts.LeftRoots, "left-roots")
+            ?? ValidateCollectionRoots(opts.RightRoots, "right-roots")
+            ?? ValidateOptionalPath(opts.TargetRoot, "target root", allowUnc: false)
+            ?? ValidateOptionalPath(opts.AuditPath, "merge audit path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.OutputPath, "merge output path", allowUnc: false);
+        if (rootValidationError is not null)
+            return CliParseResult.ValidationError([$"[Error] {rootValidationError}"]);
+
+        if (File.Exists(opts.TargetRoot))
+            return CliParseResult.ValidationError([$"[Error] target root must be a directory path: {opts.TargetRoot}"]);
+
+        return CliParseResult.Subcommand(CliCommand.Merge, opts);
+    }
+
     private static CliParseResult ParseCompareSubcommand(string[] args)
     {
         var opts = new CliRunOptions();
@@ -975,6 +1169,40 @@ internal static class CliArgsParser
             return CliParseResult.ValidationError([$"[Error] {outputPathError}"]);
 
         return CliParseResult.Subcommand(CliCommand.Compare, opts);
+    }
+
+    private static string? ValidateCollectionRoots(IReadOnlyList<string> roots, string label)
+    {
+        foreach (var root in roots)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+                return $"{label} contains an empty root path.";
+
+            var pathError = ValidateOptionalPath(root, label, allowUnc: false);
+            if (pathError is not null)
+                return pathError;
+
+            var fullRoot = Path.GetFullPath(root);
+            if (!Directory.Exists(fullRoot))
+                return $"{label} root not found: {fullRoot}";
+
+            try
+            {
+                var dirInfo = new DirectoryInfo(fullRoot);
+                if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    return $"{label} root is a reparse point (symlink/junction): {fullRoot}";
+            }
+            catch (IOException ex)
+            {
+                return $"Cannot verify {label} root attributes: {fullRoot} ({ex.Message})";
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return $"Cannot verify {label} root attributes: {fullRoot} ({ex.Message})";
+            }
+        }
+
+        return null;
     }
 
     private static CliParseResult ParseTrendsSubcommand(string[] args)
@@ -1199,6 +1427,8 @@ internal enum CliCommand
     ProfilesExport,
     ProfilesDelete,
     Workflows,
+    Diff,
+    Merge,
     Compare,
     Trends,
     DatDiff,
@@ -1282,6 +1512,15 @@ internal sealed class CliRunOptions
     public string? TargetFormat { get; set; }
     public string? DatFileA { get; set; }
     public string? DatFileB { get; set; }
+    public string[] LeftRoots { get; set; } = Array.Empty<string>();
+    public string[] RightRoots { get; set; } = Array.Empty<string>();
+    public string? LeftLabel { get; set; }
+    public string? RightLabel { get; set; }
+    public string? TargetRoot { get; set; }
+    public bool AllowMoves { get; set; }
+    public bool MergeApply { get; set; }
+    public int CollectionOffset { get; set; }
+    public int? CollectionLimit { get; set; }
     public string? RunId { get; set; }
     public string? CompareToRunId { get; set; }
     public int? HistoryLimit { get; set; }

@@ -318,9 +318,10 @@ public sealed class AuditSigningService
             var newPath = fields.Length > 2 ? fields[2] : "";
             var action = fields.Length > 3 ? fields[3] : "";
 
-            // Rollback MOVE, JUNK_REMOVE, CONSOLE_SORT, CONVERT, and DAT_RENAME actions
+            // Rollback MOVE, COPY, JUNK_REMOVE, CONSOLE_SORT, CONVERT, and DAT_RENAME actions
             if (!string.Equals(action, RunConstants.AuditActions.Move, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, RunConstants.AuditActions.Moved, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(action, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, RunConstants.AuditActions.JunkRemove, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, RunConstants.AuditActions.ConsoleSort, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(action, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase) &&
@@ -343,6 +344,8 @@ public sealed class AuditSigningService
                 continue;
             }
 
+            var isCopyAction = string.Equals(action, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase);
+
             // Check current file/dir exists at newPath
             // Missing dest = recovery failure (user can't roll back this entry)
             if (!File.Exists(newPath) && !Directory.Exists(newPath))
@@ -353,10 +356,20 @@ public sealed class AuditSigningService
                 continue;
             }
 
-            // Check no collision at oldPath
-            if (File.Exists(oldPath) || Directory.Exists(oldPath))
+            if (!isCopyAction)
             {
-                skippedCollision++;
+                // Check no collision at oldPath
+                if (File.Exists(oldPath) || Directory.Exists(oldPath))
+                {
+                    skippedCollision++;
+                    continue;
+                }
+            }
+            else if (!File.Exists(oldPath) && !Directory.Exists(oldPath))
+            {
+                failed++;
+                skippedMissingDest++;
+                _log?.Invoke($"Rollback failed (missing copy source): {oldPath}");
                 continue;
             }
 
@@ -381,8 +394,10 @@ public sealed class AuditSigningService
                 }
 
                 dryRunPlanned++;
-                plannedPaths.Add(oldPath);
-                _log?.Invoke($"DRYRUN rollback: {newPath} -> {oldPath}");
+                plannedPaths.Add(isCopyAction ? newPath : oldPath);
+                _log?.Invoke(isCopyAction
+                    ? $"DRYRUN rollback copy-delete: {newPath}"
+                    : $"DRYRUN rollback: {newPath} -> {oldPath}");
             }
             else
             {
@@ -396,29 +411,41 @@ public sealed class AuditSigningService
 
                 try
                 {
-                    // SEC-ROLLBACK-04: Check restore target parent for reparse points
-                    var parentDir = Path.GetDirectoryName(oldPath);
-                    if (parentDir is not null && Directory.Exists(parentDir) && _fs.IsReparsePoint(parentDir))
+                    if (isCopyAction)
                     {
-                        skippedUnsafe++;
-                        _log?.Invoke($"Rollback skipped (restore parent is reparse point): {parentDir}");
-                        continue;
-                    }
-                    if (parentDir is not null)
-                        _fs.EnsureDirectory(parentDir);
-
-                    if (_fs.MoveItemSafely(newPath, oldPath) is not null)
-                    {
+                        _fs.DeleteFile(newPath);
                         rolledBack++;
-                        restoredPaths.Add(oldPath);
-                        _log?.Invoke($"Rolled back: {newPath} -> {oldPath}");
-                        AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "OK");
-                        AppendRollbackTrailRow(rollbackTrailPath!, oldPath, newPath, action);
+                        restoredPaths.Add(newPath);
+                        _log?.Invoke($"Rolled back copy: removed {newPath}");
+                        AppendRollbackRow(rollbackAuditPath!, "ROLLBACK_COPY", newPath, oldPath, "OK");
+                        AppendRollbackTrailRow(rollbackTrailPath!, newPath, oldPath, action);
                     }
                     else
                     {
-                        failed++;
-                        AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "MOVE_FAILED");
+                        // SEC-ROLLBACK-04: Check restore target parent for reparse points
+                        var parentDir = Path.GetDirectoryName(oldPath);
+                        if (parentDir is not null && Directory.Exists(parentDir) && _fs.IsReparsePoint(parentDir))
+                        {
+                            skippedUnsafe++;
+                            _log?.Invoke($"Rollback skipped (restore parent is reparse point): {parentDir}");
+                            continue;
+                        }
+                        if (parentDir is not null)
+                            _fs.EnsureDirectory(parentDir);
+
+                        if (_fs.MoveItemSafely(newPath, oldPath) is not null)
+                        {
+                            rolledBack++;
+                            restoredPaths.Add(oldPath);
+                            _log?.Invoke($"Rolled back: {newPath} -> {oldPath}");
+                            AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "OK");
+                            AppendRollbackTrailRow(rollbackTrailPath!, oldPath, newPath, action);
+                        }
+                        else
+                        {
+                            failed++;
+                            AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "MOVE_FAILED");
+                        }
                     }
                 }
                 catch (Exception ex)

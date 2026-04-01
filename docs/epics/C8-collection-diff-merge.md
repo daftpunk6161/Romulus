@@ -95,10 +95,15 @@ Ohne bestaetigten Plan darf kein mutierender Merge stattfinden.
 
 ### Contracts
 
-- `CollectionDiffRequest`
+- `CollectionCompareRequest`
+- `CollectionCompareResult`
+- `CollectionSourceScope`
 - `CollectionDiffEntry`
 - `CollectionDiffSummary`
+- `CollectionMergeRequest`
 - `CollectionMergePlan`
+- `CollectionMergePlanEntry`
+- `CollectionMergePlanSummary`
 - `CollectionMergeDecision`
 
 ### Infrastructure / Orchestration
@@ -106,6 +111,7 @@ Ohne bestaetigten Plan darf kein mutierender Merge stattfinden.
 - gemeinsamer Diff-Query-Pfad auf Basis von Collection Index und Candidate-Resolvern
 - Merge-Planer mit Nutzung der bestehenden Dedup-Scoring-Logik
 - Merge-Executor mit Safety-, Audit- und Rollback-Vertrag
+- aktueller Compare-Read-Pfad ueber `CollectionCompareService` mit index-first Scope-Materialisierung und deterministischer Diff-Klassifikation
 
 ### Entry Points
 

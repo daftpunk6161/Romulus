@@ -395,6 +395,145 @@ app.MapGet("/runs/trends", async (int? limit, ICollectionIndex collectionIndex, 
     .WithSummary("Build storage and trend insights from persisted run history")
     .Produces<StorageInsightReport>(StatusCodes.Status200OK);
 
+app.MapPost("/collections/compare", async (
+    HttpContext ctx,
+    ICollectionIndex collectionIndex,
+    IFileSystem fileSystem,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    var requestRead = await ReadJsonBodyAsync<CollectionCompareRequest>(ctx, "COLLECTION-COMPARE", ct);
+    if (requestRead.Error is not null)
+        return requestRead.Error;
+
+    var request = requestRead.Value!;
+    if (request.Limit < 1 || request.Limit > 5000)
+        return ApiError(400, "COLLECTION-COMPARE-INVALID-LIMIT", "limit must be an integer between 1 and 5000.");
+
+    var leftValidation = ValidateCollectionScopeSecurity(request.Left, "left", allowedRootPolicy, requireExistingRoots: true);
+    if (leftValidation is not null)
+        return leftValidation;
+
+    var rightValidation = ValidateCollectionScopeSecurity(request.Right, "right", allowedRootPolicy, requireExistingRoots: true);
+    if (rightValidation is not null)
+        return rightValidation;
+
+    var build = await CollectionCompareService.CompareAsync(collectionIndex, fileSystem, request, ct);
+    return !build.CanUse || build.Result is null
+        ? ApiError(409, "COLLECTION-COMPARE-NOT-READY", build.Reason ?? "Collection compare unavailable.")
+        : Results.Ok(build.Result);
+})
+    .WithSummary("Compare two persisted collection scopes")
+    .Accepts<CollectionCompareRequest>("application/json")
+    .Produces<CollectionCompareResult>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict);
+
+app.MapPost("/collections/merge", async (
+    HttpContext ctx,
+    ICollectionIndex collectionIndex,
+    IFileSystem fileSystem,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    var requestRead = await ReadJsonBodyAsync<CollectionMergeRequest>(ctx, "COLLECTION-MERGE", ct);
+    if (requestRead.Error is not null)
+        return requestRead.Error;
+
+    var request = requestRead.Value!;
+    var mergeValidation = ValidateCollectionMergeRequest(request, allowedRootPolicy);
+    if (mergeValidation is not null)
+        return mergeValidation;
+
+    var build = await CollectionMergeService.BuildPlanAsync(collectionIndex, fileSystem, request, ct);
+    return !build.CanUse || build.Plan is null
+        ? ApiError(409, "COLLECTION-MERGE-NOT-READY", build.Reason ?? "Collection merge unavailable.")
+        : Results.Ok(build.Plan);
+})
+    .WithSummary("Build a deterministic merge plan for two collection scopes")
+    .Accepts<CollectionMergeRequest>("application/json")
+    .Produces<CollectionMergePlan>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict);
+
+app.MapPost("/collections/merge/apply", async (
+    HttpContext ctx,
+    ICollectionIndex collectionIndex,
+    IFileSystem fileSystem,
+    IAuditStore auditStore,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    var requestRead = await ReadJsonBodyAsync<CollectionMergeApplyRequest>(ctx, "COLLECTION-MERGE-APPLY", ct);
+    if (requestRead.Error is not null)
+        return requestRead.Error;
+
+    var request = requestRead.Value!;
+    var mergeValidation = ValidateCollectionMergeRequest(request.MergeRequest, allowedRootPolicy);
+    if (mergeValidation is not null)
+        return mergeValidation;
+
+    if (!string.IsNullOrWhiteSpace(request.AuditPath))
+    {
+        var auditPathError = ValidatePathSecurity(request.AuditPath.Trim(), "auditPath", allowedRootPolicy);
+        if (auditPathError is not null)
+            return auditPathError;
+    }
+
+    var result = await CollectionMergeService.ApplyAsync(collectionIndex, fileSystem, auditStore, request, ct);
+    return !string.IsNullOrWhiteSpace(result.BlockedReason)
+        ? ApiError(409, "COLLECTION-MERGE-APPLY-NOT-READY", result.BlockedReason)
+        : Results.Ok(result);
+})
+    .WithSummary("Apply a previously previewable collection merge with audit and rollback metadata")
+    .Accepts<CollectionMergeApplyRequest>("application/json")
+    .Produces<CollectionMergeApplyResult>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict);
+
+app.MapPost("/collections/merge/rollback", async (
+    HttpContext ctx,
+    IFileSystem fileSystem,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    var requestRead = await ReadJsonBodyAsync<CollectionMergeRollbackRequest>(ctx, "COLLECTION-MERGE-ROLLBACK", ct);
+    if (requestRead.Error is not null)
+        return requestRead.Error;
+
+    var request = requestRead.Value!;
+    if (string.IsNullOrWhiteSpace(request.AuditPath))
+        return ApiError(400, "COLLECTION-MERGE-ROLLBACK-AUDIT-REQUIRED", "auditPath is required.");
+
+    var auditPathError = ValidatePathSecurity(request.AuditPath.Trim(), "auditPath", allowedRootPolicy);
+    if (auditPathError is not null)
+        return auditPathError;
+
+    var auditPath = Path.GetFullPath(request.AuditPath.Trim());
+    if (!File.Exists(auditPath))
+        return ApiError(404, "COLLECTION-MERGE-ROLLBACK-AUDIT-NOT-FOUND", $"Audit file not found: {auditPath}");
+
+    var rootSet = AuditRollbackRootResolver.Resolve(auditPath);
+    if (rootSet.RestoreRoots.Count == 0 || rootSet.CurrentRoots.Count == 0)
+        return ApiError(400, "COLLECTION-MERGE-ROLLBACK-ROOTS-UNAVAILABLE", "Rollback roots could not be resolved from audit metadata.");
+
+    if (allowedRootPolicy.IsEnforced
+        && (!rootSet.RestoreRoots.All(allowedRootPolicy.IsPathAllowed)
+            || !rootSet.CurrentRoots.All(allowedRootPolicy.IsPathAllowed)))
+    {
+        return ApiError(400, SecurityErrorCodes.OutsideAllowedRoots, "Rollback paths are outside configured AllowedRoots.", ErrorKind.Critical);
+    }
+
+    var signing = new AuditSigningService(fileSystem, keyFilePath: AuditSecurityPaths.GetDefaultSigningKeyPath());
+    var rollback = signing.Rollback(auditPath, rootSet.RestoreRoots, rootSet.CurrentRoots, dryRun: request.DryRun);
+    return Results.Ok(rollback);
+})
+    .WithSummary("Rollback a collection merge audit using persisted root metadata")
+    .Accepts<CollectionMergeRollbackRequest>("application/json")
+    .Produces<AuditRollbackResult>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
 app.MapPost("/export/frontend", async (
     HttpContext ctx,
     IFileSystem fileSystem,
@@ -1991,6 +2130,50 @@ static IResult? ValidateRootSecurity(string root, AllowedRootPathPolicy allowedR
     return null;
 }
 
+static IResult? ValidateCollectionScopeSecurity(
+    CollectionSourceScope scope,
+    string fieldName,
+    AllowedRootPathPolicy allowedRootPolicy,
+    bool requireExistingRoots)
+{
+    if (scope.Roots.Count == 0)
+        return ApiError(400, $"COLLECTION-{fieldName.ToUpperInvariant()}-ROOTS-REQUIRED", $"{fieldName}.roots[] is required.");
+
+    foreach (var root in scope.Roots)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return ApiError(400, $"COLLECTION-{fieldName.ToUpperInvariant()}-ROOT-EMPTY", $"Empty root path in {fieldName}.roots.");
+
+        var pathError = ValidateRootSecurity(root, allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
+
+        if (requireExistingRoots && !Directory.Exists(root))
+            return ApiError(400, "IO-ROOT-NOT-FOUND", $"Root not found: {root}");
+    }
+
+    return null;
+}
+
+static IResult? ValidateCollectionMergeRequest(CollectionMergeRequest request, AllowedRootPathPolicy allowedRootPolicy)
+{
+    var leftValidation = ValidateCollectionScopeSecurity(request.CompareRequest.Left, "left", allowedRootPolicy, requireExistingRoots: true);
+    if (leftValidation is not null)
+        return leftValidation;
+
+    var rightValidation = ValidateCollectionScopeSecurity(request.CompareRequest.Right, "right", allowedRootPolicy, requireExistingRoots: true);
+    if (rightValidation is not null)
+        return rightValidation;
+
+    if (request.CompareRequest.Limit < 1 || request.CompareRequest.Limit > 5000)
+        return ApiError(400, "COLLECTION-MERGE-INVALID-LIMIT", "compareRequest.limit must be an integer between 1 and 5000.");
+
+    if (string.IsNullOrWhiteSpace(request.TargetRoot))
+        return ApiError(400, "COLLECTION-MERGE-TARGET-REQUIRED", "targetRoot is required.");
+
+    return ValidatePathSecurity(request.TargetRoot.Trim(), "targetRoot", allowedRootPolicy);
+}
+
 static IResult? ValidatePathSecurity(string path, string fieldName, AllowedRootPathPolicy? allowedRootPolicy = null)
 {
     if (string.IsNullOrWhiteSpace(path)) return null;
@@ -2028,6 +2211,41 @@ static IResult? ValidatePathSecurity(string path, string fieldName, AllowedRootP
     }
 
     return null;
+}
+
+static async Task<(T? Value, IResult? Error)> ReadJsonBodyAsync<T>(
+    HttpContext context,
+    string codePrefix,
+    CancellationToken ct)
+{
+    if (context.Request.ContentLength is > 1_048_576)
+        return (default, ApiError(400, $"{codePrefix}-BODY-TOO-LARGE", "Request body too large (max 1MB)."));
+
+    string body;
+    try
+    {
+        using var reader = new StreamReader(context.Request.Body, Encoding.UTF8);
+        body = await reader.ReadToEndAsync(ct);
+    }
+    catch (IOException)
+    {
+        return (default, ApiError(400, $"{codePrefix}-READ-ERROR", "Failed to read request body."));
+    }
+
+    if (string.IsNullOrWhiteSpace(body))
+        return (default, ApiError(400, $"{codePrefix}-INVALID-JSON", "Invalid JSON."));
+
+    try
+    {
+        var value = JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        return value is null
+            ? (default, ApiError(400, $"{codePrefix}-INVALID-JSON", "Invalid JSON."))
+            : (value, null);
+    }
+    catch (JsonException)
+    {
+        return (default, ApiError(400, $"{codePrefix}-INVALID-JSON", "Invalid JSON."));
+    }
 }
 
 static IResult ApiError(

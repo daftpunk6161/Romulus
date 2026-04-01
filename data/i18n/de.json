@@ -662,6 +662,10 @@
   "Tool.CloneListViewer.Desc": "Clone-/Parent-Beziehungen",
   "Tool.VirtualFolderPreview": "Virtuelle Ordner",
   "Tool.VirtualFolderPreview.Desc": "Virtuelle Ordnerstruktur planen",
+  "Tool.CollectionDiff": "Collection Diff",
+  "Tool.CollectionDiff.Desc": "Zwei indexierte Sammlungen deterministisch vergleichen",
+  "Tool.CollectionMerge": "Collection Merge",
+  "Tool.CollectionMerge.Desc": "Einen auditierten Sammlungs-Merge planen und ausfuehren",
 
   "Tool.IntegrityMonitor": "Integritäts-Monitor",
   "Tool.IntegrityMonitor.Desc": "Baseline erstellen/prüfen",

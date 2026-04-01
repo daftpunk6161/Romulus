@@ -158,7 +158,14 @@ Status: abgeschlossen am `2026-04-01`
 ## R5 Collection Diff & Merge
 
 Ziel: Einen sicheren, auditierbaren Produktpfad fuer den Vergleich und das Zusammenfuehren mehrerer Sammlungen schaffen.
-Status: geplant, nach R4
+Status: in Arbeit seit `2026-04-01`
+
+### Letztes Update (2026-04-01)
+
+- Compare-/Merge-Contracts liegen zentral in `RomCleanup.Contracts`.
+- `CollectionCompareService` materialisiert linke/rechte Quellen index-first mit Root-/Fingerprint-Guards statt neuer Scanner-Schattenlogik.
+- Die Diff-Klassifikation ist produktiv auf `CollectionIndexEntry`, `CollectionIndexCandidateMapper` und `DeduplicationEngine.SelectWinner` aufgebaut.
+- Bestehende Analysis-/Export-Pfade nutzen denselben Materializer weiter; Compare-/Scope-Regressionen sind ergaenzt.
 
 ### Release-Track
 
@@ -177,9 +184,9 @@ Status: geplant, nach R4
 
 ### Arbeitspakete
 
-- [ ] Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell definieren
-- [ ] Source-Scope-Materialisierung index-first verdrahten
-- [ ] Diff-Engine auf bestehende Winner-Selection setzen
+- [x] Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell definieren
+- [x] Source-Scope-Materialisierung index-first verdrahten
+- [x] Diff-Engine auf bestehende Winner-Selection setzen
 - [ ] Merge-Planer mit Safety- und Conflict-Regeln anbinden
 - [ ] Merge-Execute, Audit und Rollback ueber bestehende Infrastruktur verdrahten
 - [ ] GUI-, CLI- und API-Oberflaechen ohne Schattenlogik anbinden

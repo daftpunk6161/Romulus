@@ -104,6 +104,12 @@ internal static class Program
                 case CliCommand.Workflows:
                     return SubcommandWorkflows(result.Options!);
 
+                case CliCommand.Diff:
+                    return SubcommandDiff(result.Options!);
+
+                case CliCommand.Merge:
+                    return SubcommandMerge(result.Options!);
+
                 case CliCommand.Compare:
                     return SubcommandCompare(result.Options!);
 
@@ -434,15 +440,16 @@ internal static class Program
         var signing = new AuditSigningService(fs, keyFilePath: keyPath);
 
         // Derive allowed roots from audit CSV — same roots that were used in the original run
-        var roots = DeriveRootsFromAudit(auditPath);
+        var rootSet = AuditRollbackRootResolver.Resolve(auditPath);
+        var roots = rootSet.RestoreRoots.ToArray();
         if (roots.Length == 0)
         {
             SafeErrorWriteLine("[Error] Could not determine root paths from audit file.");
             return 1;
         }
 
-        // Current roots: original roots + trash paths (files may be in trash now)
-        var currentRoots = roots.ToList();
+        // Current roots: original roots + current audit metadata + trash paths (files may be in trash now)
+        var currentRoots = rootSet.CurrentRoots.ToList();
         if (!string.IsNullOrWhiteSpace(cliOpts.TrashRoot))
             currentRoots.Add(cliOpts.TrashRoot);
         // Also add default trash folders within each root
@@ -756,6 +763,122 @@ internal static class Program
 
         SafeStandardWriteLine(JsonSerializer.Serialize(workflow, new JsonSerializerOptions { WriteIndented = true }));
         return 0;
+    }
+
+    private static int SubcommandDiff(CliRunOptions opts)
+    {
+        using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
+        return WriteCollectionDiff(opts, collectionIndex, new FileSystemAdapter());
+    }
+
+    internal static int DiffForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem)
+        => WriteCollectionDiff(opts, collectionIndex, fileSystem);
+
+    private static int WriteCollectionDiff(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(opts);
+        ArgumentNullException.ThrowIfNull(collectionIndex);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
+        var build = CollectionCompareService.CompareAsync(
+            collectionIndex,
+            fileSystem,
+            BuildCollectionCompareRequest(opts)).GetAwaiter().GetResult();
+        if (!build.CanUse || build.Result is null)
+        {
+            SafeErrorWriteLine($"[Error] Collection diff unavailable: {build.Reason}");
+            return 1;
+        }
+
+        var json = JsonSerializer.Serialize(build.Result, new JsonSerializerOptions { WriteIndented = true });
+        if (!string.IsNullOrWhiteSpace(opts.OutputPath))
+        {
+            File.WriteAllText(opts.OutputPath, json);
+            SafeErrorWriteLine($"[Diff] JSON written to {opts.OutputPath}");
+            return 0;
+        }
+
+        SafeStandardWriteLine(json);
+        return 0;
+    }
+
+    private static int SubcommandMerge(CliRunOptions opts)
+    {
+        if (opts.MergeApply && IsNonInteractiveExecution() && !opts.Yes)
+        {
+            SafeErrorWriteLine("[Error] Non-interactive merge apply requires --yes confirmation.");
+            return 3;
+        }
+
+        using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
+        var fileSystem = new FileSystemAdapter();
+        var auditStore = new AuditCsvStore(fileSystem, SafeErrorWriteLine);
+        return WriteCollectionMerge(opts, collectionIndex, fileSystem, auditStore);
+    }
+
+    internal static int MergeForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem, IAuditStore auditStore)
+        => WriteCollectionMerge(opts, collectionIndex, fileSystem, auditStore);
+
+    private static int WriteCollectionMerge(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem, IAuditStore auditStore)
+    {
+        ArgumentNullException.ThrowIfNull(opts);
+        ArgumentNullException.ThrowIfNull(collectionIndex);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(auditStore);
+
+        var mergeRequest = BuildCollectionMergeRequest(opts);
+        if (!opts.MergeApply)
+        {
+            var build = CollectionMergeService.BuildPlanAsync(collectionIndex, fileSystem, mergeRequest).GetAwaiter().GetResult();
+            if (!build.CanUse || build.Plan is null)
+            {
+                SafeErrorWriteLine($"[Error] Collection merge plan unavailable: {build.Reason}");
+                return 1;
+            }
+
+            var json = JsonSerializer.Serialize(build.Plan, new JsonSerializerOptions { WriteIndented = true });
+            if (!string.IsNullOrWhiteSpace(opts.OutputPath))
+            {
+                File.WriteAllText(opts.OutputPath, json);
+                SafeErrorWriteLine($"[Merge] Plan JSON written to {opts.OutputPath}");
+                return 0;
+            }
+
+            SafeStandardWriteLine(json);
+            return 0;
+        }
+
+        var applyResult = CollectionMergeService.ApplyAsync(
+            collectionIndex,
+            fileSystem,
+            auditStore,
+            new CollectionMergeApplyRequest
+            {
+                MergeRequest = mergeRequest,
+                AuditPath = opts.AuditPath ?? CollectionMergeService.CreateDefaultAuditPath(mergeRequest.TargetRoot)
+            }).GetAwaiter().GetResult();
+
+        if (!string.IsNullOrWhiteSpace(applyResult.BlockedReason))
+        {
+            SafeErrorWriteLine($"[Error] Collection merge apply unavailable: {applyResult.BlockedReason}");
+            return 1;
+        }
+
+        var jsonResult = JsonSerializer.Serialize(applyResult, new JsonSerializerOptions { WriteIndented = true });
+        if (!string.IsNullOrWhiteSpace(opts.OutputPath))
+        {
+            File.WriteAllText(opts.OutputPath, jsonResult);
+            SafeErrorWriteLine($"[Merge] Apply JSON written to {opts.OutputPath}");
+        }
+        else
+        {
+            SafeStandardWriteLine(jsonResult);
+        }
+
+        if (!string.IsNullOrWhiteSpace(applyResult.AuditPath))
+            SafeErrorWriteLine($"[Merge] Audit: {applyResult.AuditPath}");
+
+        return applyResult.Summary.Failed > 0 ? 1 : 0;
     }
 
     private static int SubcommandCompare(CliRunOptions opts)
@@ -1094,60 +1217,52 @@ internal static class Program
         return 0;
     }
 
+    private static CollectionCompareRequest BuildCollectionCompareRequest(CliRunOptions opts)
+    {
+        var extensions = opts.Extensions.Count == 0
+            ? RunOptions.DefaultExtensions
+            : opts.Extensions.OrderBy(static extension => extension, StringComparer.OrdinalIgnoreCase).ToArray();
+
+        return new CollectionCompareRequest
+        {
+            Left = new CollectionSourceScope
+            {
+                SourceId = "left",
+                Label = string.IsNullOrWhiteSpace(opts.LeftLabel) ? "Left" : opts.LeftLabel.Trim(),
+                Roots = opts.LeftRoots,
+                Extensions = extensions
+            },
+            Right = new CollectionSourceScope
+            {
+                SourceId = "right",
+                Label = string.IsNullOrWhiteSpace(opts.RightLabel) ? "Right" : opts.RightLabel.Trim(),
+                Roots = opts.RightRoots,
+                Extensions = extensions
+            },
+            Offset = opts.CollectionOffset,
+            Limit = opts.CollectionLimit ?? 500
+        };
+    }
+
+    private static CollectionMergeRequest BuildCollectionMergeRequest(CliRunOptions opts)
+        => new()
+        {
+            CompareRequest = BuildCollectionCompareRequest(opts),
+            TargetRoot = Path.GetFullPath(opts.TargetRoot!),
+            AllowMoves = opts.AllowMoves
+        };
+
     /// <summary>
     /// Extract unique root paths from the first column of an audit CSV.
     /// </summary>
     private static string[] DeriveRootsFromAudit(string auditCsvPath)
     {
-        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            foreach (var line in File.ReadLines(auditCsvPath).Skip(1)) // skip header
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var rootField = ExtractFirstCsvField(line);
-                if (!string.IsNullOrWhiteSpace(rootField) && Directory.Exists(rootField))
-                    roots.Add(rootField);
-            }
-        }
-        catch (IOException) { /* best-effort */ }
-        return roots.ToArray();
+        return AuditRollbackRootResolver.Resolve(auditCsvPath).RestoreRoots.ToArray();
     }
 
     /// <summary>BUG-10: Extract first CSV field with RFC-4180 quoting support.</summary>
     internal static string ExtractFirstCsvField(string line)
-    {
-        if (string.IsNullOrEmpty(line)) return "";
-
-        if (line[0] == '"')
-        {
-            // Quoted field — find matching close-quote (escaped "" inside)
-            var sb = new System.Text.StringBuilder();
-            for (int i = 1; i < line.Length; i++)
-            {
-                if (line[i] == '"')
-                {
-                    if (i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        sb.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                else
-                {
-                    sb.Append(line[i]);
-                }
-            }
-            return sb.ToString();
-        }
-
-        var firstComma = line.IndexOf(',');
-        return firstComma <= 0 ? line.Trim() : line[..firstComma].Trim();
-    }
+        => AuditRollbackRootResolver.ExtractFirstCsvField(line);
 
     internal static int RunForTests(CliRunOptions opts)
     {

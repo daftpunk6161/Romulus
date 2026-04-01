@@ -98,12 +98,12 @@ Die Detailarbeit wird in den verlinkten Release-Plaenen verfolgt.
   Reproduzierbare Accessibility-Smokes sind automatisiert; der echte Narrator-Spot-Check bleibt dokumentierter Operator-Schritt.
 - [x] R4-T06 Release-Check, Changelog-Hygiene und offene Produktkanten sauber schneiden
   R4 ist repo-seitig geschlossen; naechster aktive Block ist `R5 Collection Diff & Merge`.
-- [ ] R5-T01 Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell festziehen
-  Collection Diff & Merge startet mit einem kanalneutralen Fachvertrag statt mit UI- oder CLI-Sonderwegen.
-- [ ] R5-T02 Source-Scope-Materialisierung auf Collection Index und Candidate-Resolver setzen
-  Compare und Merge lesen dieselbe Sammlungswahrheit wie Analyse, Export und Completeness.
-- [ ] R5-T03 Diff-Engine auf Basis vorhandener Hash-, Candidate- und Winner-Regeln bauen
-  Unterschiede und Gewinner werden ueber dieselben Kernregeln entschieden wie in der Deduplizierung.
+- [x] R5-T01 Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell festziehen
+  `CollectionCompareRequest`, `CollectionDiffEntry`, `CollectionMergePlan` und ihre Summary-/Decision-Modelle liegen jetzt zentral in `RomCleanup.Contracts`.
+- [x] R5-T02 Source-Scope-Materialisierung auf Collection Index und Candidate-Resolver setzen
+  `CollectionCompareService` materialisiert explizite Quellen index-first mit Root-/Fingerprint-Guards und haengt den bestehenden Analysis-/Export-Pfad daran.
+- [x] R5-T03 Diff-Engine auf Basis vorhandener Hash-, Candidate- und Winner-Regeln bauen
+  Compare nutzt `CollectionIndexCandidateMapper` plus `DeduplicationEngine.SelectWinner`, deckt `only-in-*`, `identical`, `different`, `preferred` und `review-required` ab und bleibt deterministisch paginierbar.
 - [ ] R5-T04 Merge-Planer mit Safety-, Conflict- und Review-Regeln integrieren
   Aus dem Diff wird ein kontrollierter, review-faehiger Merge-Plan.
 - [ ] R5-T05 Merge-Execute, Audit und Rollback ueber bestehende mutierende Infrastruktur anbinden

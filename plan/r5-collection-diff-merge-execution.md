@@ -4,6 +4,15 @@ Stand: 2026-04-01
 
 Ziel: Einen kontrollierten Produktpfad fuer den Vergleich und das sichere Zusammenfuehren mehrerer Sammlungen schaffen, ohne neue Schattenlogik neben Collection Index, Dedup-Engine, Audit und Rollback aufzubauen.
 
+## Letztes Update (2026-04-01)
+
+- `R5-T01` ist abgeschlossen: kanalneutrale Compare-/Merge-Contracts liegen jetzt in `RomCleanup.Contracts`.
+- Der Modellraum baut direkt auf `CollectionIndexEntry` auf statt auf einem zweiten Compare-Candidate-Modell.
+- Diff- und Merge-Summaries sind zentral ableitbar, damit GUI/CLI/API spaeter nicht jeweils eigene Zaehlwege bauen.
+- `R5-T02` ist abgeschlossen: `CollectionCompareService` materialisiert explizite Quellen index-first mit Root-/Fingerprint-Guards und speist damit bestehende Analysis-/Export-Pfade.
+- `R5-T03` ist abgeschlossen: Compare klassifiziert `only-in-*`, `identical`, `different`, `preferred` und `review-required` deterministisch auf Basis von `CollectionIndexEntry`, `CollectionIndexCandidateMapper` und `DeduplicationEngine.SelectWinner`.
+- Neue Regressionen decken Materialisierung, Compare-Status, unresolved-alias-review, Fingerprint-Guards sowie den weiterverwendeten Export-/Analysis-Pfad ab.
+
 ## Nicht-Scope
 
 - Kein Cloud- oder Sync-Produkt
@@ -13,7 +22,7 @@ Ziel: Einen kontrollierten Produktpfad fuer den Vergleich und das sichere Zusamm
 
 ## Tickets
 
-### [ ] R5-T01 Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell festziehen
+### [x] R5-T01 Compare-Vertrag, Diff-Zustaende und Merge-Plan-Modell festziehen
 
 Ziel: Das gemeinsame Fachmodell definieren, bevor GUI/CLI/API eigene Sichtmodelle aufbauen.
 
@@ -30,7 +39,7 @@ Akzeptanz:
 Abhaengigkeiten:
 - R4 abgeschlossen
 
-### [ ] R5-T02 Gemeinsame Source-Scope-Materialisierung auf Collection Index und Candidate-Resolver setzen
+### [x] R5-T02 Gemeinsame Source-Scope-Materialisierung auf Collection Index und Candidate-Resolver setzen
 
 Ziel: Den Compare-Pfad aus derselben Sammlungswahrheit speisen wie Analyse, Export und Completeness.
 
@@ -47,7 +56,7 @@ Akzeptanz:
 Abhaengigkeiten:
 - R5-T01
 
-### [ ] R5-T03 Diff-Engine auf Basis vorhandener Hash-, Candidate- und Winner-Regeln bauen
+### [x] R5-T03 Diff-Engine auf Basis vorhandener Hash-, Candidate- und Winner-Regeln bauen
 
 Ziel: Unterschiede fachlich korrekt klassifizieren, statt nur Dateilisten zu vergleichen.
 

@@ -222,52 +222,34 @@ public static class CollectionAnalysisService
         ArgumentNullException.ThrowIfNull(roots);
         ArgumentNullException.ThrowIfNull(extensions);
 
-        if (collectionIndex is null)
-            return ScopedCandidateLoadResult.Unavailable("collection index unavailable");
-
-        if (string.IsNullOrWhiteSpace(enrichmentFingerprint))
-            return ScopedCandidateLoadResult.Unavailable("missing enrichment fingerprint");
-
-        var normalizedExtensions = extensions
-            .Where(static extension => !string.IsNullOrWhiteSpace(extension))
-            .Select(static extension =>
+        var materialized = await CollectionCompareService.TryMaterializeSourceAsync(
+            collectionIndex,
+            fileSystem,
+            new CollectionSourceScope
             {
-                var trimmed = extension.Trim();
-                return trimmed.StartsWith('.')
-                    ? trimmed
-                    : "." + trimmed;
-            })
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+                SourceId = "scope",
+                Label = "Scope",
+                Roots = roots.ToArray(),
+                Extensions = extensions.ToArray(),
+                EnrichmentFingerprint = enrichmentFingerprint ?? string.Empty
+            },
+            ct).ConfigureAwait(false);
 
-        var scopedEntries = await collectionIndex.ListEntriesInScopeAsync(roots, normalizedExtensions, ct).ConfigureAwait(false);
-        var scopedPaths = EnumerateScopedPaths(fileSystem, roots, normalizedExtensions);
+        if (!materialized.CanUse)
+        {
+            if (!string.IsNullOrWhiteSpace(enrichmentFingerprint)
+                && materialized.Reason is not null
+                && materialized.Reason.Contains("mixed enrichment fingerprints", StringComparison.OrdinalIgnoreCase))
+            {
+                return ScopedCandidateLoadResult.Unavailable("collection index fingerprint mismatch");
+            }
 
-        if (scopedEntries.Count == 0 && scopedPaths.Count == 0)
-            return ScopedCandidateLoadResult.Success([], ScopedCandidateSources.EmptyScope);
+            return ScopedCandidateLoadResult.Unavailable(materialized.Reason ?? "collection index unavailable");
+        }
 
-        if (scopedEntries.Count == 0)
-            return ScopedCandidateLoadResult.Unavailable("collection index has no entries for current scope");
-
-        if (scopedEntries.Any(entry => !string.Equals(entry.EnrichmentFingerprint, enrichmentFingerprint, StringComparison.Ordinal)))
-            return ScopedCandidateLoadResult.Unavailable("collection index fingerprint mismatch");
-
-        if (scopedEntries.Count != scopedPaths.Count)
-            return ScopedCandidateLoadResult.Unavailable("collection index scope does not match filesystem");
-
-        var entryPathSet = scopedEntries
-            .Select(static entry => Path.GetFullPath(entry.Path))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        if (!scopedPaths.SetEquals(entryPathSet))
-            return ScopedCandidateLoadResult.Unavailable("collection index scope does not match filesystem");
-
-        var candidates = scopedEntries
-            .OrderBy(static entry => entry.Path, StringComparer.OrdinalIgnoreCase)
-            .Select(CollectionIndexCandidateMapper.ToCandidate)
-            .ToArray();
-
-        return ScopedCandidateLoadResult.Success(candidates, ScopedCandidateSources.CollectionIndex);
+        return ScopedCandidateLoadResult.Success(
+            CollectionCompareService.MaterializeCandidates(materialized.Entries),
+            materialized.Source);
     }
 
     public static string ExportRetroArchPlaylist(IReadOnlyList<RomCandidate> winners, string playlistName,
@@ -346,21 +328,6 @@ public static class CollectionAnalysisService
         => !string.IsNullOrWhiteSpace(consoleKey)
            && !string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
            && !string.Equals(consoleKey, "AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
-
-    private static HashSet<string> EnumerateScopedPaths(
-        IFileSystem fileSystem,
-        IReadOnlyList<string> roots,
-        IReadOnlyCollection<string> extensions)
-    {
-        var scopedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in roots)
-        {
-            foreach (var path in fileSystem.GetFilesSafe(root, extensions))
-                scopedPaths.Add(Path.GetFullPath(path));
-        }
-
-        return scopedPaths;
-    }
 }
 
 public sealed record ScopedCandidateLoadResult(
@@ -378,7 +345,7 @@ public sealed record ScopedCandidateLoadResult(
 
 public static class ScopedCandidateSources
 {
-    public const string CollectionIndex = "collection-index";
-    public const string EmptyScope = "empty-scope";
-    public const string FallbackRun = "fallback-run";
+    public const string CollectionIndex = CollectionMaterializationSources.CollectionIndex;
+    public const string EmptyScope = CollectionMaterializationSources.EmptyScope;
+    public const string FallbackRun = CollectionMaterializationSources.FallbackRun;
 }

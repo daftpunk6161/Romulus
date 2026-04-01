@@ -159,6 +159,8 @@ public sealed class ToolsViewModel : ObservableObject
             ("CollectionManager",  "Collection",     "\xE8F1", true),
             ("CloneListViewer",    "Collection",     "\xE8B9", true),
             ("VirtualFolderPreview","Collection",    "\xE8B7", true),
+            ("CollectionDiff",     "Collection",     "\xE8AB", false),
+            ("CollectionMerge",    "Collection",     "\xE71D", false),
 
             // Security
             ("IntegrityMonitor",   "Security",       "\xE72E", true),

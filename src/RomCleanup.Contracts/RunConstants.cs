@@ -65,6 +65,7 @@ public static class RunConstants
     /// </summary>
     public static class AuditActions
     {
+        public const string Copy = "COPY";
         public const string Move = "MOVE";
         public const string Moved = "MOVED";
         public const string MoveFailed = "MOVE_FAILED";
