@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Conversion.ToolInvokers;
 
@@ -81,6 +82,22 @@ public sealed class ToolRunnerAdapter : IToolRunner
                 Path.Combine(programFilesX86, "ciso", "ciso.exe"),
                 Path.Combine(programFiles, "ciso.exe"),
             },
+            "unecm" => new[]
+            {
+                Path.Combine(localAppData, "RomCleanup", "tools", "unecm.exe"),
+                Path.Combine(localAppData, "RomCleanup", "tools", "ecm", "unecm.exe"),
+                Path.Combine(programFiles, "ecm", "unecm.exe"),
+                Path.Combine(programFilesX86, "ecm", "unecm.exe"),
+                Path.Combine(programFiles, "unecm.exe"),
+            },
+            "nkit" => new[]
+            {
+                Path.Combine(localAppData, "RomCleanup", "tools", "NKit", "NKitProcessingApp.exe"),
+                Path.Combine(localAppData, "RomCleanup", "tools", "NKitProcessingApp.exe"),
+                Path.Combine(programFiles, "NKit", "NKitProcessingApp.exe"),
+                Path.Combine(programFilesX86, "NKit", "NKitProcessingApp.exe"),
+                Path.Combine(programFiles, "NKitProcessingApp.exe"),
+            },
             _ => Array.Empty<string>()
         };
 
@@ -100,7 +117,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
 
     public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null)
     {
-        return InvokeProcess(filePath, arguments, errorLabel, timeout: null, cancellationToken: CancellationToken.None);
+        return InvokeProcess(filePath, arguments, requirement: null, errorLabel, timeout: null, cancellationToken: CancellationToken.None);
     }
 
     public ToolResult InvokeProcess(
@@ -110,12 +127,23 @@ public sealed class ToolRunnerAdapter : IToolRunner
         TimeSpan? timeout,
         CancellationToken cancellationToken)
     {
+        return InvokeProcess(filePath, arguments, requirement: null, errorLabel, timeout, cancellationToken);
+    }
+
+    public ToolResult InvokeProcess(
+        string filePath,
+        string[] arguments,
+        ToolRequirement? requirement,
+        string? errorLabel,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+    {
         var label = errorLabel ?? "Tool";
 
         if (!File.Exists(filePath))
             return new ToolResult(-1, $"{label}: executable not found at '{filePath}'", false);
 
-        if (!VerifyToolHash(filePath))
+        if (!VerifyToolHash(filePath, requirement))
             return new ToolResult(-1, $"{label}: hash verification failed for '{filePath}'", false);
 
         return RunProcess(filePath, arguments, label, timeout, cancellationToken);
@@ -126,7 +154,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (!File.Exists(sevenZipPath))
             return new ToolResult(-1, "7z: executable not found", false);
 
-        if (!VerifyToolHash(sevenZipPath))
+        if (!VerifyToolHash(sevenZipPath, requirement: null))
             return new ToolResult(-1, "7z: hash verification failed", false);
 
         return RunProcess(sevenZipPath, arguments, "7z", timeout: null, cancellationToken: CancellationToken.None);
@@ -213,25 +241,25 @@ public sealed class ToolRunnerAdapter : IToolRunner
         }
     }
 
-    private bool VerifyToolHash(string toolPath)
+    private bool VerifyToolHash(string toolPath, ToolRequirement? requirement)
     {
         if (_allowInsecureHashBypass)
             return true;
 
-        if (_toolHashesPath is null || !File.Exists(_toolHashesPath))
+        var fileName = Path.GetFileName(toolPath).ToLowerInvariant();
+        string? expectedHash = null;
+
+        if (_toolHashesPath is not null && File.Exists(_toolHashesPath))
         {
-            _log?.Invoke(
-                $"[SECURITY] tool-hashes.json nicht gefunden — blockiere Tool-Ausfuehrung fuer {Path.GetFileName(toolPath)}. " +
-                "Lege die Datei data/tool-hashes.json mit den erwarteten SHA256-Checksummen der externen Tools an (siehe Repository-Dokumentation/CI-Artefakte), " +
-                "oder aktiviere explizit den unsicheren Bypass (allowInsecureHashBypass / AllowInsecureToolHashBypass) NUR fuer lokale Entwicklungs-Workflows.");
-            return false;
+            EnsureToolHashesLoaded();
+            if (_toolHashes is not null && _toolHashes.TryGetValue(fileName, out var configuredHash))
+                expectedHash = configuredHash;
         }
 
-        EnsureToolHashesLoaded();
+        if (string.IsNullOrWhiteSpace(expectedHash) && !string.IsNullOrWhiteSpace(requirement?.ExpectedHash))
+            expectedHash = requirement.ExpectedHash;
 
-        var fileName = Path.GetFileName(toolPath).ToLowerInvariant();
-
-        if (_toolHashes is null || !_toolHashes.TryGetValue(fileName, out var expectedHash))
+        if (string.IsNullOrWhiteSpace(expectedHash))
         {
             _log?.Invoke($"[SECURITY] Kein erwarteter Hash fuer {fileName} gefunden — blockiere Tool-Ausfuehrung");
             return false;

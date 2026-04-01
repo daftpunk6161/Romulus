@@ -171,6 +171,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
         ConvertFormat = run.ConvertFormat;
         ConvertOnly = run.ConvertOnly;
         ApproveReviews = run.ApproveReviews;
+        ApproveConversionReview = run.ApproveConversionReview;
         TrashRoot = run.TrashRoot;
         ConflictPolicy = run.ConflictPolicy;
     }
@@ -192,6 +193,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
     public string? ConvertFormat { get; }
     public bool ConvertOnly { get; }
     public bool ApproveReviews { get; }
+    public bool ApproveConversionReview { get; }
     public string? TrashRoot { get; }
     public string ConflictPolicy { get; }
 }
@@ -249,6 +251,7 @@ public sealed class RunRequest
     public string? ConvertFormat { get; set; }
     public bool ConvertOnly { get; set; }
     public bool ApproveReviews { get; set; }
+    public bool ApproveConversionReview { get; set; }
     public string? ConflictPolicy { get; set; }
     public string? TrashRoot { get; set; }
     public string[]? Extensions { get; set; }
@@ -297,6 +300,7 @@ public sealed class RunRecord
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
+    public bool ApproveConversionReview { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
     [JsonIgnore]
     public string? TrashRoot { get; init; }
@@ -635,6 +639,7 @@ public sealed class RunStatusDto
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
+    public bool ApproveConversionReview { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
     public string[] Extensions { get; init; } = Array.Empty<string>();
     public DateTime StartedUtc { get; init; }
@@ -676,6 +681,7 @@ public static class RunStatusDtoMapper
             ConvertFormat = run.ConvertFormat,
             ConvertOnly = run.ConvertOnly,
             ApproveReviews = run.ApproveReviews,
+            ApproveConversionReview = run.ApproveConversionReview,
             ConflictPolicy = run.ConflictPolicy,
             Extensions = run.Extensions,
             StartedUtc = run.StartedUtc,

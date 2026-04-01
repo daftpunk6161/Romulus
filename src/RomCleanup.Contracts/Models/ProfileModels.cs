@@ -21,6 +21,7 @@ public sealed record RunProfileSettings
     public string? ConvertFormat { get; init; }
     public bool? ConvertOnly { get; init; }
     public bool? ApproveReviews { get; init; }
+    public bool? ApproveConversionReview { get; init; }
     public string? ConflictPolicy { get; init; }
     public string? TrashRoot { get; init; }
     public string? Mode { get; init; }

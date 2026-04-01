@@ -45,6 +45,7 @@ public sealed class PsxtractInvoker(IToolRunner tools) : IToolInvoker
         var result = _tools.InvokeProcess(
             toolPath,
             [commandToken, "-i", sourcePath, "-o", targetPath],
+            capability.Tool,
             "psxtract",
             ToolInvokerSupport.ResolveToolTimeout("psxtract"),
             cancellationToken);

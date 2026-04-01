@@ -956,7 +956,7 @@ internal static class Program
             return 1;
         }
 
-        using var service = StandaloneConversionService.Create(inputPath, SafeErrorWriteLine);
+        using var service = StandaloneConversionService.Create(inputPath, opts.ApproveConversionReview, SafeErrorWriteLine);
         if (service is null)
         {
             SafeErrorWriteLine("[Error] No converter available.");

@@ -10,7 +10,7 @@ public static class SourceIntegrityClassifier
     private static readonly HashSet<string> LosslessExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".cue", ".bin", ".iso", ".img", ".gdi", ".gcm", ".wbfs", ".gcz", ".wia", ".wud",
-        ".chd", ".rvz", ".nsp", ".xci"
+        ".chd", ".rvz", ".nsp", ".xci", ".ecm"
     };
 
     private static readonly HashSet<string> LossyExtensions = new(StringComparer.OrdinalIgnoreCase)

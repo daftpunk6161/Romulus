@@ -448,23 +448,23 @@ public sealed partial class MainViewModel
             _loc["Dialog.ConfirmMove.BtnConfirm"]);
     }
 
-    private async Task<bool> ConfirmConversionReviewDialogAsync(RunOptions runOptions, CancellationToken cancellationToken)
+    private async Task<(bool Proceed, bool ApproveConversionReview)> ConfirmConversionReviewDialogAsync(RunOptions runOptions, CancellationToken cancellationToken)
     {
         if (DryRun || runOptions.ConvertFormat is null)
-            return true;
+            return (true, false);
 
         if (runOptions.Mode != RunConstants.ModeMove && !runOptions.ConvertOnly)
-            return true;
+            return (true, false);
 
         if (runOptions.ConvertOnly)
-            return true;
+            return (true, false);
 
         if (LastDedupeGroups.Count == 0)
-            return true;
+            return (true, false);
 
         var reviewEntries = await Task.Run(() => BuildConversionReviewEntries(runOptions, cancellationToken), cancellationToken);
         if (reviewEntries.Count == 0)
-            return true;
+            return (true, false);
 
         var summary = _loc["Dialog.ConfirmConversion.Summary"];
 
@@ -476,7 +476,7 @@ public sealed partial class MainViewModel
         if (!confirmed)
             AddLog(_loc["Log.ConversionCancelled"], "WARN");
 
-        return confirmed;
+        return (confirmed, confirmed);
     }
 
     private Task<bool> ConfirmDatRenamePreviewDialogAsync(RunOptions runOptions, CancellationToken cancellationToken)
@@ -940,11 +940,16 @@ public sealed partial class MainViewModel
                 });
             }, ct);
 
-            if (!await ConfirmConversionReviewDialogAsync(runOptions, ct))
+            var conversionReviewDecision = await ConfirmConversionReviewDialogAsync(runOptions, ct);
+            if (!conversionReviewDecision.Proceed)
             {
                 CurrentRunState = RunState.Idle;
                 return;
             }
+
+            runOptions = RunOptionsBuilder.WithApproveConversionReview(
+                runOptions,
+                conversionReviewDecision.ApproveConversionReview);
 
             if (!await ConfirmDatRenamePreviewDialogAsync(runOptions, ct))
             {

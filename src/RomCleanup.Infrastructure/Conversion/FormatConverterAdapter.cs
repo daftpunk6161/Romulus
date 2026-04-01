@@ -15,6 +15,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
     private readonly IConversionRegistry? _registry;
     private readonly IConversionPlanner? _planner;
     private readonly IConversionExecutor? _executor;
+    private readonly bool _allowReviewRequiredPlans;
 
     private readonly ChdmanToolConverter _chdman;
     private readonly DolphinToolConverter _dolphin;
@@ -91,14 +92,14 @@ public sealed class FormatConverterAdapter : IFormatConverter
     /// Creates a FormatConverterAdapter with default format mappings.
     /// </summary>
     public FormatConverterAdapter(IToolRunner tools)
-        : this(tools, null, null, null) { }
+        : this(tools, null, null, null, null, false) { }
 
     /// <summary>
     /// Creates a FormatConverterAdapter with optional custom format mappings.
     /// Falls back to <see cref="DefaultBestFormats"/> when <paramref name="bestFormats"/> is null.
     /// </summary>
     public FormatConverterAdapter(IToolRunner tools, IReadOnlyDictionary<string, ConversionTarget>? bestFormats)
-        : this(tools, bestFormats, null, null)
+        : this(tools, bestFormats, null, null, null, false)
     {
     }
 
@@ -110,13 +111,15 @@ public sealed class FormatConverterAdapter : IFormatConverter
         IReadOnlyDictionary<string, ConversionTarget>? bestFormats,
         IConversionRegistry? registry,
         IConversionPlanner? planner,
-        IConversionExecutor? executor)
+        IConversionExecutor? executor,
+        bool allowReviewRequiredPlans = false)
     {
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
         _bestFormats = bestFormats ?? DefaultBestFormats;
         _registry = registry;
         _planner = planner;
         _executor = executor;
+        _allowReviewRequiredPlans = allowReviewRequiredPlans;
         _chdman = new ChdmanToolConverter(tools);
         _dolphin = new DolphinToolConverter(tools);
         _sevenZip = new SevenZipToolConverter(tools);
@@ -127,8 +130,9 @@ public sealed class FormatConverterAdapter : IFormatConverter
         IToolRunner tools,
         IReadOnlyDictionary<string, ConversionTarget>? bestFormats,
         IConversionRegistry? registry,
-        IConversionExecutor? executor)
-        : this(tools, bestFormats, registry, null, executor)
+        IConversionExecutor? executor,
+        bool allowReviewRequiredPlans = false)
+        : this(tools, bestFormats, registry, null, executor, allowReviewRequiredPlans)
     {
     }
 
@@ -168,7 +172,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (toolPath is null)
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, $"tool-not-found:{target.ToolName}");
 
-        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var sourceExt = SourcePathFormatDetector.ResolveSourceExtension(sourcePath);
         var dir = Path.GetDirectoryName(sourcePath)!;
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
         var targetPath = Path.Combine(dir, baseName + target.Extension);
@@ -210,7 +214,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (!File.Exists(sourcePath))
             return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "source-not-found");
 
-        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var sourceExt = SourcePathFormatDetector.ResolveSourceExtension(sourcePath);
 
         if (_planner is null || _executor is null)
         {
@@ -221,6 +225,18 @@ public sealed class FormatConverterAdapter : IFormatConverter
         }
 
         var plan = _planner.Plan(sourcePath, consoleKey, sourceExt);
+        if (plan.RequiresReview && !_allowReviewRequiredPlans)
+        {
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Blocked, "review-required")
+            {
+                Plan = plan,
+                SourceIntegrity = plan.SourceIntegrity,
+                Safety = plan.Safety,
+                VerificationResult = VerificationStatus.NotAttempted,
+                DurationMs = 0
+            };
+        }
+
         if (!plan.IsExecutable)
         {
             // Preserve legacy archive extraction behavior for disc systems when graph data has no archive edge.
@@ -257,7 +273,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (_planner is null || !File.Exists(sourcePath))
             return null;
 
-        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var sourceExt = SourcePathFormatDetector.ResolveSourceExtension(sourcePath);
         return _planner.Plan(sourcePath, consoleKey, sourceExt);
     }
 
@@ -278,7 +294,7 @@ public sealed class FormatConverterAdapter : IFormatConverter
         if (toolPath is null)
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped, $"tool-not-found:{target.ToolName}");
 
-        var sourceExt = Path.GetExtension(sourcePath).ToLowerInvariant();
+        var sourceExt = SourcePathFormatDetector.ResolveSourceExtension(sourcePath);
         var dir = Path.GetDirectoryName(sourcePath)!;
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
         var targetPath = Path.Combine(dir, baseName + target.Extension);
@@ -406,6 +422,18 @@ public sealed class FormatConverterAdapter : IFormatConverter
             SkipReason = null
         };
 
+        if (plan.RequiresReview && !_allowReviewRequiredPlans)
+        {
+            return new ConversionResult(sourcePath, null, ConversionOutcome.Blocked, "review-required")
+            {
+                Plan = plan,
+                SourceIntegrity = plan.SourceIntegrity,
+                Safety = plan.Safety,
+                VerificationResult = VerificationStatus.NotAttempted,
+                DurationMs = 0
+            };
+        }
+
         return _executor.Execute(plan, cancellationToken: cancellationToken);
     }
 
@@ -430,6 +458,8 @@ public sealed class FormatConverterAdapter : IFormatConverter
             ".chd" => _chdman.Verify(targetPath),
             ".rvz" => DolphinToolConverter.Verify(targetPath),
             ".zip" => _sevenZip.Verify(targetPath),
+            ".iso" => new FileInfo(targetPath).Length > 0,
+            ".bin" => new FileInfo(targetPath).Length > 0,
             _ => false
         };
     }

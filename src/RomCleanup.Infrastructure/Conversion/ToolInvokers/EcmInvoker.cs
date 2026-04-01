@@ -4,15 +4,15 @@ using RomCleanup.Contracts.Ports;
 
 namespace RomCleanup.Infrastructure.Conversion.ToolInvokers;
 
-public sealed class SevenZipInvoker(IToolRunner tools) : IToolInvoker
+public sealed class EcmInvoker(IToolRunner tools) : IToolInvoker
 {
     private readonly IToolRunner _tools = tools ?? throw new ArgumentNullException(nameof(tools));
 
     public bool CanHandle(ConversionCapability capability)
     {
         ArgumentNullException.ThrowIfNull(capability);
-        return string.Equals(capability.Tool.ToolName, "7z", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(capability.TargetExtension, ".zip", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(capability.Tool.ToolName, "unecm", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(capability.SourceExtension, ".ecm", StringComparison.OrdinalIgnoreCase);
     }
 
     public ToolInvocationResult Invoke(
@@ -30,9 +30,9 @@ public sealed class SevenZipInvoker(IToolRunner tools) : IToolInvoker
         if (!File.Exists(sourcePath))
             return ToolInvokerSupport.SourceNotFound();
 
-        var toolPath = _tools.FindTool("7z");
+        var toolPath = _tools.FindTool("unecm");
         if (string.IsNullOrWhiteSpace(toolPath))
-            return ToolInvokerSupport.ToolNotFound("7z");
+            return ToolInvokerSupport.ToolNotFound("unecm");
 
         var constraintError = ToolInvokerSupport.ValidateToolConstraints(toolPath, capability.Tool);
         if (constraintError is not null)
@@ -41,10 +41,10 @@ public sealed class SevenZipInvoker(IToolRunner tools) : IToolInvoker
         var watch = Stopwatch.StartNew();
         var result = _tools.InvokeProcess(
             toolPath,
-            ["a", "-tzip", "-y", targetPath, sourcePath],
+            [sourcePath, targetPath],
             capability.Tool,
-            "7z",
-            ToolInvokerSupport.ResolveToolTimeout("7z"),
+            "unecm",
+            ToolInvokerSupport.ResolveToolTimeout("unecm"),
             cancellationToken);
         watch.Stop();
 
@@ -56,14 +56,20 @@ public sealed class SevenZipInvoker(IToolRunner tools) : IToolInvoker
         ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
         ArgumentNullException.ThrowIfNull(capability);
 
-        if (!File.Exists(targetPath))
+        try
+        {
+            var info = new FileInfo(targetPath);
+            return info.Exists && info.Length > 0
+                ? VerificationStatus.Verified
+                : VerificationStatus.VerifyFailed;
+        }
+        catch (IOException)
+        {
             return VerificationStatus.VerifyFailed;
-
-        var sevenZipPath = _tools.FindTool("7z");
-        if (string.IsNullOrWhiteSpace(sevenZipPath))
-            return VerificationStatus.VerifyNotAvailable;
-
-        var result = _tools.InvokeProcess(sevenZipPath, ["t", "-y", targetPath], "7z verify");
-        return result.Success ? VerificationStatus.Verified : VerificationStatus.VerifyFailed;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return VerificationStatus.VerifyFailed;
+        }
     }
 }

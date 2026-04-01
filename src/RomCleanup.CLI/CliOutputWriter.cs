@@ -146,7 +146,7 @@ Subcommands:
   romulus integrity check                     Check files against baseline
   romulus history [--offset <n>] [--limit <n>] [-o <file>]
   romulus watch --roots <path> [--interval <min>|--cron <expr>]
-  romulus convert --input <file|dir> [--console PS1] [--target chd]
+  romulus convert --input <file|dir> [--console PS1] [--target chd] [--approve-conversion-review]
   romulus header --input <file>               Analyze ROM header
   romulus junk-report --roots <path> [--aggressive]
   romulus completeness --roots <path> [--dat-root <path>] [-o <file>]
@@ -179,6 +179,8 @@ Run Options:
   --convertformat        Convert winners to optimal format (CHD/RVZ/ZIP)
   --convertonly          Convert all candidates only (skip dedupe/move)
   --approve-reviews      Reuse persisted review approvals during the run
+  --approve-conversion-review
+                         Erlaubt review-pflichtige Conversion-Pfade (z.B. NKit)
   --conflictpolicy       Move conflict handling: Rename|Skip|Overwrite (default: Rename)
   --yes                  Confirm destructive Move in non-interactive runs
   --report <path>        Output HTML, CSV, or JSON report (.html, .csv, or .json)

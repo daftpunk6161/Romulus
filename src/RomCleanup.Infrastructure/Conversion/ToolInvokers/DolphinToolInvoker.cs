@@ -57,6 +57,7 @@ public sealed class DolphinToolInvoker(IToolRunner tools) : IToolInvoker
         var result = _tools.InvokeProcess(
             toolPath,
             args,
+            capability.Tool,
             "dolphintool",
             ToolInvokerSupport.ResolveToolTimeout("dolphintool"),
             cancellationToken);

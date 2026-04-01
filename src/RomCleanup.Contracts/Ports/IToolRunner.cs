@@ -11,10 +11,24 @@ public interface IToolRunner
     ToolResult InvokeProcess(
         string filePath,
         string[] arguments,
+        RomCleanup.Contracts.Models.ToolRequirement? requirement,
+        string? errorLabel = null)
+        => InvokeProcess(filePath, arguments, errorLabel);
+    ToolResult InvokeProcess(
+        string filePath,
+        string[] arguments,
         string? errorLabel,
         TimeSpan? timeout,
         CancellationToken cancellationToken)
         => InvokeProcess(filePath, arguments, errorLabel);
+    ToolResult InvokeProcess(
+        string filePath,
+        string[] arguments,
+        RomCleanup.Contracts.Models.ToolRequirement? requirement,
+        string? errorLabel,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+        => InvokeProcess(filePath, arguments, requirement, errorLabel);
     ToolResult Invoke7z(string sevenZipPath, string[] arguments);
 }
 

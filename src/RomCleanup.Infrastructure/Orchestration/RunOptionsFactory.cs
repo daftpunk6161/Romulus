@@ -21,6 +21,7 @@ public interface IRunOptionsSource
     string? ConvertFormat { get; }
     bool ConvertOnly { get; }
     bool ApproveReviews { get; }
+    bool ApproveConversionReview { get; }
     string? TrashRoot { get; }
     string ConflictPolicy { get; }
 }
@@ -55,6 +56,7 @@ public sealed class RunOptionsFactory : IRunOptionsFactory
             ConvertFormat = source.ConvertFormat,
             ConvertOnly = source.ConvertOnly,
             ApproveReviews = source.ApproveReviews,
+            ApproveConversionReview = source.ApproveConversionReview,
             TrashRoot = source.TrashRoot,
             AuditPath = auditPath,
             ReportPath = reportPath,

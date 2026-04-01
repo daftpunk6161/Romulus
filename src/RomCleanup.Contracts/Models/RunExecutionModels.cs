@@ -11,7 +11,7 @@ public sealed class RunOptions
     public static readonly string[] DefaultExtensions =
     {
         ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
-        ".rvz", ".gcz", ".wbfs", ".nsp", ".xci", ".nes", ".snes",
+        ".rvz", ".gcz", ".wbfs", ".ecm", ".nsp", ".xci", ".nes", ".snes",
         ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
         ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
         ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
@@ -34,6 +34,7 @@ public sealed class RunOptions
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
+    public bool ApproveConversionReview { get; init; }
     public string? TrashRoot { get; init; }
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }

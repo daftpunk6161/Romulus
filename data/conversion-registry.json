@@ -100,6 +100,20 @@
       "condition": "None"
     },
     {
+      "sourceExtension": ".ecm",
+      "targetExtension": ".bin",
+      "tool": { "toolName": "unecm" },
+      "command": "decompress",
+      "applicableConsoles": ["PS1", "SAT", "SCD", "PCECD", "NEOCD", "3DO", "JAGCD", "PCFX", "CD32", "CDI", "FMTOWNS"],
+      "requiredSourceIntegrity": null,
+      "resultIntegrity": "Lossless",
+      "lossless": true,
+      "cost": 5,
+      "verification": "FileExistenceCheck",
+      "description": "ECM decompression to BIN",
+      "condition": "None"
+    },
+    {
       "sourceExtension": ".cso",
       "targetExtension": ".iso",
       "tool": { "toolName": "ciso" },
@@ -125,6 +139,34 @@
       "cost": 20,
       "verification": "FileExistenceCheck",
       "description": "PBP extraction",
+      "condition": "None"
+    },
+    {
+      "sourceExtension": ".nkit.iso",
+      "targetExtension": ".iso",
+      "tool": { "toolName": "nkit", "expectedHash": "a11c934e551d9ed8db1ff32e0614e2a530c6214139c40d9c81b697061e8a3d5f" },
+      "command": "expand",
+      "applicableConsoles": ["GC", "WII"],
+      "requiredSourceIntegrity": null,
+      "resultIntegrity": "Lossy",
+      "lossless": false,
+      "cost": 25,
+      "verification": "FileExistenceCheck",
+      "description": "Expand NKit ISO to ISO for review-required follow-up conversion",
+      "condition": "None"
+    },
+    {
+      "sourceExtension": ".nkit.gcz",
+      "targetExtension": ".iso",
+      "tool": { "toolName": "nkit", "expectedHash": "a11c934e551d9ed8db1ff32e0614e2a530c6214139c40d9c81b697061e8a3d5f" },
+      "command": "expand",
+      "applicableConsoles": ["GC", "WII"],
+      "requiredSourceIntegrity": null,
+      "resultIntegrity": "Lossy",
+      "lossless": false,
+      "cost": 25,
+      "verification": "FileExistenceCheck",
+      "description": "Expand NKit GCZ to ISO for review-required follow-up conversion",
       "condition": "None"
     },
     {
@@ -225,6 +267,9 @@
     "iso_cso": 0.65,
     "wbfs_rvz": 0.45,
     "nkit_rvz": 0.50,
+    "nkit_iso_iso": 1.00,
+    "nkit_gcz_iso": 1.00,
+    "ecm_bin": 1.00,
     "gdi_chd": 0.50,
     "img_chd": 0.55
   }

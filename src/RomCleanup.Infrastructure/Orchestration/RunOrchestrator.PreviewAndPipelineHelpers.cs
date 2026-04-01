@@ -573,7 +573,10 @@ public sealed partial class RunOrchestrator
 
     private static void ApplyConversionReport(IReadOnlyList<ConversionResult> results, RunResultBuilder builder)
     {
-        var reviewCount = results.Count(r => r.Safety == ConversionSafety.Risky);
+        var reviewCount = results.Count(r =>
+            r.Plan?.RequiresReview == true
+            || r.Safety == ConversionSafety.Risky
+            || r.SourceIntegrity == SourceIntegrity.Lossy);
         var lossyWarningCount = results.Count(r => r.SourceIntegrity == SourceIntegrity.Lossy);
         var verifyPassedCount = results.Count(r => r.VerificationResult == VerificationStatus.Verified);
         var verifyFailedCount = results.Count(r => r.VerificationResult == VerificationStatus.VerifyFailed);

@@ -7,9 +7,10 @@ namespace RomCleanup.Infrastructure.Conversion;
 /// <summary>
 /// Executes planned conversion steps and emits enriched conversion results.
 /// </summary>
-public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers) : IConversionExecutor
+public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers, bool allowReviewRequiredPlans = false) : IConversionExecutor
 {
     private readonly IReadOnlyList<IToolInvoker> _invokers = (invokers ?? throw new ArgumentNullException(nameof(invokers))).ToArray();
+    private readonly bool _allowReviewRequiredPlans = allowReviewRequiredPlans;
 
     public ConversionResult Execute(
         ConversionPlan plan,
@@ -51,6 +52,18 @@ public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers) : ICo
                 null,
                 ConversionOutcome.Skipped,
                 plan.SkipReason ?? "plan-not-executable",
+                0,
+                VerificationStatus.NotAttempted,
+                totalWatch.ElapsedMilliseconds);
+        }
+
+        if (plan.RequiresReview && !_allowReviewRequiredPlans)
+        {
+            return BuildResult(
+                plan,
+                null,
+                ConversionOutcome.Blocked,
+                "review-required",
                 0,
                 VerificationStatus.NotAttempted,
                 totalWatch.ElapsedMilliseconds);

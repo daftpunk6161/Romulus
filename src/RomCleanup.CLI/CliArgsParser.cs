@@ -137,6 +137,11 @@ internal static class CliArgsParser
                     opts.ApproveReviewsExplicit = true;
                     break;
 
+                case "--approve-conversion-review":
+                    opts.ApproveConversionReview = true;
+                    opts.ApproveConversionReviewExplicit = true;
+                    break;
+
                 case "-conflictpolicy" or "--conflictpolicy":
                     if (!TryConsumeValue(args, ref i, "--conflictpolicy", errors, out var conflictPolicyVal))
                         break;
@@ -631,6 +636,10 @@ internal static class CliArgsParser
                     if (!TryConsumeValue(args, ref i, "--console", errors, out var consoleVal)) break;
                     opts.ConsoleKey = consoleVal;
                     break;
+                case "--approve-conversion-review":
+                    opts.ApproveConversionReview = true;
+                    opts.ApproveConversionReviewExplicit = true;
+                    break;
                 default:
                     if (!args[i].StartsWith("-"))
                         opts.InputPath ??= args[i];
@@ -780,6 +789,11 @@ internal static class CliArgsParser
                 case "--approve-reviews":
                     opts.ApproveReviews = true;
                     opts.ApproveReviewsExplicit = true;
+                    break;
+
+                case "--approve-conversion-review":
+                    opts.ApproveConversionReview = true;
+                    opts.ApproveConversionReviewExplicit = true;
                     break;
 
                 case "--sortconsole":
@@ -1241,6 +1255,8 @@ internal sealed class CliRunOptions
     public bool ConvertOnlyExplicit { get; set; }
     public bool ApproveReviews { get; set; }
     public bool ApproveReviewsExplicit { get; set; }
+    public bool ApproveConversionReview { get; set; }
+    public bool ApproveConversionReviewExplicit { get; set; }
     public string ConflictPolicy { get; set; } = RomCleanup.Contracts.RunConstants.DefaultConflictPolicy;
     public bool ConflictPolicyExplicit { get; set; }
     public bool Yes { get; set; }

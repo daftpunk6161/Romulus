@@ -21,24 +21,23 @@ using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Export;
 using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
+using RomCleanup.Infrastructure.Safety;
 using RomCleanup.Infrastructure.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Bind to loopback only (security: no network exposure)
-var port = builder.Configuration.GetValue("Port", 7878);
-var bindAddress = builder.Configuration.GetValue("BindAddress", "127.0.0.1");
+var configuredApiKey = builder.Configuration["ApiKey"]
+                       ?? Environment.GetEnvironmentVariable("ROM_CLEANUP_API_KEY");
+var headlessOptions = HeadlessApiOptions.FromConfiguration(builder.Configuration);
+headlessOptions.Validate(configuredApiKey, builder.Environment.IsDevelopment());
+
+var port = headlessOptions.Port;
+var bindAddress = headlessOptions.BindAddress;
 builder.WebHost.UseUrls($"http://{bindAddress}:{port}");
 
-// Security hardening: the API currently binds via HTTP only, so non-loopback is forbidden.
-if (!IsLoopbackAddress(bindAddress))
-{
-    throw new InvalidOperationException(
-        $"Refusing to bind API to non-loopback address '{bindAddress}' over plain HTTP. " +
-        "Use loopback (127.0.0.1/localhost/::1) or terminate TLS in a reverse proxy.");
-}
-
 builder.Services.AddRomCleanupCore();
+builder.Services.AddSingleton(headlessOptions);
+builder.Services.AddSingleton(new AllowedRootPathPolicy(headlessOptions.AllowedRoots));
 builder.Services.AddSingleton<RunManager>();
 builder.Services.AddSingleton<RunLifecycleManager>(sp =>
     sp.GetRequiredService<RunManager>().Lifecycle);
@@ -48,11 +47,10 @@ builder.Services.AddOpenApi(OpenApiSpec.DocumentName, OpenApiSpec.Configure);
 var app = builder.Build();
 
 // --- Middleware ---
-var apiKey = builder.Configuration["ApiKey"]
-             ?? Environment.GetEnvironmentVariable("ROM_CLEANUP_API_KEY");
+var apiKey = configuredApiKey;
 if (string.IsNullOrEmpty(apiKey))
 {
-    if (app.Environment.IsDevelopment())
+    if (app.Environment.IsDevelopment() && !headlessOptions.AllowRemoteClients)
     {
         apiKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         Console.WriteLine($"[Dev] Generated API key: {apiKey}");
@@ -71,7 +69,10 @@ var trustForwardedFor = builder.Configuration.GetValue("TrustForwardedFor", fals
 var sseTimeoutSeconds = Math.Clamp(builder.Configuration.GetValue("SseTimeoutSeconds", 300), 30, 3600);
 var sseHeartbeatSeconds = Math.Clamp(builder.Configuration.GetValue("SseHeartbeatSeconds", 15), 5, 120);
 var rateLimiter = new RateLimiter(rateLimitMax, rateLimitWindow);
-var resolvedCorsOrigin = ResolveCorsOrigin(corsMode, corsOrigin);
+var resolvedCorsOrigin = headlessOptions.AllowRemoteClients
+    && Uri.TryCreate(headlessOptions.PublicBaseUrl, UriKind.Absolute, out var publicBaseUri)
+        ? publicBaseUri.GetLeftPart(UriPartial.Authority)
+        : ResolveCorsOrigin(corsMode, corsOrigin);
 
 // Remove server headers
 app.Use(async (ctx, next) =>
@@ -104,6 +105,12 @@ app.Use(async (ctx, next) =>
 
     await next();
 });
+
+if (headlessOptions.DashboardEnabled)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 
 app.Use(async (ctx, next) =>
 {
@@ -195,6 +202,32 @@ app.MapGet("/health", (RunLifecycleManager mgr) =>
     });
 })
     .WithSummary("Authenticated health check");
+
+app.MapGet("/dashboard/bootstrap", (HeadlessApiOptions options, AllowedRootPathPolicy allowedRootPolicy) =>
+    Results.Ok(DashboardDataBuilder.BuildBootstrap(options, allowedRootPolicy, ApiVersion)))
+    .WithSummary("Anonymous dashboard bootstrap metadata")
+    .Produces<DashboardBootstrapResponse>(StatusCodes.Status200OK);
+
+app.MapGet("/dashboard/summary", async (
+    RunLifecycleManager mgr,
+    ApiAutomationService automationService,
+    ICollectionIndex collectionIndex,
+    RunProfileService profileService,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    var summary = await DashboardDataBuilder.BuildSummaryAsync(
+        mgr,
+        automationService,
+        collectionIndex,
+        profileService,
+        allowedRootPolicy,
+        ApiVersion,
+        ct);
+    return Results.Ok(summary);
+})
+    .WithSummary("Dashboard summary read model built from the existing API/domain state")
+    .Produces<DashboardSummaryResponse>(StatusCodes.Status200OK);
 
 app.MapGet("/openapi", () => Results.Redirect($"/openapi/{OpenApiSpec.DocumentName}.json", permanent: false))
     .ExcludeFromDescription();
@@ -368,6 +401,7 @@ app.MapPost("/export/frontend", async (
     ICollectionIndex collectionIndex,
     IRunEnvironmentFactory runEnvironmentFactory,
     RunLifecycleManager mgr,
+    AllowedRootPathPolicy allowedRootPolicy,
     CancellationToken ct) =>
 {
     if (ctx.Request.ContentLength is > 1_048_576)
@@ -401,7 +435,7 @@ app.MapPost("/export/frontend", async (
     if (string.IsNullOrWhiteSpace(request.OutputPath))
         return ApiError(400, "EXPORT-OUTPUT-REQUIRED", "outputPath is required.");
 
-    var outputPathError = ValidatePathSecurity(request.OutputPath.Trim(), "outputPath");
+    var outputPathError = ValidatePathSecurity(request.OutputPath.Trim(), "outputPath", allowedRootPolicy);
     if (outputPathError is not null)
         return outputPathError;
 
@@ -428,7 +462,7 @@ app.MapPost("/export/frontend", async (
 
     foreach (var root in roots)
     {
-        var pathError = ValidatePathSecurity(root, "roots");
+        var pathError = ValidatePathSecurity(root, "roots", allowedRootPolicy);
         if (pathError is not null)
             return pathError;
 
@@ -483,7 +517,8 @@ app.MapPost("/runs", async (
     string? wait,
     [FromQuery(Name = "waitTimeoutMs")] string? waitTimeoutMsQuery,
     RunLifecycleManager mgr,
-    RunConfigurationMaterializer runConfigurationMaterializer) =>
+    RunConfigurationMaterializer runConfigurationMaterializer,
+    AllowedRootPathPolicy allowedRootPolicy) =>
 {
     // Validate Content-Type
     var contentType = ctx.Request.ContentType;
@@ -552,27 +587,9 @@ app.MapPost("/runs", async (
         if (!Directory.Exists(root))
             return ApiError(400, "IO-ROOT-NOT-FOUND", $"Root not found: {root}");
 
-        // P2-API-07: Block symlinks/junctions as roots (bypass system-dir check)
-        try
-        {
-            var dirInfo = new DirectoryInfo(root);
-            if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-                return ApiError(400, SecurityErrorCodes.RootReparsePoint, $"Symlink/junction not allowed as root: {root}", ErrorKind.Critical);
-        }
-        catch (Exception ex)
-        {
-            // SEC: Fail closed — if we cannot verify attributes, reject the root
-            return ApiError(400, SecurityErrorCodes.RootAttributeCheckFailed,
-                $"Cannot verify attributes for root: {root} ({ex.GetType().Name})", ErrorKind.Critical);
-        }
-
-        // Block system directories (single source of truth: SafetyValidator)
-        var full = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
-        if (RomCleanup.Infrastructure.Safety.SafetyValidator.IsProtectedSystemPath(full))
-            return ApiError(400, SecurityErrorCodes.SystemDirectoryRoot, $"System directory not allowed: {root}", ErrorKind.Critical);
-        // Block drive root
-        if (RomCleanup.Infrastructure.Safety.SafetyValidator.IsDriveRoot(full))
-            return ApiError(400, SecurityErrorCodes.DriveRootNotAllowed, $"Drive root not allowed: {root}", ErrorKind.Critical);
+        var pathError = ValidateRootSecurity(root, allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
     }
 
     var mode = request.Mode ?? "DryRun";
@@ -653,14 +670,14 @@ app.MapPost("/runs", async (
     // SEC: Validate TrashRoot — same safety rules as Roots
     if (!string.IsNullOrWhiteSpace(request.TrashRoot))
     {
-        var pathError = ValidatePathSecurity(request.TrashRoot.Trim(), "trashRoot");
+        var pathError = ValidatePathSecurity(request.TrashRoot.Trim(), "trashRoot", allowedRootPolicy);
         if (pathError is not null) return pathError;
     }
 
     // SEC: Validate DatRoot
     if (!string.IsNullOrWhiteSpace(request.DatRoot))
     {
-        var pathError = ValidatePathSecurity(request.DatRoot.Trim(), "datRoot");
+        var pathError = ValidatePathSecurity(request.DatRoot.Trim(), "datRoot", allowedRootPolicy);
         if (pathError is not null) return pathError;
     }
 
@@ -873,7 +890,7 @@ app.MapPost("/runs/{runId}/cancel", (string runId, HttpContext ctx, RunLifecycle
     .Produces<OperationErrorResponse>(StatusCodes.Status403Forbidden)
     .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
 
-app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, string? dryRun, RunLifecycleManager mgr) =>
+app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, string? dryRun, RunLifecycleManager mgr, AllowedRootPathPolicy allowedRootPolicy) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -899,6 +916,13 @@ app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, string? dr
     var currentRoots = string.IsNullOrWhiteSpace(run.TrashRoot)
         ? restoreRoots
         : restoreRoots.Append(run.TrashRoot).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    if (allowedRootPolicy.IsEnforced
+        && (restoreRoots.Any(root => !allowedRootPolicy.IsPathAllowed(root))
+            || currentRoots.Any(root => !allowedRootPolicy.IsPathAllowed(root))))
+    {
+        return ApiError(400, SecurityErrorCodes.OutsideAllowedRoots, "Rollback paths are outside configured AllowedRoots.", ErrorKind.Critical, runId: runId);
+    }
 
     var signing = new AuditSigningService(new FileSystemAdapter(), keyFilePath: AuditSecurityPaths.GetDefaultSigningKeyPath());
     var rollback = signing.Rollback(run.AuditPath, restoreRoots, currentRoots, dryRun: isDryRun);
@@ -1037,7 +1061,8 @@ app.MapPost("/watch/start", async (
     string? intervalMinutes,
     string? cron,
     ApiAutomationService automation,
-    RunConfigurationMaterializer runConfigurationMaterializer) =>
+    RunConfigurationMaterializer runConfigurationMaterializer,
+    AllowedRootPathPolicy allowedRootPolicy) =>
 {
     var requesterClientId = GetClientBindingId(ctx, trustForwardedFor);
     if (!automation.CanAccess(requesterClientId))
@@ -1118,7 +1143,7 @@ app.MapPost("/watch/start", async (
         if (string.IsNullOrWhiteSpace(root))
             return ApiError(400, "WATCH-ROOT-EMPTY", "Empty root path.");
 
-        var pathError = ValidatePathSecurity(root, "roots");
+        var pathError = ValidatePathSecurity(root, "roots", allowedRootPolicy);
         if (pathError is not null)
             return pathError;
 
@@ -1277,78 +1302,11 @@ app.MapGet("/runs/{runId}/stream", async (string runId, HttpContext ctx, RunLife
 
 // --- DAT Management Endpoints (B2) ---
 
-app.MapGet("/dats/status", () =>
-{
-    var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
-        ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-    var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-    var datRoot = settings.Dat?.DatRoot;
+app.MapGet("/dats/status", async (AllowedRootPathPolicy allowedRootPolicy, CancellationToken ct) =>
+    Results.Ok(await DashboardDataBuilder.BuildDatStatusAsync(allowedRootPolicy, ct)))
+    .Produces<DashboardDatStatusResponse>(StatusCodes.Status200OK);
 
-    if (string.IsNullOrWhiteSpace(datRoot) || !Directory.Exists(datRoot))
-    {
-        return Results.Ok(new
-        {
-            configured = false,
-            datRoot = datRoot ?? "",
-            message = "DatRoot is not configured or does not exist.",
-            totalFiles = 0,
-            consoles = Array.Empty<object>(),
-            oldFileCount = 0,
-            catalogEntries = 0
-        });
-    }
-
-    var datFiles = Directory.GetFiles(datRoot, "*.dat", SearchOption.AllDirectories)
-        .Concat(Directory.GetFiles(datRoot, "*.xml", SearchOption.AllDirectories))
-        .ToArray();
-
-    var consoleStats = datFiles
-        .GroupBy(f =>
-        {
-            var dir = Path.GetDirectoryName(f);
-            return dir is not null && !string.Equals(Path.GetFullPath(dir), Path.GetFullPath(datRoot), StringComparison.OrdinalIgnoreCase)
-                ? Path.GetFileName(dir) : "root";
-        }, StringComparer.OrdinalIgnoreCase)
-        .Select(g => new
-        {
-            console = g.Key,
-            fileCount = g.Count(),
-            newestFile = g.Max(f => File.GetLastWriteTimeUtc(f)).ToString("o"),
-            oldestFile = g.Min(f => File.GetLastWriteTimeUtc(f)).ToString("o")
-        })
-        .OrderBy(x => x.console, StringComparer.OrdinalIgnoreCase)
-        .ToArray();
-
-    var oldFiles = datFiles.Where(f => (DateTime.UtcNow - File.GetLastWriteTimeUtc(f)).TotalDays > 180).ToArray();
-
-    // Load catalog count
-    var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
-    int catalogEntries = 0;
-    if (File.Exists(catalogPath))
-    {
-        try
-        {
-            var catalog = DatSourceService.LoadCatalog(catalogPath);
-            catalogEntries = catalog.Count;
-        }
-        catch { /* non-critical */ }
-    }
-
-    return Results.Ok(new
-    {
-        configured = true,
-        datRoot,
-        totalFiles = datFiles.Length,
-        consoles = consoleStats,
-        oldFileCount = oldFiles.Length,
-        catalogEntries,
-        staleWarning = oldFiles.Length > 0
-            ? $"{oldFiles.Length} DAT files are older than 6 months"
-            : (string?)null
-    });
-});
-
-app.MapPost("/dats/update", async (HttpContext ctx) =>
+app.MapPost("/dats/update", async (HttpContext ctx, AllowedRootPathPolicy allowedRootPolicy) =>
 {
     var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
         ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
@@ -1357,6 +1315,10 @@ app.MapPost("/dats/update", async (HttpContext ctx) =>
 
     if (string.IsNullOrWhiteSpace(datRoot))
         return ApiError(400, "DAT-ROOT-NOT-CONFIGURED", "DatRoot is not configured in settings.");
+
+    var datRootError = ValidatePathSecurity(datRoot, "datRoot", allowedRootPolicy);
+    if (datRootError is not null)
+        return datRootError;
 
     if (!Directory.Exists(datRoot))
     {
@@ -1443,7 +1405,7 @@ app.MapPost("/dats/update", async (HttpContext ctx) =>
     });
 });
 
-app.MapPost("/dats/import", async (HttpContext ctx) =>
+app.MapPost("/dats/import", async (HttpContext ctx, AllowedRootPathPolicy allowedRootPolicy) =>
 {
     var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
         ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
@@ -1455,6 +1417,10 @@ app.MapPost("/dats/import", async (HttpContext ctx) =>
 
     if (!Directory.Exists(datRoot))
         return ApiError(400, "DAT-ROOT-NOT-FOUND", $"DatRoot does not exist: {datRoot}");
+
+    var datRootError = ValidatePathSecurity(datRoot, "datRoot", allowedRootPolicy);
+    if (datRootError is not null)
+        return datRootError;
 
     // Read body
     if (ctx.Request.ContentLength is > 1_048_576)
@@ -1487,7 +1453,7 @@ app.MapPost("/dats/import", async (HttpContext ctx) =>
         return ApiError(400, "DAT-PATH-REQUIRED", "\"path\" is required in the request body.");
 
     // Security: validate source path
-    var pathError = ValidatePathSecurity(sourcePath.Trim(), "path");
+    var pathError = ValidatePathSecurity(sourcePath.Trim(), "path", allowedRootPolicy);
     if (pathError is not null) return pathError;
 
     sourcePath = Path.GetFullPath(sourcePath.Trim());
@@ -1522,7 +1488,7 @@ app.MapPost("/dats/import", async (HttpContext ctx) =>
 
 // --- Standalone Conversion Endpoint (B3) ---
 
-app.MapPost("/convert", async (HttpContext ctx) =>
+app.MapPost("/convert", async (HttpContext ctx, AllowedRootPathPolicy allowedRootPolicy) =>
 {
     if (ctx.Request.ContentLength is > 1_048_576)
         return ApiError(400, "CONVERT-BODY-TOO-LARGE", "Request body too large (max 1MB).");
@@ -1541,12 +1507,14 @@ app.MapPost("/convert", async (HttpContext ctx) =>
     string? inputPath;
     string? consoleKey = null;
     string? targetFormat = null;
+    bool approveConversionReview = false;
     try
     {
         using var doc = JsonDocument.Parse(body);
         inputPath = doc.RootElement.TryGetProperty("input", out var inp) ? inp.GetString() : null;
         if (doc.RootElement.TryGetProperty("consoleKey", out var ck)) consoleKey = ck.GetString();
         if (doc.RootElement.TryGetProperty("target", out var tf)) targetFormat = tf.GetString();
+        if (doc.RootElement.TryGetProperty("approveConversionReview", out var approval)) approveConversionReview = approval.GetBoolean();
     }
     catch (JsonException)
     {
@@ -1557,7 +1525,7 @@ app.MapPost("/convert", async (HttpContext ctx) =>
         return ApiError(400, "CONVERT-INPUT-REQUIRED", "\"input\" path is required.");
 
     // Security: validate input path
-    var pathError = ValidatePathSecurity(inputPath.Trim(), "input");
+    var pathError = ValidatePathSecurity(inputPath.Trim(), "input", allowedRootPolicy);
     if (pathError is not null) return pathError;
 
     inputPath = Path.GetFullPath(inputPath.Trim());
@@ -1565,7 +1533,7 @@ app.MapPost("/convert", async (HttpContext ctx) =>
     if (!File.Exists(inputPath) && !Directory.Exists(inputPath))
         return ApiError(404, "CONVERT-INPUT-NOT-FOUND", $"Input not found: {inputPath}");
 
-    using var service = StandaloneConversionService.Create(inputPath);
+    using var service = StandaloneConversionService.Create(inputPath, approveConversionReview);
     if (service is null)
         return ApiError(500, "CONVERT-NO-CONVERTER", "No converter available. Check tool installation.");
 
@@ -1605,7 +1573,7 @@ app.MapPost("/convert", async (HttpContext ctx) =>
 
 // --- Completeness Report Endpoint (B4) ---
 
-app.MapGet("/runs/{runId}/completeness", async (string runId, HttpContext ctx, RunLifecycleManager mgr, CancellationToken ct) =>
+app.MapGet("/runs/{runId}/completeness", async (string runId, HttpContext ctx, RunLifecycleManager mgr, AllowedRootPathPolicy allowedRootPolicy, CancellationToken ct) =>
 {
     if (!Guid.TryParse(runId, out _))
         return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
@@ -1629,12 +1597,27 @@ app.MapGet("/runs/{runId}/completeness", async (string runId, HttpContext ctx, R
     if (runRoots.Length == 0)
         return ApiError(400, "RUN-NO-ROOTS", "Run has no roots configured.", runId: runId);
 
+    foreach (var runRoot in runRoots)
+    {
+        var pathError = ValidatePathSecurity(runRoot, "roots", allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
+    }
+
+    var effectiveDatRoot = run.DatRoot ?? settings.Dat?.DatRoot;
+    if (!string.IsNullOrWhiteSpace(effectiveDatRoot))
+    {
+        var pathError = ValidatePathSecurity(effectiveDatRoot, "datRoot", allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
+    }
+
     // Build DAT index from settings
     var runOptions = new RomCleanup.Contracts.Models.RunOptions
     {
         Roots = runRoots,
         EnableDat = true,
-        DatRoot = run.DatRoot ?? settings.Dat?.DatRoot,
+        DatRoot = effectiveDatRoot,
         Extensions = run.Extensions
     };
 
@@ -1783,7 +1766,8 @@ static bool IsLoopbackAddress(string host)
 
 static bool IsAnonymousEndpoint(PathString path)
 {
-    return path.Equals("/healthz", StringComparison.OrdinalIgnoreCase);
+    return path.Equals("/healthz", StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/dashboard/bootstrap", StringComparison.OrdinalIgnoreCase);
 }
 
 static string ResolveCorsOrigin(string mode, string customOrigin)
@@ -1978,7 +1962,36 @@ static IResult CreateArtifactDownloadResult(
     return Results.File(artifactPath, contentType, downloadName);
 }
 
-static IResult? ValidatePathSecurity(string path, string fieldName)
+static IResult? ValidateRootSecurity(string root, AllowedRootPathPolicy allowedRootPolicy)
+{
+    try
+    {
+        var dirInfo = new DirectoryInfo(root);
+        if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            return ApiError(400, SecurityErrorCodes.RootReparsePoint, $"Symlink/junction not allowed as root: {root}", ErrorKind.Critical);
+        }
+    }
+    catch (Exception ex)
+    {
+        return ApiError(400, SecurityErrorCodes.RootAttributeCheckFailed,
+            $"Cannot verify attributes for root: {root} ({ex.GetType().Name})", ErrorKind.Critical);
+    }
+
+    var full = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+    if (SafetyValidator.IsProtectedSystemPath(full))
+        return ApiError(400, SecurityErrorCodes.SystemDirectoryRoot, $"System directory not allowed: {root}", ErrorKind.Critical);
+    if (SafetyValidator.IsDriveRoot(full))
+        return ApiError(400, SecurityErrorCodes.DriveRootNotAllowed, $"Drive root not allowed: {root}", ErrorKind.Critical);
+    if (allowedRootPolicy.IsEnforced && !allowedRootPolicy.IsPathAllowed(full))
+    {
+        return ApiError(400, SecurityErrorCodes.OutsideAllowedRoots, $"Root is outside configured AllowedRoots: {root}", ErrorKind.Critical);
+    }
+
+    return null;
+}
+
+static IResult? ValidatePathSecurity(string path, string fieldName, AllowedRootPathPolicy? allowedRootPolicy = null)
 {
     if (string.IsNullOrWhiteSpace(path)) return null;
 
@@ -2008,6 +2021,11 @@ static IResult? ValidatePathSecurity(string path, string fieldName)
     // Block drive root
     if (RomCleanup.Infrastructure.Safety.SafetyValidator.IsDriveRoot(full))
         return ApiError(400, SecurityErrorCodes.DriveRoot, $"Drive root not allowed for {fieldName}.", ErrorKind.Critical);
+
+    if (allowedRootPolicy?.IsEnforced == true && !allowedRootPolicy.IsPathAllowed(full))
+    {
+        return ApiError(400, SecurityErrorCodes.OutsideAllowedRoots, $"Path for {fieldName} is outside configured AllowedRoots.", ErrorKind.Critical);
+    }
 
     return null;
 }

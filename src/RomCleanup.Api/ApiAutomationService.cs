@@ -238,6 +238,7 @@ public sealed class ApiAutomationService : IDisposable
             ConvertFormat = request.ConvertFormat,
             ConvertOnly = request.ConvertOnly,
             ApproveReviews = request.ApproveReviews,
+            ApproveConversionReview = request.ApproveConversionReview,
             ConflictPolicy = request.ConflictPolicy,
             TrashRoot = request.TrashRoot,
             Extensions = request.Extensions?.ToArray()

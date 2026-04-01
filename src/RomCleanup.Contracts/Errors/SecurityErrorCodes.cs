@@ -18,4 +18,5 @@ public static class SecurityErrorCodes
     public const string AttributeCheckFailed = "SEC-ATTRIBUTE-CHECK-FAILED";
     public const string SystemDirectory = "SEC-SYSTEM-DIRECTORY";
     public const string DriveRoot = "SEC-DRIVE-ROOT";
+    public const string OutsideAllowedRoots = "SEC-OUTSIDE-ALLOWED-ROOTS";
 }

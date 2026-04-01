@@ -124,6 +124,7 @@ public sealed class RunLifecycleManager
                 ConvertFormat = string.IsNullOrWhiteSpace(request.ConvertFormat) ? null : request.ConvertFormat.Trim().ToLowerInvariant(),
                 ConvertOnly = request.ConvertOnly,
                 ApproveReviews = request.ApproveReviews,
+                ApproveConversionReview = request.ApproveConversionReview,
                 ConflictPolicy = normalizedConflictPolicy,
                 TrashRoot = string.IsNullOrWhiteSpace(request.TrashRoot) ? null : request.TrashRoot.Trim(),
                 Extensions = normalizedExtensions,
@@ -411,6 +412,7 @@ public sealed class RunLifecycleManager
             string.IsNullOrWhiteSpace(request.ConflictPolicy) ? "RENAME" : request.ConflictPolicy.Trim().ToUpperInvariant(),
             request.ConvertOnly ? "1" : "0",
             request.ApproveReviews ? "1" : "0",
+            request.ApproveConversionReview ? "1" : "0",
             string.IsNullOrWhiteSpace(request.TrashRoot) ? "" : ArtifactPathResolver.NormalizeRootForIdentity(request.TrashRoot),
             string.Join(",", (request.Extensions ?? Array.Empty<string>())
                 .Where(ext => !string.IsNullOrWhiteSpace(ext))

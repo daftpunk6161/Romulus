@@ -25,6 +25,7 @@ public sealed record RunConfigurationDraft
     public string? ConvertFormat { get; init; }
     public bool? ConvertOnly { get; init; }
     public bool? ApproveReviews { get; init; }
+    public bool? ApproveConversionReview { get; init; }
     public string? ConflictPolicy { get; init; }
     public string? TrashRoot { get; init; }
 }
@@ -51,6 +52,7 @@ public sealed record RunConfigurationExplicitness
     public bool ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
+    public bool ApproveConversionReview { get; init; }
     public bool ConflictPolicy { get; init; }
     public bool TrashRoot { get; init; }
 }

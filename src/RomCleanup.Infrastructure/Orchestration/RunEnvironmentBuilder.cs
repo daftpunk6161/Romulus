@@ -162,9 +162,11 @@ public sealed class RunEnvironmentBuilder
                         new ChdmanInvoker(toolRunner),
                         new DolphinToolInvoker(toolRunner),
                         new SevenZipInvoker(toolRunner),
-                        new PsxtractInvoker(toolRunner)
+                        new PsxtractInvoker(toolRunner),
+                        new EcmInvoker(toolRunner),
+                        new NkitInvoker(toolRunner)
                     };
-                    conversionExecutor = new ConversionExecutor(invokers);
+                    conversionExecutor = new ConversionExecutor(invokers, runOptions.ApproveConversionReview);
 
                     conversionPlanner = new ConversionPlanner(
                         conversionRegistry,
@@ -178,7 +180,7 @@ public sealed class RunEnvironmentBuilder
                 onWarning?.Invoke($"[Warning] Conversion registry loading failed, fallback to legacy mapping: {ex.Message}");
             }
 
-            converter = new FormatConverterAdapter(toolRunner, null, conversionRegistry, conversionPlanner, conversionExecutor);
+            converter = new FormatConverterAdapter(toolRunner, null, conversionRegistry, conversionPlanner, conversionExecutor, runOptions.ApproveConversionReview);
         }
 
         // ArchiveHashService: enables DAT matching and console detection for ROMs inside ZIP/7z archives

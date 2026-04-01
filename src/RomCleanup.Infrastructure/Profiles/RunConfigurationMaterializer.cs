@@ -64,6 +64,7 @@ public sealed class RunConfigurationMaterializer
             ConvertFormat = draft.ConvertFormat,
             ConvertOnly = draft.ConvertOnly,
             ApproveReviews = draft.ApproveReviews,
+            ApproveConversionReview = draft.ApproveConversionReview,
             ConflictPolicy = draft.ConflictPolicy,
             TrashRoot = draft.TrashRoot,
             Mode = draft.Mode
@@ -111,6 +112,7 @@ public sealed class RunConfigurationMaterializer
             ConvertFormat = NormalizeConvertFormat(resolvedDraft.ConvertFormat ?? baselineDraft?.ConvertFormat),
             ConvertOnly = resolvedDraft.ConvertOnly ?? baselineDraft?.ConvertOnly ?? false,
             ApproveReviews = resolvedDraft.ApproveReviews ?? baselineDraft?.ApproveReviews ?? false,
+            ApproveConversionReview = resolvedDraft.ApproveConversionReview ?? baselineDraft?.ApproveConversionReview ?? false,
             ConflictPolicy = NormalizeConflictPolicy(resolvedDraft.ConflictPolicy ?? baselineDraft?.ConflictPolicy ?? RunConstants.DefaultConflictPolicy),
             TrashRoot = NormalizeOptionalPath(resolvedDraft.TrashRoot ?? baselineDraft?.TrashRoot)
         };
@@ -203,6 +205,7 @@ public sealed class RunConfigurationMaterializer
             ConvertFormat = effectiveDraft.ConvertFormat;
             ConvertOnly = effectiveDraft.ConvertOnly ?? false;
             ApproveReviews = effectiveDraft.ApproveReviews ?? false;
+            ApproveConversionReview = effectiveDraft.ApproveConversionReview ?? false;
             TrashRoot = effectiveDraft.TrashRoot;
             ConflictPolicy = effectiveDraft.ConflictPolicy ?? RunConstants.DefaultConflictPolicy;
         }
@@ -224,6 +227,7 @@ public sealed class RunConfigurationMaterializer
         public string? ConvertFormat { get; }
         public bool ConvertOnly { get; }
         public bool ApproveReviews { get; }
+        public bool ApproveConversionReview { get; }
         public string? TrashRoot { get; }
         public string ConflictPolicy { get; }
     }

@@ -38,6 +38,7 @@ internal static class ApiRunConfigurationMapper
             ConvertFormat = HasProperty(rootElement, "convertFormat") ? request.ConvertFormat : null,
             ConvertOnly = HasProperty(rootElement, "convertOnly") ? request.ConvertOnly : null,
             ApproveReviews = HasProperty(rootElement, "approveReviews") ? request.ApproveReviews : null,
+            ApproveConversionReview = HasProperty(rootElement, "approveConversionReview") ? request.ApproveConversionReview : null,
             ConflictPolicy = HasProperty(rootElement, "conflictPolicy") ? request.ConflictPolicy : null,
             TrashRoot = HasProperty(rootElement, "trashRoot") ? request.TrashRoot : null
         };
@@ -60,6 +61,7 @@ internal static class ApiRunConfigurationMapper
             ConvertFormat = HasProperty(rootElement, "convertFormat"),
             ConvertOnly = HasProperty(rootElement, "convertOnly"),
             ApproveReviews = HasProperty(rootElement, "approveReviews"),
+            ApproveConversionReview = HasProperty(rootElement, "approveConversionReview"),
             ConflictPolicy = HasProperty(rootElement, "conflictPolicy"),
             TrashRoot = HasProperty(rootElement, "trashRoot")
         };
@@ -91,6 +93,7 @@ internal static class ApiRunConfigurationMapper
             ConvertFormat = options.ConvertFormat,
             ConvertOnly = options.ConvertOnly,
             ApproveReviews = options.ApproveReviews,
+            ApproveConversionReview = options.ApproveConversionReview,
             ConflictPolicy = options.ConflictPolicy,
             TrashRoot = options.TrashRoot,
             Extensions = options.Extensions.ToArray()

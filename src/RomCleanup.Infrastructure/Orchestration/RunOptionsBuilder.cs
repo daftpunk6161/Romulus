@@ -92,6 +92,7 @@ public static class RunOptionsBuilder
             AggressiveJunk = options.AggressiveJunk,
             SortConsole = options.SortConsole,
             ApproveReviews = options.ApproveReviews,
+            ApproveConversionReview = options.ApproveConversionReview,
             ConvertOnly = options.ConvertOnly,
             ConvertFormat = options.ConvertFormat,
             EnableDat = options.EnableDat,
@@ -102,6 +103,38 @@ public static class RunOptionsBuilder
             ReportPath = options.ReportPath,
             AuditPath = options.AuditPath,
             HashType = string.IsNullOrWhiteSpace(options.HashType) ? "SHA1" : options.HashType,
+            DiscBasedConsoles = new HashSet<string>(options.DiscBasedConsoles, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
+    public static RunOptions WithApproveConversionReview(RunOptions options, bool approveConversionReview)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return new RunOptions
+        {
+            Roots = options.Roots,
+            Mode = options.Mode,
+            PreferRegions = options.PreferRegions,
+            Extensions = options.Extensions,
+            RemoveJunk = options.RemoveJunk,
+            OnlyGames = options.OnlyGames,
+            KeepUnknownWhenOnlyGames = options.KeepUnknownWhenOnlyGames,
+            AggressiveJunk = options.AggressiveJunk,
+            SortConsole = options.SortConsole,
+            EnableDat = options.EnableDat,
+            EnableDatAudit = options.EnableDatAudit,
+            EnableDatRename = options.EnableDatRename,
+            DatRoot = options.DatRoot,
+            HashType = options.HashType,
+            ConvertFormat = options.ConvertFormat,
+            ConvertOnly = options.ConvertOnly,
+            ApproveReviews = options.ApproveReviews,
+            ApproveConversionReview = approveConversionReview,
+            TrashRoot = options.TrashRoot,
+            AuditPath = options.AuditPath,
+            ReportPath = options.ReportPath,
+            ConflictPolicy = options.ConflictPolicy,
             DiscBasedConsoles = new HashSet<string>(options.DiscBasedConsoles, StringComparer.OrdinalIgnoreCase)
         };
     }

@@ -29,13 +29,16 @@ public sealed class StandaloneConversionService : IDisposable
     /// Create a StandaloneConversionService using the standard RunEnvironment setup.
     /// </summary>
     public static StandaloneConversionService? Create(string inputPath, Action<string>? onWarning = null)
+        => Create(inputPath, false, onWarning);
+
+    public static StandaloneConversionService? Create(string inputPath, bool approveConversionReview, Action<string>? onWarning = null)
     {
         var rootDir = File.Exists(inputPath)
             ? Path.GetDirectoryName(inputPath) ?? "."
             : inputPath;
 
         var env = new RunEnvironmentFactory().Create(
-            new RunOptions { Roots = [rootDir] },
+            new RunOptions { Roots = [rootDir], ApproveConversionReview = approveConversionReview },
             onWarning);
 
         if (env.Converter is null)
@@ -59,14 +62,32 @@ public sealed class StandaloneConversionService : IDisposable
         if (!File.Exists(filePath))
             return new ConversionResult(filePath, null, ConversionOutcome.Error, "Source file not found.");
 
-        var ext = Path.GetExtension(filePath);
         var resolvedConsole = ResolveConsoleKey(filePath, consoleKey);
+        var ext = SourcePathFormatDetector.ResolveSourceExtension(filePath);
+
+        if (_converter is FormatConverterAdapter advancedConverter)
+        {
+            var plan = advancedConverter.PlanForConsole(filePath, resolvedConsole);
+            if (!string.IsNullOrWhiteSpace(targetFormat))
+            {
+                var requestedExt = targetFormat.StartsWith('.') ? targetFormat : "." + targetFormat;
+                var resolvedTarget = plan?.FinalTargetExtension
+                    ?? advancedConverter.GetTargetFormat(resolvedConsole, ext)?.Extension
+                    ?? ext;
+                if (!string.Equals(resolvedTarget, requestedExt, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new ConversionResult(filePath, null, ConversionOutcome.Skipped,
+                        $"Resolved target {resolvedTarget} does not match requested format {requestedExt}.");
+                }
+            }
+
+            return advancedConverter.ConvertForConsole(filePath, resolvedConsole, cancellationToken);
+        }
 
         var target = _converter.GetTargetFormat(resolvedConsole, ext);
         if (target is null)
             return new ConversionResult(filePath, null, ConversionOutcome.Skipped, $"No conversion target for {ext} on {resolvedConsole}.");
 
-        // If a specific target format was requested, verify it matches
         if (!string.IsNullOrWhiteSpace(targetFormat))
         {
             var requestedExt = targetFormat.StartsWith('.') ? targetFormat : "." + targetFormat;

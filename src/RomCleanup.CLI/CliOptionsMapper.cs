@@ -90,6 +90,7 @@ internal static class CliOptionsMapper
             ConvertFormat = cli.ConvertFormatExplicit ? NormalizeConvertFormat(cli.ConvertFormat ? "auto" : null) : null,
             ConvertOnly = cli.ConvertOnlyExplicit ? cli.ConvertOnly : null,
             ApproveReviews = cli.ApproveReviewsExplicit ? cli.ApproveReviews : null,
+            ApproveConversionReview = cli.ApproveConversionReviewExplicit ? cli.ApproveConversionReview : null,
             ConflictPolicy = cli.ConflictPolicyExplicit ? cli.ConflictPolicy : null,
             TrashRoot = cli.TrashRootExplicit ? cli.TrashRoot : null
         };
@@ -115,6 +116,7 @@ internal static class CliOptionsMapper
             ConvertFormat = cli.ConvertFormatExplicit,
             ConvertOnly = cli.ConvertOnlyExplicit,
             ApproveReviews = cli.ApproveReviewsExplicit,
+            ApproveConversionReview = cli.ApproveConversionReviewExplicit,
             ConflictPolicy = cli.ConflictPolicyExplicit,
             TrashRoot = cli.TrashRootExplicit
         };
@@ -182,6 +184,9 @@ internal static class CliOptionsMapper
 
         if (!cli.ApproveReviewsExplicit && cli.ApproveReviews)
             cli.ApproveReviewsExplicit = true;
+
+        if (!cli.ApproveConversionReviewExplicit && cli.ApproveConversionReview)
+            cli.ApproveConversionReviewExplicit = true;
 
         if (!cli.ConflictPolicyExplicit &&
             !string.Equals(cli.ConflictPolicy, RunConstants.DefaultConflictPolicy, StringComparison.OrdinalIgnoreCase))

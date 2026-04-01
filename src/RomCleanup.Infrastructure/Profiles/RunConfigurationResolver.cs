@@ -46,6 +46,7 @@ public sealed class RunConfigurationResolver
             ConvertFormat = ResolveValue(draft.ConvertFormat, explicitness.ConvertFormat, profileSettings.ConvertFormat, workflowSettings.ConvertFormat),
             ConvertOnly = ResolveValue(draft.ConvertOnly, explicitness.ConvertOnly, profileSettings.ConvertOnly, workflowSettings.ConvertOnly),
             ApproveReviews = ResolveValue(draft.ApproveReviews, explicitness.ApproveReviews, profileSettings.ApproveReviews, workflowSettings.ApproveReviews),
+            ApproveConversionReview = ResolveValue(draft.ApproveConversionReview, explicitness.ApproveConversionReview, profileSettings.ApproveConversionReview, workflowSettings.ApproveConversionReview),
             ConflictPolicy = ResolveValue(draft.ConflictPolicy, explicitness.ConflictPolicy, profileSettings.ConflictPolicy, workflowSettings.ConflictPolicy),
             TrashRoot = ResolveValue(draft.TrashRoot, explicitness.TrashRoot, profileSettings.TrashRoot, workflowSettings.TrashRoot)
         };
