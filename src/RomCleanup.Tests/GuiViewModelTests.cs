@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text;
 using System.Windows.Media;
 using System.Xml.Linq;
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Orchestration;
@@ -124,8 +125,8 @@ public class GuiViewModelTests
     [InlineData(RunState.Preflight, "1")]
     [InlineData(RunState.Scanning, "2")]
     [InlineData(RunState.Deduplicating, "3")]
-    [InlineData(RunState.Sorting, "4")]
-    [InlineData(RunState.Moving, "5")]
+    [InlineData(RunState.Moving, "4")]
+    [InlineData(RunState.Sorting, "5")]
     [InlineData(RunState.Converting, "6")]
     [InlineData(RunState.Completed, "7")]
     public void PipelinePhaseBrush_CurrentPhase_ReturnsActive(RunState state, string param)
@@ -1351,11 +1352,25 @@ public class GuiViewModelTests
     public void ProgressEstimator_ScanPhase_ShouldIncreaseAcrossRepeatedScanMessages()
     {
         var vm = new MainViewModel(new ThemeService(), new StubDialogService());
+        var configureMethod = typeof(MainViewModel).GetMethod(
+            "ConfigureRunProgressPlan",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         var estimateMethod = typeof(MainViewModel).GetMethod(
             "EstimatePhaseProgress",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
+        Assert.NotNull(configureMethod);
         Assert.NotNull(estimateMethod);
+
+        configureMethod!.Invoke(vm, new object[]
+        {
+            new RunOptions
+            {
+                Roots = new[] { @"C:\ROMS" },
+                Extensions = new[] { ".zip" },
+                Mode = RunConstants.ModeDryRun
+            }
+        });
 
         var p1 = (double)estimateMethod!.Invoke(vm, new object[] { "[Scan] Root: C:\\ROMS" })!;
         vm.Progress = p1;
@@ -1363,9 +1378,63 @@ public class GuiViewModelTests
         vm.Progress = p2;
         var p3 = (double)estimateMethod.Invoke(vm, new object[] { "[Scan] Hash: B.chd (420 MB)…" })!;
 
-        Assert.True(p1 >= 12, $"Expected scan progress to start at or above phase lower bound, got {p1}");
+        Assert.True(p1 >= 5, $"Expected scan progress to start at or above phase lower bound, got {p1}");
         Assert.True(p2 > p1, $"Expected scan progress to increase (p1={p1}, p2={p2})");
         Assert.True(p3 > p2, $"Expected scan progress to continue increasing (p2={p2}, p3={p3})");
+    }
+
+    [Fact]
+    public void ProgressEstimator_ConvertOnlyRun_UsesActivePhasePlan_InsteadOfFixedTailRange()
+    {
+        var vm = new MainViewModel(new ThemeService(), new StubDialogService());
+        var configureMethod = typeof(MainViewModel).GetMethod(
+            "ConfigureRunProgressPlan",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var estimateMethod = typeof(MainViewModel).GetMethod(
+            "EstimatePhaseProgress",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(configureMethod);
+        Assert.NotNull(estimateMethod);
+
+        configureMethod!.Invoke(vm, new object[]
+        {
+            new RunOptions
+            {
+                Roots = new[] { @"C:\ROMS" },
+                Extensions = new[] { ".zip" },
+                Mode = RunConstants.ModeMove,
+                ConvertOnly = true,
+                ConvertFormat = "auto"
+            }
+        });
+
+        var scanDone = (double)estimateMethod!.Invoke(vm, new object[] { "[Scan] Abgeschlossen: 21 Dateien in 1ms" })!;
+        vm.Progress = scanDone;
+        var convertHalf = (double)estimateMethod.Invoke(
+            vm,
+            new object[] { "[Convert] Fortschritt: 1/2 Dateien (ok=0, skip=0, blocked=0, err=0)" })!;
+
+        Assert.True(scanDone >= 45d, $"Expected scan completion to occupy a meaningful share, got {scanDone}");
+        Assert.True(convertHalf > scanDone, $"Expected convert progress to advance beyond scan completion (scan={scanDone}, convert={convertHalf})");
+        Assert.True(convertHalf < 90d, $"Expected convert progress to use the active run plan instead of the old fixed tail range, got {convertHalf}");
+    }
+
+    [Fact]
+    public void UpdatePerfContext_UsesReadablePhaseLabel_NotRawBracketPrefix()
+    {
+        var vm = new MainViewModel(new ThemeService(), new StubDialogService());
+        var method = typeof(MainViewModel).GetMethod(
+            "UpdatePerfContext",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        method!.Invoke(vm, new object[] { "[Convert] Fortschritt: 1/3 Dateien" });
+
+        Assert.DoesNotContain("[Convert]", vm.PerfPhase, StringComparison.Ordinal);
+        Assert.Contains("Phase:", vm.PerfPhase, StringComparison.Ordinal);
+        Assert.Equal("Fortschritt: 1/3 Dateien", vm.PerfFile);
     }
 
     // ═══ TEST-007: DryRun E2E Smoke-Test ════════════════════════════════
@@ -3044,7 +3113,9 @@ public class GuiViewModelTests
     [InlineData(RunState.Preflight, RunState.Scanning)]
     [InlineData(RunState.Scanning, RunState.Deduplicating)]
     [InlineData(RunState.Deduplicating, RunState.Sorting)]
+    [InlineData(RunState.Deduplicating, RunState.Moving)]
     [InlineData(RunState.Sorting, RunState.Moving)]
+    [InlineData(RunState.Moving, RunState.Sorting)]
     [InlineData(RunState.Moving, RunState.Converting)]
     [InlineData(RunState.Preflight, RunState.Cancelled)]
     [InlineData(RunState.Scanning, RunState.Failed)]
@@ -3541,7 +3612,9 @@ public class GuiViewModelTests
     [InlineData(RunState.Preflight, RunState.Scanning, true)]
     [InlineData(RunState.Scanning, RunState.Deduplicating, true)]
     [InlineData(RunState.Deduplicating, RunState.Sorting, true)]
+    [InlineData(RunState.Deduplicating, RunState.Moving, true)]
     [InlineData(RunState.Sorting, RunState.Moving, true)]
+    [InlineData(RunState.Moving, RunState.Sorting, true)]
     [InlineData(RunState.Moving, RunState.Converting, true)]
     [InlineData(RunState.Converting, RunState.Completed, true)]
     [InlineData(RunState.Idle, RunState.Completed, false)]
@@ -4137,14 +4210,12 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void CommandBarXaml_PhaseIndicatorHasLabels()
+    public void CommandBarXaml_ShowsWorkspaceAndWorkflowSummary()
     {
         var xaml = File.ReadAllText(FindUiFile("Views", "CommandBar.xaml"));
-        Assert.Contains("Config", xaml);
-        Assert.Contains("Preview", xaml);
-        Assert.Contains("Review", xaml);
-        Assert.Contains("Execute", xaml);
-        Assert.Contains("Report", xaml);
+        Assert.Contains("Shell.CurrentWorkspaceBreadcrumb", xaml);
+        Assert.Contains("SelectedWorkflowName", xaml);
+        Assert.Contains("SelectedRunProfileId", xaml);
     }
 
     [Fact]
@@ -4159,14 +4230,14 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void ResultViewXaml_DoesNotForceFixedPieWidthOrLegacyHeight()
+    public void ResultViewXaml_UsesStackedResponsiveCharts()
     {
         var xaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
 
-        Assert.DoesNotContain("Width=\"620\"", xaml);
-        Assert.DoesNotContain("Height=\"520\"", xaml);
-        Assert.Contains("MinWidth=\"420\"", xaml);
-        Assert.Contains("Height=\"460\"", xaml);
+        Assert.DoesNotContain("MinWidth=\"420\"", xaml);
+        Assert.DoesNotContain("Height=\"460\"", xaml);
+        Assert.Contains("Height=\"320\"", xaml);
+        Assert.Contains("Expander Header=\"{Binding Loc[Result.ConsoleDistribution]}\"", xaml);
     }
 
     // ═══ TASK-115: SmartActionBar RunState DataTriggers ════════════════
@@ -4510,12 +4581,60 @@ public class GuiViewModelTests
     }
 
     [Fact]
+    public void CommandBar_UsesWorkspaceAndInspectorBindings()
+    {
+        var cmdBarPath = FindUiFile("Views", "CommandBar.xaml");
+        var content = File.ReadAllText(cmdBarPath);
+
+        Assert.Contains("Shell.CurrentWorkspaceBreadcrumb", content, StringComparison.Ordinal);
+        Assert.Contains("Shell.ToggleContextWingCommand", content, StringComparison.Ordinal);
+        Assert.Contains("Shell.ContextToggleLabel", content, StringComparison.Ordinal);
+        Assert.Contains("AvailableRunProfiles", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NavigationRail_ToolsVisibility_BindsToShellShowToolsNav()
     {
         var navPath = FindUiFile("Views", "NavigationRail.xaml");
         var content = File.ReadAllText(navPath);
 
         Assert.Contains("Shell.ShowToolsNav", content);
+    }
+
+    [Fact]
+    public void ShellViewModel_ContextWing_DefaultsCollapsed()
+    {
+        var shell = new ShellViewModel(new LocalizationService());
+
+        Assert.False(shell.ShowContextWing);
+        Assert.Equal("Inspector einblenden", shell.ContextToggleLabel);
+    }
+
+    [Fact]
+    public void MainViewModel_ShowSmartActionBar_HidesOnPrimaryContentSurfaces()
+    {
+        var vm = new MainViewModel();
+
+        vm.Shell.SelectedNavTag = "MissionControl";
+        vm.Shell.SelectedSubTab = "Dashboard";
+        Assert.False(vm.ShowSmartActionBar);
+
+        vm.Shell.SelectedNavTag = "Library";
+        vm.Shell.SelectedSubTab = "Results";
+        Assert.False(vm.ShowSmartActionBar);
+
+        vm.Shell.SelectedNavTag = "Config";
+        vm.Shell.SelectedSubTab = "Options";
+        Assert.True(vm.ShowSmartActionBar);
+    }
+
+    [Fact]
+    public void MainWindowXaml_Title_IsRomulus_AndActionRailIsBindable()
+    {
+        var xaml = File.ReadAllText(FindUiFile("", "MainWindow.xaml"));
+
+        Assert.Contains("Title=\"Romulus\"", xaml);
+        Assert.Contains("ShowSmartActionBar", xaml);
     }
 
     [Fact]

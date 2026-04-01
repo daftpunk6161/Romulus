@@ -553,26 +553,108 @@
 
     <!-- ═══ TYPOGRAPHY SCALE ══════════════════════════════════════════ -->
     <Style x:Key="TitleText" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="18"/>
+      <Setter Property="FontSize" Value="20"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}"/>
     </Style>
 
     <Style x:Key="SubHeaderText" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontSize" Value="{DynamicResource TypeHeading}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}"/>
-      <Setter Property="Margin" Value="0 0 0 8"/>
+      <Setter Property="Margin" Value="0 0 0 10"/>
     </Style>
 
     <Style x:Key="CaptionText" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontSize" Value="{DynamicResource TypeCaption}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
     </Style>
 
     <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource SubHeaderText}">
       <Setter Property="FontFamily"    Value="Segoe UI"/>
-      <Setter Property="Margin"        Value="0 0 0 8"/>
+      <Setter Property="Margin"        Value="0 0 0 10"/>
+    </Style>
+
+    <Style x:Key="HeaderChip" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource BrushSurface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="999"/>
+      <Setter Property="Padding" Value="10 6"/>
+      <Setter Property="Margin" Value="0 0 8 6"/>
+    </Style>
+
+    <Style x:Key="AccentHeaderChip" TargetType="Border" BasedOn="{StaticResource HeaderChip}">
+      <Setter Property="Background" Value="{DynamicResource BrushSurfaceAlt}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
+    </Style>
+
+    <Style x:Key="HeaderActionButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="10 6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="999">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{DynamicResource BrushSurfaceLight}"/>
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ModeTogglePill" TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+      <Setter Property="Padding" Value="12 6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <Border x:Name="bd"
+                    Background="{DynamicResource BrushSurface}"
+                    BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1"
+                    CornerRadius="999">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                RecognizesAccessKey="True"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{DynamicResource BrushAccentCyan}"/>
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextOnAccent}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <!-- ═══ PRIMARY BUTTON ════════════════════════════════════════════ -->
@@ -694,12 +776,12 @@
       <Setter Property="Background"      Value="{DynamicResource BrushSurfaceAlt}"/>
       <Setter Property="BorderBrush"     Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius"    Value="8"/>
-      <Setter Property="Padding"         Value="12"/>
-      <Setter Property="Margin"          Value="0 0 0 12"/>
+      <Setter Property="CornerRadius"    Value="{DynamicResource RadiusXL}"/>
+      <Setter Property="Padding"         Value="{DynamicResource PaddingCard}"/>
+      <Setter Property="Margin"          Value="0 0 0 16"/>
       <Setter Property="Effect">
         <Setter.Value>
-          <DropShadowEffect BlurRadius="6" ShadowDepth="2" Opacity="0.18"/>
+          <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.08"/>
         </Setter.Value>
       </Setter>
     </Style>
@@ -709,10 +791,10 @@
       <Setter Property="Background"      Value="{DynamicResource BrushSurface}"/>
       <Setter Property="BorderBrush"     Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius"    Value="8"/>
-      <Setter Property="Padding"         Value="16 12"/>
-      <Setter Property="MinWidth"        Value="120"/>
-      <Setter Property="Margin"          Value="0 0 8 0"/>
+      <Setter Property="CornerRadius"    Value="{DynamicResource RadiusXL}"/>
+      <Setter Property="Padding"         Value="18 14"/>
+      <Setter Property="MinWidth"        Value="160"/>
+      <Setter Property="Margin"          Value="0 0 12 12"/>
     </Style>
 
     <!-- ═══ CATEGORY HEADER (Checkbox-Gruppen) ════════════════════════ -->
@@ -725,12 +807,12 @@
 
     <!-- ═══ SIDEBAR NAV ITEM ══════════════════════════════════════════ -->
     <Style x:Key="SidebarNavItem" TargetType="RadioButton">
-      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Padding" Value="14,8"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderThickness" Value="3,0,0,0"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -738,7 +820,7 @@
             <Border Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
-                    Padding="{TemplateBinding Padding}" CornerRadius="0,4,4,0">
+                    Padding="{TemplateBinding Padding}" CornerRadius="999">
               <ContentPresenter/>
             </Border>
             <ControlTemplate.Triggers>
@@ -757,11 +839,17 @@
       </Setter>
     </Style>
 
+    <Style x:Key="SubTabPill" TargetType="RadioButton" BasedOn="{StaticResource SidebarNavItem}">
+      <Setter Property="Padding" Value="12,7"/>
+      <Setter Property="Margin" Value="0,0,8,0"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+
     <!-- ═══ NAV BUTTON (main sidebar) ═════════════════════════════════ -->
     <Style x:Key="NavButton" TargetType="RadioButton">
-      <Setter Property="Width" Value="48"/>
-      <Setter Property="Height" Value="44"/>
-      <Setter Property="Margin" Value="4,2"/>
+      <Setter Property="Width" Value="68"/>
+      <Setter Property="Height" Value="60"/>
+      <Setter Property="Margin" Value="8,4"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
       <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
@@ -780,7 +868,7 @@
               <Trigger Property="IsChecked" Value="True">
                 <Setter TargetName="navBd" Property="Background" Value="{DynamicResource BrushSurface}"/>
                 <Setter TargetName="navBd" Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
-                <Setter TargetName="navBd" Property="BorderThickness" Value="3,0,0,0"/>
+                <Setter TargetName="navBd" Property="BorderThickness" Value="2"/>
                 <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">

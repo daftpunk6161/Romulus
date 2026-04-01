@@ -148,6 +148,12 @@ public sealed partial class MainViewModel
 
     public bool ShowStartMoveButton => CanStartMoveWithCurrentPreview;
 
+    public bool ShowSmartActionBar =>
+        IsBusy ||
+        (!string.Equals(Shell.SelectedNavTag, "MissionControl", StringComparison.Ordinal) &&
+         !(string.Equals(Shell.SelectedNavTag, "Library", StringComparison.Ordinal)
+           && string.Equals(Shell.SelectedSubTab, "Results", StringComparison.Ordinal)));
+
     public bool HasRunResult =>
         Run.HasRunResult ||
         (Run.CurrentRunState is RunState.Cancelled or RunState.Failed
@@ -191,10 +197,14 @@ public sealed partial class MainViewModel
         {
             OnPropertyChanged(nameof(RunStateDisplayText));
             OnPropertyChanged(nameof(ShowStartMoveButton));
+            OnPropertyChanged(nameof(ShowSmartActionBar));
             OnPropertyChanged(nameof(CanStartCurrentRun));
             OnPropertyChanged(nameof(CanStartMoveWithCurrentPreview));
             DeferCommandRequery();
         }
+
+        if (e.PropertyName is nameof(IsBusy) or nameof(IsIdle) or nameof(ShowStartMoveButton))
+            OnPropertyChanged(nameof(ShowSmartActionBar));
     }
 
     /// <summary>GUI-065: True when no roots are configured (for StartView hero drop-zone).</summary>
@@ -274,6 +284,18 @@ public sealed partial class MainViewModel
     private string _progressPhaseKey = string.Empty;
     private int _progressPhaseEventCount;
     private DateTime _progressPhaseStartedUtc = DateTime.MinValue;
+    private readonly Dictionary<UiProgressPhase, (double Start, double End)> _progressPhaseRanges = [];
+
+    private enum UiProgressPhase
+    {
+        Preflight,
+        Scan,
+        Dedupe,
+        Move,
+        Sort,
+        Convert,
+        Report
+    }
 
     // ═══ MISC UI STATE ══════════════════════════════════════════════════
     private string? _selectedRoot;
@@ -287,7 +309,12 @@ public sealed partial class MainViewModel
     public bool CanRollback
     {
         get => _canRollback;
-        set { SetProperty(ref _canRollback, value); DeferCommandRequery(); }
+        set
+        {
+            SetProperty(ref _canRollback, value);
+            OnPropertyChanged(nameof(ShowSmartActionBar));
+            DeferCommandRequery();
+        }
     }
 
     private string _lastReportPath = "";
@@ -408,11 +435,11 @@ public sealed partial class MainViewModel
         3 => HasRunResult && LastRunResult is { } r3
             ? $"Dedupe: {r3.WinnerCount} / {r3.LoserCount}"
             : _loc["Phase.Dedupe.Desc"],
-        4 => _loc["Phase.Sort.Desc"],
-        5 when !IsMovePhaseApplicable => _loc["Phase.Move.Skipped"],
-        5 => HasRunResult && LastRunResult?.MoveResult is { } mv
+        4 when !IsMovePhaseApplicable => _loc["Phase.Move.Skipped"],
+        4 => HasRunResult && LastRunResult?.MoveResult is { } mv
             ? $"Move: {mv.MoveCount} / {mv.FailCount}"
             : _loc["Phase.Move.Desc"],
+        5 => _loc["Phase.Sort.Desc"],
         6 when !IsConvertPhaseApplicable => _loc["Phase.Convert.Skipped"],
         6 => HasRunResult && LastRunResult is { } r6 && r6.ConvertedCount > 0
             ? $"Convert: {r6.ConvertedCount}"
@@ -928,17 +955,17 @@ public sealed partial class MainViewModel
                     var now = DateTime.UtcNow;
                     if ((now - lastProgressUpdate).TotalMilliseconds < 100) return;
                     lastProgressUpdate = now;
-                    _syncContext?.Post(_ =>
+
+                    if (_syncContext is null)
                     {
-                        var phaseProgress = EstimatePhaseProgress(msg);
-                        if (phaseProgress >= 0)
-                            Progress = phaseProgress;
-                        ProgressText = $"{Math.Round(Progress):0}%";
-                        UpdatePerfContext(msg);
-                        AddLog(msg, "INFO");
-                    }, null);
+                        ApplyProgressMessage(msg);
+                        return;
+                    }
+
+                    _syncContext.Post(_ => ApplyProgressMessage(msg), null);
                 });
             }, ct);
+            ConfigureRunProgressPlan(runOptions);
 
             var conversionReviewDecision = await ConfirmConversionReviewDialogAsync(runOptions, ct);
             if (!conversionReviewDecision.Proceed)
@@ -1322,6 +1349,65 @@ public sealed partial class MainViewModel
         _progressPhaseKey = string.Empty;
         _progressPhaseEventCount = 0;
         _progressPhaseStartedUtc = DateTime.MinValue;
+        _progressPhaseRanges.Clear();
+    }
+
+    private void ConfigureRunProgressPlan(RunOptions options)
+    {
+        _progressPhaseRanges.Clear();
+
+        const double preflightWidth = 5d;
+        const double reportWidth = 5d;
+        const double workRangeStart = preflightWidth;
+        const double workRangeEnd = 100d - reportWidth;
+
+        _progressPhaseRanges[UiProgressPhase.Preflight] = (0d, preflightWidth);
+        _progressPhaseRanges[UiProgressPhase.Report] = (workRangeEnd, 100d);
+
+        var activeWorkPhases = new List<UiProgressPhase>
+        {
+            UiProgressPhase.Scan
+        };
+
+        if (!options.ConvertOnly)
+            activeWorkPhases.Add(UiProgressPhase.Dedupe);
+
+        if (!options.ConvertOnly
+            && string.Equals(options.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase))
+            activeWorkPhases.Add(UiProgressPhase.Move);
+
+        if (!options.ConvertOnly && options.SortConsole)
+            activeWorkPhases.Add(UiProgressPhase.Sort);
+
+        var includeConvertPhase = options.ConvertOnly
+            || (string.Equals(options.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(options.ConvertFormat));
+        if (includeConvertPhase)
+            activeWorkPhases.Add(UiProgressPhase.Convert);
+
+        var phaseWidth = activeWorkPhases.Count == 0
+            ? 0d
+            : (workRangeEnd - workRangeStart) / activeWorkPhases.Count;
+
+        var cursor = workRangeStart;
+        foreach (var phase in activeWorkPhases)
+        {
+            var end = cursor + phaseWidth;
+            _progressPhaseRanges[phase] = (cursor, end);
+            cursor = end;
+        }
+    }
+
+    private void ApplyProgressMessage(string message)
+    {
+        var phaseProgress = EstimatePhaseProgress(message);
+        if (phaseProgress >= 0)
+            Progress = phaseProgress;
+
+        ProgressText = $"{Math.Round(Progress):0}%";
+        UpdateCurrentRunStateFromProgress(message);
+        UpdatePerfContext(message);
+        AddLog(message, "INFO");
     }
 
     private double EstimatePhaseProgress(string message)
@@ -1371,13 +1457,46 @@ public sealed partial class MainViewModel
         return Math.Min(rangeEnd, Math.Max(Progress, candidate));
     }
 
-    private void UpdatePerfContext(string message)
+    private void UpdateCurrentRunStateFromProgress(string message)
     {
-        if (!TrySplitProgressMessage(message, out var phase, out var detail))
+        if (CurrentRunState is RunState.Completed or RunState.CompletedDryRun or RunState.Cancelled or RunState.Failed)
             return;
 
-        PerfPhase = $"Phase: {phase}";
-        PerfFile = detail;
+        if (!TrySplitProgressMessage(message, out var phaseKey, out _)
+            || !TryMapMessageToPhase(phaseKey, out var phase))
+        {
+            return;
+        }
+
+        var targetState = phase switch
+        {
+            UiProgressPhase.Preflight => RunState.Preflight,
+            UiProgressPhase.Scan => RunState.Scanning,
+            UiProgressPhase.Dedupe => RunState.Deduplicating,
+            UiProgressPhase.Move => RunState.Moving,
+            UiProgressPhase.Sort => RunState.Sorting,
+            UiProgressPhase.Convert => RunState.Converting,
+            UiProgressPhase.Report => CurrentRunState,
+            _ => CurrentRunState
+        };
+
+        if (targetState == CurrentRunState)
+            return;
+
+        if (RunStateMachine.IsValidTransition(CurrentRunState, targetState))
+            CurrentRunState = targetState;
+    }
+
+    private void UpdatePerfContext(string message)
+    {
+        if (!TrySplitProgressMessage(message, out var phaseKey, out var detail))
+            return;
+
+        if (!TryMapMessageToPhase(phaseKey, out _))
+            return;
+
+        PerfPhase = $"Phase: {ResolvePhaseLabel(phaseKey)}";
+        PerfFile = string.IsNullOrWhiteSpace(detail) ? "–" : detail;
     }
 
     private static bool TrySplitProgressMessage(string message, out string phase, out string detail)
@@ -1442,51 +1561,77 @@ public sealed partial class MainViewModel
         return true;
     }
 
-    private static bool TryGetPhaseRange(string phaseKey, out double start, out double end)
+    private bool TryGetPhaseRange(string phaseKey, out double start, out double end)
+    {
+        if (phaseKey.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase))
+        {
+            start = 100d;
+            end = 100d;
+            return true;
+        }
+
+        if (TryMapMessageToPhase(phaseKey, out var phase)
+            && _progressPhaseRanges.TryGetValue(phase, out var range))
+        {
+            start = range.Start;
+            end = range.End;
+            return true;
+        }
+
+        start = 0d;
+        end = 0d;
+        return false;
+    }
+
+    private static bool TryMapMessageToPhase(string phaseKey, out UiProgressPhase phase)
     {
         switch (phaseKey)
         {
             case var _ when phaseKey.StartsWith("[Preflight]", StringComparison.OrdinalIgnoreCase):
-                start = 3;
-                end = 12;
+                phase = UiProgressPhase.Preflight;
                 return true;
-            case var _ when phaseKey.StartsWith("[Scan]", StringComparison.OrdinalIgnoreCase):
-                start = 12;
-                end = 58;
+            case var _ when phaseKey.StartsWith("[Scan]", StringComparison.OrdinalIgnoreCase)
+                          || phaseKey.StartsWith("[Filter]", StringComparison.OrdinalIgnoreCase):
+                phase = UiProgressPhase.Scan;
                 return true;
             case var _ when phaseKey.StartsWith("[Dedupe]", StringComparison.OrdinalIgnoreCase):
-                start = 58;
-                end = 72;
+                phase = UiProgressPhase.Dedupe;
                 return true;
-            case var _ when phaseKey.StartsWith("[Junk]", StringComparison.OrdinalIgnoreCase):
-                start = 72;
-                end = 78;
-                return true;
-            case var _ when phaseKey.StartsWith("[Move]", StringComparison.OrdinalIgnoreCase):
-                start = 78;
-                end = 86;
+            case var _ when phaseKey.StartsWith("[Junk]", StringComparison.OrdinalIgnoreCase)
+                          || phaseKey.StartsWith("[Move]", StringComparison.OrdinalIgnoreCase):
+                phase = UiProgressPhase.Move;
                 return true;
             case var _ when phaseKey.StartsWith("[Sort]", StringComparison.OrdinalIgnoreCase):
-                start = 86;
-                end = 92;
+                phase = UiProgressPhase.Sort;
                 return true;
             case var _ when phaseKey.StartsWith("[Convert]", StringComparison.OrdinalIgnoreCase):
-                start = 92;
-                end = 96;
+                phase = UiProgressPhase.Convert;
                 return true;
-            case var _ when phaseKey.StartsWith("[Report]", StringComparison.OrdinalIgnoreCase):
-                start = 96;
-                end = 99;
-                return true;
-            case var _ when phaseKey.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase):
-                start = 100;
-                end = 100;
+            case var _ when phaseKey.StartsWith("[Report]", StringComparison.OrdinalIgnoreCase)
+                          || phaseKey.StartsWith("[Fertig]", StringComparison.OrdinalIgnoreCase):
+                phase = UiProgressPhase.Report;
                 return true;
             default:
-                start = 0;
-                end = 0;
+                phase = default;
                 return false;
         }
+    }
+
+    private string ResolvePhaseLabel(string phaseKey)
+    {
+        return TryMapMessageToPhase(phaseKey, out var phase)
+            ? phase switch
+            {
+                UiProgressPhase.Preflight => _loc["Phase.Preflight"],
+                UiProgressPhase.Scan => _loc["Phase.Scan"],
+                UiProgressPhase.Dedupe => _loc["Phase.Dedupe"],
+                UiProgressPhase.Move => _loc["Phase.Move"],
+                UiProgressPhase.Sort => _loc["Phase.Sort"],
+                UiProgressPhase.Convert => _loc["Phase.Convert"],
+                UiProgressPhase.Report => _loc["Phase.Done"],
+                _ => phaseKey
+            }
+            : phaseKey;
     }
 
     private static int GetConsoleSortFailureCount(object sortResult)

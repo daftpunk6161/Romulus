@@ -3,181 +3,247 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:scott="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
 
-  <!-- ResultView: now only Dashboard (Library > Results).
-       Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
-
   <Grid>
-  <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16"
-                Background="{DynamicResource BrushBackground}"
-                Visibility="{Binding Run.HasRunData, Converter={StaticResource BoolToVis}}">
-    <StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16"
+                  Background="{DynamicResource BrushBackground}"
+                  Visibility="{Binding Run.HasRunData, Converter={StaticResource BoolToVis}}">
+      <StackPanel>
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Analyseübersicht" Style="{StaticResource SectionHeader}" FontSize="20"/>
+            <TextBlock Text="{Binding Run.RunSummaryText}" Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                       Visibility="{Binding Run.HasRunSummary, Converter={StaticResource BoolToVis}}"/>
+          </StackPanel>
+          <WrapPanel Grid.Column="1" VerticalAlignment="Top">
+            <Button Command="{Binding OpenReportCommand}" Padding="14,6" Margin="0,0,8,0"
+                    ToolTip="{Binding Loc[Result.OpenReportTip]}"
+                    AutomationProperties.Name="{Binding Loc[Result.OpenReportTip]}"
+                    Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" Margin="{DynamicResource SpaceRightSM}"/>
+                <TextBlock Text="{Binding Loc[Result.OpenReport]}"/>
+              </StackPanel>
+            </Button>
+            <Button Command="{Binding RollbackCommand}" Padding="14,6"
+                    Foreground="{DynamicResource BrushAccentPurple}" BorderBrush="{DynamicResource BrushAccentPurple}"
+                    Visibility="{Binding CanRollback, Converter={StaticResource BoolToVis}}"
+                    AutomationProperties.Name="{Binding Loc[Start.RollbackButton]}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE777;" Margin="{DynamicResource SpaceRightSM}"/>
+                <TextBlock Text="{Binding Loc[Start.RollbackButton]}"/>
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+        </Grid>
 
-          <!-- Run status summary banner -->
-          <Border Padding="14,10" CornerRadius="8" Margin="0,0,0,16"
-                  Visibility="{Binding Run.HasRunSummary, Converter={StaticResource BoolToVis}}">
-            <Border.Style>
-              <Style TargetType="Border">
-                <Setter Property="Background" Value="{DynamicResource BrushInfoBg}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Warning">
-                    <Setter Property="Background" Value="{DynamicResource BrushWarningBg}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
-                  </DataTrigger>
-                  <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Error">
-                    <Setter Property="Background" Value="{DynamicResource BrushDangerBg}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
-                  </DataTrigger>
-                  <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Blocked">
-                    <Setter Property="Background" Value="{DynamicResource BrushDangerBg}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Run.RunSummaryText}" TextWrapping="Wrap"
-                       Foreground="{DynamicResource BrushTextPrimary}" FontSize="14" FontWeight="SemiBold"/>
+        <Border Padding="14,10" CornerRadius="8" Margin="0,0,0,16"
+                Visibility="{Binding Run.HasRunSummary, Converter={StaticResource BoolToVis}}">
+          <Border.Style>
+            <Style TargetType="Border">
+              <Setter Property="Background" Value="{DynamicResource BrushInfoBg}"/>
+              <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
+              <Setter Property="BorderThickness" Value="1"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Warning">
+                  <Setter Property="Background" Value="{DynamicResource BrushWarningBg}"/>
+                  <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Error">
+                  <Setter Property="Background" Value="{DynamicResource BrushDangerBg}"/>
+                  <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Run.RunSummarySeverity}" Value="Blocked">
+                  <Setter Property="Background" Value="{DynamicResource BrushDangerBg}"/>
+                  <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <TextBlock Text="{Binding Run.RunSummaryText}" TextWrapping="Wrap"
+                     Foreground="{DynamicResource BrushTextPrimary}" FontSize="14" FontWeight="SemiBold"/>
+        </Border>
+
+        <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushDanger}"
+                BorderThickness="1" CornerRadius="{DynamicResource RadiusXL}" Padding="20,16" Margin="0,0,0,16"
+                Visibility="{Binding ShowStartMoveButton, Converter={StaticResource BoolToVis}}">
+          <StackPanel>
+            <TextBlock Text="{Binding Loc[Result.ApplyWarningTitle]}" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushDanger}" Margin="0,0,0,6"/>
+            <TextBlock Text="{Binding MoveApplyGateText}" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding Run.MoveConsequenceText}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushWarning}" Margin="0,0,0,12"/>
+
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource InverseBoolToVis}}">
+              <Button Command="{Binding RequestStartMoveCommand}" Style="{StaticResource DangerButton}"
+                      Padding="14,6" Margin="0,0,8,0"
+                      ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move bestätigen anfordern">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" Margin="{DynamicResource SpaceRightSM}"/>
+                  <TextBlock Text="{Binding Loc[Result.BtnCleanup]}"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource BoolToVis}}">
+              <Button Command="{Binding StartMoveCommand}" Style="{StaticResource DangerButton}"
+                      Padding="14,6" Margin="0,0,8,0"
+                      ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move jetzt ausführen">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" Margin="{DynamicResource SpaceRightSM}"/>
+                  <TextBlock Text="Jetzt ausführen"/>
+                </StackPanel>
+              </Button>
+              <Button Command="{Binding CancelStartMoveCommand}" Padding="14,6"
+                      ToolTip="Move abbrechen" AutomationProperties.Name="Move abbrechen">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" Margin="{DynamicResource SpaceRightSM}"/>
+                  <TextBlock Text="Abbrechen"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <TextBlock Text="{Binding Loc[Result.TrustSignal]}" Style="{StaticResource CaptionText}"
+                       Margin="0,12,0,0" Foreground="{DynamicResource BrushSuccess}"/>
+          </StackPanel>
+        </Border>
+
+        <WrapPanel Margin="0,0,0,8">
+          <Border Style="{StaticResource MetricCard}" MinHeight="108" Focusable="True"
+                  AutomationProperties.Name="{Binding Loc[Result.MetricGames]}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="24"
+                         Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+              <TextBlock Text="{Binding Run.DashGames}" Foreground="{DynamicResource BrushAccentCyan}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding Loc[Result.MetricGames]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+            </StackPanel>
           </Border>
 
-          <!-- GUI-070: 4 Large Primary MetricCards -->
-          <UniformGrid Columns="4" Margin="0,0,0,16">
-            <Border Style="{StaticResource MetricCard}" MinHeight="100" Margin="0,0,8,0"
-                    Focusable="True" AutomationProperties.Name="{Binding Loc[Result.MetricGames]}">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="24"
-                           Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding Run.DashGames}" Foreground="{DynamicResource BrushAccentCyan}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"
-                           AutomationProperties.Name="{Binding Loc[Result.MetricGames]}" AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock Text="{Binding Loc[Result.MetricGames]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-              </StackPanel>
-            </Border>
-            <Border Style="{StaticResource MetricCard}" MinHeight="100" Margin="0,0,8,0"
-                    Focusable="True" AutomationProperties.Name="{Binding Loc[Result.MetricDupes]}">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="24"
-                           Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding Run.DashDupes}" Foreground="{DynamicResource BrushWarning}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"
-                           AutomationProperties.Name="{Binding Loc[Result.MetricDupes]}" AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock Text="{Binding Loc[Result.MetricDupes]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-              </StackPanel>
-            </Border>
-            <Border Style="{StaticResource MetricCard}" MinHeight="100" Margin="0,0,8,0"
-                    Focusable="True" AutomationProperties.Name="{Binding Loc[Result.MetricJunk]}">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="24"
-                           Foreground="{DynamicResource BrushDanger}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding Run.DashJunk}" Foreground="{DynamicResource BrushDanger}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"
-                           AutomationProperties.Name="{Binding Loc[Result.MetricJunk]}" AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock Text="{Binding Loc[Result.MetricJunk]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-              </StackPanel>
-            </Border>
-            <Border Style="{StaticResource MetricCard}" MinHeight="100"
-                    Focusable="True" AutomationProperties.Name="{Binding Loc[Result.MetricHealth]}">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="&#xE8CB;" FontFamily="Segoe MDL2 Assets" FontSize="24"
-                           Foreground="{DynamicResource BrushSuccess}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding Run.HealthScore}" Foreground="{DynamicResource BrushSuccess}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"
-                           AutomationProperties.Name="{Binding Loc[Result.MetricHealth]}" AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock Text="{Binding Loc[Result.MetricHealth]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-              </StackPanel>
-            </Border>
-          </UniformGrid>
+          <Border Style="{StaticResource MetricCard}" MinHeight="108" Focusable="True"
+                  AutomationProperties.Name="{Binding Loc[Result.MetricDupes]}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="24"
+                         Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+              <TextBlock Text="{Binding Run.DashDupes}" Foreground="{DynamicResource BrushWarning}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding Loc[Result.MetricDupes]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
 
-          <!-- Secondary Metrics (expandable) -->
-          <Expander Header="{Binding Loc[Result.PerfDetails], Mode=OneWay}" IsExpanded="{Binding Run.IsResultPerfDetailsExpanded, Mode=TwoWay}" Margin="0,0,0,12"
-                   AutomationProperties.Name="{Binding Loc[Result.PerfDetails]}">
-            <WrapPanel Margin="0,8,0,0" MaxWidth="1200">
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Loc[Result.MetricMode]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashMode}" Foreground="{DynamicResource BrushTextPrimary}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Loc[Result.MetricWinners]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashWinners}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Loc[Result.MetricDuration]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDuration}" Foreground="{DynamicResource BrushTextPrimary}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Loc[Result.MetricVerified]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatHits}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Loc[Result.MetricDedupeRate]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DedupeRate}" Foreground="{DynamicResource BrushWarning}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="DAT Have" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatHave}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="DAT WrongName" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatWrongName}" Foreground="{DynamicResource BrushWarning}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="DAT Miss" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatMiss}" Foreground="{DynamicResource BrushDanger}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="DAT Unknown" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatUnknown}" Foreground="{DynamicResource BrushTextMuted}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource MetricCard}" MinWidth="90" Margin="0,0,8,8">
-                <StackPanel HorizontalAlignment="Center">
-                  <TextBlock Text="DAT Ambiguous" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
-                  <TextBlock Text="{Binding Run.DashDatAmbiguous}" Foreground="{DynamicResource BrushAccentCyan}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-            </WrapPanel>
-          </Expander>
+          <Border Style="{StaticResource MetricCard}" MinHeight="108" Focusable="True"
+                  AutomationProperties.Name="{Binding Loc[Result.MetricJunk]}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="24"
+                         Foreground="{DynamicResource BrushDanger}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+              <TextBlock Text="{Binding Run.DashJunk}" Foreground="{DynamicResource BrushDanger}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding Loc[Result.MetricJunk]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
 
-          <!-- GUI-071 + GUI-104: Console Distribution — Bars + Pie side by side -->
-            <Grid Margin="0,0,0,12"
-                Visibility="{Binding Run.HasRunData, Converter={StaticResource BoolToVis}}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="1.2*"/>
-              <ColumnDefinition Width="1.05*"/>
-            </Grid.ColumnDefinitions>
+          <Border Style="{StaticResource MetricCard}" MinHeight="108" Focusable="True"
+                  AutomationProperties.Name="{Binding Loc[Result.MetricHealth]}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock Text="&#xE8CB;" FontFamily="Segoe MDL2 Assets" FontSize="24"
+                         Foreground="{DynamicResource BrushSuccess}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+              <TextBlock Text="{Binding Run.HealthScore}" Foreground="{DynamicResource BrushSuccess}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding Loc[Result.MetricHealth]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+        </WrapPanel>
 
-            <!-- Bars (left) -->
-            <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,6,0">
+        <Expander Header="{Binding Loc[Result.PerfDetails], Mode=OneWay}"
+                 IsExpanded="{Binding Run.IsResultPerfDetailsExpanded, Mode=TwoWay}"
+                 Margin="0,0,0,12"
+                 AutomationProperties.Name="{Binding Loc[Result.PerfDetails]}">
+          <WrapPanel Margin="0,8,0,0" MaxWidth="1200">
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Loc[Result.MetricMode]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashMode}" Foreground="{DynamicResource BrushTextPrimary}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Loc[Result.MetricWinners]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashWinners}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Loc[Result.MetricDuration]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDuration}" Foreground="{DynamicResource BrushTextPrimary}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Loc[Result.MetricVerified]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatHits}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Loc[Result.MetricDedupeRate]}" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DedupeRate}" Foreground="{DynamicResource BrushWarning}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="DAT Have" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatHave}" Foreground="{DynamicResource BrushSuccess}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="DAT WrongName" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatWrongName}" Foreground="{DynamicResource BrushWarning}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="DAT Miss" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatMiss}" Foreground="{DynamicResource BrushDanger}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="DAT Unknown" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatUnknown}" Foreground="{DynamicResource BrushTextMuted}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource MetricCard}" MinWidth="120">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="DAT Ambiguous" Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding Run.DashDatAmbiguous}" Foreground="{DynamicResource BrushAccentCyan}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </WrapPanel>
+        </Expander>
+
+        <Expander Header="{Binding Loc[Result.ConsoleDistribution]}" IsExpanded="True" Margin="0,0,0,12">
+          <StackPanel Margin="0,12,0,0">
+            <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="{DynamicResource RadiusXL}" Padding="16,12" Margin="0,0,0,12">
               <StackPanel>
                 <TextBlock Text="{Binding Loc[Result.ConsoleDistribution]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-                <ItemsControl ItemsSource="{Binding Run.ConsoleDistribution}" Margin="0,4,0,0"
+                <ItemsControl ItemsSource="{Binding Run.ConsoleDistribution}"
                               AutomationProperties.Name="{Binding Loc[Result.ConsoleDistribution]}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Grid Margin="0,2" Height="24">
+                      <Grid Margin="0,3" Height="26">
                         <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="100"/>
+                          <ColumnDefinition Width="120"/>
                           <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="50"/>
+                          <ColumnDefinition Width="56"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="{DynamicResource BrushTextPrimary}"
-                                   FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Border Grid.Column="1" Background="{DynamicResource BrushSurface}" CornerRadius="3" Height="14" VerticalAlignment="Center">
-                          <Border CornerRadius="3" Height="14" Background="{DynamicResource BrushAccentCyan}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Background="{DynamicResource BrushSurface}" CornerRadius="4" Height="14" VerticalAlignment="Center">
+                          <Border CornerRadius="4" Height="14" Background="{DynamicResource BrushAccentCyan}"
                                   HorizontalAlignment="Left">
                             <Border.Width>
                               <MultiBinding Converter="{StaticResource FractionToWidth}" ConverterParameter="bar">
@@ -196,36 +262,34 @@
               </StackPanel>
             </Border>
 
-            <!-- Pie Chart (right) -->
-            <Border Grid.Column="1" Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="6,0,0,0"
-                    MinWidth="420">
+            <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="{DynamicResource RadiusXL}" Padding="16,12">
               <StackPanel>
                 <TextBlock Text="{Binding Loc[Result.ChartConsole]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-                <scott:WpfPlot x:Name="chartConsolePie" Height="460"
+                <scott:WpfPlot x:Name="chartConsolePie" Height="320"
                                AutomationProperties.Name="{Binding Loc[Result.ChartConsole]}"/>
               </StackPanel>
             </Border>
-          </Grid>
+          </StackPanel>
+        </Expander>
 
-          <!-- GUI-106: Before/After Summary -->
+        <Expander Header="{Binding Loc[Result.BeforeAfter]}" IsExpanded="False" Margin="0,0,0,12">
           <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                  BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,12"
-                  Visibility="{Binding Run.HasRunData, Converter={StaticResource BoolToVis}}">
+                  BorderThickness="1" CornerRadius="{DynamicResource RadiusXL}" Padding="16,12" Margin="0,12,0,0">
             <StackPanel>
               <TextBlock Text="{Binding Loc[Result.BeforeAfter]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
               <scott:WpfPlot x:Name="chartBeforeAfter" Height="220"
                              AutomationProperties.Name="{Binding Loc[Result.BeforeAfter]}"/>
             </StackPanel>
           </Border>
+        </Expander>
 
-          <!-- GUI-072/073: Dedup Decision Browser -->
+        <Expander Header="{Binding Loc[Result.DedupeDecisions]}" IsExpanded="False">
           <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
-                  BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,12"
-                  Visibility="{Binding Run.HasRunData, Converter={StaticResource BoolToVis}}">
+                  BorderThickness="1" CornerRadius="{DynamicResource RadiusXL}" Padding="16,12" Margin="0,12,0,0">
             <StackPanel>
               <TextBlock Text="{Binding Loc[Result.DedupeDecisions]}" Style="{StaticResource SectionHeader}" Margin="{DynamicResource SpaceBottomSM}"/>
-              <TreeView ItemsSource="{Binding Run.DedupeGroupItems}" MaxHeight="400" BorderThickness="0"
+              <TreeView ItemsSource="{Binding Run.DedupeGroupItems}" MaxHeight="380" BorderThickness="0"
                         Background="Transparent" AutomationProperties.Name="{Binding Loc[Result.DedupeDecisions]}"
                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                 <TreeView.ItemTemplate>
@@ -272,53 +336,18 @@
               </TreeView>
             </StackPanel>
           </Border>
-
-          <!-- GUI-074: Move CTA with consequence text -->
-          <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushDanger}"
-                  BorderThickness="1" CornerRadius="8" Padding="20,16" Margin="0,0,0,12"
-                  Visibility="{Binding ShowStartMoveButton, Converter={StaticResource BoolToVis}}">
-            <StackPanel HorizontalAlignment="Center">
-                <TextBlock Text="{Binding Loc[Result.ApplyWarningTitle]}" FontSize="15" FontWeight="Bold"
-               Foreground="{DynamicResource BrushDanger}" HorizontalAlignment="Center"
-               Margin="0,0,0,6"/>
-                <TextBlock Text="{Binding MoveApplyGateText}" FontSize="12" TextWrapping="Wrap"
-               Foreground="{DynamicResource BrushTextPrimary}" HorizontalAlignment="Center"
-               TextAlignment="Center" Margin="0,0,0,8" MaxWidth="520"/>
-              <TextBlock Text="{Binding Run.MoveConsequenceText}" FontSize="14" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center"
-                         Margin="0,0,0,8"/>
-              <!-- GUI-075: Trust signal -->
-              <TextBlock Text="{Binding Loc[Result.TrustSignal]}" Style="{StaticResource CaptionText}"
-                         HorizontalAlignment="Center" Margin="0,8,0,0" Opacity="0.8"
-                         Foreground="{DynamicResource BrushSuccess}"/>
-            </StackPanel>
-          </Border>
-
-          <!-- Open Report Button -->
-          <Button Command="{Binding OpenReportCommand}" HorizontalAlignment="Right" Padding="16,8"
-                  ToolTip="{Binding Loc[Result.OpenReportTip]}"
-                  AutomationProperties.Name="{Binding Loc[Result.OpenReportTip]}"
-                  Visibility="{Binding HasRunResult, Converter={StaticResource BoolToVis}}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" Margin="{DynamicResource SpaceRightSM}"/>
-              <TextBlock Text="{Binding Loc[Result.OpenReport]}"/>
-            </StackPanel>
-          </Button>
-
-        </StackPanel>
-      </ScrollViewer>
-
-      <!-- Empty state: no analysis data yet -->
-      <StackPanel Visibility="{Binding Run.HasRunData, Converter={StaticResource InverseBoolToVis}}"
-                  HorizontalAlignment="Center" VerticalAlignment="Center">
-        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="48"
-                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
-        <TextBlock Text="Noch keine Analyse-Daten" FontSize="16" FontWeight="SemiBold"
-                   Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-        <TextBlock Text="Starte eine Vorschau mit F5 um die Ergebnisse zu sehen."
-                   Foreground="{DynamicResource BrushTextMuted}" FontSize="12" HorizontalAlignment="Center"/>
+        </Expander>
       </StackPanel>
+    </ScrollViewer>
 
-      <!-- Protokoll → SystemActivityView, Report-Vorschau → LibraryReportView -->
+    <StackPanel Visibility="{Binding Run.HasRunData, Converter={StaticResource InverseBoolToVis}}"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="48"
+                 Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+      <TextBlock Text="Noch keine Analyse-Daten" FontSize="16" FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+      <TextBlock Text="Starte eine Vorschau mit F5 um die Ergebnisse zu sehen."
+                 Foreground="{DynamicResource BrushTextMuted}" FontSize="12" HorizontalAlignment="Center"/>
+    </StackPanel>
   </Grid>
 </UserControl>

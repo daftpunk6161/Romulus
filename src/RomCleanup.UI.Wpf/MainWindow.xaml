@@ -4,10 +4,10 @@
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     xmlns:views="clr-namespace:RomCleanup.UI.Wpf.Views"
-    Title="omulus"
+    Title="Romulus"
     Icon="pack://application:,,,/Assets/app.ico"
-    Width="960" Height="720"
-    MinWidth="800" MinHeight="640"
+    Width="1280" Height="860"
+    MinWidth="960" MinHeight="720"
     WindowStartupLocation="CenterScreen"
     FontFamily="Segoe UI" FontSize="13"
     Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushTextPrimary}"
@@ -46,7 +46,7 @@
   <Grid>
     <!-- Logo-Watermark Hintergrund -->
     <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
-             Opacity="0.07" IsHitTestVisible="False" MaxWidth="500" MaxHeight="500">
+             Opacity="0.04" IsHitTestVisible="False" MaxWidth="360" MaxHeight="360">
       <Canvas Width="256" Height="256">
         <Path Data="M76,49 L76,199 L96,199 L96,136 L126,136 L160,199 L183,199 L150,132 C173,122 184,100 184,82 C184,60 166,49 136,49 Z M96,67 L132,67 C154,67 162,78 162,84 C162,94 154,110 132,110 L96,110 Z">
           <Path.Fill>
@@ -63,15 +63,15 @@
     <!-- ═══ SHELL LAYOUT: 3-Row × 3-Column Command Center ═══════════════ -->
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="48"/>   <!-- Row 0: CommandBar -->
+        <RowDefinition Height="{DynamicResource CommandBarHeight}"/>   <!-- Row 0: CommandBar -->
         <RowDefinition Height="*"/>    <!-- Row 1: Main content -->
         <RowDefinition Height="Auto"/> <!-- Row 2: Detail Drawer (collapsible) -->
         <RowDefinition Height="Auto"/> <!-- Row 3: ActionRail -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="72"/>  <!-- Col 0: NavigationRail -->
+        <ColumnDefinition Width="{DynamicResource NavRailWidth}"/>  <!-- Col 0: NavigationRail -->
         <ColumnDefinition Width="*"/>   <!-- Col 1: Content -->
-        <ColumnDefinition x:Name="contextColumn" Width="280"/> <!-- Col 2: ContextWing -->
+        <ColumnDefinition x:Name="contextColumn" Width="{DynamicResource ContextWingWidth}"/> <!-- Col 2: ContextWing -->
       </Grid.ColumnDefinitions>
 
       <!-- ═══ ROW 0: COMMAND BAR (spans all columns) ══════════════════════ -->
@@ -87,7 +87,7 @@
       <!-- ═══ ROW 1, COL 1: SUB-TAB BAR + CONTENT AREA ══════════════════ -->
       <Grid Grid.Row="1" Grid.Column="1">
         <Grid.RowDefinitions>
-          <RowDefinition Height="32"/>  <!-- Sub-tab navigation -->
+          <RowDefinition Height="{DynamicResource TabBarHeight}"/>  <!-- Sub-tab navigation -->
           <RowDefinition Height="*"/>   <!-- View content -->
         </Grid.RowDefinitions>
 
@@ -166,8 +166,21 @@
 
       <!-- ═══ ROW 1, COL 2: CONTEXT WING (Inspector Panel) ══════════════ -->
       <views:ContextPanel Grid.Row="1" Grid.Column="2"
-                          Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}"
-                          TabIndex="4"/>
+                          TabIndex="4">
+        <views:ContextPanel.Style>
+          <Style TargetType="views:ContextPanel">
+            <Setter Property="Visibility" Value="Visible"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding Shell.ShowContextWing}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </views:ContextPanel.Style>
+      </views:ContextPanel>
 
       <!-- ═══ ROW 2: DETAIL DRAWER (collapsible log stream, Ctrl+J) ════════ -->
       <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
@@ -218,6 +231,7 @@
 
       <!-- ═══ ROW 3: ACTION RAIL (spans all columns) ═════════════════════ -->
       <views:SmartActionBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                            Visibility="{Binding ShowSmartActionBar, Converter={StaticResource BoolToVis}}"
                             TabIndex="56"/>
 
       <!-- ═══ TOAST / NOTIFICATION OVERLAY ════════════════════════════════ -->

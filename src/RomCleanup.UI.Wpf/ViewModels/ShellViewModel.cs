@@ -90,12 +90,17 @@ public sealed class ShellViewModel : ObservableObject
     public string SelectedSubTab
     {
         get => _selectedSubTab;
-        set => SetProperty(ref _selectedSubTab, CoerceSubTab(SelectedNavTag, value));
+        set
+        {
+            if (SetProperty(ref _selectedSubTab, CoerceSubTab(SelectedNavTag, value)))
+                NotifyWorkspaceProjectionChanged();
+        }
     }
 
     private void ApplyDefaultSubTab()
     {
         SelectedSubTab = GetDefaultSubTab(SelectedNavTag);
+        NotifyWorkspaceProjectionChanged();
     }
 
     // ═══ UI MODES ══════════════════════════════════════════════════════
@@ -146,6 +151,43 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowSystemActivityLogTab => !IsSimpleMode;
     public bool ShowSystemAppearanceTab => true;
     public bool ShowSystemAboutTab => true;
+
+    public string CurrentWorkspaceTitle => NormalizeNavTag(SelectedNavTag) switch
+    {
+        MissionControlTag => "Mission Control",
+        LibraryTag => "Library",
+        ConfigTag => "Konfiguration",
+        ToolsTag => "Werkzeuge",
+        SystemTag => "System",
+        _ => "Mission Control"
+    };
+
+    public string CurrentWorkspaceSection => SelectedSubTab switch
+    {
+        "Dashboard" => "Dashboard",
+        "QuickStart" => "Quick Start",
+        "RecentRuns" => "Recent Runs",
+        "Results" => "Ergebnisse",
+        "Decisions" => "Entscheidungen",
+        "Safety" => "Safety Review",
+        "Report" => "Report",
+        "DatAudit" => "DAT Audit",
+        "Regions" => "Regionen",
+        "Filtering" => "Filter",
+        "Options" => "Optionen",
+        "Profiles" => "Profile",
+        "ExternalTools" => "Externe Tools",
+        "Features" => "Features",
+        "DatManagement" => "DAT Management",
+        "Conversion" => "Konvertierung",
+        "GameKeyLab" => "GameKey Lab",
+        "ActivityLog" => "Aktivitaet",
+        "Appearance" => "Darstellung",
+        "About" => "Info",
+        _ => "Uebersicht"
+    };
+
+    public string CurrentWorkspaceBreadcrumb => $"{CurrentWorkspaceTitle} / {CurrentWorkspaceSection}";
 
     private static string NormalizeNavTag(string? tag) => tag switch
     {
@@ -256,15 +298,29 @@ public sealed class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSystemActivityLogTab));
         OnPropertyChanged(nameof(ShowSystemAppearanceTab));
         OnPropertyChanged(nameof(ShowSystemAboutTab));
+        NotifyWorkspaceProjectionChanged();
+    }
+
+    private void NotifyWorkspaceProjectionChanged()
+    {
+        OnPropertyChanged(nameof(CurrentWorkspaceTitle));
+        OnPropertyChanged(nameof(CurrentWorkspaceSection));
+        OnPropertyChanged(nameof(CurrentWorkspaceBreadcrumb));
     }
 
     // ═══ CONTEXT WING (Inspector) ═══════════════════════════════════════
-    private bool _showContextWing = true;
+    private bool _showContextWing;
     public bool ShowContextWing
     {
         get => _showContextWing;
-        set => SetProperty(ref _showContextWing, value);
+        set
+        {
+            if (SetProperty(ref _showContextWing, value))
+                OnPropertyChanged(nameof(ContextToggleLabel));
+        }
     }
+
+    public string ContextToggleLabel => ShowContextWing ? "Inspector ausblenden" : "Inspector einblenden";
 
     // ═══ NAV COMPACT MODE (TASK-113: responsive breakpoint) ═════════════
     private bool _isCompactNav;

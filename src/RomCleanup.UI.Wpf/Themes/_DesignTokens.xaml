@@ -17,9 +17,9 @@
     <Thickness x:Key="SpaceBottomMD">0 0 0 12</Thickness>
     <Thickness x:Key="SpaceBottomLG">0 0 0 16</Thickness>
     <Thickness x:Key="SpaceBottomXL">0 0 0 24</Thickness>
-    <Thickness x:Key="PaddingBar">12 6 12 6</Thickness>
+    <Thickness x:Key="PaddingBar">16 8 16 8</Thickness>
     <Thickness x:Key="PaddingSection">16 16 16 16</Thickness>
-    <Thickness x:Key="PaddingCard">12 12 12 12</Thickness>
+    <Thickness x:Key="PaddingCard">16 16 16 16</Thickness>
     <Thickness x:Key="SpaceRightSM">0 0 8 0</Thickness>
     <Thickness x:Key="SpaceRightMD">0 0 12 0</Thickness>
     <Thickness x:Key="SpaceDotInline">4 0 4 0</Thickness>
@@ -31,24 +31,24 @@
     <!-- ═══ CORNER RADIUS SCALE ═══════════════════════════════════════ -->
     <CornerRadius x:Key="RadiusSM">3</CornerRadius>
     <CornerRadius x:Key="RadiusMD">6</CornerRadius>
-    <CornerRadius x:Key="RadiusLG">8</CornerRadius>
-    <CornerRadius x:Key="RadiusXL">12</CornerRadius>
+    <CornerRadius x:Key="RadiusLG">10</CornerRadius>
+    <CornerRadius x:Key="RadiusXL">14</CornerRadius>
 
     <!-- ═══ TYPOGRAPHY SCALE ══════════════════════════════════════════ -->
     <sys:Double x:Key="TypeDisplay">22</sys:Double>
-    <sys:Double x:Key="TypeHeading">16</sys:Double>
-    <sys:Double x:Key="TypeBody">13</sys:Double>
-    <sys:Double x:Key="TypeCaption">11</sys:Double>
+    <sys:Double x:Key="TypeHeading">18</sys:Double>
+    <sys:Double x:Key="TypeBody">14</sys:Double>
+    <sys:Double x:Key="TypeCaption">12</sys:Double>
     <sys:Double x:Key="TypeMono">11</sys:Double>
     <FontFamily x:Key="FontMono">Consolas</FontFamily>
     <FontFamily x:Key="FontUI">Segoe UI</FontFamily>
 
     <!-- ═══ SIZING ════════════════════════════════════════════════════ -->
-    <sys:Double x:Key="NavRailWidth">72</sys:Double>
-    <sys:Double x:Key="ContextWingWidth">280</sys:Double>
-    <sys:Double x:Key="ActionRailHeight">96</sys:Double>
-    <sys:Double x:Key="CommandBarHeight">48</sys:Double>
-    <sys:Double x:Key="TabBarHeight">32</sys:Double>
+    <sys:Double x:Key="NavRailWidth">84</sys:Double>
+    <sys:Double x:Key="ContextWingWidth">320</sys:Double>
+    <sys:Double x:Key="ActionRailHeight">88</sys:Double>
+    <sys:Double x:Key="CommandBarHeight">56</sys:Double>
+    <sys:Double x:Key="TabBarHeight">40</sys:Double>
     <sys:Double x:Key="MinTouchTarget">44</sys:Double>
 
     <!-- ═══ ANIMATION TIMING ══════════════════════════════════════════ -->

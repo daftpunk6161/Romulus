@@ -363,6 +363,9 @@ public sealed partial class MainViewModel
     {
         if (e.PropertyName == nameof(ShellViewModel.WizardStep))
             OnPropertyChanged(nameof(CanAdvanceWizard));
+
+        if (e.PropertyName is nameof(ShellViewModel.SelectedNavTag) or nameof(ShellViewModel.SelectedSubTab))
+            OnPropertyChanged(nameof(ShowSmartActionBar));
     }
 
     private void SetRunConfigurationSelectionInternal(string? workflowScenarioId, string? profileId)

@@ -13,9 +13,9 @@ namespace RomCleanup.UI.Wpf;
 
 public partial class MainWindow : Window, IWindowHost
 {
-    private const double ContextPanelMinWindowWidth = 1200;
-    private const double ContextPanelDefaultWidth = 280;
-    private const double NavCompactBreakpoint = 960;
+    private const double ContextPanelMinWindowWidth = 1240;
+    private const double ContextPanelDefaultWidth = 320;
+    private const double NavCompactBreakpoint = 1180;
 
     private readonly MainViewModel _vm;
     private readonly ISettingsService _settings;
@@ -76,6 +76,7 @@ public partial class MainWindow : Window, IWindowHost
         {
             _vm.LoadInitialSettings();
             UpdateContextPanelWidth();
+            _vm.Shell.IsCompactNav = ActualWidth < NavCompactBreakpoint;
             if (_vm.Roots.Count == 0)
             {
                 _vm.ApplyLocaleRegionDefaults();
