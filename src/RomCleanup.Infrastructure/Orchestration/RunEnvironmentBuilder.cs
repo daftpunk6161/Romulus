@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
@@ -220,15 +221,34 @@ public sealed class RunEnvironmentBuilder
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            onWarning?.Invoke($"[CollectionIndex] Disabled for this run: {ex.Message}");
+            onWarning?.Invoke($"[CollectionIndex] Primary database unavailable: {ex.Message}");
+
+            try
+            {
+                var fallbackDirectory = Path.Combine(Path.GetTempPath(), AppIdentity.AppFolderName, "collection-index-fallback");
+                Directory.CreateDirectory(fallbackDirectory);
+                var fallbackDatabasePath = Path.Combine(fallbackDirectory, $"collection-{Guid.NewGuid():N}.db");
+                collectionIndex = new LiteDbCollectionIndex(fallbackDatabasePath, onWarning);
+                onWarning?.Invoke($"[CollectionIndex] Using fallback database: {fallbackDatabasePath}");
+            }
+            catch (Exception fallbackEx) when (fallbackEx is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                onWarning?.Invoke($"[CollectionIndex] Disabled for this run: {fallbackEx.Message}");
+            }
+        }
+
+        if (runOptions.EnableDat)
+        {
+            // Keep hash-service availability deterministic for DAT-enabled runs,
+            // even when DatRoot is missing/unavailable.
+            hashService = collectionIndex is not null
+                ? new FileHashService(collectionIndex: collectionIndex)
+                : new FileHashService(persistentCachePath: FileHashService.ResolveDefaultPersistentCachePath());
         }
 
         if (runOptions.EnableDat && !string.IsNullOrWhiteSpace(effectiveDatRoot) && Directory.Exists(effectiveDatRoot))
         {
             var datRepo = new DatRepositoryAdapter();
-            hashService = collectionIndex is not null
-                ? new FileHashService(collectionIndex: collectionIndex)
-                : new FileHashService(persistentCachePath: FileHashService.ResolveDefaultPersistentCachePath());
             datConsoleMap = BuildConsoleMap(dataDir, effectiveDatRoot);
 
             // Diagnostic: show what BuildConsoleMap found.

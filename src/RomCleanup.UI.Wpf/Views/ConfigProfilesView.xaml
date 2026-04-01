@@ -2,25 +2,45 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 >
-  <!-- Extracted from SettingsView "Profile" section -->
   <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16">
     <StackPanel>
       <TextBlock Text="{Binding Loc[Settings.SectionProfiles]}" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
-      <Grid Margin="0,0,0,8">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130"/>
-          <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Label Grid.Column="0" Content="{Binding Loc[Settings.ProfileNameLabel]}" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" IsEditable="True"
-                  Text="{Binding ProfileName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                  AutomationProperties.Name="{Binding Loc[Settings.ProfileNameLabel]}"/>
-      </Grid>
+
+      <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="Guided Workflow" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ComboBox ItemsSource="{Binding AvailableWorkflows}"
+                    SelectedValuePath="Id"
+                    DisplayMemberPath="Name"
+                    SelectedValue="{Binding SelectedWorkflowScenarioId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    AutomationProperties.Name="Workflow-Auswahl"/>
+          <TextBlock Text="{Binding SelectedWorkflowDescription}"
+                     Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding SelectedWorkflowStepsSummary}"
+                     Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="{Binding Loc[Settings.ProfileNameLabel]}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ComboBox ItemsSource="{Binding AvailableRunProfiles}"
+                    SelectedValuePath="Id"
+                    DisplayMemberPath="Name"
+                    SelectedValue="{Binding SelectedRunProfileId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    AutomationProperties.Name="{Binding Loc[Settings.ProfileNameLabel]}"/>
+          <TextBlock Text="{Binding SelectedRunProfileDescription}"
+                     Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding RunConfigurationSelectionSummary}"
+                     Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
       <WrapPanel Margin="0,4,0,0">
         <Button Content="{Binding Loc[Settings.ProfileSave]}"   MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="{Binding Loc[Settings.ProfileSaveTip]}"
-                Command="{Binding SaveSettingsCommand}" AutomationProperties.Name="{Binding Loc[Settings.ProfileSaveTip]}"/>
+                Command="{Binding FeatureCommands[ProfileSave]}" AutomationProperties.Name="{Binding Loc[Settings.ProfileSaveTip]}"/>
         <Button Content="{Binding Loc[Settings.ProfileLoad]}"   MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="{Binding Loc[Settings.ProfileLoadTip]}"
-                Command="{Binding LoadSettingsCommand}" AutomationProperties.Name="{Binding Loc[Settings.ProfileLoadTip]}"/>
+                Command="{Binding FeatureCommands[ProfileLoad]}" AutomationProperties.Name="{Binding Loc[Settings.ProfileLoadTip]}"/>
         <Button Content="{Binding Loc[Settings.ProfileDelete]}" MinWidth="110" Padding="8,2" Style="{StaticResource DangerButton}" Margin="0,0,4,4" ToolTip="{Binding Loc[Settings.ProfileDeleteTip]}"
                 Command="{Binding FeatureCommands[ProfileDelete]}" AutomationProperties.Name="{Binding Loc[Settings.ProfileDeleteTip]}"/>
         <Button Content="{Binding Loc[Settings.ProfileImport]}" MinWidth="110" Padding="8,2" Margin="0,0,4,4" ToolTip="{Binding Loc[Settings.ProfileImportTip]}"

@@ -7,12 +7,16 @@ using RomCleanup.Infrastructure.Analysis;
 using RomCleanup.Infrastructure.Audit;
 using RomCleanup.Infrastructure.Conversion;
 using RomCleanup.Infrastructure.Dat;
+using RomCleanup.Infrastructure.Export;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Logging;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
 using RomCleanup.Infrastructure.Watch;
+using RomCleanup.Infrastructure.Workflow;
 
 namespace RomCleanup.CLI;
 
@@ -81,6 +85,30 @@ internal static class Program
 
                 case CliCommand.History:
                     return SubcommandHistory(result.Options!);
+
+                case CliCommand.ProfilesList:
+                    return SubcommandProfilesList();
+
+                case CliCommand.ProfilesShow:
+                    return SubcommandProfilesShow(result.Options!);
+
+                case CliCommand.ProfilesImport:
+                    return SubcommandProfilesImport(result.Options!);
+
+                case CliCommand.ProfilesExport:
+                    return SubcommandProfilesExport(result.Options!);
+
+                case CliCommand.ProfilesDelete:
+                    return SubcommandProfilesDelete(result.Options!);
+
+                case CliCommand.Workflows:
+                    return SubcommandWorkflows(result.Options!);
+
+                case CliCommand.Compare:
+                    return SubcommandCompare(result.Options!);
+
+                case CliCommand.Trends:
+                    return SubcommandTrends(result.Options!);
 
                 case CliCommand.Watch:
                     return SubcommandWatch(result.Options!);
@@ -168,7 +196,7 @@ internal static class Program
 
             var dataDir = RunEnvironmentBuilder.ResolveDataDir();
             var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-            var (runOptions, mapErrors) = CliOptionsMapper.Map(cliOpts, settings);
+            var (runOptions, mapErrors) = CliOptionsMapper.Map(cliOpts, settings, dataDir);
 
             if (runOptions is null)
             {
@@ -454,7 +482,7 @@ internal static class Program
         SafeErrorWriteLine($"[Analyze] Scanning {opts.Roots.Length} root(s)...");
         var dataDir = RunEnvironmentBuilder.ResolveDataDir();
         var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings);
+        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings, dataDir);
         if (runOptions is null)
         {
             CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);
@@ -515,7 +543,7 @@ internal static class Program
         SafeErrorWriteLine($"[Export] Preparing {opts.Roots.Length} root(s)...");
         var dataDir = RunEnvironmentBuilder.ResolveDataDir();
         var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings);
+        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings, dataDir);
         if (runOptions is null)
         {
             CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);
@@ -523,68 +551,24 @@ internal static class Program
         }
 
         using var env = new RunEnvironmentFactory().Create(runOptions, SafeErrorWriteLine);
-        var scopedLoad = CollectionAnalysisService.TryLoadScopedCandidatesFromCollectionIndexAsync(
-            env.CollectionIndex,
+        var exportResult = FrontendExportService.ExportAsync(
+            new FrontendExportRequest(
+                opts.ExportFormat ?? FrontendExportTargets.Csv,
+                opts.OutputPath ?? Path.Combine(
+                    ArtifactPathResolver.GetArtifactDirectory(runOptions.Roots, AppIdentity.ArtifactDirectories.Reports),
+                    $"frontend-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.out"),
+                string.IsNullOrWhiteSpace(opts.CollectionName) ? "Romulus" : opts.CollectionName.Trim(),
+                runOptions.Roots,
+                runOptions.Extensions),
             env.FileSystem,
-            runOptions.Roots,
-            runOptions.Extensions,
-            env.EnrichmentFingerprint).GetAwaiter().GetResult();
+            env.CollectionIndex,
+            env.EnrichmentFingerprint,
+            fallbackCandidateFactory: exportCt => LoadExportCandidatesAsync(runOptions, env, exportCt),
+            ct: CancellationToken.None).GetAwaiter().GetResult();
 
-        IReadOnlyList<RomCandidate> candidates;
-        if (scopedLoad.CanUse)
-        {
-            candidates = scopedLoad.Candidates;
-            SafeErrorWriteLine(scopedLoad.Source == ScopedCandidateSources.EmptyScope
-                ? "[Export] Scope is empty; exporting empty result."
-                : $"[Export] Using collection index candidates ({candidates.Count} item(s)).");
-        }
-        else
-        {
-            SafeErrorWriteLine($"[Export] Collection index not eligible ({scopedLoad.Reason}); falling back to run scan.");
-
-            using var reviewDecisionService = CreateReviewDecisionService(SafeErrorWriteLine);
-            using var orchestrator = new RunOrchestrator(
-                env.FileSystem,
-                env.AuditStore,
-                env.ConsoleDetector,
-                env.HashService,
-                env.Converter,
-                env.DatIndex,
-                onProgress: SafeErrorWriteLine,
-                archiveHashService: env.ArchiveHashService,
-                knownBiosHashes: env.KnownBiosHashes,
-                collectionIndex: env.CollectionIndex,
-                enrichmentFingerprint: env.EnrichmentFingerprint,
-                reviewDecisionService: reviewDecisionService);
-
-            var result = orchestrator.Execute(runOptions);
-            candidates = result.AllCandidates;
-        }
-
-        var format = opts.ExportFormat ?? "csv";
-        string content = format switch
-        {
-            "csv" => CollectionExportService.ExportCollectionCsv(candidates),
-            "excel" => CollectionExportService.ExportExcelXml(candidates),
-            "json" => JsonSerializer.Serialize(candidates.Select(c => new
-            {
-                c.MainPath, c.GameKey, c.Region, c.Extension,
-                sizeMb = c.SizeBytes / 1048576.0,
-                category = CollectionAnalysisService.ToCategoryLabel(c.Category),
-                c.DatMatch
-            }), new JsonSerializerOptions { WriteIndented = true }),
-            _ => CollectionExportService.ExportCollectionCsv(candidates)
-        };
-
-        if (!string.IsNullOrWhiteSpace(opts.OutputPath))
-        {
-            File.WriteAllText(opts.OutputPath, content);
-            SafeErrorWriteLine($"[Export] Written to {opts.OutputPath}");
-        }
-        else
-        {
-            SafeStandardWriteLine(content);
-        }
+        SafeStandardWriteLine(JsonSerializer.Serialize(exportResult, new JsonSerializerOptions { WriteIndented = true }));
+        foreach (var artifact in exportResult.Artifacts)
+            SafeErrorWriteLine($"[Export] {artifact.Label}: {artifact.Path} ({artifact.ItemCount} item(s))");
 
         return 0;
     }
@@ -698,6 +682,150 @@ internal static class Program
 
         SafeStandardWriteLine(json);
         return 0;
+    }
+
+    private static int SubcommandProfilesList()
+    {
+        var profileService = CreateRunProfileService();
+        var profiles = profileService.ListAsync().GetAwaiter().GetResult();
+        SafeStandardWriteLine(JsonSerializer.Serialize(profiles, new JsonSerializerOptions { WriteIndented = true }));
+        return 0;
+    }
+
+    private static int SubcommandProfilesShow(CliRunOptions opts)
+    {
+        var profileService = CreateRunProfileService();
+        var profile = profileService.TryGetAsync(opts.ProfileId!).GetAwaiter().GetResult();
+        if (profile is null)
+        {
+            SafeErrorWriteLine($"[Error] Profile '{opts.ProfileId}' was not found.");
+            return 1;
+        }
+
+        SafeStandardWriteLine(JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
+        return 0;
+    }
+
+    private static int SubcommandProfilesImport(CliRunOptions opts)
+    {
+        var profileService = CreateRunProfileService();
+        var profile = profileService.ImportAsync(opts.InputPath!).GetAwaiter().GetResult();
+        SafeStandardWriteLine(JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
+        SafeErrorWriteLine($"[Profiles] Imported '{profile.Id}' from {opts.InputPath}");
+        return 0;
+    }
+
+    private static int SubcommandProfilesExport(CliRunOptions opts)
+    {
+        var profileService = CreateRunProfileService();
+        var path = profileService.ExportAsync(opts.ProfileId!, opts.OutputPath!).GetAwaiter().GetResult();
+        SafeStandardWriteLine(path);
+        return 0;
+    }
+
+    private static int SubcommandProfilesDelete(CliRunOptions opts)
+    {
+        var profileService = CreateRunProfileService();
+        var deleted = profileService.DeleteAsync(opts.ProfileId!).GetAwaiter().GetResult();
+        if (!deleted)
+        {
+            SafeErrorWriteLine($"[Error] Profile '{opts.ProfileId}' was not found.");
+            return 1;
+        }
+
+        SafeStandardWriteLine($"Deleted profile '{opts.ProfileId}'.");
+        return 0;
+    }
+
+    private static int SubcommandWorkflows(CliRunOptions opts)
+    {
+        if (string.IsNullOrWhiteSpace(opts.WorkflowScenarioId))
+        {
+            SafeStandardWriteLine(JsonSerializer.Serialize(
+                WorkflowScenarioCatalog.List(),
+                new JsonSerializerOptions { WriteIndented = true }));
+            return 0;
+        }
+
+        var workflow = WorkflowScenarioCatalog.TryGet(opts.WorkflowScenarioId);
+        if (workflow is null)
+        {
+            SafeErrorWriteLine($"[Error] Workflow '{opts.WorkflowScenarioId}' was not found.");
+            return 1;
+        }
+
+        SafeStandardWriteLine(JsonSerializer.Serialize(workflow, new JsonSerializerOptions { WriteIndented = true }));
+        return 0;
+    }
+
+    private static int SubcommandCompare(CliRunOptions opts)
+    {
+        using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
+        var comparison = RunHistoryInsightsService.CompareAsync(collectionIndex, opts.RunId!, opts.CompareToRunId!)
+            .GetAwaiter().GetResult();
+        if (comparison is null)
+        {
+            SafeErrorWriteLine("[Error] One or both run snapshots were not found.");
+            return 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(opts.OutputPath))
+        {
+            File.WriteAllText(opts.OutputPath, JsonSerializer.Serialize(comparison, new JsonSerializerOptions { WriteIndented = true }));
+            SafeErrorWriteLine($"[Compare] JSON written to {opts.OutputPath}");
+            return 0;
+        }
+
+        SafeStandardWriteLine(RunHistoryInsightsService.FormatComparisonReport(comparison));
+        return 0;
+    }
+
+    private static int SubcommandTrends(CliRunOptions opts)
+    {
+        using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
+        var report = RunHistoryInsightsService.BuildStorageInsightsAsync(
+            collectionIndex,
+            opts.HistoryLimit ?? 30).GetAwaiter().GetResult();
+
+        if (!string.IsNullOrWhiteSpace(opts.OutputPath))
+        {
+            File.WriteAllText(opts.OutputPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+            SafeErrorWriteLine($"[Trends] JSON written to {opts.OutputPath}");
+            return 0;
+        }
+
+        SafeStandardWriteLine(RunHistoryInsightsService.FormatStorageInsightReport(report));
+        return 0;
+    }
+
+    private static RunProfileService CreateRunProfileService()
+    {
+        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
+        return new RunProfileService(new JsonRunProfileStore(), dataDir);
+    }
+
+    private static Task<IReadOnlyList<RomCandidate>> LoadExportCandidatesAsync(
+        RunOptions runOptions,
+        IRunEnvironment env,
+        CancellationToken ct)
+    {
+        using var reviewDecisionService = CreateReviewDecisionService(SafeErrorWriteLine);
+        using var orchestrator = new RunOrchestrator(
+            env.FileSystem,
+            env.AuditStore,
+            env.ConsoleDetector,
+            env.HashService,
+            env.Converter,
+            env.DatIndex,
+            onProgress: SafeErrorWriteLine,
+            archiveHashService: env.ArchiveHashService,
+            knownBiosHashes: env.KnownBiosHashes,
+            collectionIndex: env.CollectionIndex,
+            enrichmentFingerprint: env.EnrichmentFingerprint,
+            reviewDecisionService: reviewDecisionService);
+
+        var result = orchestrator.Execute(runOptions, ct);
+        return Task.FromResult<IReadOnlyList<RomCandidate>>(result.AllCandidates);
     }
 
     private static int SubcommandWatch(CliRunOptions opts)
@@ -886,7 +1014,7 @@ internal static class Program
         SafeErrorWriteLine($"[JunkReport] Scanning {opts.Roots.Length} root(s)...");
         var dataDir = RunEnvironmentBuilder.ResolveDataDir();
         var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings);
+        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings, dataDir);
         if (runOptions is null)
         {
             CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);
@@ -924,7 +1052,7 @@ internal static class Program
         // Force DAT on for completeness
         opts.EnableDat = true;
 
-        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings);
+        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings, dataDir);
         if (runOptions is null)
         {
             CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);

@@ -8,20 +8,20 @@ Die Detailarbeit wird in den verlinkten Release-Plaenen verfolgt.
 ## Release-Reihenfolge
 
 - [x] R1 Foundation
-- [ ] R2 Productization
+- [x] R2 Productization
 - [ ] R3 Reach
 
 ## Abhaengigkeiten
 
-- [ ] R1 ist Grundlage fuer R2
-- [ ] R1 ist Grundlage fuer R3
+- [x] R1 ist Grundlage fuer R2
+- [x] R1 ist Grundlage fuer R3
 - [ ] R2 kann nur teilweise parallel zu R3 laufen
 - [ ] Conversion-Erweiterungen laufen erst nach gesichertem Review-, Verify- und Rollback-Pfad
 
 ## Release-Plaene
 
 - [x] [R1 Foundation Execution](r1-foundation-execution.md)
-- [ ] [R2 Productization Execution](r2-productization-execution.md)
+- [x] [R2 Productization Execution](r2-productization-execution.md)
 - [ ] [R3 Reach Execution](r3-reach-execution.md)
 
 ## Aktuelle Prioritaet
@@ -42,6 +42,26 @@ Die Detailarbeit wird in den verlinkten Release-Plaenen verfolgt.
   API, CLI und GUI sind auf dieselben Watch-, Review- und Statusmodelle verdrahtet.
 - [x] R1-T09 Invarianten- und Regressionstest-Matrix fuer Foundation vervollstaendigen
   Vollsuite grün: `7101/7101` Tests auf Stand `2026-04-01`.
+- [x] R2-T01 Szenario-Katalog und RunOptions-Mapping festziehen
+  Workflow-Katalog, kanaluebergreifende Draft-/Explicitness-Modelle und gemeinsame Materialisierung liegen jetzt in Contracts/Infrastructure.
+- [x] R2-T02 Wizard-State-Machine und UI-Integration umsetzen
+  WPF-Wizard, Simple/Expert-Umschaltung und gefuehrte Auswahl verwenden denselben Materialisierungs- und Statuspfad.
+- [x] R2-T03 Gemeinsame Workflow-Projection und Summary fuer Wizard und Expertenmodus
+  Wizard, Expertenmodus und Folgefunktionen lesen dieselbe RunConfiguration-/Projection-Wahrheit.
+- [x] R2-T04 Exportmodell und gemeinsamer Export-Query-Pfad definieren
+  Frontend-Export basiert auf `ExportableGame` und index-/run-first Candidate-Reads statt lokaler UI-Ableitung.
+- [x] R2-T05 RetroArch- und LaunchBox-Exporter produktisieren
+  RetroArch und LaunchBox laufen ueber denselben Frontend-Export-Service in GUI, CLI und API.
+- [x] R2-T06 EmulationStation- und Playnite-Exporter bereitstellen
+  EmulationStation und Playnite sind ueber denselben Exportvertrag mit Pfad- und Escaping-Haertung angebunden.
+- [x] R2-T07 Profilformat, Validierung und Built-in-Profile definieren
+  Versionierte Profile, Built-ins und sichere Importvalidierung sind produktiv verdrahtet.
+- [x] R2-T08 Profile in GUI, CLI und API ohne Schattenlogik verdrahten
+  Profile und Workflows materialisieren ueber denselben Resolver in allen Kanaelen.
+- [x] R2-T09 Run-Diff, Trend-Reports und Storage-Insights liefern
+  Persistierte Run-Historie treibt Compare-, Trend- und Storage-Insights in GUI, CLI und API.
+- [x] R2-T10 Regressionstest-Matrix fuer Wizard, Export und Profile erweitern
+  Vollsuite grün: `7133/7133` Tests auf Stand `2026-04-01`.
 
 ## Parked
 

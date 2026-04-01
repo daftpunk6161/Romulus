@@ -15,6 +15,7 @@ using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Watch;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
@@ -69,7 +70,14 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
-    public MainViewModel(IThemeService theme, IDialogService dialog, ISettingsService? settings = null, IRunService? runService = null, ILocalizationService? loc = null)
+    public MainViewModel(
+        IThemeService theme,
+        IDialogService dialog,
+        ISettingsService? settings = null,
+        IRunService? runService = null,
+        ILocalizationService? loc = null,
+        RunProfileService? runProfileService = null,
+        RunConfigurationMaterializer? runConfigurationMaterializer = null)
     {
         _theme = theme;
         _dialog = dialog;
@@ -81,6 +89,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         // ── Child ViewModels (GUI-021) ────────────────────────────────
         Shell = new ShellViewModel(_loc, DeferCommandRequery);
         Shell.IsSimpleMode = _isSimpleMode;
+        Shell.PropertyChanged += OnShellStatePropertyChanged;
         Setup = new SetupViewModel(_theme, _dialog, _settings, _loc);
         Tools = new ToolsViewModel(_loc);
         Run = new RunViewModel(_loc);
@@ -92,6 +101,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         CommandPalette = new CommandPaletteViewModel(_loc);
         DatAudit = new DatAuditViewModel(_loc);
         ConversionPreview = new ConversionPreviewViewModel(_loc);
+        InitializeRunConfigurationServices(runProfileService, runConfigurationMaterializer);
 
         // Wire child VM events
         Setup.StatusRefreshRequested += () => RefreshStatus();
@@ -228,6 +238,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         if (PreferJP) parts.Add("JP");
         if (PreferWORLD) parts.Add("World");
         Shell.WizardRegionSummary = parts.Count > 0 ? string.Join(", ", parts) : "–";
+        OnPropertyChanged(nameof(CanAdvanceWizard));
     }
 
     public RelayCommand ToggleCommandPaletteCommand { get; private set; } = null!;
@@ -685,6 +696,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         RefreshStatus();
         OnPropertyChanged(nameof(HasNoRoots));
         OnPropertyChanged(nameof(HasRootsConfigured));
+        OnPropertyChanged(nameof(CanAdvanceWizard));
         MissionControl.UpdateSourceCount(Roots.Count);
         DeferCommandRequery();
     }

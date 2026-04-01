@@ -12,9 +12,9 @@
         ┌──────────────────┐
         │   Integration    │  RunOrchestrator, API-RunManager, FileSystem-Ops
         ├──────────────────┤
-        │   Unit           │  200+ Testdateien, aktuell 7101 Tests
+        │   Unit           │  200+ Testdateien, aktuell 7133 Tests
         └──────────────────┘
-        Gesamt: aktuell 7101 Tests (xUnit, Stand 2026-04-01 grün)
+        Gesamt: aktuell 7133 Tests (xUnit, Stand 2026-04-01 grün)
 ```
 
 ---
@@ -24,9 +24,9 @@
 Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 200+ Testdateien, inkl. Unterordner `Benchmark/` und `Conversion/`).
 Die folgende Übersicht ist thematisch gruppiert; Datei- und Fallzahlen ändern sich regelmäßig.
 
-### 2.0 Foundation-Matrix 2026-04-01
+### 2.0 Foundation- und Productization-Matrix 2026-04-01
 
-Die Foundation-Erweiterungen fuer Collection-Index, Run-Snapshots, Review-Persistenz und Automation werden zusaetzlich gezielt ueber folgende Schwerpunktdateien abgesichert:
+Die Foundation- und Productization-Erweiterungen fuer Collection-Index, Guided Workflows, Frontend-Export, Profile und Trend-/Diff-Pfade werden zusaetzlich gezielt ueber folgende Schwerpunktdateien abgesichert:
 
 | Datei | Zweck |
 |---|---|
@@ -35,6 +35,12 @@ Die Foundation-Erweiterungen fuer Collection-Index, Run-Snapshots, Review-Persis
 | `CollectionRunSnapshotWriterTests.cs` | Persistierte Run-Snapshots inkl. `CollectionSizeBytes` und KPI-Projektion |
 | `PersistedReviewDecisionServiceTests.cs` | Persistierte Review-Approvals, Reapply, idempotentes Schreiben |
 | `AutomationAndTrendServiceTests.cs` | Watch-/Schedule-Services, Trend-Berechnung aus Snapshot-Historie |
+| `RunConfigurationResolverRegressionTests.cs` | Workflow-/Profil-Aufloesung, Override-Prioritaet, Wizard-/Expert-Paritaet |
+| `FrontendExportRegressionTests.cs` | Frontend-Export-Haertung, XML-/CSV-Schutz, Root-Containment |
+| `ApiProductizationIntegrationTests.cs` | `/profiles`, `/workflows`, workflow-/profilbasierte Runs, Watch-Automation, `/export/frontend` |
+| `WpfProductizationTests.cs` | WPF-Kataloge, gemeinsame Materialisierung, Profil Save/Load, Wizard-Bindings |
+| `CliProductizationTests.cs` | CLI-Usage und Produktisierungs-Subcommands |
+| `OpenApiProductizationTests.cs` | OpenAPI-Vertrag fuer Profile, Workflows, Compare/Trends und Frontend-Export |
 
 ### 2.1 Core-/Engine-Tests (17 Dateien)
 

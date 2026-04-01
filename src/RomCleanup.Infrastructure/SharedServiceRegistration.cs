@@ -5,6 +5,7 @@ using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
 
 namespace RomCleanup.Infrastructure;
@@ -16,6 +17,7 @@ public static class SharedServiceRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton(new CollectionIndexPathOptions());
+        services.AddSingleton(new RunProfilePathOptions());
         services.AddSingleton<IFileSystem, FileSystemAdapter>();
         services.AddSingleton<IAuditStore>(sp =>
             new AuditCsvStore(
@@ -30,6 +32,10 @@ public static class SharedServiceRegistration
             new LiteDbReviewDecisionStore(CollectionIndexPaths.ResolveDatabasePath(
                 sp.GetRequiredService<CollectionIndexPathOptions>().DatabasePath)));
         services.AddSingleton<PersistedReviewDecisionService>();
+        services.AddSingleton<IRunProfileStore, JsonRunProfileStore>();
+        services.AddSingleton<RunProfileService>();
+        services.AddSingleton<RunConfigurationResolver>();
+        services.AddSingleton<RunConfigurationMaterializer>();
 
         services.AddSingleton<IRunOptionsFactory, RunOptionsFactory>();
         services.AddSingleton<IRunEnvironmentFactory, RunEnvironmentFactory>();

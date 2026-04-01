@@ -71,6 +71,8 @@ public static class FeatureCommandKeys
 
     // ── Funktionale Buttons (Settings/Config) ──
     public const string ExportLog = "ExportLog";
+    public const string ProfileSave = "ProfileSave";
+    public const string ProfileLoad = "ProfileLoad";
     public const string ProfileDelete = "ProfileDelete";
     public const string ProfileImport = "ProfileImport";
     public const string ProfileShare = "ProfileShare";

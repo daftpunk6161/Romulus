@@ -231,6 +231,8 @@ public sealed class RunRequest
 {
     public string[]? Roots { get; set; }
     public string? Mode { get; set; }
+    public string? WorkflowScenarioId { get; set; }
+    public string? ProfileId { get; set; }
     public string[]? PreferRegions { get; set; }
 
     // ADR-0007 §3.1: Additional options for API parity with CLI/WPF
@@ -276,6 +278,8 @@ public sealed class RunRecord
         set { lock (_lock) _status = value; }
     }
     public string Mode { get; init; } = "DryRun";
+    public string? WorkflowScenarioId { get; init; }
+    public string? ProfileId { get; init; }
     [JsonIgnore]
     public string[] Roots { get; init; } = Array.Empty<string>();
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
@@ -482,6 +486,16 @@ public sealed class ApiRunHistoryList
     public ApiRunHistoryEntry[] Runs { get; init; } = Array.Empty<ApiRunHistoryEntry>();
 }
 
+public sealed class ApiProfileListResponse
+{
+    public RunProfileSummary[] Profiles { get; init; } = Array.Empty<RunProfileSummary>();
+}
+
+public sealed class ApiWorkflowListResponse
+{
+    public WorkflowScenarioDefinition[] Workflows { get; init; } = Array.Empty<WorkflowScenarioDefinition>();
+}
+
 public sealed class ApiRunHistoryEntry
 {
     public string RunId { get; init; } = "";
@@ -606,6 +620,8 @@ public sealed class RunStatusDto
     public string RunId { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public string Mode { get; init; } = "DryRun";
+    public string? WorkflowScenarioId { get; init; }
+    public string? ProfileId { get; init; }
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
     public bool RemoveJunk { get; init; }
     public bool AggressiveJunk { get; init; }
@@ -645,6 +661,8 @@ public static class RunStatusDtoMapper
             RunId = run.RunId,
             Status = run.Status,
             Mode = run.Mode,
+            WorkflowScenarioId = run.WorkflowScenarioId,
+            ProfileId = run.ProfileId,
             PreferRegions = run.PreferRegions,
             RemoveJunk = run.RemoveJunk,
             AggressiveJunk = run.AggressiveJunk,

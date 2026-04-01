@@ -3,6 +3,7 @@ using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Workflow;
 using RomCleanup.Infrastructure.Safety;
 
 namespace RomCleanup.CLI;
@@ -69,12 +70,32 @@ internal static class CliArgsParser
                         opts.Mode = "Move";
                     else
                         errors.Add($"[Error] Invalid mode '{modeVal}'. Must be DryRun or Move.");
+                    opts.ModeExplicit = true;
                     break;
 
                 case "-prefer" or "--prefer" or "-preferregions":
                     if (!TryConsumeValue(args, ref i, "--prefer", errors, out var regionsRaw))
                         break;
                     opts.PreferRegions = regionsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    opts.PreferRegionsExplicit = true;
+                    break;
+
+                case "--profile":
+                    if (!TryConsumeValue(args, ref i, "--profile", errors, out var profileVal))
+                        break;
+                    opts.ProfileId = profileVal;
+                    break;
+
+                case "--profile-file":
+                    if (!TryConsumeValue(args, ref i, "--profile-file", errors, out var profileFileVal))
+                        break;
+                    opts.ProfileFilePath = profileFileVal;
+                    break;
+
+                case "--workflow":
+                    if (!TryConsumeValue(args, ref i, "--workflow", errors, out var workflowVal))
+                        break;
+                    opts.WorkflowScenarioId = workflowVal;
                     break;
 
                 case "-extensions" or "--extensions":
@@ -91,23 +112,29 @@ internal static class CliArgsParser
                     if (!TryConsumeValue(args, ref i, "--trashroot", errors, out var trashVal))
                         break;
                     opts.TrashRoot = trashVal;
+                    opts.TrashRootExplicit = true;
                     break;
 
                 case "-removejunk" or "--removejunk":
                     opts.RemoveJunk = true;
+                    opts.RemoveJunkExplicit = true;
                     break;
 
                 case "-no-removejunk" or "--no-removejunk":
                     opts.RemoveJunk = false;
+                    opts.RemoveJunkExplicit = true;
                     break;
 
                 case "-convertonly" or "--convertonly":
                     opts.ConvertOnly = true;
                     opts.ConvertFormat = true;
+                    opts.ConvertOnlyExplicit = true;
+                    opts.ConvertFormatExplicit = true;
                     break;
 
                 case "-approve-reviews" or "--approve-reviews":
                     opts.ApproveReviews = true;
+                    opts.ApproveReviewsExplicit = true;
                     break;
 
                 case "-conflictpolicy" or "--conflictpolicy":
@@ -119,26 +146,32 @@ internal static class CliArgsParser
                         break;
                     }
                     opts.ConflictPolicy = conflictPolicyVal;
+                    opts.ConflictPolicyExplicit = true;
                     break;
 
                 case "-gamesonly" or "--gamesonly":
                     opts.OnlyGames = true;
+                    opts.OnlyGamesExplicit = true;
                     break;
 
                 case "-keepunknown" or "--keepunknown":
                     opts.KeepUnknownWhenOnlyGames = true;
+                    opts.KeepUnknownExplicit = true;
                     break;
 
                 case "-dropunknown" or "--dropunknown":
                     opts.KeepUnknownWhenOnlyGames = false;
+                    opts.KeepUnknownExplicit = true;
                     break;
 
                 case "-aggressivejunk" or "--aggressivejunk":
                     opts.AggressiveJunk = true;
+                    opts.AggressiveJunkExplicit = true;
                     break;
 
                 case "-sortconsole" or "--sortconsole":
                     opts.SortConsole = true;
+                    opts.SortConsoleExplicit = true;
                     break;
 
                 case "-report" or "--report":
@@ -172,20 +205,24 @@ internal static class CliArgsParser
 
                 case "-enabledat" or "--enabledat":
                     opts.EnableDat = true;
+                    opts.EnableDatExplicit = true;
                     break;
 
                 case "-dat-audit" or "--dat-audit" or "-dataudit" or "--dataudit":
                     opts.EnableDatAudit = true;
+                    opts.EnableDatAuditExplicit = true;
                     break;
 
                 case "-datrename" or "--datrename":
                     opts.EnableDatRename = true;
+                    opts.EnableDatRenameExplicit = true;
                     break;
 
                 case "-datroot" or "--datroot":
                     if (!TryConsumeValue(args, ref i, "--datroot", errors, out var datRootVal))
                         break;
                     opts.DatRoot = datRootVal;
+                    opts.DatRootExplicit = true;
                     break;
 
                 case "-hashtype" or "--hashtype":
@@ -197,6 +234,7 @@ internal static class CliArgsParser
                         break;
                     }
                     opts.HashType = hashTypeVal;
+                    opts.HashTypeExplicit = true;
                     break;
 
                 case "-update-dats" or "--update-dats":
@@ -232,6 +270,7 @@ internal static class CliArgsParser
 
                 case "-convertformat" or "--convertformat":
                     opts.ConvertFormat = true;
+                    opts.ConvertFormatExplicit = true;
                     break;
 
                 case "-yes" or "--yes" or "-y":
@@ -350,7 +389,8 @@ internal static class CliArgsParser
             ?? ValidateOptionalPath(opts.DatRoot, "DAT root", allowUnc: false)
             ?? ValidateOptionalPath(opts.LogPath, "log path", allowUnc: false)
             ?? ValidateOptionalPath(opts.ReportPath, "report path", allowUnc: false)
-            ?? ValidateOptionalPath(opts.AuditPath, "audit path", allowUnc: false);
+            ?? ValidateOptionalPath(opts.AuditPath, "audit path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.ProfileFilePath, "profile file path", allowUnc: false);
         if (protectedPathError is not null)
             return CliParseResult.ValidationError([$"[Error] {protectedPathError}"]);
 
@@ -378,6 +418,10 @@ internal static class CliArgsParser
         {
             "analyze" => ParseSubcommandWithRoots(CliCommand.Analyze, rest),
             "export" => ParseExportSubcommand(rest),
+            "profiles" => ParseProfilesSubcommand(rest),
+            "compare" => ParseCompareSubcommand(rest),
+            "trends" => ParseTrendsSubcommand(rest),
+            "workflows" => ParseWorkflowsSubcommand(rest),
             "dat" => ParseDatSubcommand(rest),
             "integrity" => ParseIntegritySubcommand(rest),
             "history" => ParseHistorySubcommand(rest),
@@ -446,9 +490,9 @@ internal static class CliArgsParser
                     break;
                 case "--format" or "-f":
                     if (!TryConsumeValue(args, ref i, "--format", errors, out var fmt)) break;
-                    if (fmt is not ("csv" or "json" or "excel"))
+                    if (!FrontendExportTargets.All.Contains(fmt))
                     {
-                        errors.Add($"[Error] Invalid export format '{fmt}'. Must be csv, json, or excel.");
+                        errors.Add($"[Error] Invalid export format '{fmt}'. Must be one of: {string.Join(", ", FrontendExportTargets.All.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase))}.");
                         break;
                     }
                     opts.ExportFormat = fmt;
@@ -456,6 +500,22 @@ internal static class CliArgsParser
                 case "-o" or "--output":
                     if (!TryConsumeValue(args, ref i, "--output", errors, out var outVal)) break;
                     opts.OutputPath = outVal;
+                    break;
+                case "--name":
+                    if (!TryConsumeValue(args, ref i, "--name", errors, out var nameVal)) break;
+                    opts.CollectionName = nameVal;
+                    break;
+                case "--profile":
+                    if (!TryConsumeValue(args, ref i, "--profile", errors, out var profileVal)) break;
+                    opts.ProfileId = profileVal;
+                    break;
+                case "--profile-file":
+                    if (!TryConsumeValue(args, ref i, "--profile-file", errors, out var profileFileVal)) break;
+                    opts.ProfileFilePath = profileFileVal;
+                    break;
+                case "--workflow":
+                    if (!TryConsumeValue(args, ref i, "--workflow", errors, out var workflowVal)) break;
+                    opts.WorkflowScenarioId = workflowVal;
                     break;
                 default:
                     if (!args[i].StartsWith("-"))
@@ -467,6 +527,10 @@ internal static class CliArgsParser
         }
         if (errors.Count > 0) return CliParseResult.ValidationError(errors);
         if (opts.Roots.Length == 0) return CliParseResult.ValidationError(["[Error] --roots is required for 'export'."]);
+        var outputPathError = ValidateOptionalPath(opts.OutputPath, "export output path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.ProfileFilePath, "profile file path", allowUnc: false);
+        if (outputPathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {outputPathError}"]);
         return CliParseResult.Subcommand(CliCommand.Export, opts);
     }
 
@@ -673,6 +737,7 @@ internal static class CliArgsParser
                     opts.Mode = string.Equals(modeRaw, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase)
                         ? RunConstants.ModeMove
                         : RunConstants.ModeDryRun;
+                    opts.ModeExplicit = true;
                     break;
 
                 case "--debounce":
@@ -714,28 +779,34 @@ internal static class CliArgsParser
 
                 case "--approve-reviews":
                     opts.ApproveReviews = true;
+                    opts.ApproveReviewsExplicit = true;
                     break;
 
                 case "--sortconsole":
                     opts.SortConsole = true;
+                    opts.SortConsoleExplicit = true;
                     break;
 
                 case "--enabledat":
                     opts.EnableDat = true;
+                    opts.EnableDatExplicit = true;
                     break;
 
                 case "--dat-audit" or "-dataudit" or "--dataudit":
                     opts.EnableDatAudit = true;
+                    opts.EnableDatAuditExplicit = true;
                     break;
 
                 case "--datrename":
                     opts.EnableDatRename = true;
+                    opts.EnableDatRenameExplicit = true;
                     break;
 
                 case "--datroot":
                     if (!TryConsumeValue(args, ref i, "--datroot", errors, out var datRootRaw))
                         break;
                     opts.DatRoot = datRootRaw;
+                    opts.DatRootExplicit = true;
                     break;
 
                 case "--hashtype":
@@ -748,10 +819,29 @@ internal static class CliArgsParser
                     }
 
                     opts.HashType = hashTypeRaw;
+                    opts.HashTypeExplicit = true;
                     break;
 
                 case "--yes" or "-y":
                     opts.Yes = true;
+                    break;
+
+                case "--profile":
+                    if (!TryConsumeValue(args, ref i, "--profile", errors, out var profileVal))
+                        break;
+                    opts.ProfileId = profileVal;
+                    break;
+
+                case "--profile-file":
+                    if (!TryConsumeValue(args, ref i, "--profile-file", errors, out var profileFileVal))
+                        break;
+                    opts.ProfileFilePath = profileFileVal;
+                    break;
+
+                case "--workflow":
+                    if (!TryConsumeValue(args, ref i, "--workflow", errors, out var workflowVal))
+                        break;
+                    opts.WorkflowScenarioId = workflowVal;
                     break;
 
                 default:
@@ -777,6 +867,168 @@ internal static class CliArgsParser
             return CliParseResult.ValidationError(["[Error] watch requires --interval <minutes> or --cron <expr>."]);
 
         return CliParseResult.Subcommand(CliCommand.Watch, opts);
+    }
+
+    private static CliParseResult ParseProfilesSubcommand(string[] args)
+    {
+        if (args.Length == 0)
+            return CliParseResult.ValidationError(["[Error] 'profiles' requires an action: list, show, import, export, delete."]);
+
+        var action = args[0].ToLowerInvariant();
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+
+        for (int i = 1; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--id":
+                    if (!TryConsumeValue(args, ref i, "--id", errors, out var idVal)) break;
+                    opts.ProfileId = idVal;
+                    break;
+                case "--input" or "-i":
+                    if (!TryConsumeValue(args, ref i, "--input", errors, out var inputVal)) break;
+                    opts.InputPath = inputVal;
+                    break;
+                case "--output" or "-o":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal)) break;
+                    opts.OutputPath = outputVal;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for profiles {action}.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        var pathError = ValidateOptionalPath(opts.InputPath, "profile input path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.OutputPath, "profile output path", allowUnc: false);
+        if (pathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {pathError}"]);
+
+        return action switch
+        {
+            "list" => CliParseResult.Subcommand(CliCommand.ProfilesList, opts),
+            "show" when !string.IsNullOrWhiteSpace(opts.ProfileId) => CliParseResult.Subcommand(CliCommand.ProfilesShow, opts),
+            "import" when !string.IsNullOrWhiteSpace(opts.InputPath) => CliParseResult.Subcommand(CliCommand.ProfilesImport, opts),
+            "export" when !string.IsNullOrWhiteSpace(opts.ProfileId) && !string.IsNullOrWhiteSpace(opts.OutputPath) => CliParseResult.Subcommand(CliCommand.ProfilesExport, opts),
+            "delete" when !string.IsNullOrWhiteSpace(opts.ProfileId) => CliParseResult.Subcommand(CliCommand.ProfilesDelete, opts),
+            "show" => CliParseResult.ValidationError(["[Error] profiles show requires --id <profile-id>."]),
+            "import" => CliParseResult.ValidationError(["[Error] profiles import requires --input <path>."]),
+            "export" => CliParseResult.ValidationError(["[Error] profiles export requires --id <profile-id> --output <path>."]),
+            "delete" => CliParseResult.ValidationError(["[Error] profiles delete requires --id <profile-id>."]),
+            _ => CliParseResult.ValidationError([$"[Error] Unknown profiles action '{action}'. Available: list, show, import, export, delete."])
+        };
+    }
+
+    private static CliParseResult ParseCompareSubcommand(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--run":
+                    if (!TryConsumeValue(args, ref i, "--run", errors, out var runVal)) break;
+                    opts.RunId = runVal;
+                    break;
+                case "--compare-to":
+                    if (!TryConsumeValue(args, ref i, "--compare-to", errors, out var compareVal)) break;
+                    opts.CompareToRunId = compareVal;
+                    break;
+                case "--output" or "-o":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal)) break;
+                    opts.OutputPath = outputVal;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for compare.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        if (string.IsNullOrWhiteSpace(opts.RunId) || string.IsNullOrWhiteSpace(opts.CompareToRunId))
+            return CliParseResult.ValidationError(["[Error] compare requires --run <run-id> --compare-to <run-id>."]);
+
+        var outputPathError = ValidateOptionalPath(opts.OutputPath, "compare output path", allowUnc: false);
+        if (outputPathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {outputPathError}"]);
+
+        return CliParseResult.Subcommand(CliCommand.Compare, opts);
+    }
+
+    private static CliParseResult ParseTrendsSubcommand(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--limit":
+                    if (!TryConsumeValue(args, ref i, "--limit", errors, out var limitVal)) break;
+                    if (!int.TryParse(limitVal, out var parsedLimit) || parsedLimit < 1 || parsedLimit > 3650)
+                    {
+                        errors.Add("[Error] trends limit must be an integer between 1 and 3650.");
+                        break;
+                    }
+                    opts.HistoryLimit = parsedLimit;
+                    break;
+                case "--output" or "-o":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal)) break;
+                    opts.OutputPath = outputVal;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for trends.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        var outputPathError = ValidateOptionalPath(opts.OutputPath, "trends output path", allowUnc: false);
+        if (outputPathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {outputPathError}"]);
+
+        return CliParseResult.Subcommand(CliCommand.Trends, opts);
+    }
+
+    private static CliParseResult ParseWorkflowsSubcommand(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--id":
+                    if (!TryConsumeValue(args, ref i, "--id", errors, out var idVal)) break;
+                    opts.WorkflowScenarioId = idVal;
+                    break;
+                default:
+                    errors.Add($"[Error] Unknown flag '{args[i]}' for workflows.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0)
+            return CliParseResult.ValidationError(errors);
+
+        if (!string.IsNullOrWhiteSpace(opts.WorkflowScenarioId) &&
+            WorkflowScenarioCatalog.TryGet(opts.WorkflowScenarioId) is null)
+        {
+            return CliParseResult.ValidationError([$"[Error] Unknown workflow '{opts.WorkflowScenarioId}'."]);
+        }
+
+        return CliParseResult.Subcommand(CliCommand.Workflows, opts);
     }
 
     private static CliParseResult ParseSingleInputSubcommand(CliCommand command, string[] args)
@@ -918,7 +1170,33 @@ internal sealed class CliParseResult
         new() { Command = CliCommand.Run, ExitCode = 0, Options = options };
 }
 
-internal enum CliCommand { Run, Help, Version, Rollback, UpdateDats, Analyze, Export, DatDiff, IntegrityCheck, IntegrityBaseline, History, Watch, Convert, Header, JunkReport, Completeness }
+internal enum CliCommand
+{
+    Run,
+    Help,
+    Version,
+    Rollback,
+    UpdateDats,
+    Analyze,
+    Export,
+    ProfilesList,
+    ProfilesShow,
+    ProfilesImport,
+    ProfilesExport,
+    ProfilesDelete,
+    Workflows,
+    Compare,
+    Trends,
+    DatDiff,
+    IntegrityCheck,
+    IntegrityBaseline,
+    History,
+    Watch,
+    Convert,
+    Header,
+    JunkReport,
+    Completeness
+}
 
 /// <summary>
 /// Raw parsed CLI options — before settings merge.
@@ -927,29 +1205,50 @@ internal sealed class CliRunOptions
 {
     public string[] Roots { get; set; } = Array.Empty<string>();
     public string Mode { get; set; } = "DryRun";
+    public bool ModeExplicit { get; set; }
+    public string? WorkflowScenarioId { get; set; }
+    public string? ProfileId { get; set; }
+    public string? ProfileFilePath { get; set; }
     public string[] PreferRegions { get; set; } = Array.Empty<string>();
+    public bool PreferRegionsExplicit { get; set; }
     public HashSet<string> Extensions { get; set; } = new(RunOptions.DefaultExtensions, StringComparer.OrdinalIgnoreCase);
     public bool ExtensionsExplicit { get; set; }
     public string? TrashRoot { get; set; }
+    public bool TrashRootExplicit { get; set; }
     public bool RemoveJunk { get; set; } = true;
+    public bool RemoveJunkExplicit { get; set; }
     public bool OnlyGames { get; set; }
+    public bool OnlyGamesExplicit { get; set; }
     public bool KeepUnknownWhenOnlyGames { get; set; } = true;
+    public bool KeepUnknownExplicit { get; set; }
     public bool AggressiveJunk { get; set; }
+    public bool AggressiveJunkExplicit { get; set; }
     public bool SortConsole { get; set; }
+    public bool SortConsoleExplicit { get; set; }
     public bool EnableDat { get; set; }
+    public bool EnableDatExplicit { get; set; }
     public bool EnableDatAudit { get; set; }
+    public bool EnableDatAuditExplicit { get; set; }
     public bool EnableDatRename { get; set; }
+    public bool EnableDatRenameExplicit { get; set; }
     public string? DatRoot { get; set; }
+    public bool DatRootExplicit { get; set; }
     public string? HashType { get; set; }
+    public bool HashTypeExplicit { get; set; }
     public bool ConvertFormat { get; set; }
+    public bool ConvertFormatExplicit { get; set; }
     public bool ConvertOnly { get; set; }
+    public bool ConvertOnlyExplicit { get; set; }
     public bool ApproveReviews { get; set; }
+    public bool ApproveReviewsExplicit { get; set; }
     public string ConflictPolicy { get; set; } = RomCleanup.Contracts.RunConstants.DefaultConflictPolicy;
+    public bool ConflictPolicyExplicit { get; set; }
     public bool Yes { get; set; }
     public string? ReportPath { get; set; }
     public string? AuditPath { get; set; }
     public string? LogPath { get; set; }
     public string LogLevel { get; set; } = "Info";
+    public bool LogLevelExplicit { get; set; }
     public string? RollbackAuditPath { get; set; }
     public bool RollbackDryRun { get; set; } = true;
     public bool UpdateDats { get; set; }
@@ -962,10 +1261,13 @@ internal sealed class CliRunOptions
     public string? InputPath { get; set; }
     public string? OutputPath { get; set; }
     public string? ExportFormat { get; set; }
+    public string? CollectionName { get; set; }
     public string? ConsoleKey { get; set; }
     public string? TargetFormat { get; set; }
     public string? DatFileA { get; set; }
     public string? DatFileB { get; set; }
+    public string? RunId { get; set; }
+    public string? CompareToRunId { get; set; }
     public int? HistoryLimit { get; set; }
     public int HistoryOffset { get; set; }
     public int WatchDebounceSeconds { get; set; } = 5;

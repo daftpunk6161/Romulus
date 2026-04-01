@@ -9,6 +9,7 @@ using RomCleanup.Api;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure;
 using RomCleanup.Infrastructure.Analysis;
 using RomCleanup.Infrastructure.Audit;
@@ -17,7 +18,10 @@ using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.FileSystem;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Export;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
+using RomCleanup.Infrastructure.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -255,7 +259,231 @@ app.MapGet("/runs/history", async (string? offset, string? limit, RomCleanup.Con
     .Produces<ApiRunHistoryList>(StatusCodes.Status200OK)
     .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest);
 
-app.MapPost("/runs", async (HttpContext ctx, string? wait, [FromQuery(Name = "waitTimeoutMs")] string? waitTimeoutMsQuery, RunLifecycleManager mgr) =>
+app.MapGet("/profiles", async (RunProfileService profileService, CancellationToken ct) =>
+{
+    var profiles = await profileService.ListAsync(ct);
+    return Results.Ok(new ApiProfileListResponse { Profiles = profiles.ToArray() });
+})
+    .WithSummary("List built-in and user-defined run profiles")
+    .Produces<ApiProfileListResponse>(StatusCodes.Status200OK);
+
+app.MapGet("/profiles/{id}", async (string id, RunProfileService profileService, CancellationToken ct) =>
+{
+    var profile = await profileService.TryGetAsync(id, ct);
+    return profile is null
+        ? ApiError(404, "PROFILE-NOT-FOUND", $"Profile '{id}' was not found.")
+        : Results.Ok(profile);
+})
+    .WithSummary("Get a specific run profile")
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
+app.MapPut("/profiles/{id}", async (string id, RunProfileDocument profile, RunProfileService profileService, CancellationToken ct) =>
+{
+    try
+    {
+        var normalized = profile with
+        {
+            Id = id,
+            BuiltIn = false
+        };
+        var saved = await profileService.SaveAsync(normalized, ct);
+        return Results.Ok(saved);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return ApiError(400, "PROFILE-INVALID", ex.Message);
+    }
+})
+    .WithSummary("Create or update a user-defined run profile")
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest);
+
+app.MapDelete("/profiles/{id}", async (string id, RunProfileService profileService, CancellationToken ct) =>
+{
+    try
+    {
+        var deleted = await profileService.DeleteAsync(id, ct);
+        return deleted
+            ? Results.Ok(new { deleted = true, id })
+            : ApiError(404, "PROFILE-NOT-FOUND", $"Profile '{id}' was not found.");
+    }
+    catch (InvalidOperationException ex)
+    {
+        return ApiError(400, "PROFILE-DELETE-BLOCKED", ex.Message);
+    }
+})
+    .WithSummary("Delete a user-defined run profile")
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
+app.MapGet("/workflows", (string? id) =>
+{
+    if (string.IsNullOrWhiteSpace(id))
+        return Results.Ok(new ApiWorkflowListResponse { Workflows = WorkflowScenarioCatalog.List().ToArray() });
+
+    var workflow = WorkflowScenarioCatalog.TryGet(id);
+    return workflow is null
+        ? ApiError(404, "WORKFLOW-NOT-FOUND", $"Workflow '{id}' was not found.")
+        : Results.Ok(workflow);
+})
+    .WithSummary("List guided workflow scenarios or fetch one by id")
+    .Produces<ApiWorkflowListResponse>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
+app.MapGet("/workflows/{id}", (string id) =>
+{
+    var workflow = WorkflowScenarioCatalog.TryGet(id);
+    return workflow is null
+        ? ApiError(404, "WORKFLOW-NOT-FOUND", $"Workflow '{id}' was not found.")
+        : Results.Ok(workflow);
+})
+    .WithSummary("Get a guided workflow scenario")
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
+app.MapGet("/runs/compare", async (string runId, string compareToRunId, ICollectionIndex collectionIndex, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(runId) || string.IsNullOrWhiteSpace(compareToRunId))
+        return ApiError(400, "RUN-COMPARE-IDS-REQUIRED", "runId and compareToRunId are required.");
+
+    var comparison = await RunHistoryInsightsService.CompareAsync(collectionIndex, runId, compareToRunId, ct);
+    return comparison is null
+        ? ApiError(404, "RUN-COMPARE-NOT-FOUND", "One or both run snapshots were not found.")
+        : Results.Ok(comparison);
+})
+    .WithSummary("Compare two persisted run snapshots")
+    .Produces<RunSnapshotComparison>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
+
+app.MapGet("/runs/trends", async (int? limit, ICollectionIndex collectionIndex, CancellationToken ct) =>
+{
+    var report = await RunHistoryInsightsService.BuildStorageInsightsAsync(collectionIndex, limit ?? 30, ct);
+    return Results.Ok(report);
+})
+    .WithSummary("Build storage and trend insights from persisted run history")
+    .Produces<StorageInsightReport>(StatusCodes.Status200OK);
+
+app.MapPost("/export/frontend", async (
+    HttpContext ctx,
+    IFileSystem fileSystem,
+    ICollectionIndex collectionIndex,
+    IRunEnvironmentFactory runEnvironmentFactory,
+    RunLifecycleManager mgr,
+    CancellationToken ct) =>
+{
+    if (ctx.Request.ContentLength is > 1_048_576)
+        return ApiError(400, "EXPORT-BODY-TOO-LARGE", "Request body too large (max 1MB).");
+
+    string body;
+    try
+    {
+        using var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8);
+        body = await reader.ReadToEndAsync(ct);
+    }
+    catch (IOException)
+    {
+        return ApiError(400, "EXPORT-READ-ERROR", "Failed to read request body.");
+    }
+
+    ApiFrontendExportRequest? request;
+    try
+    {
+        request = JsonSerializer.Deserialize<ApiFrontendExportRequest>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+    catch (JsonException)
+    {
+        return ApiError(400, "EXPORT-INVALID-JSON", "Invalid JSON.");
+    }
+
+    if (request is null || string.IsNullOrWhiteSpace(request.Frontend))
+        return ApiError(400, "EXPORT-FRONTEND-REQUIRED", "frontend is required.");
+
+    if (string.IsNullOrWhiteSpace(request.OutputPath))
+        return ApiError(400, "EXPORT-OUTPUT-REQUIRED", "outputPath is required.");
+
+    var outputPathError = ValidatePathSecurity(request.OutputPath.Trim(), "outputPath");
+    if (outputPathError is not null)
+        return outputPathError;
+
+    RunRecord? run = null;
+    if (!string.IsNullOrWhiteSpace(request.RunId))
+    {
+        run = mgr.Get(request.RunId);
+        if (run is null)
+            return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: request.RunId);
+
+        if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+            return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: request.RunId);
+    }
+
+    var roots = request.Roots?.Where(static root => !string.IsNullOrWhiteSpace(root)).ToArray()
+        ?? run?.Roots
+        ?? Array.Empty<string>();
+    if (roots.Length == 0)
+        return ApiError(400, "EXPORT-ROOTS-REQUIRED", "roots[] or runId is required.");
+
+    var extensions = request.Extensions?.Where(static ext => !string.IsNullOrWhiteSpace(ext)).ToArray()
+        ?? run?.Extensions
+        ?? RunOptions.DefaultExtensions;
+
+    foreach (var root in roots)
+    {
+        var pathError = ValidatePathSecurity(root, "roots");
+        if (pathError is not null)
+            return pathError;
+
+        if (!Directory.Exists(root))
+            return ApiError(400, "IO-ROOT-NOT-FOUND", $"Root not found: {root}");
+    }
+
+    var runOptions = new RunOptions
+    {
+        Roots = roots,
+        Extensions = extensions,
+        EnableDat = run?.EnableDat ?? false,
+        EnableDatAudit = run?.EnableDatAudit ?? false,
+        EnableDatRename = run?.EnableDatRename ?? false,
+        DatRoot = run?.DatRoot,
+        HashType = run?.HashType ?? RunConstants.DefaultHashType,
+        Mode = run?.Mode ?? RunConstants.ModeDryRun
+    };
+
+    using var env = runEnvironmentFactory.Create(runOptions);
+    try
+    {
+        var exportResult = await FrontendExportService.ExportAsync(
+            new FrontendExportRequest(
+                request.Frontend,
+                request.OutputPath.Trim(),
+                string.IsNullOrWhiteSpace(request.CollectionName) ? "Romulus" : request.CollectionName.Trim(),
+                roots,
+                extensions),
+            fileSystem,
+            collectionIndex,
+            env.EnrichmentFingerprint,
+            runCandidates: run?.CoreRunResult?.AllCandidates,
+            ct: ct);
+
+        return Results.Ok(exportResult);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return ApiError(409, "EXPORT-NOT-READY", ex.Message);
+    }
+})
+    .WithSummary("Export collection data to frontend-specific artifacts")
+    .Produces<FrontendExportResult>(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status403Forbidden)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound)
+    .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict);
+
+app.MapPost("/runs", async (
+    HttpContext ctx,
+    string? wait,
+    [FromQuery(Name = "waitTimeoutMs")] string? waitTimeoutMsQuery,
+    RunLifecycleManager mgr,
+    RunConfigurationMaterializer runConfigurationMaterializer) =>
 {
     // Validate Content-Type
     var contentType = ctx.Request.ContentType;
@@ -289,7 +517,31 @@ app.MapPost("/runs", async (HttpContext ctx, string? wait, [FromQuery(Name = "wa
         return ApiError(400, "RUN-INVALID-JSON", "Invalid JSON.");
     }
 
-    if (request is null || request.Roots is null || request.Roots.Length == 0)
+    if (request is null)
+        return ApiError(400, "RUN-INVALID-JSON", "Invalid JSON.");
+
+    ApiResolvedRunConfiguration resolvedRunRequest;
+    try
+    {
+        using var requestDocument = JsonDocument.Parse(body);
+        var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        resolvedRunRequest = await ApiRunConfigurationMapper.ResolveAsync(
+            request,
+            requestDocument.RootElement,
+            settings,
+            runConfigurationMaterializer,
+            ctx.RequestAborted);
+        request = resolvedRunRequest.Request;
+    }
+    catch (InvalidOperationException ex)
+    {
+        var (code, message) = MapRunConfigurationError(ex.Message);
+        return ApiError(400, code, message);
+    }
+
+    if (request.Roots is null || request.Roots.Length == 0)
         return ApiError(400, "RUN-ROOTS-REQUIRED", "roots[] is required.");
 
     // Validate roots
@@ -779,23 +1031,59 @@ app.MapPost("/runs/{runId}/reviews/approve", async (string runId, HttpContext ct
     .Produces<OperationErrorResponse>(StatusCodes.Status403Forbidden)
     .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
 
-app.MapPost("/watch/start", async (HttpContext ctx, string? debounceSeconds, string? intervalMinutes, string? cron, ApiAutomationService automation) =>
+app.MapPost("/watch/start", async (
+    HttpContext ctx,
+    string? debounceSeconds,
+    string? intervalMinutes,
+    string? cron,
+    ApiAutomationService automation,
+    RunConfigurationMaterializer runConfigurationMaterializer) =>
 {
     var requesterClientId = GetClientBindingId(ctx, trustForwardedFor);
     if (!automation.CanAccess(requesterClientId))
         return ApiError(403, "AUTH-FORBIDDEN", "Automation belongs to a different client.", ErrorKind.Critical);
 
     RunRequest? request;
+    string watchBody;
     try
     {
-        request = await ctx.Request.ReadFromJsonAsync<RunRequest>();
+        ctx.Request.EnableBuffering();
+        using var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8, leaveOpen: true);
+        watchBody = await reader.ReadToEndAsync();
+        ctx.Request.Body.Position = 0;
+        request = JsonSerializer.Deserialize<RunRequest>(watchBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
     catch (JsonException)
     {
         return ApiError(400, "WATCH-INVALID-JSON", "Invalid JSON.");
     }
 
-    if (request?.Roots is null || request.Roots.Length == 0)
+    if (request is null)
+        return ApiError(400, "WATCH-INVALID-JSON", "Invalid JSON.");
+
+    ApiResolvedRunConfiguration resolvedWatchRequest;
+    try
+    {
+        var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        using var jsonDocument = JsonDocument.Parse(watchBody);
+        resolvedWatchRequest = await ApiRunConfigurationMapper.ResolveAsync(
+            request,
+            jsonDocument.RootElement,
+            settings,
+            runConfigurationMaterializer,
+            ctx.RequestAborted);
+        request = resolvedWatchRequest.Request;
+    }
+    catch (InvalidOperationException ex)
+    {
+        var (code, message) = MapWatchConfigurationError(ex.Message);
+        return ApiError(400, code, message);
+    }
+
+    if (request.Roots is null || request.Roots.Length == 0)
         return ApiError(400, "WATCH-ROOTS-REQUIRED", "roots[] is required.");
 
     var parsedDebounceSeconds = 5;
@@ -1768,6 +2056,98 @@ static IDictionary<string, object> CreateMeta(params (string Key, object? Value)
     }
 
     return meta;
+}
+
+static (string Code, string Message) MapRunConfigurationError(string message)
+{
+    if (message.Contains("protected system path", StringComparison.OrdinalIgnoreCase))
+        return (SecurityErrorCodes.SystemDirectory, message);
+
+    if (message.Contains("drive root", StringComparison.OrdinalIgnoreCase))
+        return (SecurityErrorCodes.DriveRoot, message);
+
+    if (message.Contains("UNC path", StringComparison.OrdinalIgnoreCase) ||
+        message.Contains(" is invalid:", StringComparison.OrdinalIgnoreCase))
+    {
+        return (SecurityErrorCodes.InvalidPath, message);
+    }
+
+    if (message.Contains("Invalid region", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-REGION", message);
+
+    if (message.Contains("Invalid extension", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-EXTENSION", message);
+
+    if (message.Contains("Invalid hashType", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-HASH-TYPE", message);
+
+    if (message.Contains("Invalid convertFormat", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-CONVERT-FORMAT", message);
+
+    if (message.Contains("Invalid conflictPolicy", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-CONFLICT-POLICY", message);
+
+    if (message.Contains("Invalid mode", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-INVALID-MODE", message);
+
+    if (message.Contains("Workflow '", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-WORKFLOW-NOT-FOUND", message);
+
+    if (message.Contains("Profile '", StringComparison.OrdinalIgnoreCase))
+        return ("RUN-PROFILE-NOT-FOUND", message);
+
+    return ("RUN-INVALID-CONFIG", message);
+}
+
+static (string Code, string Message) MapWatchConfigurationError(string message)
+{
+    if (message.Contains("protected system path", StringComparison.OrdinalIgnoreCase))
+        return (SecurityErrorCodes.SystemDirectory, message);
+
+    if (message.Contains("drive root", StringComparison.OrdinalIgnoreCase))
+        return (SecurityErrorCodes.DriveRoot, message);
+
+    if (message.Contains("UNC path", StringComparison.OrdinalIgnoreCase) ||
+        message.Contains(" is invalid:", StringComparison.OrdinalIgnoreCase))
+    {
+        return (SecurityErrorCodes.InvalidPath, message);
+    }
+
+    if (message.Contains("Invalid region", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-REGION", message);
+
+    if (message.Contains("Invalid extension", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-EXTENSION", message);
+
+    if (message.Contains("Invalid hashType", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-HASH-TYPE", message);
+
+    if (message.Contains("Invalid convertFormat", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-CONVERT-FORMAT", message);
+
+    if (message.Contains("Invalid conflictPolicy", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-CONFLICT-POLICY", message);
+
+    if (message.Contains("Invalid mode", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-INVALID-MODE", message);
+
+    if (message.Contains("Workflow '", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-WORKFLOW-NOT-FOUND", message);
+
+    if (message.Contains("Profile '", StringComparison.OrdinalIgnoreCase))
+        return ("WATCH-PROFILE-NOT-FOUND", message);
+
+    return ("WATCH-INVALID-CONFIG", message);
+}
+
+internal sealed class ApiFrontendExportRequest
+{
+    public string? Frontend { get; set; }
+    public string? OutputPath { get; set; }
+    public string? CollectionName { get; set; }
+    public string[]? Roots { get; set; }
+    public string[]? Extensions { get; set; }
+    public string? RunId { get; set; }
 }
 
 public partial class Program

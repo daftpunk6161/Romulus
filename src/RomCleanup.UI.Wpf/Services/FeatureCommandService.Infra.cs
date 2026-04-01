@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Analysis;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -17,9 +18,36 @@ public sealed partial class FeatureCommandService
 
     private void StorageTiering()
     {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
-        _dialog.ShowText("Storage-Tiering", FeatureService.AnalyzeStorageTiers(_vm.LastCandidates));
+        if (!TryLoadSnapshots(30, out var snapshots, out var collectionIndex) || collectionIndex is null)
+            return;
+
+        using (collectionIndex)
+        {
+            var insights = RunHistoryInsightsService.BuildStorageInsightsAsync(collectionIndex, 30).GetAwaiter().GetResult();
+            var trends = RunHistoryTrendService.LoadTrendHistoryAsync(collectionIndex, 30).GetAwaiter().GetResult();
+
+            var sb = new StringBuilder();
+            sb.AppendLine(RunHistoryInsightsService.FormatStorageInsightReport(insights));
+            sb.AppendLine();
+            sb.AppendLine(RunHistoryTrendService.FormatTrendReport(
+                trends,
+                "Run Trends",
+                "Keine Run-Historie verfuegbar.",
+                "Aktuell",
+                "Delta Dateien",
+                "Delta Duplikate",
+                "Historie",
+                "Dateien",
+                "Qualitaet"));
+
+            if (_vm.LastCandidates.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine(FeatureService.AnalyzeStorageTiers(_vm.LastCandidates));
+            }
+
+            _dialog.ShowText("Storage-Tiering", sb.ToString());
+        }
     }
 
     private void NasOptimization()

@@ -128,11 +128,19 @@ internal static class CliOutputWriter
         stdout.WriteLine(@"Romulus — Your Collection, Perfected.
 
 Usage:
-  romulus -Roots ""D:\Roms"" [-Mode DryRun|Move] [-Prefer EU,US,JP]
+  romulus --roots ""D:\Roms"" [--mode DryRun|Move] [--prefer EU,US,JP]
 
 Subcommands:
   romulus analyze --roots <path>              Collection health score and heatmap
-  romulus export --roots <path> [--format csv|json|excel] [-o <file>]
+  romulus export --roots <path> [--format csv|json|excel|retroarch|launchbox|emulationstation|playnite] [-o <file>]
+  romulus profiles list
+  romulus profiles show --id <profile-id>
+  romulus profiles import --input <file>
+  romulus profiles export --id <profile-id> --output <file>
+  romulus profiles delete --id <profile-id>
+  romulus workflows [--id <workflow-id>]
+  romulus compare --run <run-id> --compare-to <run-id> [-o <file>]
+  romulus trends [--limit <n>] [-o <file>]
   romulus dat diff --old <path> --new <path>  Compare two Logiqx DAT files
   romulus integrity baseline --roots <path>   Create integrity baseline
   romulus integrity check                     Check files against baseline
@@ -144,36 +152,40 @@ Subcommands:
   romulus completeness --roots <path> [--dat-root <path>] [-o <file>]
 
 Run Options:
-  -Roots <paths>     Semicolon-separated root paths (required)
-  -Mode <mode>       DryRun (default) or Move
-  -Prefer <regions>  Comma-separated region priority (default: EU,US,WORLD,JP)
-  -Extensions <exts> Comma-separated extensions filter
-  -TrashRoot <path>  Custom trash folder for duplicates
-  -RemoveJunk        Move junk files (demos, betas, hacks) to trash
-    -GamesOnly         Keep only GAME category files in dedupe pipeline
-    -KeepUnknown       With -GamesOnly, keep UNKNOWN files for manual review (default)
-    -DropUnknown       With -GamesOnly, exclude UNKNOWN files as well
-  -AggressiveJunk    Also flag WIP/dev builds as junk
-  -SortConsole       Sort winners into console-specific subfolders
-  -EnableDat         Enable DAT verification (hash-match against No-Intro/Redump)
-        -DatAudit          Emit DAT audit counters in DryRun output
-    -DatRename         Rename DAT-verified mismatches before move (Move mode only)
-  -DatRoot <path>    DAT file directory (overrides settings.json)
-  -HashType <type>   Hash algorithm: SHA1|SHA256|MD5 (default: SHA1)
-    -UpdateDats        Download/update DATs from dat-catalog.json (no --roots required)
-    -ImportPacksFrom   Import local No-Intro DAT packs from folder (optional)
-    -ForceDatUpdate    Re-download DATs even if target id.dat already exists
-    -SmartDatUpdate    Update only missing and stale id.dat files
-    -DatStaleDays      Stale threshold in days for -SmartDatUpdate (default: 365)
-  -ConvertFormat     Convert winners to optimal format (CHD/RVZ/ZIP)
-    -ConvertOnly       Convert all candidates only (skip dedupe/move)
-    -ConflictPolicy    Move conflict handling: Rename|Skip|Overwrite (default: Rename)
-    -Yes               Confirm destructive Move in non-interactive runs
-  -Report <path>     Output HTML, CSV, or JSON report (.html, .csv, or .json)
-  -Audit <path>      Write audit CSV log for Move operations
-  -Log <path>        Write structured JSONL log file
-  -LogLevel <level>  Log level: Debug|Info|Warning|Error (default: Info)
-  -Help              Show this help
+  --roots <paths>        Semicolon-separated root paths (required)
+  --mode <mode>          DryRun (default) or Move
+  --workflow <id>        Apply guided workflow defaults
+  --profile <id>         Apply a built-in or saved run profile
+  --profile-file <file>  Import and apply an external profile document
+  --prefer <regions>     Comma-separated region priority (default: EU,US,WORLD,JP)
+  --extensions <exts>    Comma-separated extensions filter
+  --trashroot <path>     Custom trash folder for duplicates
+  --removejunk           Move junk files (demos, betas, hacks) to trash
+  --gamesonly            Keep only GAME category files in dedupe pipeline
+  --keepunknown          With --gamesonly, keep UNKNOWN files for manual review (default)
+  --dropunknown          With --gamesonly, exclude UNKNOWN files as well
+  --aggressivejunk       Also flag WIP/dev builds as junk
+  --sortconsole          Sort winners into console-specific subfolders
+  --enabledat            Enable DAT verification (hash-match against No-Intro/Redump)
+  --dat-audit            Emit DAT audit counters in DryRun output
+  --datrename            Rename DAT-verified mismatches before move (Move mode only)
+  --datroot <path>       DAT file directory (overrides settings.json)
+  --hashtype <type>      Hash algorithm: SHA1|SHA256|MD5 (default: SHA1)
+  --update-dats          Download/update DATs from dat-catalog.json (no --roots required)
+  --import-packs-from    Import local No-Intro DAT packs from folder (optional)
+  --force-dat-update     Re-download DATs even if target id.dat already exists
+  --smart-dat-update     Update only missing and stale id.dat files
+  --dat-stale-days       Stale threshold in days for --smart-dat-update (default: 365)
+  --convertformat        Convert winners to optimal format (CHD/RVZ/ZIP)
+  --convertonly          Convert all candidates only (skip dedupe/move)
+  --approve-reviews      Reuse persisted review approvals during the run
+  --conflictpolicy       Move conflict handling: Rename|Skip|Overwrite (default: Rename)
+  --yes                  Confirm destructive Move in non-interactive runs
+  --report <path>        Output HTML, CSV, or JSON report (.html, .csv, or .json)
+  --audit <path>         Write audit CSV log for Move operations
+  --log <path>           Write structured JSONL log file
+  --loglevel <level>     Log level: Debug|Info|Warning|Error (default: Info)
+  --help                 Show this help
 
 Exit codes:
   0  Success

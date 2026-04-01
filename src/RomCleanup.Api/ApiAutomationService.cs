@@ -222,6 +222,8 @@ public sealed class ApiAutomationService : IDisposable
         {
             Roots = request.Roots?.ToArray(),
             Mode = request.Mode,
+            WorkflowScenarioId = request.WorkflowScenarioId,
+            ProfileId = request.ProfileId,
             PreferRegions = request.PreferRegions?.ToArray(),
             RemoveJunk = request.RemoveJunk,
             AggressiveJunk = request.AggressiveJunk,

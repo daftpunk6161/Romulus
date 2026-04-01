@@ -75,6 +75,32 @@
         </Grid>
       </Border>
 
+      <!-- ── Guided Workflow / Profile ── -->
+      <TextBlock Text="Guided Workflow" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
+      <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}">
+        <StackPanel>
+          <TextBlock Text="Workflow" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ComboBox ItemsSource="{Binding AvailableWorkflows}"
+                    SelectedValuePath="Id"
+                    DisplayMemberPath="Name"
+                    SelectedValue="{Binding SelectedWorkflowScenarioId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    ToolTip="Gefuehrtes Szenario fuer denselben Pipeline-Stack"/>
+          <TextBlock Text="{Binding SelectedWorkflowDescription}"
+                     Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+
+          <TextBlock Text="Profil" FontWeight="SemiBold" Margin="0,12,0,6"/>
+          <ComboBox ItemsSource="{Binding AvailableRunProfiles}"
+                    SelectedValuePath="Id"
+                    DisplayMemberPath="Name"
+                    SelectedValue="{Binding SelectedRunProfileId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    ToolTip="Wiederverwendbares Profil fuer GUI, CLI und API"/>
+          <TextBlock Text="{Binding SelectedRunProfileDescription}"
+                     Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding RunConfigurationSelectionSummary}"
+                     Style="{StaticResource CaptionText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
       <!-- ── Run-Optionen ── -->
       <TextBlock Text="{Binding Loc[Sort.Options]}" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
       <Border Style="{StaticResource SectionCard}" Margin="{DynamicResource SpaceBottomMD}">

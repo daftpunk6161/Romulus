@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Analysis;
+using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
@@ -90,67 +92,53 @@ public sealed partial class FeatureCommandService
 
     private void Completeness()
     {
-        if (_vm.LastCandidates.Count == 0)
-        { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
-        var verified = _vm.LastCandidates.Count(c => c.DatMatch);
-        var total = _vm.LastCandidates.Count;
-        var pct = total > 0 ? 100.0 * verified / total : 0;
-        _dialog.ShowText("Vollständigkeit", $"Sammlungs-Vollständigkeit\n\n" +
-            $"Verifizierte Dateien: {verified} / {total} ({pct:F1}%)\n\n" +
-            $"Für eine DAT-basierte Vollständigkeitsanalyse\naktiviere DAT-Verifizierung und starte einen DryRun.");
+        if (!TryCreateCurrentRunEnvironment(out var materialized, out var environment) || materialized is null || environment is null)
+            return;
+
+        using (environment)
+        {
+            if (environment.DatIndex is null || environment.DatIndex.TotalEntries == 0)
+            {
+                _vm.AddLog("Keine DAT-Daten verfuegbar. DAT-Verifizierung aktivieren und DatRoot konfigurieren.", "WARN");
+                return;
+            }
+
+            var report = CompletenessReportService.BuildAsync(
+                environment.DatIndex,
+                materialized.Options.Roots.ToArray(),
+                environment.CollectionIndex,
+                materialized.Options.Extensions.ToArray(),
+                _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null).GetAwaiter().GetResult();
+
+            _dialog.ShowText("Vollstaendigkeit", CompletenessReportService.FormatReport(report));
+        }
     }
 
     private void DryRunCompare()
     {
-        var fileA = _dialog.BrowseFile("Ersten DryRun-Report wählen", "CSV (*.csv)|*.csv|HTML (*.html)|*.html");
-        var fileB = fileA is not null ? _dialog.BrowseFile("Zweiten DryRun-Report wählen", "CSV (*.csv)|*.csv|HTML (*.html)|*.html") : null;
-        if (fileA is null || fileB is null) return;
-        _vm.AddLog($"DryRun-Vergleich: {Path.GetFileName(fileA)} vs. {Path.GetFileName(fileB)}", "INFO");
+        if (!TryLoadSnapshots(10, out var snapshots, out var collectionIndex) || collectionIndex is null)
+            return;
 
-        if (fileA.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) &&
-            fileB.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        using (collectionIndex)
         {
-            try
+            if (snapshots.Count < 2)
             {
-                var setA = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var setB = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var line in File.ReadLines(fileA).Skip(1))
-                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setA.Add(mainPath); }
-                foreach (var line in File.ReadLines(fileB).Skip(1))
-                { var mainPath = FeatureService.ExtractFirstCsvField(line); if (!string.IsNullOrWhiteSpace(mainPath)) setB.Add(mainPath); }
-
-                var added = setB.Except(setA).ToList();
-                var removed = setA.Except(setB).ToList();
-                var same = setA.Intersect(setB).Count();
-
-                var sb = new StringBuilder();
-                sb.AppendLine("DryRun-Vergleich (CSV)");
-                sb.AppendLine(new string('═', 50));
-                sb.AppendLine($"\n  A: {Path.GetFileName(fileA)} ({setA.Count} Einträge)");
-                sb.AppendLine($"  B: {Path.GetFileName(fileB)} ({setB.Count} Einträge)");
-                sb.AppendLine($"\n  Gleich:     {same}");
-                sb.AppendLine($"  Hinzugefügt: {added.Count}");
-                sb.AppendLine($"  Entfernt:    {removed.Count}");
-                if (added.Count > 0)
-                {
-                    sb.AppendLine($"\n  --- Hinzugefügt (erste {Math.Min(30, added.Count)}) ---");
-                    foreach (var entry in added.Take(30)) sb.AppendLine($"    + {Path.GetFileName(entry)}");
-                    if (added.Count > 30) sb.AppendLine($"    … und {added.Count - 30} weitere");
-                }
-                if (removed.Count > 0)
-                {
-                    sb.AppendLine($"\n  --- Entfernt (erste {Math.Min(30, removed.Count)}) ---");
-                    foreach (var entry in removed.Take(30)) sb.AppendLine($"    - {Path.GetFileName(entry)}");
-                    if (removed.Count > 30) sb.AppendLine($"    … und {removed.Count - 30} weitere");
-                }
-                _dialog.ShowText("DryRun-Vergleich", sb.ToString());
+                _vm.AddLog("Mindestens zwei persistierte Runs werden fuer den Vergleich benoetigt.", "WARN");
+                return;
             }
-            catch (Exception ex) { LogError("GUI-DRYRUN", $"DryRun-Vergleich Fehler: {ex.Message}"); }
-        }
-        else
-        {
-            _dialog.ShowText("DryRun-Vergleich", $"Vergleich:\n  A: {fileA}\n  B: {fileB}\n\n" +
-                "Detaillierter Vergleich erfordert CSV-Reports.\nExportiere Reports als CSV und vergleiche erneut.");
+
+            var prompt = BuildRunSnapshotChoicePrompt(snapshots);
+            var defaultValue = $"{snapshots[0].RunId} {snapshots[1].RunId}";
+            var input = _dialog.ShowInputBox(prompt, "Run-Vergleich", defaultValue);
+            var pair = ResolveComparisonPair(input, snapshots);
+            var comparison = RunHistoryInsightsService.CompareAsync(collectionIndex, pair[0], pair[1]).GetAwaiter().GetResult();
+            if (comparison is null)
+            {
+                _vm.AddLog("Die ausgewaehlten Runs konnten nicht verglichen werden.", "WARN");
+                return;
+            }
+
+            _dialog.ShowText("Run-Vergleich", RunHistoryInsightsService.FormatComparisonReport(comparison));
         }
     }
 

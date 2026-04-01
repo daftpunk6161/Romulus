@@ -138,6 +138,8 @@ public sealed class SettingsService : ISettingsService
                     WatchAutoStart = GetBool(ui, "watchAutoStart"),
                     ConflictPolicy = cp,
                     Theme = GetString(ui, "theme", "Dark"),
+                    SelectedWorkflowScenarioId = GetString(ui, "selectedWorkflowScenarioId"),
+                    SelectedRunProfileId = GetString(ui, "selectedRunProfileId"),
                     MinimizeToTray = GetBool(ui, "minimizeToTray"),
                     IsSimpleMode = GetBool(ui, "isSimpleMode", true),
                     SchedulerIntervalMinutes = GetInt(ui, "schedulerIntervalMinutes")
@@ -287,6 +289,7 @@ public sealed class SettingsService : ISettingsService
         vm.MinimizeToTray = dto.MinimizeToTray;
         vm.IsSimpleMode = dto.IsSimpleMode;
         vm.SchedulerIntervalMinutes = dto.SchedulerIntervalMinutes;
+        vm.RestoreRunConfigurationSelection(dto.SelectedWorkflowScenarioId, dto.SelectedRunProfileId);
 
         // Roots
         vm.Roots.Clear();
@@ -359,6 +362,8 @@ public sealed class SettingsService : ISettingsService
                         watchAutoStart = vm.WatchAutoStart,
                         conflictPolicy = vm.ConflictPolicy.ToString(),
                         theme = vm.CurrentThemeName,
+                        selectedWorkflowScenarioId = vm.SelectedWorkflowScenarioId,
+                        selectedRunProfileId = vm.SelectedRunProfileId,
                         minimizeToTray = vm.MinimizeToTray,
                         isSimpleMode = vm.IsSimpleMode,
                         schedulerIntervalMinutes = vm.SchedulerIntervalMinutes

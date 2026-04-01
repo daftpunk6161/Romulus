@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Export;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -54,14 +55,19 @@ public sealed partial class FeatureCommandService
 
     private void LauncherIntegration()
     {
-        if (_vm.LastDedupeGroups.Count == 0)
-        { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
         var path = _dialog.SaveFile("RetroArch Playlist exportieren", "Playlist (*.lpl)|*.lpl", "RomCleanup.lpl");
         if (path is null) return;
-        var winners = _vm.LastDedupeGroups.Select(g => g.Winner).ToList();
-        var json = FeatureService.ExportRetroArchPlaylist(winners, Path.GetFileNameWithoutExtension(path));
-        File.WriteAllText(path, json);
-        _vm.AddLog($"Playlist exportiert: {path} ({winners.Count} Einträge)", "INFO");
+        if (!TryLoadFrontendExportResult(
+                FrontendExportTargets.RetroArch,
+                path,
+                Path.GetFileNameWithoutExtension(path),
+                out var exportResult) ||
+            exportResult is null)
+        {
+            return;
+        }
+
+        _vm.AddLog($"Playlist exportiert: {path} ({exportResult.GameCount} Eintraege)", "INFO");
     }
 
     private void DatImport()
@@ -83,6 +89,82 @@ public sealed partial class FeatureCommandService
             _dialog.Info($"DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {targetPath}", "DAT-Import");
         }
         catch (Exception ex) { LogError("DAT-IMPORT", $"DAT-Import fehlgeschlagen: {ex.Message}"); }
+    }
+
+    private void ExportCollection()
+    {
+        var choice = _dialog.ShowInputBox(
+            "Export-Format waehlen:\n\n" +
+            "  1 - CSV (Sammlung)\n" +
+            "  2 - Excel-XML (Sammlung)\n" +
+            "  3 - CSV (nur Duplikate)\n" +
+            "  4 - RetroArch Playlist\n" +
+            "  5 - LaunchBox XML\n" +
+            "  6 - EmulationStation gamelist\n" +
+            "  7 - Playnite Bibliothek\n\n" +
+            "Nummer eingeben:",
+            "Sammlung exportieren");
+        if (string.IsNullOrWhiteSpace(choice))
+            return;
+
+        switch (choice.Trim())
+        {
+            case "1":
+                ExportFrontend(FrontendExportTargets.Csv, "CSV (*.csv)|*.csv", "sammlung.csv", "Romulus");
+                break;
+            case "2":
+                ExportFrontend(FrontendExportTargets.Excel, "Excel XML (*.xml)|*.xml", "sammlung.xml", "Romulus");
+                break;
+            case "3":
+                ExportDuplicateCsv();
+                break;
+            case "4":
+                ExportFrontend(FrontendExportTargets.RetroArch, "Playlist (*.lpl)|*.lpl", "Romulus.lpl", "Romulus");
+                break;
+            case "5":
+                ExportFrontend(FrontendExportTargets.LaunchBox, "LaunchBox XML (*.xml)|*.xml", "LaunchBox.xml", "Romulus");
+                break;
+            case "6":
+                ExportFrontend(FrontendExportTargets.EmulationStation, "Ordner|*.*", "emulationstation", "Romulus");
+                break;
+            case "7":
+                ExportFrontend(FrontendExportTargets.Playnite, "JSON (*.json)|*.json", "playnite-library.json", "Romulus");
+                break;
+            default:
+                _vm.AddLog("Ungueltige Auswahl. Bitte 1 bis 7 eingeben.", "WARN");
+                break;
+        }
+    }
+
+    private void ExportFrontend(string frontend, string filter, string defaultFileName, string collectionName)
+    {
+        var path = _dialog.SaveFile("Export speichern", filter, defaultFileName);
+        if (path is null)
+            return;
+
+        if (!TryLoadFrontendExportResult(frontend, path, collectionName, out var exportResult) || exportResult is null)
+            return;
+
+        _vm.AddLog($"Export erstellt: {path} ({exportResult.GameCount} Spiele, Quelle={exportResult.Source})", "INFO");
+        _dialog.ShowText("Frontend-Export", FormatFrontendExportSummary(exportResult));
+    }
+
+    private void ExportDuplicateCsv()
+    {
+        if (_vm.LastDedupeGroups.Count == 0)
+        {
+            _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN");
+            return;
+        }
+
+        var path = _dialog.SaveFile(_vm.Loc["Cmd.DupeExportTitle"], _vm.Loc["Cmd.FilterCsv"], "duplikate.csv");
+        if (path is null)
+            return;
+
+        var losers = _vm.LastDedupeGroups.SelectMany(static group => group.Losers).ToList();
+        var dupeCsv = FeatureService.ExportCollectionCsv(losers);
+        File.WriteAllText(path, dupeCsv, Encoding.UTF8);
+        _vm.AddLog(_vm.Loc.Format("Cmd.DupeExported", path, losers.Count), "INFO");
     }
 
 }

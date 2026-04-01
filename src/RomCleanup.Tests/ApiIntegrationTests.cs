@@ -391,6 +391,144 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task Runs_Compare_ReturnsPersistedSnapshotDelta()
+    {
+        var fakeIndex = new FakeCollectionIndex(
+        [
+            new CollectionRunSnapshot
+            {
+                RunId = "run-new",
+                CompletedUtc = new DateTime(2026, 4, 1, 10, 1, 0, DateTimeKind.Utc),
+                Status = "completed_with_errors",
+                TotalFiles = 100,
+                CollectionSizeBytes = 333000000,
+                Games = 80,
+                Dupes = 20,
+                Junk = 5,
+                DatMatches = 70,
+                ConvertedCount = 10,
+                FailCount = 2,
+                SavedBytes = 1234,
+                ConvertSavedBytes = 5678,
+                HealthScore = 90
+            },
+            new CollectionRunSnapshot
+            {
+                RunId = "run-old",
+                CompletedUtc = new DateTime(2026, 3, 31, 10, 1, 0, DateTimeKind.Utc),
+                Status = "ok",
+                TotalFiles = 50,
+                CollectionSizeBytes = 111000000,
+                Games = 40,
+                Dupes = 10,
+                Junk = 0,
+                DatMatches = 35,
+                ConvertedCount = 0,
+                FailCount = 0,
+                SavedBytes = 100,
+                ConvertSavedBytes = 200,
+                HealthScore = 95
+            }
+        ]);
+
+        using var factory = CreateFactory(collectionIndex: fakeIndex);
+        using var client = CreateClientWithApiKey(factory);
+
+        var response = await client.GetAsync("/runs/compare?runId=run-new&compareToRunId=run-old");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        Assert.Equal("run-new", root.GetProperty("runId").GetString());
+        Assert.Equal("run-old", root.GetProperty("compareToRunId").GetString());
+
+        var totalFiles = root.GetProperty("totalFiles");
+        Assert.Equal(100, totalFiles.GetProperty("current").GetInt64());
+        Assert.Equal(50, totalFiles.GetProperty("previous").GetInt64());
+        Assert.Equal(50, totalFiles.GetProperty("delta").GetInt64());
+
+        var size = root.GetProperty("collectionSizeBytes");
+        Assert.Equal(333000000L, size.GetProperty("current").GetInt64());
+        Assert.Equal(111000000L, size.GetProperty("previous").GetInt64());
+        Assert.Equal(222000000L, size.GetProperty("delta").GetInt64());
+    }
+
+    [Fact]
+    public async Task Runs_Compare_MissingSnapshot_ReturnsNotFound()
+    {
+        var fakeIndex = new FakeCollectionIndex(
+        [
+            new CollectionRunSnapshot
+            {
+                RunId = "run-existing",
+                CompletedUtc = new DateTime(2026, 4, 1, 10, 1, 0, DateTimeKind.Utc),
+                Status = "ok",
+                TotalFiles = 10
+            }
+        ]);
+
+        using var factory = CreateFactory(collectionIndex: fakeIndex);
+        using var client = CreateClientWithApiKey(factory);
+
+        var response = await client.GetAsync("/runs/compare?runId=run-existing&compareToRunId=run-missing");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        AssertError(doc.RootElement, "RUN-COMPARE-NOT-FOUND", ErrorKind.Recoverable, "not found");
+    }
+
+    [Fact]
+    public async Task Runs_Trends_ReturnsStorageInsights_FromPersistedSnapshots()
+    {
+        var fakeIndex = new FakeCollectionIndex(
+        [
+            new CollectionRunSnapshot
+            {
+                RunId = "run-old",
+                CompletedUtc = new DateTime(2026, 3, 31, 10, 1, 0, DateTimeKind.Utc),
+                TotalFiles = 50,
+                CollectionSizeBytes = 111000000,
+                SavedBytes = 100,
+                ConvertSavedBytes = 200,
+                HealthScore = 95
+            },
+            new CollectionRunSnapshot
+            {
+                RunId = "run-new",
+                CompletedUtc = new DateTime(2026, 4, 1, 10, 1, 0, DateTimeKind.Utc),
+                TotalFiles = 100,
+                CollectionSizeBytes = 333000000,
+                SavedBytes = 1234,
+                ConvertSavedBytes = 5678,
+                HealthScore = 90
+            }
+        ]);
+
+        using var factory = CreateFactory(collectionIndex: fakeIndex);
+        using var client = CreateClientWithApiKey(factory);
+
+        var response = await client.GetAsync("/runs/trends?limit=30");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        Assert.Equal(2, root.GetProperty("sampleCount").GetInt32());
+        Assert.Equal(1234, root.GetProperty("latestSavedBytes").GetInt64());
+        Assert.Equal(5678, root.GetProperty("latestConvertSavedBytes").GetInt64());
+        Assert.Equal(1334, root.GetProperty("cumulativeSavedBytes").GetInt64());
+        Assert.Equal(5878, root.GetProperty("cumulativeConvertSavedBytes").GetInt64());
+
+        var files = root.GetProperty("totalFiles");
+        Assert.Equal(100, files.GetProperty("current").GetInt64());
+        Assert.Equal(50, files.GetProperty("previous").GetInt64());
+        Assert.Equal(50, files.GetProperty("delta").GetInt64());
+
+        var size = root.GetProperty("collectionSizeBytes");
+        Assert.Equal(222000000L, size.GetProperty("delta").GetInt64());
+        Assert.Equal(222000000d, root.GetProperty("averageRunGrowthBytes").GetDouble());
+    }
+
+    [Fact]
     public async Task Watch_StartStatusStop_RoundTrips_ForOwnerClient()
     {
         using var factory = CreateFactory();

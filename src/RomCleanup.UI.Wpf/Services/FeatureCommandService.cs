@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using RomCleanup.Contracts;
 using CommunityToolkit.Mvvm.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
@@ -145,6 +146,8 @@ public sealed partial class FeatureCommandService
 
         // ── Functional buttons ──────────────────────────────────────────
         cmds[FeatureCommandKeys.ExportLog] = new RelayCommand(ExportLog);
+        cmds[FeatureCommandKeys.ProfileSave] = new RelayCommand(ProfileSave);
+        cmds[FeatureCommandKeys.ProfileLoad] = new RelayCommand(ProfileLoad);
         cmds[FeatureCommandKeys.ProfileDelete] = new RelayCommand(ProfileDelete);
         cmds[FeatureCommandKeys.ProfileImport] = new RelayCommand(ProfileImport);
         cmds[FeatureCommandKeys.ProfileShare] = new RelayCommand(ProfileShare);
@@ -249,9 +252,60 @@ public sealed partial class FeatureCommandService
 
     private void ProfileDelete()
     {
-        if (!_dialog.Confirm(_vm.Loc["Cmd.ProfileDeleteConfirm"], _vm.Loc["Cmd.ProfileDeleteTitle"])) return;
-        if (ProfileService.Delete()) _vm.AddLog(_vm.Loc["Cmd.ProfileDeleted"], "INFO");
-        else _vm.AddLog(_vm.Loc["Cmd.ProfileNotFound"], "WARN");
+        if (string.IsNullOrWhiteSpace(_vm.SelectedRunProfileId))
+        {
+            _vm.AddLog("Kein Benutzerprofil ausgewaehlt.", "WARN");
+            return;
+        }
+
+        if (!_dialog.Confirm(_vm.Loc["Cmd.ProfileDeleteConfirm"], _vm.Loc["Cmd.ProfileDeleteTitle"]))
+            return;
+
+        try
+        {
+            var deleted = _vm.RunProfileService.DeleteAsync(_vm.SelectedRunProfileId).GetAwaiter().GetResult();
+            if (!deleted)
+            {
+                _vm.AddLog(_vm.Loc["Cmd.ProfileNotFound"], "WARN");
+                return;
+            }
+
+            _vm.RefreshRunConfigurationCatalogs();
+            _vm.RestoreRunConfigurationSelection(_vm.SelectedWorkflowScenarioId, null);
+            _vm.AddLog(_vm.Loc["Cmd.ProfileDeleted"], "INFO");
+        }
+        catch (InvalidOperationException ex)
+        {
+            LogWarning("GUI-PROFILE", ex.Message);
+        }
+    }
+
+    private void ProfileSave()
+    {
+        if (!TryPromptProfileDocument(out var document) || document is null)
+            return;
+
+        try
+        {
+            var saved = _vm.RunProfileService.SaveAsync(document).GetAwaiter().GetResult();
+            _vm.RefreshRunConfigurationCatalogs();
+            _vm.RestoreRunConfigurationSelection(_vm.SelectedWorkflowScenarioId, saved.Id);
+            _vm.ProfileName = saved.Name;
+            _vm.AddLog($"Profil gespeichert: {saved.Name} ({saved.Id})", "INFO");
+        }
+        catch (InvalidOperationException ex)
+        {
+            LogWarning("GUI-PROFILE", $"Profil konnte nicht gespeichert werden: {ex.Message}");
+        }
+    }
+
+    private void ProfileLoad()
+    {
+        if (!TryCreateSelectedMaterializedRunConfiguration(out var materialized) || materialized is null)
+            return;
+
+        _vm.ApplyMaterializedRunConfiguration(materialized);
+        _vm.AddLog($"Workflow/Profil geladen: {materialized.Workflow?.Name ?? "kein Workflow"} | {materialized.Profile?.Name ?? "kein Profil"}", "INFO");
     }
 
     private void ProfileImport()
@@ -260,65 +314,92 @@ public sealed partial class FeatureCommandService
         if (path is null) return;
         try
         {
-            ProfileService.Import(path);
-            _settings.LoadInto(_vm);
-            _vm.RefreshStatus();
+            var imported = _vm.RunProfileService.ImportAsync(path).GetAwaiter().GetResult();
+            _vm.RefreshRunConfigurationCatalogs();
+            _vm.RestoreRunConfigurationSelection(_vm.SelectedWorkflowScenarioId, imported.Id);
+            _vm.ProfileName = imported.Name;
             _vm.AddLog(_vm.Loc.Format("Cmd.ProfileImported", Path.GetFileName(path)), "INFO");
         }
         catch (JsonException) { LogError("GUI-IMPORT", _vm.Loc["Cmd.ImportInvalidJson"], _vm.Loc["Cmd.ImportJsonHint"]); }
+        catch (InvalidOperationException ex) { LogError("GUI-IMPORT", ex.Message); }
         catch (Exception ex) { LogError("GUI-IMPORT", _vm.Loc.Format("Cmd.ImportFailed", ex.Message)); }
     }
 
     /// <summary>GUI-107: Copy current profile as JSON to clipboard for sharing.</summary>
     private void ProfileShare()
     {
-        var configMap = _vm.GetCurrentConfigMap();
-        var json = JsonSerializer.Serialize(configMap, new JsonSerializerOptions { WriteIndented = true });
-        System.Windows.Clipboard.SetText(json);
-        _vm.AddLog(_vm.Loc["Cmd.ProfileCopied"], "INFO");
+        var selected = TryGetSelectedProfileDocument();
+        var document = selected ?? _vm.BuildCurrentRunProfileDocument(
+            NormalizeProfileId(string.IsNullOrWhiteSpace(_vm.ProfileName) ? "custom-profile" : _vm.ProfileName),
+            string.IsNullOrWhiteSpace(_vm.ProfileName) ? "Custom Profile" : _vm.ProfileName,
+            _vm.HasSelectedRunProfile ? _vm.SelectedRunProfileDescription : null);
+        var json = JsonSerializer.Serialize(document, ProfileJsonOptions);
+        TryCopyToClipboard(json, _vm.Loc["Cmd.ProfileCopied"]);
     }
 
     /// <summary>GUI-108: Build equivalent CLI command from current settings and copy to clipboard.</summary>
     private void CliCommandCopy()
     {
+        var draft = _vm.BuildCurrentRunConfigurationDraft();
         var parts = new List<string> { "dotnet run --project src/RomCleanup.CLI --" };
 
-        // Roots
         if (_vm.Roots.Count > 0)
-            parts.Add($"--roots \"{string.Join(";", _vm.Roots)}\"");
+            parts.Add($"--roots \"{string.Join(";", draft.Roots)}\"");
 
-        // Mode
-        parts.Add(_vm.DryRun ? "--mode DryRun" : "--mode Move");
+        if (!string.IsNullOrWhiteSpace(draft.WorkflowScenarioId))
+            parts.Add($"--workflow {draft.WorkflowScenarioId}");
 
-        // Regions
-        var regions = _vm.GetPreferredRegions();
-        if (regions.Length > 0)
-            parts.Add($"--prefer {string.Join(",", regions)}");
+        if (!string.IsNullOrWhiteSpace(draft.ProfileId))
+            parts.Add($"--profile {draft.ProfileId}");
 
-        // Flags
-        if (_vm.SortConsole) parts.Add("--sortconsole");
-        if (_vm.AggressiveJunk) parts.Add("--aggressivejunk");
-        if (_vm.UseDat) parts.Add("--enabledat");
-        if (_vm.ConvertEnabled) parts.Add("--convertformat");
+        parts.Add(string.Equals(draft.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase)
+            ? "--mode Move"
+            : "--mode DryRun");
 
-        // Paths
-        if (!string.IsNullOrWhiteSpace(_vm.DatRoot)) parts.Add($"--datroot \"{_vm.DatRoot}\"");
-        if (!string.IsNullOrWhiteSpace(_vm.TrashRoot)) parts.Add($"--trashroot \"{_vm.TrashRoot}\"");
-        if (!string.IsNullOrWhiteSpace(_vm.DatHashType)) parts.Add($"--hashtype {_vm.DatHashType}");
-        if (!string.IsNullOrWhiteSpace(_vm.LogLevel) && _vm.LogLevel != "Info") parts.Add($"--loglevel {_vm.LogLevel}");
+        if (draft.PreferRegions is { Length: > 0 })
+            parts.Add($"--prefer {string.Join(",", draft.PreferRegions)}");
+
+        if (draft.Extensions is { Length: > 0 })
+            parts.Add($"--extensions {string.Join(",", draft.Extensions)}");
+
+        if (draft.RemoveJunk == true) parts.Add("--removejunk");
+        if (draft.OnlyGames == true) parts.Add("--gamesonly");
+        if (draft.KeepUnknownWhenOnlyGames == false) parts.Add("--dropunknown");
+        if (draft.AggressiveJunk == true) parts.Add("--aggressivejunk");
+        if (draft.SortConsole == true) parts.Add("--sortconsole");
+        if (draft.EnableDat == true) parts.Add("--enabledat");
+        if (draft.EnableDatAudit == true) parts.Add("--dat-audit");
+        if (draft.EnableDatRename == true) parts.Add("--datrename");
+        if (!string.IsNullOrWhiteSpace(draft.DatRoot)) parts.Add($"--datroot \"{draft.DatRoot}\"");
+        if (!string.IsNullOrWhiteSpace(draft.HashType)) parts.Add($"--hashtype {draft.HashType}");
+        if (!string.IsNullOrWhiteSpace(draft.ConvertFormat)) parts.Add("--convertformat");
+        if (draft.ConvertOnly == true) parts.Add("--convertonly");
+        if (draft.ApproveReviews == true) parts.Add("--approve-reviews");
+        if (!string.IsNullOrWhiteSpace(draft.ConflictPolicy)) parts.Add($"--conflictpolicy {draft.ConflictPolicy}");
+        if (!string.IsNullOrWhiteSpace(draft.TrashRoot)) parts.Add($"--trashroot \"{draft.TrashRoot}\"");
+        if (!string.IsNullOrWhiteSpace(_vm.LogLevel) && !_vm.LogLevel.Equals("Info", StringComparison.OrdinalIgnoreCase))
+            parts.Add($"--loglevel {_vm.LogLevel}");
 
         var command = string.Join(" ", parts);
-        System.Windows.Clipboard.SetText(command);
-        _vm.AddLog(_vm.Loc["Cmd.CliCommandCopied"], "INFO");
+        TryCopyToClipboard(command, _vm.Loc["Cmd.CliCommandCopied"]);
     }
 
     private void ConfigDiff()
     {
-        var current = _vm.GetCurrentConfigMap();
-        var saved = ProfileService.LoadSavedConfigFlat();
-        if (saved is null)
+        var current = _vm.GetCurrentRunConfigurationMap();
+        IReadOnlyDictionary<string, string>? comparison = null;
+
+        if (TryCreateSelectedMaterializedRunConfiguration(out var materialized) && materialized is not null)
+            comparison = MainViewModel.BuildRunConfigurationMap(materialized.EffectiveDraft);
+        else
+            comparison = ProfileService.LoadSavedConfigFlat();
+
+        if (comparison is null)
         { _dialog.Info(_vm.Loc["Cmd.ConfigDiffNoSaved"], _vm.Loc["Cmd.ConfigDiffTitle"]); return; }
-        var diffs = FeatureService.GetConfigDiff(current, saved);
+
+        var diffs = FeatureService.GetConfigDiff(
+            new Dictionary<string, string>(current, StringComparer.Ordinal),
+            new Dictionary<string, string>(comparison, StringComparer.Ordinal));
         if (diffs.Count == 0)
         { _dialog.Info(_vm.Loc["Cmd.ConfigDiffNoDiff"], _vm.Loc["Cmd.ConfigDiffTitle"]); return; }
         var sb = new StringBuilder();
@@ -461,52 +542,6 @@ public sealed partial class FeatureCommandService
         }
 
         _dialog.ShowText(_vm.Loc["Cmd.DupeInspectorTitle"], sb.ToString());
-    }
-
-    private void ExportCollection()
-    {
-        // Consolidated handler: CSV / Excel XML / Duplikate-CSV via format selection
-        var choices = new List<string> { "CSV (Sammlung)", "Excel-XML (Sammlung)", "CSV (nur Duplikate)" };
-        var choice = _dialog.ShowInputBox("Export-Format wählen:\n\n  1 — CSV (Sammlung)\n  2 — Excel-XML (Sammlung)\n  3 — CSV (nur Duplikate)\n\nNummer eingeben:", "Sammlung exportieren");
-        if (string.IsNullOrWhiteSpace(choice)) return;
-
-        switch (choice.Trim())
-        {
-            case "1":
-                if (_vm.LastCandidates.Count == 0)
-                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-                var csvPath = _dialog.SaveFile(_vm.Loc["Cmd.CsvExportTitle"], _vm.Loc["Cmd.FilterCsv"], "sammlung.csv");
-                if (csvPath is null) return;
-                var csv = FeatureService.ExportCollectionCsv(_vm.LastCandidates);
-                File.WriteAllText(csvPath, "\uFEFF" + csv, Encoding.UTF8);
-                _vm.AddLog(_vm.Loc.Format("Cmd.CsvExported", csvPath, _vm.LastCandidates.Count), "INFO");
-                break;
-
-            case "2":
-                if (_vm.LastCandidates.Count == 0)
-                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-                var xlPath = _dialog.SaveFile(_vm.Loc["Cmd.ExcelExportTitle"], _vm.Loc["Cmd.FilterExcel"], "sammlung.xml");
-                if (xlPath is null) return;
-                var xml = FeatureService.ExportExcelXml(_vm.LastCandidates);
-                File.WriteAllText(xlPath, xml, Encoding.UTF8);
-                _vm.AddLog(_vm.Loc.Format("Cmd.ExcelExported", xlPath), "INFO");
-                break;
-
-            case "3":
-                if (_vm.LastDedupeGroups.Count == 0)
-                { _vm.AddLog(_vm.Loc["Cmd.NoExportData"], "WARN"); return; }
-                var dupePath = _dialog.SaveFile(_vm.Loc["Cmd.DupeExportTitle"], _vm.Loc["Cmd.FilterCsv"], "duplikate.csv");
-                if (dupePath is null) return;
-                var losers = _vm.LastDedupeGroups.SelectMany(g => g.Losers).ToList();
-                var dupeCsv = FeatureService.ExportCollectionCsv(losers);
-                File.WriteAllText(dupePath, dupeCsv, Encoding.UTF8);
-                _vm.AddLog(_vm.Loc.Format("Cmd.DupeExported", dupePath, losers.Count), "INFO");
-                break;
-
-            default:
-                _vm.AddLog("Ungültige Auswahl. Bitte 1, 2 oder 3 eingeben.", "WARN");
-                break;
-        }
     }
 
     private void RollbackHistoryBack()

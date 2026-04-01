@@ -7,9 +7,9 @@ Die Reihenfolge folgt den Projektprioritaeten: Korrektheit, Determinismus, Siche
 
 ## Umsetzungsplaene
 
-- [ ] [Master Execution Plan](../../plan/product-roadmap-execution.md)
-- [ ] [R1 Foundation Execution](../../plan/r1-foundation-execution.md)
-- [ ] [R2 Productization Execution](../../plan/r2-productization-execution.md)
+- [x] [Master Execution Plan](../../plan/product-roadmap-execution.md)
+- [x] [R1 Foundation Execution](../../plan/r1-foundation-execution.md)
+- [x] [R2 Productization Execution](../../plan/r2-productization-execution.md)
 - [ ] [R3 Reach Execution](../../plan/r3-reach-execution.md)
 
 ## Priorisierung
@@ -59,31 +59,41 @@ Status: abgeschlossen am `2026-04-01`
 ## R2 Productization
 
 Ziel: Die starke Kernlogik in gefuehrte, wiederholbare Produktablaeufe mit geringerer Bedienkomplexitaet ueberfuehren.
+Status: abgeschlossen am `2026-04-01`
+
+### Letztes Update (2026-04-01)
+
+- CLI-RunOptions-Mapping wurde fuer direkte `CliRunOptions`-Aufrufer rueckwaertskompatibel stabilisiert (kein Verlust expliziter Optionen in Tests/Legacy-Pfaden)
+- API-Fehlerabbildung fuer profil-/workflowbasierte Sicherheitsvalidierung liefert wieder `SEC-*`-Codes statt generischem `RUN-INVALID-CONFIG`
+- Collection-Index-Erzeugung im Run-Environment hat einen robusten Fallback auf temp-basierte DB-Pfade bei Lock-/IO-Konflikten
+- GUI, CLI und API sind jetzt ueber gemeinsame Workflow-/Profil-Materialisierung, Frontend-Export und Trend-/Compare-Services verdrahtet
+- Neue Regressionen decken `/profiles`, `/workflows`, workflow-/profilbasierte Runs, Watch-Automation, Frontend-Export, WPF-Auswahl-/Materialisierungslogik und OpenAPI-Vertraege ab
+- Vollstaendiger `dotnet test`-Lauf ist gruen: `7133/7133` erfolgreich
 
 ### Release-Track
 
-- [ ] C3 Guided Workflows auf Basis von [`C3-guided-workflows.md`](../epics/C3-guided-workflows.md)
-- [ ] C5 Frontend Metadata Export auf Basis von [`C5-frontend-metadata-export.md`](../epics/C5-frontend-metadata-export.md)
-- [ ] C6 Community Profiles / Rule Packs auf Basis von [`C6-community-profiles.md`](../epics/C6-community-profiles.md)
-- [ ] Run-Diff, Trend-Reports und Storage-Insights ergaenzen
+- [x] C3 Guided Workflows auf Basis von [`C3-guided-workflows.md`](../epics/C3-guided-workflows.md)
+- [x] C5 Frontend Metadata Export auf Basis von [`C5-frontend-metadata-export.md`](../epics/C5-frontend-metadata-export.md)
+- [x] C6 Community Profiles / Rule Packs auf Basis von [`C6-community-profiles.md`](../epics/C6-community-profiles.md)
+- [x] Run-Diff, Trend-Reports und Storage-Insights ergaenzen
 
 ### Exit-Kriterien
 
-- [ ] Einfache Standardszenarien sind ohne Expertenwissen fuehrbar
-- [ ] Export nach RetroArch, LaunchBox, EmulationStation und Playnite ist reproduzierbar abbildbar
-- [ ] Profile sind validierbar, versionierbar und zwischen Kanaelen wiederverwendbar
-- [ ] Historische Runs sind fuer Nutzer und Operatoren vergleichbar
+- [x] Einfache Standardszenarien sind ohne Expertenwissen fuehrbar
+- [x] Export nach RetroArch, LaunchBox, EmulationStation und Playnite ist reproduzierbar abbildbar
+- [x] Profile sind validierbar, versionierbar und zwischen Kanaelen wiederverwendbar
+- [x] Historische Runs sind fuer Nutzer und Operatoren vergleichbar
 
 ### Arbeitspakete
 
-- [ ] Wizard-Szenarien gegen bestehende RunOptions und Review-Flows mappen
-- [ ] Guided Workflows gegen dieselbe RunProjection anbinden
-- [ ] Exportmodell aus Run-Ergebnissen oder Collection Index ableiten
-- [ ] Exporter pro Frontend mit formatgerechter Validierung bereitstellen
-- [ ] Profilformat, Validierung und Built-in-Profile definieren
-- [ ] Profile in GUI, CLI und API ohne Schattenlogik verdrahten
-- [ ] Run-Vergleich und Trendmodell auf Run-Historie aufsetzen
-- [ ] Regressionstests fuer Wizard-Output, Export-Paritaet und Profil-Import ergaenzen
+- [x] Wizard-Szenarien gegen bestehende RunOptions und Review-Flows mappen
+- [x] Guided Workflows gegen dieselbe RunProjection anbinden
+- [x] Exportmodell aus Run-Ergebnissen oder Collection Index ableiten
+- [x] Exporter pro Frontend mit formatgerechter Validierung bereitstellen
+- [x] Profilformat, Validierung und Built-in-Profile definieren
+- [x] Profile in GUI, CLI und API ohne Schattenlogik verdrahten
+- [x] Run-Vergleich und Trendmodell auf Run-Historie aufsetzen
+- [x] Regressionstests fuer Wizard-Output, Export-Paritaet und Profil-Import ergaenzen
 
 ## R3 Reach
 

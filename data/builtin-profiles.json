@@ -1,0 +1,69 @@
+[
+  {
+    "version": 1,
+    "id": "default",
+    "name": "Default",
+    "description": "Balanced cleanup profile for everyday preview and move runs.",
+    "builtIn": true,
+    "tags": ["balanced", "default"],
+    "settings": {
+      "removeJunk": true,
+      "sortConsole": true,
+      "keepUnknownWhenOnlyGames": true,
+      "hashType": "SHA1",
+      "mode": "DryRun"
+    }
+  },
+  {
+    "version": 1,
+    "id": "retro-purist",
+    "name": "Retro Purist",
+    "description": "Verification-first profile that avoids format changes and keeps review visibility high.",
+    "builtIn": true,
+    "tags": ["verification", "preservation"],
+    "settings": {
+      "removeJunk": true,
+      "sortConsole": true,
+      "enableDat": true,
+      "enableDatAudit": true,
+      "enableDatRename": false,
+      "keepUnknownWhenOnlyGames": true,
+      "hashType": "SHA1",
+      "mode": "DryRun"
+    }
+  },
+  {
+    "version": 1,
+    "id": "space-saver",
+    "name": "Space Saver",
+    "description": "Conversion-oriented profile for safe storage optimization planning.",
+    "builtIn": true,
+    "tags": ["conversion", "storage"],
+    "settings": {
+      "removeJunk": true,
+      "sortConsole": true,
+      "enableDat": true,
+      "enableDatAudit": true,
+      "convertFormat": "auto",
+      "keepUnknownWhenOnlyGames": true,
+      "hashType": "SHA1",
+      "mode": "DryRun"
+    }
+  },
+  {
+    "version": 1,
+    "id": "quick-scan",
+    "name": "Quick Scan",
+    "description": "Fast preview profile for quick library checks with minimal feature overhead.",
+    "builtIn": true,
+    "tags": ["quick", "preview"],
+    "settings": {
+      "removeJunk": false,
+      "sortConsole": false,
+      "enableDat": false,
+      "keepUnknownWhenOnlyGames": true,
+      "hashType": "SHA1",
+      "mode": "DryRun"
+    }
+  }
+]

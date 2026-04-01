@@ -1,0 +1,121 @@
+using System.IO;
+using RomCleanup.CLI;
+using Xunit;
+
+namespace RomCleanup.Tests;
+
+public sealed class CliProductizationTests : IDisposable
+{
+    private readonly string _tempDir;
+
+    public CliProductizationTests()
+    {
+        _tempDir = Path.Combine(Path.GetTempPath(), "RomCleanup_CliProductization_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(_tempDir))
+                Directory.Delete(_tempDir, recursive: true);
+        }
+        catch
+        {
+            // best effort cleanup
+        }
+    }
+
+    [Fact]
+    public void WriteUsage_ListsProductizationSubcommands_And_RunConfigurationFlags()
+    {
+        using var stdout = new StringWriter();
+
+        CliOutputWriter.WriteUsage(stdout);
+
+        var text = stdout.ToString();
+        Assert.Contains("romulus profiles list", text, StringComparison.Ordinal);
+        Assert.Contains("romulus workflows", text, StringComparison.Ordinal);
+        Assert.Contains("romulus compare --run <run-id> --compare-to <run-id>", text, StringComparison.Ordinal);
+        Assert.Contains("romulus trends [--limit <n>] [-o <file>]", text, StringComparison.Ordinal);
+        Assert.Contains("--workflow <id>", text, StringComparison.Ordinal);
+        Assert.Contains("--profile <id>", text, StringComparison.Ordinal);
+        Assert.Contains("--profile-file <file>", text, StringComparison.Ordinal);
+        Assert.Contains("launchbox|emulationstation|playnite", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CliArgsParser_ProfilesShow_ParsesProfileId()
+    {
+        var result = CliArgsParser.Parse(["profiles", "show", "--id", "quick-scan"]);
+
+        Assert.Equal(CliCommand.ProfilesShow, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal("quick-scan", result.Options!.ProfileId);
+    }
+
+    [Fact]
+    public void CliArgsParser_ProfilesImport_ParsesInputPath()
+    {
+        var profilePath = Path.Combine(_tempDir, "profile.json");
+        File.WriteAllText(profilePath, "{}");
+
+        var result = CliArgsParser.Parse(["profiles", "import", "--input", profilePath]);
+
+        Assert.Equal(CliCommand.ProfilesImport, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal(profilePath, result.Options!.InputPath);
+    }
+
+    [Fact]
+    public void CliArgsParser_Workflows_ParsesWorkflowId()
+    {
+        var result = CliArgsParser.Parse(["workflows", "--id", "full-audit"]);
+
+        Assert.Equal(CliCommand.Workflows, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal("full-audit", result.Options!.WorkflowScenarioId);
+    }
+
+    [Fact]
+    public void CliArgsParser_Compare_ParsesRunPair_AndOutput()
+    {
+        var outputPath = Path.Combine(_tempDir, "compare.json");
+
+        var result = CliArgsParser.Parse([
+            "compare",
+            "--run", "run-new",
+            "--compare-to", "run-old",
+            "--output", outputPath
+        ]);
+
+        Assert.Equal(CliCommand.Compare, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal("run-new", result.Options!.RunId);
+        Assert.Equal("run-old", result.Options.CompareToRunId);
+        Assert.Equal(outputPath, result.Options.OutputPath);
+    }
+
+    [Fact]
+    public void CliArgsParser_Trends_ParsesLimit_AndOutput()
+    {
+        var outputPath = Path.Combine(_tempDir, "trends.json");
+
+        var result = CliArgsParser.Parse([
+            "trends",
+            "--limit", "90",
+            "--output", outputPath
+        ]);
+
+        Assert.Equal(CliCommand.Trends, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal(90, result.Options!.HistoryLimit);
+        Assert.Equal(outputPath, result.Options.OutputPath);
+    }
+}

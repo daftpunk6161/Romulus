@@ -48,6 +48,8 @@ public sealed record SettingsDto
     public bool WatchAutoStart { get; init; }
     public ConflictPolicy ConflictPolicy { get; init; } = ConflictPolicy.Rename;
     public string Theme { get; init; } = "Dark";
+    public string? SelectedWorkflowScenarioId { get; init; }
+    public string? SelectedRunProfileId { get; init; }
 
     // BUG-42/43/46: Previously missing persistence fields
     public bool MinimizeToTray { get; init; }

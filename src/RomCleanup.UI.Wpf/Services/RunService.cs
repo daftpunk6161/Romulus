@@ -6,6 +6,7 @@ using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
 using RomCleanup.Infrastructure.State;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -21,17 +22,24 @@ namespace RomCleanup.UI.Wpf.Services;
 public sealed class RunService : IRunService
 {
     private readonly IAppState _appState;
-    private readonly IRunOptionsFactory _runOptionsFactory;
     private readonly IRunEnvironmentFactory _runEnvironmentFactory;
+    private readonly RunConfigurationMaterializer _runConfigurationMaterializer;
 
     public RunService(
         IAppState? appState = null,
         IRunOptionsFactory? runOptionsFactory = null,
-        IRunEnvironmentFactory? runEnvironmentFactory = null)
+        IRunEnvironmentFactory? runEnvironmentFactory = null,
+        RunConfigurationMaterializer? runConfigurationMaterializer = null,
+        RunProfileService? runProfileService = null)
     {
         _appState = appState ?? new AppStateStore();
-        _runOptionsFactory = runOptionsFactory ?? new RunOptionsFactory();
         _runEnvironmentFactory = runEnvironmentFactory ?? new RunEnvironmentFactory();
+        var dataDir = FeatureService.ResolveDataDirectory()
+                      ?? RunEnvironmentBuilder.ResolveDataDir();
+        var optionsFactory = runOptionsFactory ?? new RunOptionsFactory();
+        var profileService = runProfileService ?? new RunProfileService(new JsonRunProfileStore(), dataDir);
+        _runConfigurationMaterializer = runConfigurationMaterializer
+            ?? new RunConfigurationMaterializer(new RunConfigurationResolver(profileService), optionsFactory);
     }
 
     /// <summary>Result of a single pipeline run.</summary>
@@ -73,14 +81,24 @@ public sealed class RunService : IRunService
             reportPath = Path.Combine(reportDir, $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html");
         }
 
-        var selectedExts = vm.GetSelectedExtensions();
-        var source = new ViewModelRunOptionsSource(vm, selectedExts);
-        var runOptions = _runOptionsFactory.Create(source, auditPath, reportPath);
-
-        onProgress?.Invoke($"[Init] Konfiguration: Modus={runOptions.Mode}, {runOptions.Extensions.Count} Extension(s), {runOptions.Roots.Count} Root(s)");
-
         var dataDir = FeatureService.ResolveDataDirectory()
                       ?? RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        var materialized = _runConfigurationMaterializer.MaterializeAsync(
+            vm.BuildCurrentRunConfigurationDraft(),
+            vm.BuildCurrentRunConfigurationExplicitness(),
+            settings,
+            auditPath: auditPath,
+            reportPath: reportPath).GetAwaiter().GetResult();
+        var runOptions = materialized.Options;
+        vm.RestoreRunConfigurationSelection(materialized.Workflow?.Id, materialized.EffectiveProfileId);
+
+        onProgress?.Invoke($"[Init] Konfiguration: Modus={runOptions.Mode}, {runOptions.Extensions.Count} Extension(s), {runOptions.Roots.Count} Root(s)");
+        if (!string.IsNullOrWhiteSpace(materialized.Workflow?.Name) || !string.IsNullOrWhiteSpace(materialized.Profile?.Name))
+        {
+            onProgress?.Invoke($"[Init] Workflow/Profil: {materialized.Workflow?.Name ?? "kein Workflow"} | {materialized.Profile?.Name ?? "kein Profil"}");
+        }
+
         onProgress?.Invoke($"[Init] Datenverzeichnis: {dataDir}");
 
         var env = _runEnvironmentFactory.Create(runOptions, onProgress);
@@ -98,6 +116,8 @@ public sealed class RunService : IRunService
         _appState.SetValue("run.build.completedUtc", DateTime.UtcNow);
         _appState.SetValue("run.auditPath", auditPath);
         _appState.SetValue("run.reportPath", reportPath);
+        _appState.SetValue("run.workflowScenarioId", materialized.Workflow?.Id ?? string.Empty);
+        _appState.SetValue("run.profileId", materialized.EffectiveProfileId ?? string.Empty);
 
         return (orchestrator, runOptions, auditPath, reportPath);
     }
@@ -166,53 +186,6 @@ public sealed class RunService : IRunService
     {
         var fullRoot = ArtifactPathResolver.NormalizeRoot(rootPath);
         return ArtifactPathResolver.GetSiblingDirectory(fullRoot, siblingName);
-    }
-
-    private sealed class ViewModelRunOptionsSource : IRunOptionsSource
-    {
-        public ViewModelRunOptionsSource(MainViewModel vm, IReadOnlyList<string> selectedExtensions)
-        {
-            _vm = vm;
-            Roots = vm.Roots.ToList();
-            Mode = vm.DryRun ? RunConstants.ModeDryRun : RunConstants.ModeMove;
-            PreferRegions = vm.GetPreferredRegions();
-            Extensions = selectedExtensions.Count > 0 ? selectedExtensions : RunOptions.DefaultExtensions;
-            RemoveJunk = vm.RemoveJunk;
-            OnlyGames = vm.OnlyGames;
-            KeepUnknownWhenOnlyGames = vm.KeepUnknownWhenOnlyGames;
-            AggressiveJunk = vm.AggressiveJunk;
-            SortConsole = vm.SortConsole;
-            EnableDat = vm.UseDat;
-            DatRoot = string.IsNullOrWhiteSpace(vm.DatRoot) ? null : vm.DatRoot;
-            HashType = string.IsNullOrWhiteSpace(vm.DatHashType) ? "SHA1" : vm.DatHashType;
-            ConvertFormat = (vm.ConvertEnabled || vm.ConvertOnly) ? "auto" : null;
-            ConvertOnly = vm.ConvertOnly;
-            ApproveReviews = vm.ApproveReviews;
-            TrashRoot = string.IsNullOrWhiteSpace(vm.TrashRoot) ? null : vm.TrashRoot;
-            ConflictPolicy = vm.ConflictPolicy.ToString();
-        }
-
-        public IReadOnlyList<string> Roots { get; }
-        public string Mode { get; }
-        public string[] PreferRegions { get; }
-        public IReadOnlyList<string> Extensions { get; }
-        public bool RemoveJunk { get; }
-        public bool OnlyGames { get; }
-        public bool KeepUnknownWhenOnlyGames { get; }
-        public bool AggressiveJunk { get; }
-        public bool SortConsole { get; }
-        public bool EnableDat { get; }
-        public bool EnableDatAudit => EnableDat && _vm.EnableDatAudit;
-        public bool EnableDatRename => EnableDat && _vm.EnableDatRename;
-        public string? DatRoot { get; }
-        public string HashType { get; }
-        public string? ConvertFormat { get; }
-        public bool ConvertOnly { get; }
-        public bool ApproveReviews { get; }
-        public string? TrashRoot { get; }
-        public string ConflictPolicy { get; }
-
-        private readonly MainViewModel _vm;
     }
 
 }

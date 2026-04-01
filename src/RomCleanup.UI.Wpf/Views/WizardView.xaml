@@ -108,6 +108,27 @@
             </Button>
             <TextBlock Text="{Binding Roots.Count, StringFormat='{}{0} Ordner ausgewählt'}"
                        Style="{StaticResource CaptionText}" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+
+            <Border Background="{DynamicResource BrushCard}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    CornerRadius="8" Padding="16,12" Margin="0,20,0,0">
+              <StackPanel>
+                <TextBlock Text="Workflow" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <ComboBox ItemsSource="{Binding AvailableWorkflows}"
+                          SelectedValuePath="Id"
+                          DisplayMemberPath="Name"
+                          SelectedValue="{Binding SelectedWorkflowScenarioId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="{Binding SelectedWorkflowDescription}" Style="{StaticResource CaptionText}"
+                           Margin="0,8,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="Profil" FontWeight="SemiBold" Margin="0,12,0,6"/>
+                <ComboBox ItemsSource="{Binding AvailableRunProfiles}"
+                          SelectedValuePath="Id"
+                          DisplayMemberPath="Name"
+                          SelectedValue="{Binding SelectedRunProfileId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="{Binding SelectedRunProfileDescription}" Style="{StaticResource CaptionText}"
+                           Margin="0,8,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
           </StackPanel>
 
           <!-- Step 1: Choose Region -->
@@ -159,6 +180,12 @@
                 </MultiBinding>
               </TextBlock.Text>
             </TextBlock>
+            <TextBlock Text="{Binding RunConfigurationSelectionSummary}"
+                       Style="{StaticResource CaptionText}"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="420"
+                       TextAlignment="Center"/>
           </StackPanel>
         </Grid>
 
@@ -181,6 +208,7 @@
                     AutomationProperties.Name="{Binding Loc[Wizard.Back]}"/>
             <Button Padding="16,8" MinHeight="44" Cursor="Hand" FontWeight="Bold"
                     Command="{Binding Shell.WizardNextCommand}"
+                    IsEnabled="{Binding CanAdvanceWizard}"
                     Background="{DynamicResource BrushAccentCyan}" Foreground="{DynamicResource BrushBackground}"
                     AutomationProperties.Name="{Binding Loc[Wizard.Next]}">
               <TextBlock Text="{Binding Shell.WizardNextLabel}"/>

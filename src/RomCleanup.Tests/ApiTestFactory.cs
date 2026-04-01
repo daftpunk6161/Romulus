@@ -7,6 +7,7 @@ using RomCleanup.Api;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
 
 namespace RomCleanup.Tests;
@@ -26,6 +27,7 @@ internal static class ApiTestFactory
         private readonly ICollectionIndex? _collectionIndex;
         private readonly string _tempDir;
         private readonly string _databasePath;
+        private readonly string _profileDirectory;
 
         public IsolatedApiFactory(
             IDictionary<string, string?> settings,
@@ -37,6 +39,7 @@ internal static class ApiTestFactory
             _collectionIndex = collectionIndex;
             _tempDir = Path.Combine(Path.GetTempPath(), "RomCleanup_ApiFactory_" + Guid.NewGuid().ToString("N"));
             _databasePath = Path.Combine(_tempDir, "collection.db");
+            _profileDirectory = Path.Combine(_tempDir, "profiles");
             Directory.CreateDirectory(_tempDir);
         }
 
@@ -53,6 +56,12 @@ internal static class ApiTestFactory
                 services.AddSingleton(new CollectionIndexPathOptions
                 {
                     DatabasePath = _databasePath
+                });
+
+                services.RemoveAll<RunProfilePathOptions>();
+                services.AddSingleton(new RunProfilePathOptions
+                {
+                    DirectoryPath = _profileDirectory
                 });
 
                 if (_collectionIndex is not null)

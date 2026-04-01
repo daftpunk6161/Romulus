@@ -105,6 +105,8 @@ public sealed class RunLifecycleManager
                 RunId = runId,
                 Status = ApiRunStatus.Running,
                 Mode = mode,
+                WorkflowScenarioId = string.IsNullOrWhiteSpace(request.WorkflowScenarioId) ? null : request.WorkflowScenarioId.Trim(),
+                ProfileId = string.IsNullOrWhiteSpace(request.ProfileId) ? null : request.ProfileId.Trim(),
                 Roots = request.Roots!,
                 PreferRegions = request.PreferRegions is { Length: > 0 }
                     ? request.PreferRegions
@@ -391,6 +393,8 @@ public sealed class RunLifecycleManager
         var payload = string.Join("\n", new[]
         {
             mode.Trim(),
+            string.IsNullOrWhiteSpace(request.WorkflowScenarioId) ? "" : request.WorkflowScenarioId.Trim().ToLowerInvariant(),
+            string.IsNullOrWhiteSpace(request.ProfileId) ? "" : request.ProfileId.Trim().ToLowerInvariant(),
             string.Join(";", roots),
             string.Join(",", regions),
             request.RemoveJunk ? "1" : "0",

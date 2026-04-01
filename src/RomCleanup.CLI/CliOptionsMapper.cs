@@ -2,145 +2,195 @@ using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Profiles;
 
 namespace RomCleanup.CLI;
 
 /// <summary>
-/// Maps CliRunOptions + RomCleanupSettings → RunOptions.
-/// Handles: settings merge, extensions merge, audit path default, root validation.
-/// ADR-008 §C-02.
+/// Maps CliRunOptions + RomCleanupSettings to normalized RunOptions.
+/// Profile/workflow overlays are resolved before settings fallback so explicit CLI input keeps priority.
 /// </summary>
 internal static class CliOptionsMapper
 {
-    /// <summary>
-    /// Merge CLI options with loaded settings into RunOptions.
-    /// Returns null + errors when post-merge validation fails.
-    /// </summary>
+    private static readonly HashSet<string> DefaultExtensions =
+    [
+        ..RunOptions.DefaultExtensions
+    ];
+
     internal static (RunOptions? runOptions, IReadOnlyList<string>? errors) Map(
-        CliRunOptions cli, RomCleanupSettings settings)
+        CliRunOptions cli,
+        RomCleanupSettings settings,
+        string? dataDir = null)
     {
-        // Settings merge: CLI overrides settings
-        if (cli.PreferRegions.Length > 0)
-            settings.General.PreferredRegions = new List<string>(cli.PreferRegions);
-        settings.General.AggressiveJunk = cli.AggressiveJunk;
-
-        // Extensions merge: explicit CLI → use CLI; not explicit → settings → DefaultExtensions
-        if (!cli.ExtensionsExplicit && !string.IsNullOrWhiteSpace(settings.General.Extensions))
+        try
         {
-            var settingsExts = settings.General.Extensions
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(e => e.Trim())
-                .Where(e => e.Length > 0)
-                .Select(e => e.StartsWith('.') ? e : "." + e);
-            foreach (var ext in settingsExts)
-                cli.Extensions.Add(ext);
+            EnsureLegacyExplicitness(cli);
+
+            var resolvedDataDir = dataDir ?? RunEnvironmentBuilder.ResolveDataDir();
+            var profileService = new RunProfileService(new JsonRunProfileStore(), resolvedDataDir);
+            var materializer = new RunConfigurationMaterializer(
+                new RunConfigurationResolver(profileService),
+                new RunOptionsFactory());
+            var materialized = materializer.MaterializeAsync(
+                CreateDraft(cli),
+                CreateExplicitness(cli),
+                settings,
+                profileFilePath: cli.ProfileFilePath).GetAwaiter().GetResult();
+
+            cli.ProfileId = materialized.EffectiveProfileId;
+            cli.WorkflowScenarioId = materialized.Workflow?.Id;
+
+            var auditPath = cli.AuditPath;
+            if (string.IsNullOrEmpty(auditPath) &&
+                string.Equals(materialized.Options.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase))
+            {
+                var auditDir = ArtifactPathResolver.GetArtifactDirectory(cli.Roots, AppIdentity.ArtifactDirectories.AuditLogs);
+                auditPath = Path.Combine(Path.GetFullPath(auditDir),
+                    $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.csv");
+            }
+
+            var runOptions = (auditPath == materialized.Options.AuditPath && cli.ReportPath == materialized.Options.ReportPath)
+                ? materialized.Options
+                : materializer.MaterializeAsync(
+                    CreateDraft(cli),
+                    CreateExplicitness(cli),
+                    settings,
+                    profileFilePath: cli.ProfileFilePath,
+                    auditPath: auditPath,
+                    reportPath: cli.ReportPath).GetAwaiter().GetResult().Options;
+
+            return (runOptions, null);
         }
-
-        // DAT merge
-        var enableDat = cli.EnableDat || settings.Dat.UseDat;
-        var hashType = !string.IsNullOrWhiteSpace(cli.HashType) ? cli.HashType : settings.Dat.HashType;
-        hashType = string.IsNullOrWhiteSpace(hashType) ? "SHA1" : hashType.Trim().ToUpperInvariant();
-        var datRoot = !string.IsNullOrWhiteSpace(cli.DatRoot) ? cli.DatRoot : settings.Dat.DatRoot;
-
-        // Audit path default for Move mode
-        var auditPath = cli.AuditPath;
-        if (string.IsNullOrEmpty(auditPath) && cli.Mode == RunConstants.ModeMove)
+        catch (InvalidOperationException ex)
         {
-            var auditDir = ArtifactPathResolver.GetArtifactDirectory(cli.Roots, AppIdentity.ArtifactDirectories.AuditLogs);
-            auditPath = Path.Combine(Path.GetFullPath(auditDir),
-                $"audit-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.csv");
+            return (null, [$"[Error] {ex.Message}"]);
         }
-
-        var source = new CliRunOptionsSource(
-            roots: cli.Roots,
-            mode: cli.Mode,
-            preferRegions: cli.PreferRegions.Length > 0
-                ? cli.PreferRegions
-                : settings.General.PreferredRegions.ToArray(),
-            extensions: cli.Extensions.ToArray(),
-            removeJunk: cli.RemoveJunk,
-            onlyGames: cli.OnlyGames,
-            keepUnknownWhenOnlyGames: cli.KeepUnknownWhenOnlyGames,
-            aggressiveJunk: cli.AggressiveJunk,
-            sortConsole: cli.SortConsole,
-            enableDat: enableDat,
-            enableDatAudit: cli.EnableDatAudit,
-            enableDatRename: cli.EnableDatRename,
-            datRoot: datRoot,
-            hashType: hashType,
-            convertFormat: cli.ConvertFormat ? "auto" : null,
-            convertOnly: cli.ConvertOnly,
-            approveReviews: cli.ApproveReviews,
-            trashRoot: cli.TrashRoot,
-            conflictPolicy: cli.ConflictPolicy);
-
-        var runOptions = new RunOptionsFactory().Create(source, auditPath, cli.ReportPath);
-
-        return (runOptions, null);
     }
 
-    private sealed class CliRunOptionsSource : IRunOptionsSource
+    private static RunConfigurationDraft CreateDraft(CliRunOptions cli)
     {
-        public CliRunOptionsSource(
-            IReadOnlyList<string> roots,
-            string mode,
-            string[] preferRegions,
-            IReadOnlyList<string> extensions,
-            bool removeJunk,
-            bool onlyGames,
-            bool keepUnknownWhenOnlyGames,
-            bool aggressiveJunk,
-            bool sortConsole,
-            bool enableDat,
-            bool enableDatAudit,
-            bool enableDatRename,
-            string? datRoot,
-            string hashType,
-            string? convertFormat,
-            bool convertOnly,
-            bool approveReviews,
-            string? trashRoot,
-            string conflictPolicy)
+        return new RunConfigurationDraft
         {
-            Roots = roots;
-            Mode = mode;
-            PreferRegions = preferRegions;
-            Extensions = extensions;
-            RemoveJunk = removeJunk;
-            OnlyGames = onlyGames;
-            KeepUnknownWhenOnlyGames = keepUnknownWhenOnlyGames;
-            AggressiveJunk = aggressiveJunk;
-            SortConsole = sortConsole;
-            EnableDat = enableDat;
-            EnableDatAudit = enableDatAudit;
-            EnableDatRename = enableDatRename;
-            DatRoot = datRoot;
-            HashType = hashType;
-            ConvertFormat = convertFormat;
-            ConvertOnly = convertOnly;
-            ApproveReviews = approveReviews;
-            TrashRoot = trashRoot;
-            ConflictPolicy = conflictPolicy;
+            Roots = cli.Roots,
+            Mode = cli.ModeExplicit ? cli.Mode : null,
+            WorkflowScenarioId = cli.WorkflowScenarioId,
+            ProfileId = cli.ProfileId,
+            PreferRegions = cli.PreferRegionsExplicit ? cli.PreferRegions : null,
+            Extensions = cli.ExtensionsExplicit ? cli.Extensions.OrderBy(static ext => ext, StringComparer.OrdinalIgnoreCase).ToArray() : null,
+            RemoveJunk = cli.RemoveJunkExplicit ? cli.RemoveJunk : null,
+            OnlyGames = cli.OnlyGamesExplicit ? cli.OnlyGames : null,
+            KeepUnknownWhenOnlyGames = cli.KeepUnknownExplicit ? cli.KeepUnknownWhenOnlyGames : null,
+            AggressiveJunk = cli.AggressiveJunkExplicit ? cli.AggressiveJunk : null,
+            SortConsole = cli.SortConsoleExplicit ? cli.SortConsole : null,
+            EnableDat = cli.EnableDatExplicit ? cli.EnableDat : null,
+            EnableDatAudit = cli.EnableDatAuditExplicit ? cli.EnableDatAudit : null,
+            EnableDatRename = cli.EnableDatRenameExplicit ? cli.EnableDatRename : null,
+            DatRoot = cli.DatRootExplicit ? cli.DatRoot : null,
+            HashType = cli.HashTypeExplicit ? cli.HashType : null,
+            ConvertFormat = cli.ConvertFormatExplicit ? NormalizeConvertFormat(cli.ConvertFormat ? "auto" : null) : null,
+            ConvertOnly = cli.ConvertOnlyExplicit ? cli.ConvertOnly : null,
+            ApproveReviews = cli.ApproveReviewsExplicit ? cli.ApproveReviews : null,
+            ConflictPolicy = cli.ConflictPolicyExplicit ? cli.ConflictPolicy : null,
+            TrashRoot = cli.TrashRootExplicit ? cli.TrashRoot : null
+        };
+    }
+
+    private static RunConfigurationExplicitness CreateExplicitness(CliRunOptions cli)
+    {
+        return new RunConfigurationExplicitness
+        {
+            Mode = cli.ModeExplicit,
+            PreferRegions = cli.PreferRegionsExplicit,
+            Extensions = cli.ExtensionsExplicit,
+            RemoveJunk = cli.RemoveJunkExplicit,
+            OnlyGames = cli.OnlyGamesExplicit,
+            KeepUnknownWhenOnlyGames = cli.KeepUnknownExplicit,
+            AggressiveJunk = cli.AggressiveJunkExplicit,
+            SortConsole = cli.SortConsoleExplicit,
+            EnableDat = cli.EnableDatExplicit,
+            EnableDatAudit = cli.EnableDatAuditExplicit,
+            EnableDatRename = cli.EnableDatRenameExplicit,
+            DatRoot = cli.DatRootExplicit,
+            HashType = cli.HashTypeExplicit,
+            ConvertFormat = cli.ConvertFormatExplicit,
+            ConvertOnly = cli.ConvertOnlyExplicit,
+            ApproveReviews = cli.ApproveReviewsExplicit,
+            ConflictPolicy = cli.ConflictPolicyExplicit,
+            TrashRoot = cli.TrashRootExplicit
+        };
+    }
+
+    private static string? NormalizeConvertFormat(string? convertFormat)
+        => string.IsNullOrWhiteSpace(convertFormat)
+            ? null
+            : convertFormat.Trim().ToLowerInvariant();
+
+    private static void EnsureLegacyExplicitness(CliRunOptions cli)
+    {
+        ArgumentNullException.ThrowIfNull(cli);
+
+        // Backward-compatibility: many tests and internal callers construct CliRunOptions directly
+        // without setting explicitness flags. Infer explicitness from non-default values.
+        if (!cli.ModeExplicit &&
+            !string.IsNullOrWhiteSpace(cli.Mode) &&
+            string.Equals(cli.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase))
+        {
+            cli.ModeExplicit = true;
         }
 
-        public IReadOnlyList<string> Roots { get; }
-        public string Mode { get; }
-        public string[] PreferRegions { get; }
-        public IReadOnlyList<string> Extensions { get; }
-        public bool RemoveJunk { get; }
-        public bool OnlyGames { get; }
-        public bool KeepUnknownWhenOnlyGames { get; }
-        public bool AggressiveJunk { get; }
-        public bool SortConsole { get; }
-        public bool EnableDat { get; }
-        public bool EnableDatAudit { get; }
-        public bool EnableDatRename { get; }
-        public string? DatRoot { get; }
-        public string HashType { get; }
-        public string? ConvertFormat { get; }
-        public bool ConvertOnly { get; }
-        public bool ApproveReviews { get; }
-        public string? TrashRoot { get; }
-        public string ConflictPolicy { get; }
+        if (!cli.PreferRegionsExplicit && cli.PreferRegions.Length > 0)
+            cli.PreferRegionsExplicit = true;
+
+        if (!cli.ExtensionsExplicit && !cli.Extensions.SetEquals(DefaultExtensions))
+            cli.ExtensionsExplicit = true;
+
+        if (!cli.RemoveJunkExplicit && !cli.RemoveJunk)
+            cli.RemoveJunkExplicit = true;
+
+        if (!cli.OnlyGamesExplicit && cli.OnlyGames)
+            cli.OnlyGamesExplicit = true;
+
+        if (!cli.KeepUnknownExplicit && !cli.KeepUnknownWhenOnlyGames)
+            cli.KeepUnknownExplicit = true;
+
+        if (!cli.AggressiveJunkExplicit && cli.AggressiveJunk)
+            cli.AggressiveJunkExplicit = true;
+
+        if (!cli.SortConsoleExplicit && cli.SortConsole)
+            cli.SortConsoleExplicit = true;
+
+        if (!cli.EnableDatExplicit && cli.EnableDat)
+            cli.EnableDatExplicit = true;
+
+        if (!cli.EnableDatAuditExplicit && cli.EnableDatAudit)
+            cli.EnableDatAuditExplicit = true;
+
+        if (!cli.EnableDatRenameExplicit && cli.EnableDatRename)
+            cli.EnableDatRenameExplicit = true;
+
+        if (!cli.DatRootExplicit && !string.IsNullOrWhiteSpace(cli.DatRoot))
+            cli.DatRootExplicit = true;
+
+        if (!cli.HashTypeExplicit && !string.IsNullOrWhiteSpace(cli.HashType))
+            cli.HashTypeExplicit = true;
+
+        if (!cli.ConvertFormatExplicit && cli.ConvertFormat)
+            cli.ConvertFormatExplicit = true;
+
+        if (!cli.ConvertOnlyExplicit && cli.ConvertOnly)
+            cli.ConvertOnlyExplicit = true;
+
+        if (!cli.ApproveReviewsExplicit && cli.ApproveReviews)
+            cli.ApproveReviewsExplicit = true;
+
+        if (!cli.ConflictPolicyExplicit &&
+            !string.Equals(cli.ConflictPolicy, RunConstants.DefaultConflictPolicy, StringComparison.OrdinalIgnoreCase))
+        {
+            cli.ConflictPolicyExplicit = true;
+        }
+
+        if (!cli.TrashRootExplicit && !string.IsNullOrWhiteSpace(cli.TrashRoot))
+            cli.TrashRootExplicit = true;
     }
+
 }
