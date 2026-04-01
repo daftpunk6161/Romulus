@@ -716,7 +716,7 @@ Umfassendes Redesign der Confidence-Berechnung und Sorting-Gates.
 
 ---
 
-## 23. Conversion UX & Product-Model (docs/product/CONVERSION_PRODUCT_MODEL.md)
+## 23. Conversion UX & Product-Model (archive/completed/CONVERSION_PRODUCT_MODEL.md)
 
 Vollständiges Produktmodell mit Policies, Safety-Klassifikation, ConversionPlan, 10 Regeln, UX-Anforderungen.
 
@@ -803,7 +803,7 @@ Vollständiges Produktmodell mit Policies, Safety-Klassifikation, ConversionPlan
 
 ---
 
-## 25. Benchmark-Audit — Ergänzende Findings (docs/architecture/BENCHMARK_AUDIT_REPORT.md, COVERAGE_GAP_AUDIT.md, EVALUATION_STRATEGY.md, RECOGNITION_QUALITY_BENCHMARK.md)
+## 25. Benchmark-Audit — Ergänzende Findings (archive/audits/BENCHMARK_AUDIT_REPORT.md, archive/audits/COVERAGE_GAP_AUDIT.md, EVALUATION_STRATEGY.md, RECOGNITION_QUALITY_BENCHMARK.md)
 
 Ergänzende Punkte, die über §3–§7 und §19 hinausgehen.  
 Viele Items in diesen Dokumenten bestätigen/detaillieren bereits in §3–§7 und §19 gelistete Punkte.

@@ -12,7 +12,7 @@ tags: [benchmark, coverage, testing, ground-truth]
 
 ![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
 
-Konkreter Ausbauplan fuer das Benchmark-Testset auf Basis des [Coverage Gap Audit](../docs/audits/COVERAGE_GAP_AUDIT.md).
+Konkreter Ausbauplan fuer das Benchmark-Testset auf Basis des [Coverage Gap Audit](audits/COVERAGE_GAP_AUDIT.md).
 Ziel: Von 2.073 auf ≥2.400 Eintraege (Phase S), mittelfristig auf ≥3.200 (Phase M).
 
 ## 1. Requirements & Constraints
@@ -280,7 +280,7 @@ Ziel: Von 2.073 auf ≥2.400 Eintraege (Phase S), mittelfristig auf ≥3.200 (Ph
 
 ## 8. Related Specifications / Further Reading
 
-- [Coverage Gap Audit](../docs/audits/COVERAGE_GAP_AUDIT.md)
+- [Coverage Gap Audit](audits/COVERAGE_GAP_AUDIT.md)
 - [Testset Design](../docs/architecture/TESTSET_DESIGN.md)
 - [Recognition Quality Benchmark](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md)
 - [Ground-Truth Schema](../benchmark/ground-truth/ground-truth.schema.json)

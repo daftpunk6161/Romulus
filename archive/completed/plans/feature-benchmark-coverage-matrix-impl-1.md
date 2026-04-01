@@ -17,10 +17,10 @@ tags:
 
 ![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
-Dieser Plan überführt die abstrakten Gate-Definitionen aus `docs/architecture/COVERAGE_GAP_AUDIT.md` §10 in eine **konkrete, versionierbare, CI-prüfbare Benchmark-Struktur**. Er definiert Dateistruktur, Sollmengen, Spezialmatrizen, Generatoren, Manifest-Erweiterungen und CI-Regeln so, dass jede Unterschreitung automatisch erkannt wird.
+Dieser Plan überführt die abstrakten Gate-Definitionen aus `archive/audits/COVERAGE_GAP_AUDIT.md` §10 in eine **konkrete, versionierbare, CI-prüfbare Benchmark-Struktur**. Er definiert Dateistruktur, Sollmengen, Spezialmatrizen, Generatoren, Manifest-Erweiterungen und CI-Regeln so, dass jede Unterschreitung automatisch erkannt wird.
 
 **Bezug:**
-- `docs/architecture/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix (§10), Lückenanalyse
+- `archive/audits/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix (§10), Lückenanalyse
 - `docs/architecture/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell
 - `docs/architecture/TESTSET_DESIGN.md` — Dataset-Klassen, Pflichtfälle
 - `plan/feature-benchmark-testset-1.md` — Basis-Plan (Infrastruktur + 70 golden-core)
@@ -1095,7 +1095,7 @@ Nur messbare Kriterien. Jedes einzelne muss erfüllt sein, damit die Coverage-Ma
 
 ## Related Specifications
 
-- [docs/architecture/COVERAGE_GAP_AUDIT.md](../docs/architecture/COVERAGE_GAP_AUDIT.md) — Quell-Matrix (§10)
+- [COVERAGE_GAP_AUDIT.md](../../audits/COVERAGE_GAP_AUDIT.md) — Quell-Matrix (§10)
 - [docs/architecture/GROUND_TRUTH_SCHEMA.md](../docs/architecture/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema
 - [docs/architecture/TESTSET_DESIGN.md](../docs/architecture/TESTSET_DESIGN.md) — Dataset-Klassen
 - [docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md) — Metriken M1–M16

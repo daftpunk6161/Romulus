@@ -12,8 +12,8 @@ Abgeschlossene und historische Dokumente liegen in [`archive/`](../archive/READM
 |--------|--------|--------------|
 | [`architecture/`](architecture/) | Technische Specs & Systemarchitektur | Architektur-Map, API-Contracts, Teststrategien, OpenAPI-Spec, Benchmark-Design, Konvertierungs-Matrix |
 | [`adrs/`](adrs/) | Architecture Decision Records | Nummerierte ADRs (0001–0019) — historische und aktive Architekturentscheidungen |
-| [`guides/`](guides/) | Benutzer- & Entwicklerhandbücher | User Handbook, FAQ, Review Checklist |
-| [`product/`](product/) | Produkt-Analyse & -Entscheidungen | Conversion Product Model, Roadmap Tracker |
+| [`guides/`](guides/) | Benutzer- & Entwicklerhandbücher | User Handbook, FAQ, Review Checklist, Headless Deployment |
+| [`product/`](product/) | Produkt-Analyse & -Entscheidungen | Aktiver Roadmap-Tracker; historische Produktmodelle liegen in `archive/completed/` |
 | [`ux/`](ux/) | UX/GUI-Design & Accessibility | GUI-Redesign-Specs, Redesign-Analyse, Narrator/A11y-Testplan |
 | [`screenshots/`](screenshots/) | UI-Screenshots | Referenz-Screenshots der Oberfläche |
 
@@ -25,7 +25,8 @@ Abgeschlossene und historische Dokumente liegen in [`archive/`](../archive/READM
 |----------|-------|
 | [ARCHITECTURE_MAP.md](architecture/ARCHITECTURE_MAP.md) | Systemarchitektur-Übersicht (Clean Architecture, Dependency Flow) |
 | [USER_HANDBOOK.md](guides/USER_HANDBOOK.md) | Benutzerhandbuch für GUI / CLI / API |
-| [TEST_STRATEGY.md](architecture/TEST_STRATEGY.md) | Teststrategie (6900+ xUnit Tests, Test-Pyramide) |
+| [HEADLESS_DEPLOYMENT.md](guides/HEADLESS_DEPLOYMENT.md) | Deployment- und Betriebsleitfaden fuer API + Dashboard |
+| [TEST_STRATEGY.md](architecture/TEST_STRATEGY.md) | Teststrategie (7145 xUnit Tests, Test-Pyramide) |
 | [openapi.yaml](architecture/openapi.yaml) | OpenAPI-Spezifikation der REST API |
 | [PRODUCT_ROADMAP_TRACKER.md](product/PRODUCT_ROADMAP_TRACKER.md) | Trackbare Produkt-Roadmap mit Releases, Epics und Exit-Kriterien |
 | [REVIEW_CHECKLIST.md](guides/REVIEW_CHECKLIST.md) | PR-Review-Checkliste |

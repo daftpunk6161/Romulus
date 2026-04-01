@@ -2,7 +2,7 @@
 
 **Stand:** 2026-03-21  
 **Version:** 1.0  
-**Basis:** consoles.json (65 Systeme), FormatConverterAdapter, CONVERSION_DOMAIN_AUDIT, CONVERSION_PRODUCT_MODEL  
+**Basis:** consoles.json (65 Systeme), FormatConverterAdapter, CONVERSION_DOMAIN_AUDIT, historisches [CONVERSION_PRODUCT_MODEL.md](../../archive/completed/CONVERSION_PRODUCT_MODEL.md)  
 **Zielgruppe:** Engine-Architektur, Implementierung, Review
 
 ---

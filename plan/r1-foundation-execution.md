@@ -17,7 +17,7 @@ Ziel: Eine persistente Sammlungsbasis schaffen, kanaluebergreifende Automation e
 Ziel: Den minimalen, stabilen Vertrag fuer Collection-Index, Hash-Cache und Run-Historie definieren.
 
 Detailplan:
-- [x] [`r1-t01-index-contract-technical-plan.md`](r1-t01-index-contract-technical-plan.md)
+- [x] [`../archive/completed/plans/r1-t01-index-contract-technical-plan.md`](../archive/completed/plans/r1-t01-index-contract-technical-plan.md)
 
 Betroffene Bereiche:
 - `src/RomCleanup.Contracts`

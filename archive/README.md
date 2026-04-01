@@ -13,16 +13,20 @@ Aktive Pläne → [`plan/`](../plan/README.md)
 | Ordner | Inhalt | Beschreibung |
 |--------|--------|--------------|
 | [`audits/`](audits/) | Abgeschlossene Audits & Reviews | Code-Reviews, Security-Audits, Bug-Audits, Deep-Dive-Analysen |
-| [`completed/`](completed/) | Erledigte Tracker & Checklisten | Abgehakte Migrations-/Redesign-/Release-Checklisten |
+| [`completed/`](completed/) | Erledigte Tracker, Checklisten & Plaene | Abgehakte Migrations-/Redesign-/Release-Dokumente plus historische Detailplaene |
 | [`legacy/`](legacy/) | PowerShell-Ära Dokumente | Alte Strategie-/Requirements-Docs aus der archivierten PS-Version |
 | [`powershell/`](powershell/) | Legacy PowerShell-Codebase | Archivierter PowerShell-Quellcode (nicht mehr aktiv) |
 
 ---
 
-## audits/ — 16 Dokumente
+## audits/ — 20 Dokumente
 
 | Datei | Datum | Beschreibung |
 |-------|-------|--------------|
+| `CONSOLIDATED_AUDIT_2026-03-31.md` | 2026-04-01 | Konsolidierter Audit-Abgleich gegen den aktuellen Repo-Stand |
+| `2026-03-27-core-recognition-audit.md` | 2026-03-27 | Erkennungs-/Sorting-/DAT-Audit mit Benchmark-Basis |
+| `BENCHMARK_AUDIT_REPORT.md` | 2026-03-22 | Benchmark-/Evaluation-Dokumentationsaudit |
+| `COVERAGE_GAP_AUDIT.md` | 2026-03-28 | Coverage-Lueckenanalyse und Minimum-Coverage-Matrix |
 | `FULL_TOOL_AUDIT_2026-03-18.md` | 2026-03-18 | Kompletter Tool-Audit (production-ready, 3273 Tests grün) |
 | `2026-03-18-api-security-review.md` | 2026-03-18 | API Security Review (3 CRITs + 4 HIGHs — alle gefixt) |
 | `FINAL_CONSOLIDATED_AUDIT.md` | 2026-03-16 | Finaler konsolidierter Audit (9 Hauptprobleme) |
@@ -40,10 +44,11 @@ Aktive Pläne → [`plan/`](../plan/README.md)
 | `gui-ux-deep-audit.md` | — | GUI/UX Deep-Audit |
 | `deep-dive-analysis-v1.md` | — | Deep-Dive v1 (superseded by v2) |
 
-## completed/ — 4 Dokumente
+## completed/ — 5 Dokumente
 
 | Datei | Beschreibung |
 |-------|--------------|
+| `CONVERSION_PRODUCT_MODEL.md` | Historisches Conversion-Produktmodell (durch aktive Architektur/Engine/Registry ueberholt) |
 | `MIGRATION_TRACKING_CHECKLIST.md` | C#-Migration Checklist (alle ✅) |
 | `TRACKING_CHECKLIST.md` | Release-Blocker Checklist (alle ✅) |
 | `GUI-REDESIGN-TRACKER.md` | GUI-Redesign Tracker (7 Sprints, abgeschlossen) |

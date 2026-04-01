@@ -77,7 +77,7 @@ Dieser Plan überführt die monolithische Conversion-Implementierung (`FormatCon
 **Referenzdokumente:**
 - `docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md` — Technische Zielarchitektur
 - `docs/architecture/CONVERSION_MATRIX.md` — Vollständige Matrix (76 Pfade, 65 Systeme, 5 Plattformfamilien)
-- `docs/product/CONVERSION_PRODUCT_MODEL.md` — Fachmodell (Policies, Safety, Integrity, Regeln R-01..R-10)
+- `archive/completed/CONVERSION_PRODUCT_MODEL.md` — Historisches Fachmodell (Policies, Safety, Integrity, Regeln R-01..R-10)
 - `docs/architecture/CONVERSION_DOMAIN_AUDIT.md` — Domänenanalyse (12 Lücken L1-L12, aktiver Bug)
 
 **IST-Zustand:**
@@ -596,7 +596,7 @@ Die folgenden Themen sind bewusst NICHT Teil dieses Plans und gehören in separa
 
 - [CONVERSION_ENGINE_ARCHITECTURE.md](../docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md) — Technische Zielarchitektur
 - [CONVERSION_MATRIX.md](../docs/architecture/CONVERSION_MATRIX.md) — Vollständige Conversion-Matrix (76 Pfade, 65 Systeme)
-- [CONVERSION_PRODUCT_MODEL.md](../docs/product/CONVERSION_PRODUCT_MODEL.md) — Fachliches Produktmodell
+- [CONVERSION_PRODUCT_MODEL.md](../CONVERSION_PRODUCT_MODEL.md) — Historisches fachliches Produktmodell
 - [CONVERSION_DOMAIN_AUDIT.md](../docs/architecture/CONVERSION_DOMAIN_AUDIT.md) — Domänenanalyse (12 Lücken)
 - [ARCHITECTURE_MAP.md](../docs/architecture/ARCHITECTURE_MAP.md) — Clean Architecture Übersicht
 - [ADR-0007](../docs/adrs/0007-final-core-functions-review.md) — Architektur-Review Verdict

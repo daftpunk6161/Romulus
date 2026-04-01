@@ -16,10 +16,10 @@ tags:
 
 ![Status: Mostly Complete](https://img.shields.io/badge/status-Mostly%20Complete-yellow)
 
-Dieser Plan konkretisiert den Ausbau des Benchmark-Testsets von den initialen 70 Einträgen (Phase 2 des Basis-Plans `feature-benchmark-testset-1.md`) auf das S1-Gate von ≥1.200 Einträgen gemäss `docs/architecture/COVERAGE_GAP_AUDIT.md`. Der Basis-Plan deckt Infrastruktur + erste 70 Einträge ab. Dieser Plan beginnt dort, wo der Basis-Plan aufhört, und definiert die konkreten Inhalte, Generatoren und Prüfmechanismen für jede Ausbauphase.
+Dieser Plan konkretisiert den Ausbau des Benchmark-Testsets von den initialen 70 Einträgen (Phase 2 des Basis-Plans `feature-benchmark-testset-1.md`) auf das S1-Gate von ≥1.200 Einträgen gemäss `archive/audits/COVERAGE_GAP_AUDIT.md`. Der Basis-Plan deckt Infrastruktur + erste 70 Einträge ab. Dieser Plan beginnt dort, wo der Basis-Plan aufhört, und definiert die konkreten Inhalte, Generatoren und Prüfmechanismen für jede Ausbauphase.
 
 **Referenzdokumente:**
-- `docs/architecture/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix, Gates, Lückenanalyse
+- `archive/audits/COVERAGE_GAP_AUDIT.md` — Minimum Coverage Matrix, Gates, Lückenanalyse
 - `docs/architecture/GROUND_TRUTH_SCHEMA.md` — JSONL-Schema, Datenmodell, Felddefinitionen
 - `docs/architecture/TESTSET_DESIGN.md` — Dataset-Klassen, Generator-Spec, Pflichtfälle
 - `plan/feature-benchmark-testset-1.md` — Basis-Plan (Infrastruktur + erste 70 Einträge)
@@ -644,7 +644,7 @@ Zusätzlich zum Coverage-Gate prüft ein separater Test:
 
 ## 12. Related Specifications / Further Reading
 
-- [docs/architecture/COVERAGE_GAP_AUDIT.md](../docs/architecture/COVERAGE_GAP_AUDIT.md) — Minimum Coverage Matrix, Gate-Definitionen
+- [COVERAGE_GAP_AUDIT.md](../../audits/COVERAGE_GAP_AUDIT.md) — Minimum Coverage Matrix, Gate-Definitionen
 - [docs/architecture/GROUND_TRUTH_SCHEMA.md](../docs/architecture/GROUND_TRUTH_SCHEMA.md) — JSONL-Schema, Datenmodell, Felddefinitionen
 - [docs/architecture/TESTSET_DESIGN.md](../docs/architecture/TESTSET_DESIGN.md) — Dataset-Klassen, Tier-System, Pflichtfälle
 - [docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md](../docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md) — Qualitätsmodell, Metriken M1–M16

@@ -7,9 +7,12 @@ Die strategische Produkt-Roadmap liegt in [`docs/product/PRODUCT_ROADMAP_TRACKER
 
 - [product-roadmap-execution.md](product-roadmap-execution.md) - Master-Index fuer Release-Reihenfolge, Abhaengigkeiten und Tracking
 - [r1-foundation-execution.md](r1-foundation-execution.md) - Umsetzungsplan fuer persistente Datenbasis, Review und Automation
-- [r1-t01-index-contract-technical-plan.md](r1-t01-index-contract-technical-plan.md) - Technischer Detailplan fuer den Collection-Index-Vertrag
 - [r2-productization-execution.md](r2-productization-execution.md) - Umsetzungsplan fuer Guided Workflows, Exporter, Profile und Trends
 - [r3-reach-execution.md](r3-reach-execution.md) - Umsetzungsplan fuer Web-Dashboard, Headless-Betrieb und kontrollierte Conversion-Erweiterung
+
+## Historische Detailplaene
+
+- [../archive/completed/plans/r1-t01-index-contract-technical-plan.md](../archive/completed/plans/r1-t01-index-contract-technical-plan.md) - Abgeschlossener technischer Detailplan fuer den Collection-Index-Vertrag
 
 ## Konventionen
 

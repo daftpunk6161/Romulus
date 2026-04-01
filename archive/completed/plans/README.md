@@ -1,13 +1,14 @@
-# Romulus — Aktive Implementierungspläne
+# Romulus — Archivierte Implementierungsplaene
 
-Dieses Verzeichnis enthält **actionable Implementation Plans** — konkrete Aufgabenpakete, die abzuarbeiten sind.
+Dieses Verzeichnis enthält **abgeschlossene historische Implementierungsplaene**.
+Nichts hier ist mehr aktiv zum Abarbeiten gedacht.
 
-Fertige Pläne werden nach Abschluss nach [`archive/completed/`](../archive/completed/) verschoben.
-Permanente Referenzdoku liegt in [`docs/`](../docs/README.md).
+Aktive Plaene liegen in [`plan/`](../../../plan/README.md).
+Permanente Referenzdoku liegt in [`docs/`](../../../docs/README.md).
 
 ---
 
-## Aktive Pläne
+## Archivierte Plaene
 
 | Plan | Feature | Status | Beschreibung |
 |------|---------|--------|--------------|
@@ -17,12 +18,13 @@ Permanente Referenzdoku liegt in [`docs/`](../docs/README.md).
 | [feature-benchmark-evaluation-pipeline-1.md](feature-benchmark-evaluation-pipeline-1.md) | Benchmark: Eval Pipeline | **Mostly Complete** | Quality Gates M4/M6/M7/M9a, HTML-Reports, Regressions-Gate implementiert |
 | [feature-benchmark-testset-1.md](feature-benchmark-testset-1.md) | Benchmark: Testset System | **Mostly Complete** | JSONL-Testset (8 Dateien), GroundTruthLoader, EvaluationRunner, CI-Gate implementiert |
 | [dat-first-recognition-redesign-1.md](dat-first-recognition-redesign-1.md) | DAT-first Recognition Redesign | **Completed** | Vollständige DAT-first Zielarchitektur mit Evidence-Tiers, MatchKind, Family-Routing, Decision-Resolver und Quality-Gates |
+| [r1-t01-index-contract-technical-plan.md](r1-t01-index-contract-technical-plan.md) | R1: Collection Index Contract | **Completed** | Historischer Detailplan fuer den Collection-Index-Vertrag und die Modellinvarianten |
 
 ---
 
 ## Konventionen
 
 - **Dateiname:** `feature-<bereich>-<name>-<version>.md`
-- **Status im Plan-Header pflegen** (Planned / In Progress / Done)
-- Erledigte Pläne → `archive/completed/` verschieben
+- **Status im Plan-Header spiegelt den historischen Endstand**
+- Neue aktive Plaene gehoeren nach [`plan/`](../../../plan/README.md), nicht in dieses Archiv
 - Jeder Plan enthält: Ziel, Phasen/Tasks, Abhängigkeiten, Testanforderungen

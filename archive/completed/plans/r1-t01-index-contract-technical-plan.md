@@ -4,6 +4,11 @@ Stand: 2026-04-01
 
 Ziel: Den minimalen, stabilen Vertragsrahmen fuer persistente Collection-States, Hash-Cache und Run-Historie festziehen, ohne bestehende fachliche Wahrheiten zu duplizieren oder bestehende Laufzeitpfade still zu brechen.
 
+Hinweis:
+- Dieser Detailplan ist historisch abgeschlossen.
+- Die in T01 noch offenen Folgeentscheidungen wurden in R1-T02 bis R1-T05 aufgeloest.
+- Die nachfolgenden Checkboxen zeigen deshalb den finalen Ausgang und keine offene Restarbeit mehr.
+
 ## Scope
 
 - [x] V1-Datenmodell fuer Collection-Entries definieren
@@ -21,15 +26,15 @@ Ziel: Den minimalen, stabilen Vertragsrahmen fuer persistente Collection-States,
 - Keine GUI/API/CLI-Anpassungen
 - Keine Entfernung bestehender Legacy-Modelle in diesem Schritt
 
-## Repo-Befunde, die der Vertrag beruecksichtigen muss
+## Repo-Befunde, die der Vertrag beruecksichtigen musste
 
-- [ ] `src/RomCleanup.Contracts/Models/AdvancedModels.cs` enthaelt bereits `RunHistoryEntry` und `ScanIndexEntry`, aber beide Modelle sind fuer C1 zu schwach und semantisch nicht passend.
-- [ ] `src/RomCleanup.Infrastructure/Hashing/FileHashService.cs` persistiert heute bereits einen produktiven JSON-Hash-Cache (`file-hashes-v1.json`) auf Basis von `path + hashType + lastWriteUtc + length`.
-- [ ] `src/RomCleanup.Infrastructure/Hashing/FileHashService.cs` nutzt heute `LocalApplicationData`, waehrend andere Artefakte im Projekt meist unter `%APPDATA%\\RomCleanupRegionDedupe\\` liegen. Der Contract darf deshalb keinen impliziten Speicherort fest verdrahten.
-- [ ] `src/RomCleanup.Api/RunLifecycleManager.cs` haelt Run-Historie aktuell nur in-memory; das ist Live-Run-Zustand, nicht persistente Collection-Historie.
-- [ ] `src/RomCleanup.Infrastructure/Orchestration/RunProjection.cs` lebt aktuell in `Infrastructure`; ein Contract darf deshalb nicht direkt von `RunProjection` abhaengen.
-- [ ] `src/RomCleanup.Infrastructure/Analysis/IntegrityService.cs` und `src/RomCleanup.UI.Wpf/Services/FeatureService.Security.cs` zeigen bereits doppelte History-/Trend-Logik. Der neue Vertrag darf diese Lage nicht weiter verschlechtern.
-- [ ] `src/RomCleanup.Tests/HygieneCleanupRegressionTests.cs` blockiert bewusst Typnamen wie `RunHistoryService` und `ScanIndexService`. Neue Komponenten duerfen diese Namen nicht wieder einfuehren.
+- `src/RomCleanup.Contracts/Models/AdvancedModels.cs` enthielt bereits `RunHistoryEntry` und `ScanIndexEntry`, aber beide Modelle waren fuer C1 zu schwach und semantisch nicht passend.
+- `src/RomCleanup.Infrastructure/Hashing/FileHashService.cs` persistierte bereits einen produktiven JSON-Hash-Cache (`file-hashes-v1.json`) auf Basis von `path + hashType + lastWriteUtc + length`.
+- `src/RomCleanup.Infrastructure/Hashing/FileHashService.cs` nutzte `LocalApplicationData`, waehrend andere Artefakte meist unter `%APPDATA%\\RomCleanupRegionDedupe\\` lagen. Der Contract durfte deshalb keinen impliziten Speicherort fest verdrahten.
+- `src/RomCleanup.Api/RunLifecycleManager.cs` hielt Run-Historie nur in-memory; das war Live-Run-Zustand, nicht persistente Collection-Historie.
+- `src/RomCleanup.Infrastructure/Orchestration/RunProjection.cs` lebte in `Infrastructure`; der Contract durfte deshalb nicht direkt von `RunProjection` abhaengen.
+- `src/RomCleanup.Infrastructure/Analysis/IntegrityService.cs` und `src/RomCleanup.UI.Wpf/Services/FeatureService.Security.cs` zeigten bereits doppelte History-/Trend-Logik. Der neue Vertrag durfte diese Lage nicht weiter verschlechtern.
+- `src/RomCleanup.Tests/HygieneCleanupRegressionTests.cs` blockierte bewusst Typnamen wie `RunHistoryService` und `ScanIndexService`. Neue Komponenten durften diese Namen nicht wieder einfuehren.
 
 ## Entscheidungen
 
@@ -216,12 +221,12 @@ public sealed record CollectionRunSnapshot
 - [x] Der bestehende JSON-Hash-Cache wird in T01 nicht verschoben oder geloescht
 - [x] `AdvancedModels.cs` bleibt in T01 unveraendert, um unnoetige Seiteneffekte zu vermeiden
 
-## Offene Architekturentscheidungen fuer T02/T03
+## Aufgeloeste Architekturentscheidungen aus T02/T03
 
-- [ ] Ob `LiteDbCollectionIndex` den bestehenden JSON-Hash-Cache einmalig importiert oder zunaechst parallel weiterverwendet
-- [ ] Ob `RunProjection` spaeter nach `Contracts` verschoben oder als Mapping-Quelle in `Infrastructure` belassen wird
-- [ ] Ob geloeschte Dateien physisch aus dem Index entfernt oder ueber einen spaeteren Tombstone-Mechanismus behandelt werden
-- [ ] Ob `ListByConsoleAsync` fuer grosse Sammlungen spaeter pagingfaehig erweitert werden muss
+- [x] `LiteDbCollectionIndex` importiert den bestehenden JSON-Hash-Cache nicht einmalig; der produktive Pfad nutzt den Collection-Index, waehrend `FileHashService` den JSON-Cache nur noch als Legacy-Fallback ohne Index weiterverwendet.
+- [x] `RunProjection` bleibt in `Infrastructure`; persistierte `CollectionRunSnapshot` werden ueber `CollectionRunSnapshotWriter` aus derselben Projektionslogik abgeleitet, ohne den Contract von `RunProjection` abhaengig zu machen.
+- [x] Geloeschte Dateien werden in R1 physisch aus dem Index entfernt; das geschieht ueber gescoptes Stale-Entry-Cleanup nach vollstaendigen Scans.
+- [x] `ListByConsoleAsync` bleibt in R1 bewusst ungepaged und deterministisch; Paging wurde nicht in den Contract gehoben und bleibt nur ein moeglicher spaeterer Erweiterungspunkt.
 
 ## Umsetzungsschritte fuer T01
 
@@ -242,18 +247,18 @@ public sealed record CollectionRunSnapshot
 - [x] `CollectionRunSnapshot_Defaults_UseRunConstants`
 - [x] `CollectionIndexModels_SystemTextJson_RoundTrip_PreservesFields`
 
-### Negative / Edge Tests
+### Negative / Edge Folgepunkte, spaeter aufgeloest
 
-- [ ] Leerpfade werden durch spaetere Adaptervalidierung abgefangen
-- [ ] Nicht-UTC-Werte werden durch Adapter normalisiert oder geblockt
-- [ ] Hashwerte mit falschem Casing werden normalisiert
-- [ ] Leere oder ungueltige Algorithmen werden nicht akzeptiert
+- [x] Leerpfade werden durch Adaptervalidierung abgefangen.
+- [x] Nicht-UTC-Werte werden im Adapter normalisiert.
+- [x] Hashwerte mit falschem Casing werden normalisiert.
+- [x] Leere oder ungueltige Algorithmen werden nicht akzeptiert.
 
-### Mapping-Tests fuer spaetere Tickets
+### In spaeteren Tickets umgesetzt
 
-- [ ] `RunProjection` -> `CollectionRunSnapshot` ohne KPI-Verlust fuer V1-Felder
-- [ ] `RomCandidate` -> `CollectionIndexEntry` ohne Verlust der benoetigten Sorting-/Recognition-Felder
-- [ ] JSON-Hash-Cache-Fingerprint -> `CollectionHashCacheEntry` ohne Bedeutungswechsel
+- [x] `RunProjection` -> `CollectionRunSnapshot` ohne KPI-Verlust fuer die benoetigten R1-Felder, umgesetzt ueber `CollectionRunSnapshotWriter`.
+- [x] `RomCandidate` -> `CollectionIndexEntry` ohne Verlust der benoetigten Sorting-/Recognition-Felder, umgesetzt ueber `CollectionIndexCandidateMapper`.
+- [x] JSON-Hash-Cache-Fingerprint -> `CollectionHashCacheEntry` ohne Bedeutungswechsel im aktiven R1-Pfad; der JSON-Cache bleibt nur als Legacy-Fallback ausserhalb des Index-basierten Produktionspfads bestehen.
 
 ## Fertig, wenn
 

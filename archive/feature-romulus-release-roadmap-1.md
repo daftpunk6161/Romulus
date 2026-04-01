@@ -711,12 +711,12 @@ Basierend auf dem konsolidierten 10-Etappen-Audit (52 Findings) ist das System *
 - [OPEN_ITEMS.md](OPEN_ITEMS.md) — Vollständige offene Items (§1–§26)
 - [docs/product/CATEGORY_PREFILTER_AUDIT.md](../docs/product/CATEGORY_PREFILTER_AUDIT.md) — Kategorie-Erkennungsrate Analyse
 - [docs/product/CONFIDENCE_SORTING_GATE_REDESIGN.md](../docs/product/CONFIDENCE_SORTING_GATE_REDESIGN.md) — 4-Gate-Modell Design
-- [docs/product/CONVERSION_PRODUCT_MODEL.md](../docs/product/CONVERSION_PRODUCT_MODEL.md) — Conversion UX & Regeln
+- [completed/CONVERSION_PRODUCT_MODEL.md](completed/CONVERSION_PRODUCT_MODEL.md) — Historisches Conversion-Produktmodell
 - [docs/product/MISS_ANALYSIS_SAFE_RECALL.md](../docs/product/MISS_ANALYSIS_SAFE_RECALL.md) — 60 Missed Entries Analyse
 - [docs/architecture/CONVERSION_DOMAIN_AUDIT.md](../docs/architecture/CONVERSION_DOMAIN_AUDIT.md) — 12 Lücken L1–L12
 - [docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md](../docs/architecture/CONVERSION_ENGINE_ARCHITECTURE.md) — Zielarchitektur Graph-Engine
 - [docs/architecture/CONVERSION_MATRIX.md](../docs/architecture/CONVERSION_MATRIX.md) — 65 Systeme × Conversion-Pfade
-- [docs/architecture/BENCHMARK_AUDIT_REPORT.md](../docs/architecture/BENCHMARK_AUDIT_REPORT.md) — Benchmark-Audit Findings
+- [audits/BENCHMARK_AUDIT_REPORT.md](audits/BENCHMARK_AUDIT_REPORT.md) — Benchmark-Audit Findings
 - [docs/architecture/EVALUATION_STRATEGY.md](../docs/architecture/EVALUATION_STRATEGY.md) — 16 Metriken + Quality Gates
 - [.claude/rules/cleanup.instructions.md](../.claude/rules/cleanup.instructions.md) — Verbindliche Coding-Guidelines
 - [.github/copilot-instructions.md](../.github/copilot-instructions.md) — Copilot-spezifische Regeln

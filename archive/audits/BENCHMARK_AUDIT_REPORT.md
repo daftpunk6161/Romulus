@@ -93,7 +93,7 @@ Dies ist das maßgebliche Plandokument mit 4 Phasen / 66 Tasks.
 
 ---
 
-### 6. `docs/architecture/COVERAGE_GAP_AUDIT.md`
+### 6. `archive/audits/COVERAGE_GAP_AUDIT.md`
 
 | # | Sektion | Was fehlt | Priorität |
 |---|---------|-----------|-----------|

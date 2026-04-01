@@ -421,7 +421,7 @@ Dieser Plan definiert die Implementierung der noch fehlenden Benchmark-Evaluatio
 - [Evaluationsstrategie](docs/architecture/EVALUATION_STRATEGY.md)
 - [Recognition Quality Benchmark](docs/architecture/RECOGNITION_QUALITY_BENCHMARK.md)
 - [Ground Truth Schema](docs/architecture/GROUND_TRUTH_SCHEMA.md)
-- [Coverage Gap Audit](docs/architecture/COVERAGE_GAP_AUDIT.md)
+- [Coverage Gap Audit](../../audits/COVERAGE_GAP_AUDIT.md)
 - [Testset Design](docs/TESTSET_DESIGN.md)
 - [Benchmark Testset Plan](plan/feature-benchmark-testset-1.md)
 - [Coverage Expansion Plan](plan/feature-benchmark-coverage-expansion-1.md)

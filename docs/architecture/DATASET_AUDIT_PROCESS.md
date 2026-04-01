@@ -3,7 +3,7 @@
 > **Version:** 1.0.0  
 > **Status:** Verbindlich  
 > **Erstellt:** 2026-03-23  
-> **Bezug:** ADR-017, RECOGNITION_QUALITY_BENCHMARK.md, COVERAGE_GAP_AUDIT.md
+> **Bezug:** ADR-017, RECOGNITION_QUALITY_BENCHMARK.md, historischer Audit-Snapshot [COVERAGE_GAP_AUDIT.md](../../archive/audits/COVERAGE_GAP_AUDIT.md)
 
 ---
 
@@ -24,13 +24,13 @@ Formalisierter Review-Zyklus für den Benchmark-Datensatz, um:
 
 | # | Schritt | Verantwortlich | Output |
 |---|---------|----------------|--------|
-| A1 | Coverage-Gap-Analyse gegen `gates.json` | Reviewer | Aktualisierte COVERAGE_GAP_AUDIT.md |
+| A1 | Coverage-Gap-Analyse gegen `gates.json` | Reviewer | Aktualisierter Audit-Snapshot `archive/audits/COVERAGE_GAP_AUDIT.md` |
 | A2 | Confusion-Matrix-Review (Top-10 Paare) | Reviewer | Issue pro Paar mit > 2% Rate |
 | A3 | Fallklassen-Vollständigkeitsprüfung | Reviewer | Fehlende Klassen → Dataset-Erweiterung |
 | A4 | Holdout-Drift-Prüfung (via HoldoutEvaluator) | CI/Reviewer | Drift-Report |
 | A5 | Baseline-Archiv-Prüfung | Reviewer | Bestätigung: Archiv vollständig |
 | A6 | Schema-Versions-Prüfung | Reviewer | Schema vs. tatsächliche Entries |
-| A7 | Zusammenfassung → COVERAGE_GAP_AUDIT.md | Reviewer | Commit + PR |
+| A7 | Zusammenfassung → `archive/audits/COVERAGE_GAP_AUDIT.md` | Reviewer | Commit + PR |
 
 ### Ereignisgesteuerte Audits
 
@@ -82,7 +82,7 @@ Formalisierter Review-Zyklus für den Benchmark-Datensatz, um:
 - [ ] HTML-Dashboard generiert und lesbar?
 
 #### Ergebnis
-- [ ] COVERAGE_GAP_AUDIT.md aktualisiert
+- [ ] `archive/audits/COVERAGE_GAP_AUDIT.md` aktualisiert
 - [ ] Issues für offene Lücken erstellt
 - [ ] PR mit Audit-Zusammenfassung eingereicht
 ```
@@ -91,7 +91,7 @@ Formalisierter Review-Zyklus für den Benchmark-Datensatz, um:
 
 ## 4. Audit-Ergebnis-Format
 
-Jeder abgeschlossene Audit wird in `COVERAGE_GAP_AUDIT.md` dokumentiert:
+Jeder abgeschlossene Audit wird in `archive/audits/COVERAGE_GAP_AUDIT.md` dokumentiert:
 
 ```markdown
 ### Audit 2026-XX-XX

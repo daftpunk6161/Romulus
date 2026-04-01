@@ -3,7 +3,7 @@
 **Stand:** 2026-03-21  
 **Typ:** Technische Zielarchitektur  
 **Modus:** SE: Architect  
-**Basis:** CONVERSION_DOMAIN_AUDIT, CONVERSION_PRODUCT_MODEL, CONVERSION_MATRIX, ADR-0007, ARCHITECTURE_MAP  
+**Basis:** CONVERSION_DOMAIN_AUDIT, historisches [CONVERSION_PRODUCT_MODEL.md](../../archive/completed/CONVERSION_PRODUCT_MODEL.md), CONVERSION_MATRIX, ADR-0007, ARCHITECTURE_MAP  
 **Scope:** Komplette Conversion-Engine für 65 Systeme, 76 Conversion-Pfade, 5 Tools
 
 ---

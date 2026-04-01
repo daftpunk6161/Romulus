@@ -3,7 +3,7 @@
 > **Version:** 2.0.0  
 > **Status:** Proposed (ergänzt bestehende Docs)  
 > **Datum:** 2026-03-21  
-> **Bezug:** [ADR-015](architecture/ADR-015-recognition-quality-benchmark-framework.md), [RECOGNITION_QUALITY_BENCHMARK.md](RECOGNITION_QUALITY_BENCHMARK.md), [GROUND_TRUTH_SCHEMA.md](GROUND_TRUTH_SCHEMA.md), [COVERAGE_GAP_AUDIT.md](COVERAGE_GAP_AUDIT.md)  
+> **Bezug:** [ADR-015](../adrs/0015-recognition-quality-benchmark-framework.md), [RECOGNITION_QUALITY_BENCHMARK.md](RECOGNITION_QUALITY_BENCHMARK.md), [GROUND_TRUTH_SCHEMA.md](GROUND_TRUTH_SCHEMA.md), historischer Audit-Snapshot [COVERAGE_GAP_AUDIT.md](../../archive/audits/COVERAGE_GAP_AUDIT.md)  
 > **Scope:** Architektur-Review und verbindliche Evaluationsstrategie für ROM-Erkennung, System-Detection, DAT-Matching, Sorting und Repair-Freigabe
 
 ---
