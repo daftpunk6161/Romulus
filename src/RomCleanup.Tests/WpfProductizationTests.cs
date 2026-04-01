@@ -184,6 +184,7 @@ public sealed class WpfProductizationTests : IDisposable
     {
         var startViewXaml = File.ReadAllText(FindUiFile("Views", "StartView.xaml"));
         var controlTemplatesXaml = File.ReadAllText(FindUiFile("Themes", "_ControlTemplates.xaml"));
+        var subTabBarXaml = File.ReadAllText(FindUiFile("Views", "SubTabBar.xaml"));
 
         Assert.Contains("Command=\"{Binding DashboardPrimaryCommand}\"", startViewXaml);
         Assert.Contains("Text=\"{Binding DashboardPrimaryActionText}\"", startViewXaml);
@@ -191,6 +192,7 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("x:Key=\"SubTabPill\"", controlTemplatesXaml);
         Assert.Contains("BorderThickness\" Value=\"0,0,0,2\"", controlTemplatesXaml);
         Assert.DoesNotContain("Style x:Key=\"SubTabPill\" TargetType=\"RadioButton\" BasedOn=\"{StaticResource SidebarNavItem}\"", controlTemplatesXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Shell.CurrentWorkspaceTitle", subTabBarXaml, StringComparison.Ordinal);
     }
 
     private static MainViewModel CreateViewModel(RecordingDialogService? dialog = null)
