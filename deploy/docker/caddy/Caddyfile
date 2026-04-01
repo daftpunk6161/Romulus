@@ -1,0 +1,14 @@
+{$ROMULUS_HOST} {
+    encode zstd gzip
+
+    @health path /healthz
+    handle @health {
+        reverse_proxy romulus-api:7878
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    reverse_proxy romulus-api:7878
+}

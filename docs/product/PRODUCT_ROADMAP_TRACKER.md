@@ -10,7 +10,7 @@ Die Reihenfolge folgt den Projektprioritaeten: Korrektheit, Determinismus, Siche
 - [x] [Master Execution Plan](../../plan/product-roadmap-execution.md)
 - [x] [R1 Foundation Execution](../../plan/r1-foundation-execution.md)
 - [x] [R2 Productization Execution](../../plan/r2-productization-execution.md)
-- [ ] [R3 Reach Execution](../../plan/r3-reach-execution.md)
+- [x] [R3 Reach Execution](../../plan/r3-reach-execution.md)
 
 ## Priorisierung
 
@@ -98,27 +98,28 @@ Status: abgeschlossen am `2026-04-01`
 ## R3 Reach
 
 Ziel: Die bestehende lokale Plattform auf Headless-, NAS- und Non-Windows-Szenarien ausdehnen, ohne die Kerninvarianten aufzuweichen.
+Status: abgeschlossen am `2026-04-01`
 
 ### Release-Track
 
-- [ ] C7 Web Dashboard auf Basis von [`C7-web-dashboard.md`](../epics/C7-web-dashboard.md)
-- [ ] NAS-/Server-Paketierung und dokumentierter Headless-Betrieb
-- [ ] C4 ECM / NKit Support auf Basis von [`C4-ecm-nkit-format-support.md`](../epics/C4-ecm-nkit-format-support.md)
+- [x] C7 Web Dashboard auf Basis von [`C7-web-dashboard.md`](../epics/C7-web-dashboard.md)
+- [x] NAS-/Server-Paketierung und dokumentierter Headless-Betrieb
+- [x] C4 ECM / NKit Support auf Basis von [`C4-ecm-nkit-format-support.md`](../epics/C4-ecm-nkit-format-support.md)
 
 ### Exit-Kriterien
 
-- [ ] Web-Dashboard nutzt ausschliesslich die bestehende API als fachliche Quelle
-- [ ] Headless-Betrieb ist dokumentiert und sicher deploybar
-- [ ] Erweiterte Conversion bleibt review-pflichtig, verifizierbar und rollback-sicher
+- [x] Web-Dashboard nutzt ausschliesslich die bestehende API als fachliche Quelle
+- [x] Headless-Betrieb ist dokumentiert und sicher deploybar
+- [x] Erweiterte Conversion bleibt review-pflichtig, verifizierbar und rollback-sicher
 
 ### Arbeitspakete
 
-- [ ] Dashboard-MVP fuer Run-Start, Progress, Review, DAT-Status und Completeness schneiden
-- [ ] Deployment-Modell fuer Reverse Proxy, API-Key und sichere Bindings dokumentieren
-- [ ] Paketierung fuer Server-/NAS-Szenarien definieren
-- [ ] ECM/NKit nur mit expliziter Verifikation, Fehler-Cleanup und Review-Flow integrieren
-- [ ] Tooling, Timeout-, Hash- und Exit-Code-Absicherung fuer neue Converter erweitern
-- [ ] Integrations- und Negativtests fuer Headless-Betrieb und Conversion-Fehlfaelle ergaenzen
+- [x] Dashboard-MVP fuer Run-Start, Progress, Review, DAT-Status und Completeness schneiden
+- [x] Deployment-Modell fuer Reverse Proxy, API-Key und sichere Bindings dokumentieren
+- [x] Paketierung fuer Server-/NAS-Szenarien definieren
+- [x] ECM/NKit nur mit expliziter Verifikation, Fehler-Cleanup und Review-Flow integrieren
+- [x] Tooling, Timeout-, Hash- und Exit-Code-Absicherung fuer neue Converter erweitern
+- [x] Integrations- und Negativtests fuer Headless-Betrieb und Conversion-Fehlfaelle ergaenzen
 
 ## Parked / Bewusst spaeter
 

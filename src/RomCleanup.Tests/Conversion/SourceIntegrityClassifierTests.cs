@@ -19,6 +19,7 @@ public sealed class SourceIntegrityClassifierTests
     [InlineData(".wud", SourceIntegrity.Lossless)]
     [InlineData(".chd", SourceIntegrity.Lossless)]
     [InlineData(".rvz", SourceIntegrity.Lossless)]
+    [InlineData(".ecm", SourceIntegrity.Lossless)]
     [InlineData(".nsp", SourceIntegrity.Lossless)]
     [InlineData(".xci", SourceIntegrity.Lossless)]
     [InlineData(".cso", SourceIntegrity.Lossy)]

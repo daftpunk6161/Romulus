@@ -46,6 +46,11 @@ internal static class ApiTestFactory
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
+            foreach (var pair in _settings)
+            {
+                if (pair.Value is not null)
+                    builder.UseSetting(pair.Key, pair.Value);
+            }
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(_settings);

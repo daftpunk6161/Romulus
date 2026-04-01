@@ -12,9 +12,9 @@
         ┌──────────────────┐
         │   Integration    │  RunOrchestrator, API-RunManager, FileSystem-Ops
         ├──────────────────┤
-        │   Unit           │  200+ Testdateien, aktuell 7133 Tests
+        │   Unit           │  200+ Testdateien, aktuell 7145 Tests
         └──────────────────┘
-        Gesamt: aktuell 7133 Tests (xUnit, Stand 2026-04-01 grün)
+        Gesamt: aktuell 7145 Tests (xUnit, Stand 2026-04-01 grün)
 ```
 
 ---
@@ -24,9 +24,9 @@
 Alle Tests liegen in `src/RomCleanup.Tests/` (xUnit, 200+ Testdateien, inkl. Unterordner `Benchmark/` und `Conversion/`).
 Die folgende Übersicht ist thematisch gruppiert; Datei- und Fallzahlen ändern sich regelmäßig.
 
-### 2.0 Foundation- und Productization-Matrix 2026-04-01
+### 2.0 Foundation-, Productization- und Reach-Matrix 2026-04-01
 
-Die Foundation- und Productization-Erweiterungen fuer Collection-Index, Guided Workflows, Frontend-Export, Profile und Trend-/Diff-Pfade werden zusaetzlich gezielt ueber folgende Schwerpunktdateien abgesichert:
+Die Foundation-, Productization- und Reach-Erweiterungen fuer Collection-Index, Guided Workflows, Frontend-Export, Profile, Trend-/Diff-Pfade, Headless-Betrieb und Reach-Conversion werden zusaetzlich gezielt ueber folgende Schwerpunktdateien abgesichert:
 
 | Datei | Zweck |
 |---|---|
@@ -41,6 +41,10 @@ Die Foundation- und Productization-Erweiterungen fuer Collection-Index, Guided W
 | `WpfProductizationTests.cs` | WPF-Kataloge, gemeinsame Materialisierung, Profil Save/Load, Wizard-Bindings |
 | `CliProductizationTests.cs` | CLI-Usage und Produktisierungs-Subcommands |
 | `OpenApiProductizationTests.cs` | OpenAPI-Vertrag fuer Profile, Workflows, Compare/Trends und Frontend-Export |
+| `ApiReachIntegrationTests.cs` | Dashboard-Bootstrap, AllowedRoots, Remote-Startup-Regeln und Headless-API-Flows |
+| `OpenApiReachTests.cs` | OpenAPI-Vertrag fuer Dashboard-/Reach-Endpunkte |
+| `ReachConversionTests.cs` | Compound-NKit-Planung und Review-Gating in der Conversion-Pipeline |
+| `ReachInvokerTests.cs` | `EcmInvoker`/`NkitInvoker` Tool-Aufrufe und Output-Verifikation |
 
 ### 2.1 Core-/Engine-Tests (17 Dateien)
 

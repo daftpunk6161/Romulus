@@ -9,20 +9,20 @@ Die Detailarbeit wird in den verlinkten Release-Plaenen verfolgt.
 
 - [x] R1 Foundation
 - [x] R2 Productization
-- [ ] R3 Reach
+- [x] R3 Reach
 
 ## Abhaengigkeiten
 
 - [x] R1 ist Grundlage fuer R2
 - [x] R1 ist Grundlage fuer R3
-- [ ] R2 kann nur teilweise parallel zu R3 laufen
-- [ ] Conversion-Erweiterungen laufen erst nach gesichertem Review-, Verify- und Rollback-Pfad
+- [x] R2 kann nur teilweise parallel zu R3 laufen
+- [x] Conversion-Erweiterungen laufen erst nach gesichertem Review-, Verify- und Rollback-Pfad
 
 ## Release-Plaene
 
 - [x] [R1 Foundation Execution](r1-foundation-execution.md)
 - [x] [R2 Productization Execution](r2-productization-execution.md)
-- [ ] [R3 Reach Execution](r3-reach-execution.md)
+- [x] [R3 Reach Execution](r3-reach-execution.md)
 
 ## Aktuelle Prioritaet
 
@@ -62,6 +62,24 @@ Die Detailarbeit wird in den verlinkten Release-Plaenen verfolgt.
   Persistierte Run-Historie treibt Compare-, Trend- und Storage-Insights in GUI, CLI und API.
 - [x] R2-T10 Regressionstest-Matrix fuer Wizard, Export und Profile erweitern
   Vollsuite grün: `7133/7133` Tests auf Stand `2026-04-01`.
+- [x] R3-T01 Dashboard-Architektur und Sicherheitsrahmen festziehen
+  Headless-Remote-Modus erzwingt HTTPS-`PublicBaseUrl`, API-Key und `AllowedRoots`; Dashboard bleibt API-only.
+- [x] R3-T02 Embedded Dashboard Shell und Auth-Bootstrap umsetzen
+  Statische Dashboard-Shell wird direkt aus `RomCleanup.Api` ausgeliefert und nutzt nur bestehende API-Pfade plus `bootstrap/summary`.
+- [x] R3-T03 Run-Management und Live-Progress ueber API anbinden
+  Browser-Run-Start, Status, Cancel und SSE-Live-Progress laufen ueber dieselbe Run-Wahrheit wie CLI und GUI.
+- [x] R3-T04 DAT-Status, Review-Queue und Completeness im Dashboard bereitstellen
+  Dashboard liest DAT-, Review- und Completeness-Daten aus denselben API-/Index-/Review-Modellen.
+- [x] R3-T05 Headless-Paketierung und Deployment-Guides bereitstellen
+  Dockerfile, Compose, Caddy-Beispiel und Headless-Guide sind im Repo dokumentiert.
+- [x] R3-T06 Headless-spezifische API-Haertung abschliessen
+  AllowedRoots, Remote-Startup-Validierung und Reach-OpenAPI-/API-Regressionen sind verdrahtet.
+- [x] R3-T07 ECM- und NKit-Sicherheitsmodell sowie Tooling vorbereiten
+  `EcmInvoker`/`NkitInvoker`, Compound-Extension-Erkennung und fail-closed Tool-Hash-Checks sind implementiert.
+- [x] R3-T08 ECM- und NKit-Pipeline mit Review, Verify und Rollback integrieren
+  Review-pflichtige Multi-Step-Conversion ist in Planner/Executor/Orchestrator integriert.
+- [x] R3-T09 Integrations- und Negativtests fuer Headless und Conversion-Erweiterung vervollstaendigen
+  Vollsuite grün: `7145/7145` Tests auf Stand `2026-04-01`.
 
 ## Parked
 

@@ -46,7 +46,7 @@ public sealed class ConversionExecutorHardeningTests
                 ]
             };
 
-            var executor = new ConversionExecutor([new PassThroughInvoker()]);
+            var executor = new ConversionExecutor([new PassThroughInvoker()], allowReviewRequiredPlans: true);
             var result = executor.Execute(plan);
 
             Assert.Equal(ConversionOutcome.Error, result.Outcome);
@@ -74,7 +74,7 @@ public sealed class ConversionExecutorHardeningTests
                 SourcePath = source,
                 ConsoleKey = "PSP",
                 Policy = ConversionPolicy.Auto,
-                SourceIntegrity = SourceIntegrity.Lossy,
+                SourceIntegrity = SourceIntegrity.Lossless,
                 Safety = ConversionSafety.Acceptable,
                 Steps =
                 [
@@ -97,7 +97,7 @@ public sealed class ConversionExecutorHardeningTests
                 ]
             };
 
-            var executor = new ConversionExecutor([new ThrowOnCommandInvoker("throw")]);
+            var executor = new ConversionExecutor([new ThrowOnCommandInvoker("throw")], allowReviewRequiredPlans: true);
             var result = executor.Execute(plan);
 
             Assert.Equal(ConversionOutcome.Error, result.Outcome);
@@ -143,7 +143,7 @@ public sealed class ConversionExecutorHardeningTests
                 ]
             };
 
-            var executor = new ConversionExecutor([new PassThroughInvoker()]);
+            var executor = new ConversionExecutor([new PassThroughInvoker()], allowReviewRequiredPlans: true);
             var result = executor.Execute(plan);
 
             Assert.Equal(ConversionOutcome.Error, result.Outcome);
@@ -167,7 +167,7 @@ public sealed class ConversionExecutorHardeningTests
         try
         {
             var plan = BuildPlan(source);
-            var executor = new ConversionExecutor([new PassThroughInvoker()]);
+            var executor = new ConversionExecutor([new PassThroughInvoker()], allowReviewRequiredPlans: true);
 
             var result = executor.Execute(plan);
 
@@ -222,7 +222,7 @@ public sealed class ConversionExecutorHardeningTests
                 SourcePath = source,
                 ConsoleKey = "PSP",
                 Policy = ConversionPolicy.Auto,
-                SourceIntegrity = SourceIntegrity.Lossy,
+                SourceIntegrity = SourceIntegrity.Lossless,
                 Safety = ConversionSafety.Acceptable,
                 Steps =
                 [
@@ -245,7 +245,7 @@ public sealed class ConversionExecutorHardeningTests
                 ]
             };
 
-            var executor = new ConversionExecutor([new PassThroughInvoker()]);
+            var executor = new ConversionExecutor([new PassThroughInvoker()], allowReviewRequiredPlans: true);
             var result = executor.Execute(plan);
 
             Assert.Equal(ConversionOutcome.Success, result.Outcome);
@@ -343,7 +343,7 @@ public sealed class ConversionExecutorHardeningTests
                 SourcePath = source,
                 ConsoleKey = "PSP",
                 Policy = ConversionPolicy.Auto,
-                SourceIntegrity = SourceIntegrity.Lossy,
+                SourceIntegrity = SourceIntegrity.Lossless,
                 Safety = ConversionSafety.Acceptable,
                 Steps =
                 [

@@ -12,7 +12,7 @@ Ziel: Die bestehende lokale Plattform sicher auf Headless-, NAS- und Non-Windows
 
 ## Tickets
 
-### [ ] R3-T01 Dashboard-Architektur und Sicherheitsrahmen festziehen
+### [x] R3-T01 Dashboard-Architektur und Sicherheitsrahmen festziehen
 
 Ziel: Vor UI-Implementierung klar definieren, welche API-Contracts, Auth- und Deployment-Regeln gelten.
 
@@ -29,7 +29,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R1 abgeschlossen
 
-### [ ] R3-T02 Embedded Dashboard Shell und Auth-Bootstrap umsetzen
+Stand:
+- `HeadlessApiOptions` erzwingt fuer Remote-Betrieb API-Key, HTTPS-`PublicBaseUrl`, `AllowRemoteClients` und `AllowedRoots`
+- Dashboard bleibt an die bestehende API gebunden; Read-Modelle sind auf `bootstrap` und `summary` begrenzt
+- Root-Containment wird fuer Run, Export, DAT, Convert und Rollback zentral geprueft
+
+### [x] R3-T02 Embedded Dashboard Shell und Auth-Bootstrap umsetzen
 
 Ziel: Ein minimales, deploybares Frontend bereitstellen, das ohne zweiten Produkt-Stack auskommt.
 
@@ -45,7 +50,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R3-T01
 
-### [ ] R3-T03 Run-Management und Live-Progress ueber API anbinden
+Stand:
+- Embedded Static Files unter `src/RomCleanup.Api/wwwroot/dashboard`
+- anonymer Bootstrap via `/dashboard/bootstrap`
+- API-Key-Connect-Flow, Run-Liste, DAT-Status und Detail-Panels ohne zweiten Frontend-Stack
+
+### [x] R3-T03 Run-Management und Live-Progress ueber API anbinden
 
 Ziel: Runs im Browser starten, beobachten und auswerten koennen.
 
@@ -61,7 +71,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R3-T02
 
-### [ ] R3-T04 DAT-Status, Review-Queue und Completeness im Dashboard bereitstellen
+Stand:
+- Dashboard startet Runs, zeigt Verlauf und nutzt `/runs/{id}/stream` fuer Live-Progress
+- Run-Details, Cancel und Ergebnisdarstellung basieren auf bestehenden Run-Endpunkten
+- API-/CLI-/GUI-Paritaet bleibt ueber dieselben RunModelle gewahrt
+
+### [x] R3-T04 DAT-Status, Review-Queue und Completeness im Dashboard bereitstellen
 
 Ziel: Die wichtigsten operativen Oberflaechen fuer Headless-Nutzung verfuegbar machen.
 
@@ -79,7 +94,12 @@ Abhaengigkeiten:
 - R1-T06
 - R3-T03
 
-### [ ] R3-T05 Headless-Paketierung und Deployment-Guides bereitstellen
+Stand:
+- Dashboard-Read-Model zeigt DAT-Status, Review-Queue und Completeness aus den bestehenden API-Pfaden
+- Approvals laufen ueber denselben persistierten Review-Store wie GUI und CLI
+- keine separate Dashboard-Berechnungslogik fuer Completeness oder Review
+
+### [x] R3-T05 Headless-Paketierung und Deployment-Guides bereitstellen
 
 Ziel: Sicheren Betrieb auf NAS, Servern und ueber Reverse Proxy reproduzierbar machen.
 
@@ -96,7 +116,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R3-T01
 
-### [ ] R3-T06 Headless-spezifische API-Haertung abschliessen
+Stand:
+- Dockerfile, Compose-Stack und Caddy-Beispiel liegen unter `deploy/docker`
+- [HEADLESS_DEPLOYMENT.md](../docs/guides/HEADLESS_DEPLOYMENT.md) dokumentiert Volumes, AllowedRoots, Reverse Proxy und Betriebschecks
+- Container-Image nutzt `.portable` fuer einen klaren persistenten Indexpfad
+
+### [x] R3-T06 Headless-spezifische API-Haertung abschliessen
 
 Ziel: Den sicheren Betrieb ausserhalb von Loopback-Only sauber absichern.
 
@@ -112,7 +137,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R3-T01
 
-### [ ] R3-T07 ECM- und NKit-Sicherheitsmodell sowie Tooling vorbereiten
+Stand:
+- Nicht-Loopback-Betrieb ist explizit opt-in
+- Root-Allowlist wird fuer mutierende Pfade und Downloads durchgezogen
+- OpenAPI und API-Integration decken Remote-/AllowedRoots-Regeln mit Negativfaellen ab
+
+### [x] R3-T07 ECM- und NKit-Sicherheitsmodell sowie Tooling vorbereiten
 
 Ziel: Vor jeder Format-Erweiterung die Sicherheits-, Verifikations- und Tool-Vertraege festziehen.
 
@@ -130,7 +160,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R1 abgeschlossen
 
-### [ ] R3-T08 ECM- und NKit-Pipeline mit Review, Verify und Rollback integrieren
+Stand:
+- `EcmInvoker` und `NkitInvoker` sind an den zentralen ToolRunner mit Timeout, Exit-Code und Hash-Pruefung angebunden
+- `NKitProcessingApp.exe` ist gepinnt; `unecm.exe` bleibt fail-closed ohne hinterlegten Hash
+- Compound Extensions `.nkit.iso` und `.nkit.gcz` werden zentral erkannt
+
+### [x] R3-T08 ECM- und NKit-Pipeline mit Review, Verify und Rollback integrieren
 
 Ziel: Nur kontrollierte, nachvollziehbare Erweiterungen in die Conversion-Pipeline aufnehmen.
 
@@ -148,7 +183,12 @@ Akzeptanz:
 Abhaengigkeiten:
 - R3-T07
 
-### [ ] R3-T09 Integrations- und Negativtests fuer Headless und Conversion-Erweiterung vervollstaendigen
+Stand:
+- NKit/ECM laufen ueber `ConversionPlanner`/`ConversionExecutor` in Preview, Execute und Report
+- review-pflichtige Conversion-Plans bleiben ohne explizite Freigabe blockiert
+- Verify, Intermediate-Cleanup und Source-Schutz bleiben auf der bestehenden Conversion-Pipeline
+
+### [x] R3-T09 Integrations- und Negativtests fuer Headless und Conversion-Erweiterung vervollstaendigen
 
 Ziel: Die Reichweiten-Erweiterung gegen Deployment-, Security- und Datenintegritaetsfehler absichern.
 
@@ -166,9 +206,14 @@ Abhaengigkeiten:
 - R3-T06
 - R3-T08
 
+Stand:
+- `ApiReachIntegrationTests` deckt Dashboard-, AllowedRoots- und Remote-Startup-Pfade ab
+- `OpenApiReachTests` sichert Reach-Vertraege im Spec
+- `ReachConversionTests` und `ReachInvokerTests` decken Compound-NKit, Review-Blockierung und Tool-Aufrufe ab
+
 ## Release-Exit
 
-- [ ] Web-Dashboard nutzt ausschliesslich die bestehende API als fachliche Quelle
-- [ ] Headless-Betrieb ist dokumentiert, paketierbar und sicher abgesichert
-- [ ] ECM/NKit bleibt review-pflichtig, verifizierbar und rollback-sicher
-- [ ] Headless- und Conversion-Regressionstests sind vorhanden
+- [x] Web-Dashboard nutzt ausschliesslich die bestehende API als fachliche Quelle
+- [x] Headless-Betrieb ist dokumentiert, paketierbar und sicher abgesichert
+- [x] ECM/NKit bleibt review-pflichtig, verifizierbar und rollback-sicher
+- [x] Headless- und Conversion-Regressionstests sind vorhanden

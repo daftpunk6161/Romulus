@@ -1,0 +1,40 @@
+services:
+  romulus-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/api/Dockerfile
+    image: romulus-api:local
+    restart: unless-stopped
+    environment:
+      ROM_CLEANUP_API_KEY: ${ROMULUS_API_KEY:?set ROMULUS_API_KEY}
+      AllowRemoteClients: "true"
+      PublicBaseUrl: ${ROMULUS_PUBLIC_BASE_URL:?set ROMULUS_PUBLIC_BASE_URL}
+      BindAddress: "0.0.0.0"
+      Port: "7878"
+      DashboardEnabled: "true"
+      AllowedRoots__0: "/srv/romulus/roms"
+      AllowedRoots__1: "/srv/romulus/exports"
+      TrustForwardedFor: "false"
+      RateLimitRequests: "120"
+      RateLimitWindowSeconds: "60"
+      SseTimeoutSeconds: "300"
+      SseHeartbeatSeconds: "15"
+    ports:
+      - "127.0.0.1:7878:7878"
+    volumes:
+      - romulus_index:/app/.romcleanup
+      - romulus_profiles:/root/.config/RomCleanupRegionDedupe
+      - type: bind
+        source: /srv/romulus/roms
+        target: /srv/romulus/roms
+        read_only: true
+      - type: bind
+        source: /srv/romulus/exports
+        target: /srv/romulus/exports
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  romulus_index:
+  romulus_profiles:

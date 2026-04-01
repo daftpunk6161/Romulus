@@ -1,5 +1,7 @@
 # C7: Web-Dashboard
 
+Status: geliefert am 2026-04-01
+
 ## Problem
 
 Die GUI ist Windows-only (WPF). NAS-Benutzer und Linux/Mac-Nutzer haben keinen
@@ -10,24 +12,22 @@ Zugang zu einer visuellen Oberflaeche. Die API existiert bereits, hat aber kein 
 Leichtgewichtiges Web-Frontend ueber die bestehende REST-API.
 Docker-kompatibel fuer NAS-Deployment.
 
-### Technologie-Entscheidung
+### Umgesetzte Architektur
 
-**Option A: Embedded Static Files (empfohlen)**
+**Embedded Static Files**
 - Vanilla HTML/CSS/JS oder Preact/Alpine.js
-- Statische Dateien eingebettet in ASP.NET Binary
+- Statische Dateien unter `src/RomCleanup.Api/wwwroot/dashboard`
 - Kein separater Build-Step, kein Node.js noetig
-- Kleine Bundle-Size (< 500 KB)
-
-**Option B: Separate SPA**
-- React/Vue/Svelte
-- Separater Build-Step
-- Groessere Bundle, mehr Flexibilitaet
+- Dashboard nutzt nur bestehende API-Endpunkte plus:
+  - `GET /dashboard/bootstrap`
+  - `GET /dashboard/summary`
+- Keine serverseitige KPI- oder Status-Schattenlogik ausserhalb der bestehenden Run-/Index-/DAT-Wahrheit
 
 ### Feature-Scope (MVP)
 
 1. **Dashboard** — Sammlungsueberblick
-   - Health-Score, Storage-Nutzung, letzte Runs
-   - Console-Verteilung (Chart)
+   - letzte Runs, aktiver Run, Trend- und DAT-Zustand
+   - Bootstrap fuer AllowedRoots, Remote-Flags und Dashboard-Pfad
 
 2. **Run-Management** — Runs starten/ueberwachen
    - Konfiguration (Roots, Mode, Options)
@@ -46,43 +46,26 @@ Docker-kompatibel fuer NAS-Deployment.
    - Tabelle mit Fortschrittsbalken
    - Missing-Games-Liste
 
-### Docker-Setup
+### Deployment-Stand
 
-```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
-COPY publish/ /app/
-WORKDIR /app
-EXPOSE 7878
-ENTRYPOINT ["dotnet", "RomCleanup.Api.dll"]
-```
-
-```yaml
-# docker-compose.yml
-services:
-  romulus:
-    image: romulus:latest
-    ports:
-      - "7878:7878"
-    volumes:
-      - /mnt/roms:/data/roms:ro
-      - /mnt/config:/app/config
-    environment:
-      - ROM_CLEANUP_API_KEY=your-key-here
-      - BindAddress=0.0.0.0
-```
+- Dockerfile: [deploy/docker/api/Dockerfile](../../deploy/docker/api/Dockerfile)
+- Compose-Beispiel: [deploy/docker/docker-compose.headless.yml](../../deploy/docker/docker-compose.headless.yml)
+- Reverse-Proxy-Beispiel: [deploy/docker/caddy/Caddyfile](../../deploy/docker/caddy/Caddyfile)
+- Betriebsleitfaden: [docs/guides/HEADLESS_DEPLOYMENT.md](../guides/HEADLESS_DEPLOYMENT.md)
 
 ### Sicherheit
 
 - HTTPS-Terminierung via Reverse Proxy (nginx/Caddy/Traefik)
-- API-Key wird ueber UI-Login-Flow gesetzt
-- CORS auf Dashboard-Origin einschraenken
+- API-Key wird ueber den Dashboard-Connect-Flow gesetzt und nie anonym umgangen
+- CORS wird im Remote-Modus aus `PublicBaseUrl` abgeleitet
+- `AllowedRoots` erzwingt Root-Containment auch fuer Export, DAT, Convert und Rollback
 - Rate-Limiting bleibt aktiv
 
 ### API-Erweiterungen
 
 - `GET /dashboard/summary` — Aggregierte Sammlungsdaten
-- `GET /dashboard/charts/consoles` — Console-Verteilungsdaten
-- Bestehende Endpoints reichen fuer MVP aus
+- `GET /dashboard/bootstrap` — anonyme Dashboard-Metadaten
+- Bestehende Endpoints tragen Run-, Review-, DAT- und Completeness-Flows
 
 ## Abhaengigkeiten
 
@@ -96,9 +79,8 @@ services:
 - Docker: Pfad-Mapping und Berechtigungen auf NAS-Systemen
 - Non-loopback Binding erfordert HTTPS → Dokumentation noetig
 
-## Testplan
+## Teststand
 
-- Unit: API-Endpunkt-Tests (bereits vorhanden)
-- Integration: Docker-Build → Start → API-Zugriff
-- E2E: Browser-Tests fuer kritische Flows
-- Edge: Langsame Verbindungen, SSE-Reconnect, API-Key-Rotation
+- `ApiReachIntegrationTests`
+- `OpenApiReachTests`
+- Vollsuite auf Stand 2026-04-01
