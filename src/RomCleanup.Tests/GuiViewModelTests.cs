@@ -3078,6 +3078,25 @@ public class GuiViewModelTests
     }
 
     [Fact]
+    public void DirectoryPath_ProtectedPath_HasBlockingError()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var protectedPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(protectedPath))
+            return;
+
+        var vm = new MainViewModel();
+        vm.TrashRoot = protectedPath;
+
+        Assert.True(vm.HasBlockingValidationErrors);
+        var errors = vm.GetErrors(nameof(vm.TrashRoot)).Cast<string>().ToList();
+        Assert.Single(errors);
+        Assert.Contains("protected", errors[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ErrorsChanged_FiredOnInvalidPath()
     {
         var vm = new MainViewModel();

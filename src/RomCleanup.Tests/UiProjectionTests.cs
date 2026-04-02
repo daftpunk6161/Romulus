@@ -181,6 +181,56 @@ public sealed class UiProjectionTests
     }
 
     [Fact]
+    public void DashboardProjection_FailedRunAfterDedupe_MarksTopStatsAsProvisional()
+    {
+        var result = new RunResult
+        {
+            Status = "failed",
+            TotalFilesScanned = 2,
+            DurationMs = 1500,
+            DedupeGroups =
+            [
+                new DedupeGroup
+                {
+                    GameKey = "g1",
+                    Winner = new RomCandidate { MainPath = "winner.zip", Region = "US", RegionScore = 10, FormatScore = 10, VersionScore = 10 },
+                    Losers = [new RomCandidate { MainPath = "loser.zip", Region = "EU", RegionScore = 9, FormatScore = 9, VersionScore = 9 }]
+                }
+            ],
+            AllCandidates =
+            [
+                new RomCandidate { MainPath = "winner.zip", Category = FileCategory.Game, DatMatch = true, ConsoleKey = "psx" },
+                new RomCandidate { MainPath = "loser.zip", Category = FileCategory.Game, DatMatch = false, ConsoleKey = "psx" }
+            ]
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: false);
+
+        Assert.Contains("vorläufig", dashboard.Winners, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("vorläufig", dashboard.Dupes, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("vorläufig", dashboard.MoveConsequenceText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DashboardProjection_ConsoleDistribution_TieBreaksByConsoleKey()
+    {
+        var result = new RunResult
+        {
+            AllCandidates =
+            [
+                new RomCandidate { MainPath = "a.zip", Category = FileCategory.Game, ConsoleKey = "SNES" },
+                new RomCandidate { MainPath = "b.zip", Category = FileCategory.Game, ConsoleKey = "PS1" }
+            ]
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: false);
+
+        Assert.Equal(["PS1", "SNES"], dashboard.ConsoleDistribution.Select(item => item.ConsoleKey).ToArray());
+    }
+
+    [Fact]
     public void DashboardProjection_DryRun_ShowsPlanMarker()
     {
         var result = new RunResult

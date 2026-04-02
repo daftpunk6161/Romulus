@@ -451,7 +451,7 @@ public static class CollectionMergeService
             rootPath,
             source.Path,
             targetPath,
-            entry.Decision == CollectionMergeDecision.CopyToTarget ? "COPY_PENDING" : "MOVE_PENDING",
+            entry.Decision == CollectionMergeDecision.CopyToTarget ? RunConstants.AuditActions.CopyPending : RunConstants.AuditActions.MovePending,
             category,
             hash,
             entry.ReasonCode + ":pending");

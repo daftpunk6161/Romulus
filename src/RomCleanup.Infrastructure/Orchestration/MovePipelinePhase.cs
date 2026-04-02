@@ -23,11 +23,13 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         if (hasAuditPath)
         {
             context.AuditStore.Flush(input.Options.AuditPath!);
-            context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
-            {
+            context.AuditStore.WriteMetadataSidecar(
+                input.Options.AuditPath!,
+                RomCleanup.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(input.Options, new Dictionary<string, object>
+                {
                 ["PreMoveCheckpoint"] = true,
                 ["MoveCount"] = 0
-            });
+                }));
             sidecarPrimed = true;
         }
 
@@ -93,7 +95,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                 if (hasAuditPath)
                 {
                     context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, loser.MainPath, destPath,
-                        "MOVE_PENDING", loser.Category.ToString().ToUpperInvariant(), "", "region-dedupe:write-ahead");
+                        RunConstants.AuditActions.MovePending, loser.Category.ToString().ToUpperInvariant(), "", "region-dedupe:write-ahead");
                     context.AuditStore.Flush(input.Options.AuditPath!);
                 }
 
@@ -173,7 +175,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                         if (hasAuditPath)
                         {
                             context.AuditStore.AppendAuditRow(input.Options.AuditPath!, root, plannedMemberMove.SourcePath, plannedMemberMove.DestPath,
-                                "MOVE_PENDING", "SET_MEMBER", "", "region-dedupe:set-member:write-ahead");
+                                RunConstants.AuditActions.MovePending, "SET_MEMBER", "", "region-dedupe:set-member:write-ahead");
                             context.AuditStore.Flush(input.Options.AuditPath!);
                         }
 
@@ -233,11 +235,13 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                         if (moveCount % 10 == 0 && hasAuditPath)
                         {
                             context.AuditStore.Flush(input.Options.AuditPath!);
-                            context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
-                            {
+                            context.AuditStore.WriteMetadataSidecar(
+                                input.Options.AuditPath!,
+                                RomCleanup.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(input.Options, new Dictionary<string, object>
+                                {
                                 ["IncrementalFlush"] = true,
                                 ["MoveCount"] = moveCount
-                            });
+                                }));
                         }
                     }
                 }
@@ -260,13 +264,15 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         if (hasAuditPath && sidecarPrimed)
         {
             context.AuditStore.Flush(input.Options.AuditPath!);
-            context.AuditStore.WriteMetadataSidecar(input.Options.AuditPath!, new Dictionary<string, object>
-            {
+            context.AuditStore.WriteMetadataSidecar(
+                input.Options.AuditPath!,
+                RomCleanup.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(input.Options, new Dictionary<string, object>
+                {
                 ["FinalCheckpoint"] = true,
                 ["MoveCount"] = moveCount,
                 ["SkipCount"] = skipCount,
                 ["FailCount"] = failCount
-            });
+                }));
         }
 
         return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount, movedSourcePaths);

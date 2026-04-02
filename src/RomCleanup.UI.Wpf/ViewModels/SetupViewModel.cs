@@ -6,6 +6,7 @@ using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Paths;
+using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using ConflictPolicy = RomCleanup.UI.Wpf.Models.ConflictPolicy;
@@ -543,6 +544,8 @@ public sealed partial class SetupViewModel : ObservableObject, INotifyDataErrorI
     {
         if (string.IsNullOrWhiteSpace(value))
             ClearError(propertyName);
+        else if (RunProfileValidator.ValidateOptionalSafePath(value, propertyName) is { } safetyError)
+            SetError(propertyName, safetyError);
         else if (!Directory.Exists(value))
             SetError(propertyName, _loc["Error.DirNotFound"]);
         else

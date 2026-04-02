@@ -121,24 +121,34 @@ public static partial class RunProfileValidator
         return errors;
     }
 
-    private static string? ValidateOptionalSafePath(string? path, string label)
+    public static string? ValidateOptionalSafePath(string? path, string label)
     {
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
+        var trimmed = path.Trim();
+        if (trimmed.StartsWith("\\\\", StringComparison.Ordinal))
+            return $"{label} must not be a UNC path.";
+
+        var normalized = SafetyValidator.NormalizePath(trimmed);
+        if (normalized is null)
+            return $"{label} is invalid.";
+
+        if (SafetyValidator.IsProtectedSystemPath(normalized))
+            return $"{label} points to a protected system path.";
+
+        if (SafetyValidator.IsDriveRoot(normalized))
+            return $"{label} must not point to a drive root.";
+
         try
         {
-            var fullPath = Path.GetFullPath(path.Trim());
-            if (fullPath.StartsWith("\\\\", StringComparison.Ordinal))
-                return $"{label} must not be a UNC path.";
-
-            if (SafetyValidator.IsProtectedSystemPath(fullPath))
-                return $"{label} points to a protected system path.";
-
-            if (SafetyValidator.IsDriveRoot(fullPath))
-                return $"{label} must not point to a drive root.";
+            _ = SafetyValidator.EnsureSafeOutputPath(trimmed, allowUnc: false);
         }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        catch (InvalidOperationException ex) when (ex.Message.Contains("reparse-point", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{label} must not target a reparse point.";
+        }
+        catch (InvalidOperationException ex)
         {
             return $"{label} is invalid: {ex.Message}";
         }

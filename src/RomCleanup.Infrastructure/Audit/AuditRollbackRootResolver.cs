@@ -14,24 +14,24 @@ public static class AuditRollbackRootResolver
 
         var restoreRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var currentRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var csvRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         TryReadMetadataRoots(auditCsvPath, "AllowedRestoreRoots", restoreRoots);
         TryReadMetadataRoots(auditCsvPath, "AllowedCurrentRoots", currentRoots);
 
-        if (restoreRoots.Count == 0 && currentRoots.Count == 0)
+        foreach (var root in DeriveRootsFromAuditCsv(auditCsvPath))
+            csvRoots.Add(root);
+
+        if (restoreRoots.Count == 0)
         {
-            foreach (var root in DeriveRootsFromAuditCsv(auditCsvPath))
-            {
+            foreach (var root in csvRoots)
                 restoreRoots.Add(root);
-                currentRoots.Add(root);
-            }
         }
-        else
+
+        if (currentRoots.Count == 0)
         {
-            foreach (var root in restoreRoots)
+            foreach (var root in csvRoots)
                 currentRoots.Add(root);
-            foreach (var root in currentRoots)
-                restoreRoots.Add(root);
         }
 
         return new AuditRollbackRootSet(

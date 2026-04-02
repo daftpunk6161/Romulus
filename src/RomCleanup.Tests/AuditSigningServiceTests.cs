@@ -269,6 +269,185 @@ public sealed class AuditSigningServiceTests : IDisposable
     }
 
     [Fact]
+    public void Rollback_ConvertAction_KeepsTarget_WhenSourceRestoreCollides()
+    {
+        var root = Path.Combine(_tempDir, "convert-collision-root");
+        var trashDir = Path.Combine(root, "_TRASH_CONVERTED");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(trashDir);
+
+        var originalSourcePath = Path.Combine(root, "game.zip");
+        var trashedSourcePath = Path.Combine(trashDir, "game.zip");
+        var convertedTargetPath = Path.Combine(root, "game.chd");
+        File.WriteAllText(originalSourcePath, "existing-original");
+        File.WriteAllText(trashedSourcePath, "trashed-source");
+        File.WriteAllText(convertedTargetPath, "converted-bytes");
+
+        var csvPath = Path.Combine(_tempDir, "audit_convert_collision.csv");
+        File.WriteAllText(
+            csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{root},{originalSourcePath},{convertedTargetPath},CONVERT\n" +
+            $"{root},{originalSourcePath},{trashedSourcePath},CONVERT_SOURCE\n",
+            Encoding.UTF8);
+
+        var service = new AuditSigningService(new MinimalFs());
+        service.WriteMetadataSidecar(csvPath, 2);
+
+        var result = service.Rollback(
+            csvPath,
+            allowedRestoreRoots: [root],
+            allowedCurrentRoots: [root],
+            dryRun: false);
+
+        Assert.Equal(2, result.EligibleRows);
+        Assert.Equal(1, result.SkippedCollision);
+        Assert.Equal(0, result.RolledBack);
+        Assert.True(File.Exists(originalSourcePath));
+        Assert.True(File.Exists(trashedSourcePath));
+        Assert.True(File.Exists(convertedTargetPath));
+    }
+
+    [Fact]
+    public void Rollback_ConvertAction_KeepsTarget_WhenTrashedSourceMissing()
+    {
+        var root = Path.Combine(_tempDir, "convert-missing-root");
+        var trashDir = Path.Combine(root, "_TRASH_CONVERTED");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(trashDir);
+
+        var originalSourcePath = Path.Combine(root, "game.zip");
+        var trashedSourcePath = Path.Combine(trashDir, "game.zip");
+        var convertedTargetPath = Path.Combine(root, "game.chd");
+        File.WriteAllText(convertedTargetPath, "converted-bytes");
+
+        var csvPath = Path.Combine(_tempDir, "audit_convert_missing.csv");
+        File.WriteAllText(
+            csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{root},{originalSourcePath},{convertedTargetPath},CONVERT\n" +
+            $"{root},{originalSourcePath},{trashedSourcePath},CONVERT_SOURCE\n",
+            Encoding.UTF8);
+
+        var service = new AuditSigningService(new MinimalFs());
+        service.WriteMetadataSidecar(csvPath, 2);
+
+        var result = service.Rollback(
+            csvPath,
+            allowedRestoreRoots: [root],
+            allowedCurrentRoots: [root],
+            dryRun: false);
+
+        Assert.Equal(2, result.EligibleRows);
+        Assert.Equal(1, result.Failed);
+        Assert.Equal(1, result.SkippedMissingDest);
+        Assert.Equal(0, result.RolledBack);
+        Assert.False(File.Exists(originalSourcePath));
+        Assert.True(File.Exists(convertedTargetPath));
+    }
+
+    [Fact]
+    public void Rollback_MovePendingOnly_RestoresMovedFile()
+    {
+        var restoreDir = Path.Combine(_tempDir, "pending-restore");
+        var currentDir = Path.Combine(_tempDir, "pending-current");
+        Directory.CreateDirectory(restoreDir);
+        Directory.CreateDirectory(currentDir);
+
+        var oldPath = Path.Combine(restoreDir, "game.zip");
+        var newPath = Path.Combine(currentDir, "game.zip");
+        File.WriteAllText(newPath, "data");
+
+        var csvPath = Path.Combine(_tempDir, "audit_move_pending.csv");
+        File.WriteAllText(csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{restoreDir},{oldPath},{newPath},MOVE_PENDING\n",
+            Encoding.UTF8);
+
+        var service = new AuditSigningService(new MinimalFs());
+        service.WriteMetadataSidecar(csvPath, 1);
+
+        var result = service.Rollback(
+            csvPath,
+            allowedRestoreRoots: [restoreDir],
+            allowedCurrentRoots: [currentDir],
+            dryRun: false);
+
+        Assert.Equal(1, result.EligibleRows);
+        Assert.Equal(1, result.RolledBack);
+        Assert.True(File.Exists(oldPath));
+        Assert.False(File.Exists(newPath));
+    }
+
+    [Fact]
+    public void Rollback_MovePending_WithRecordedMoveFailure_DoesNotCreateFalseFailure()
+    {
+        var restoreDir = Path.Combine(_tempDir, "pending-failed-restore");
+        var currentDir = Path.Combine(_tempDir, "pending-failed-current");
+        Directory.CreateDirectory(restoreDir);
+        Directory.CreateDirectory(currentDir);
+
+        var oldPath = Path.Combine(restoreDir, "game.zip");
+        var newPath = Path.Combine(currentDir, "game.zip");
+        File.WriteAllText(oldPath, "source-still-in-place");
+
+        var csvPath = Path.Combine(_tempDir, "audit_move_pending_failed.csv");
+        File.WriteAllText(csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{restoreDir},{oldPath},{newPath},MOVE_PENDING\n" +
+            $"{restoreDir},{oldPath},{newPath},MOVE_FAILED\n",
+            Encoding.UTF8);
+
+        var service = new AuditSigningService(new MinimalFs());
+        service.WriteMetadataSidecar(csvPath, 2);
+
+        var result = service.Rollback(
+            csvPath,
+            allowedRestoreRoots: [restoreDir],
+            allowedCurrentRoots: [currentDir],
+            dryRun: false);
+
+        Assert.Equal(0, result.EligibleRows);
+        Assert.Equal(0, result.Failed);
+        Assert.True(File.Exists(oldPath));
+        Assert.False(File.Exists(newPath));
+    }
+
+    [Fact]
+    public void Rollback_CopyPendingOnly_DeletesCopiedTarget()
+    {
+        var restoreDir = Path.Combine(_tempDir, "copy-pending-restore");
+        var currentDir = Path.Combine(_tempDir, "copy-pending-current");
+        Directory.CreateDirectory(restoreDir);
+        Directory.CreateDirectory(currentDir);
+
+        var oldPath = Path.Combine(restoreDir, "game.zip");
+        var newPath = Path.Combine(currentDir, "game.zip");
+        File.WriteAllText(oldPath, "source");
+        File.WriteAllText(newPath, "copy");
+
+        var csvPath = Path.Combine(_tempDir, "audit_copy_pending.csv");
+        File.WriteAllText(csvPath,
+            "RootPath,OldPath,NewPath,Action\n" +
+            $"{restoreDir},{oldPath},{newPath},COPY_PENDING\n",
+            Encoding.UTF8);
+
+        var service = new AuditSigningService(new MinimalFs());
+        service.WriteMetadataSidecar(csvPath, 1);
+
+        var result = service.Rollback(
+            csvPath,
+            allowedRestoreRoots: [restoreDir],
+            allowedCurrentRoots: [currentDir],
+            dryRun: false);
+
+        Assert.Equal(1, result.EligibleRows);
+        Assert.Equal(1, result.RolledBack);
+        Assert.True(File.Exists(oldPath));
+        Assert.False(File.Exists(newPath));
+    }
+
+    [Fact]
     public void Rollback_NonExistentCsv_ReturnsEmpty()
     {
         var fs = new MinimalFs();

@@ -144,7 +144,7 @@ public sealed partial class RunOrchestrator
 
         var auditLines = File.ReadAllLines(options.AuditPath);
         var rowCount = Math.Max(0, auditLines.Length - 1);
-        _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
+        _audit.WriteMetadataSidecar(options.AuditPath, RomCleanup.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(options, new Dictionary<string, object>
         {
             ["RowCount"] = rowCount,
             ["Mode"] = options.Mode,
@@ -163,7 +163,7 @@ public sealed partial class RunOrchestrator
             ["ConsoleSortMoved"] = result.ConsoleSortResult?.Moved ?? 0,
             ["ConsoleSortFailed"] = result.ConsoleSortResult?.Failed ?? 0,
             ["DurationMs"] = elapsedMs
-        });
+        }));
     }
 
     private void WritePartialAuditSidecar(
@@ -194,7 +194,7 @@ public sealed partial class RunOrchestrator
                 System.Text.Encoding.UTF8);
             File.Move(tempAuditPath, options.AuditPath, overwrite: true);
         }
-        _audit.WriteMetadataSidecar(options.AuditPath, new Dictionary<string, object>
+        _audit.WriteMetadataSidecar(options.AuditPath, RomCleanup.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(options, new Dictionary<string, object>
         {
             ["RowCount"] = rowCount,
             ["Mode"] = options.Mode,
@@ -209,7 +209,7 @@ public sealed partial class RunOrchestrator
             ["ConvertedCount"] = result.ConvertedCount,
             ["ConvertErrorCount"] = result.ConvertErrorCount,
             ["DurationMs"] = elapsedMs
-        });
+        }));
     }
 
     private void ExecuteFolderDedupePreview(

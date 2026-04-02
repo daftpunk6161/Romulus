@@ -178,6 +178,24 @@ public class RunManagerTests
     }
 
     [Fact]
+    public async Task Run_PreflightBlocked_UsesBlockedApiStatus()
+    {
+        var mgr = CreateManager();
+        var missingRoot = Path.Combine(Path.GetTempPath(), "romcleanup-missing-" + Guid.NewGuid().ToString("N"));
+
+        var run = mgr.TryCreate(new RunRequest { Roots = new[] { missingRoot }, Mode = "DryRun" }, "DryRun");
+        Assert.NotNull(run);
+
+        await mgr.WaitForCompletion(run!.RunId, 50);
+
+        var completed = mgr.Get(run.RunId);
+        Assert.NotNull(completed);
+        Assert.Equal(ApiRunStatus.Blocked, completed!.Status);
+        Assert.Equal("blocked", completed.Result!.OrchestratorStatus);
+        Assert.Equal(3, completed.Result.ExitCode);
+    }
+
+    [Fact]
     public async Task Run_WithFiles_ProducesResult()
     {
         var mgr = CreateManager();

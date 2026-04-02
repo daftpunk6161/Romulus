@@ -1,5 +1,6 @@
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Profiles;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
@@ -22,6 +23,22 @@ public static class RunOptionsBuilder
         // TASK-159: OnlyGames guard — !OnlyGames && !KeepUnknownWhenOnlyGames is semantically invalid
         if (!options.OnlyGames && !options.KeepUnknownWhenOnlyGames)
             errors.Add("KeepUnknownWhenOnlyGames=false is only valid when OnlyGames=true.");
+
+        var datRootError = RunProfileValidator.ValidateOptionalSafePath(options.DatRoot, "datRoot");
+        if (datRootError is not null)
+            errors.Add(datRootError);
+
+        var trashRootError = RunProfileValidator.ValidateOptionalSafePath(options.TrashRoot, "trashRoot");
+        if (trashRootError is not null)
+            errors.Add(trashRootError);
+
+        var auditPathError = RunProfileValidator.ValidateOptionalSafePath(options.AuditPath, "auditPath");
+        if (auditPathError is not null)
+            errors.Add(auditPathError);
+
+        var reportPathError = RunProfileValidator.ValidateOptionalSafePath(options.ReportPath, "reportPath");
+        if (reportPathError is not null)
+            errors.Add(reportPathError);
 
         return errors;
     }

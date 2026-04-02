@@ -137,7 +137,7 @@ public sealed class RunManager
             RunOutcome.Ok => ApiRunStatus.Completed,
             RunOutcome.CompletedWithErrors => ApiRunStatus.CompletedWithErrors,
             RunOutcome.Cancelled => ApiRunStatus.Cancelled,
-            RunOutcome.Blocked => ApiRunStatus.Failed,
+            RunOutcome.Blocked => ApiRunStatus.Blocked,
             RunOutcome.Failed => ApiRunStatus.Failed,
             _ => result.ExitCode == 0 ? ApiRunStatus.Completed : ApiRunStatus.Failed
         };

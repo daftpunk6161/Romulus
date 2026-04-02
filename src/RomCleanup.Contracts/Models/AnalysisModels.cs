@@ -19,6 +19,25 @@ public sealed record ConversionEstimateResult(
 public sealed record ConversionDetail(
     string FileName, string SourceFormat, string TargetFormat, long SourceBytes, long EstimatedBytes);
 
+/// <summary>Per-console conversion estimate detail.</summary>
+public sealed record ConsoleConversionEstimate(
+    string ConsoleKey,
+    int FileCount,
+    long SourceBytes,
+    long EstimatedBytes,
+    long SavedBytes,
+    double CompressionRatio,
+    IReadOnlyList<ConversionDetail> Details);
+
+/// <summary>Conversion advisor output with console breakdown and actionable recommendations.</summary>
+public sealed record ConversionAdvisorResult(
+    long TotalSourceBytes,
+    long EstimatedTargetBytes,
+    long SavedBytes,
+    double CompressionRatio,
+    IReadOnlyList<ConsoleConversionEstimate> Consoles,
+    IReadOnlyList<string> Recommendations);
+
 /// <summary>Point-in-time collection trend snapshot for historical tracking.</summary>
 public sealed record TrendSnapshot(
     DateTime Timestamp, int TotalFiles, long SizeBytes, int Verified, int Dupes, int Junk, int QualityScore);

@@ -112,9 +112,8 @@ public sealed record DashboardProjection(
             || string.Equals(result.Status, "failed", StringComparison.OrdinalIgnoreCase);
 
         var hasCandidates = (result.AllCandidates?.Count ?? 0) > 0;
-        var hasDedupeGroups = (result.DedupeGroups?.Count ?? 0) > 0;
 
-        return isCancelledOrFailed && hasCandidates && !hasDedupeGroups;
+        return isCancelledOrFailed && hasCandidates;
     }
 
     private static string MarkProvisional(string value, bool isProvisional)
@@ -143,6 +142,8 @@ public sealed record DashboardProjection(
             .GroupBy(c => c.ConsoleKey)
             .Select(g => (Key: g.Key, Count: g.Count()))
             .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Key, StringComparer.Ordinal)
             .Take(20)
             .ToList();
 

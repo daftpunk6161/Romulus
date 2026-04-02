@@ -388,6 +388,25 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
+    [Fact]
+    public void ConversionPipeline_WithConvertibleCandidates_ShowsPerConsoleAdvisorBreakdown()
+    {
+        _sut.RegisterCommands();
+        _vm.LastCandidates =
+        [
+            new RomCandidate { MainPath = "ps1/game1.iso", Extension = ".iso", SizeBytes = 1_000_000, ConsoleKey = "ps1", Category = FileCategory.Game },
+            new RomCandidate { MainPath = "wii/game2.gcz", Extension = ".gcz", SizeBytes = 700_000, ConsoleKey = "wii", Category = FileCategory.Game },
+            new RomCandidate { MainPath = "snes/game3.sfc", Extension = ".sfc", SizeBytes = 200_000, ConsoleKey = "snes", Category = FileCategory.Game }
+        ];
+
+        _vm.FeatureCommands["ConversionPipeline"].Execute(null);
+
+        var shown = Assert.Single(_dialog.ShowTextCalls);
+        Assert.Contains("Einsparung pro Konsole", shown.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ps1", shown.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("wii", shown.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ═══ WINDOW HOST COMMANDS ═══════════════════════════════════════════
 
     [Fact]

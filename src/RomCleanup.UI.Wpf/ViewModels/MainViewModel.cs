@@ -860,8 +860,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     {
         if (string.IsNullOrWhiteSpace(value))
             ClearError(propertyName);
-        else if (!TryNormalizePath(value, out _))
-            SetError(propertyName, "Ungültiger Verzeichnispfad", ValidationSeverity.Blocker);
+        else if (RunProfileValidator.ValidateOptionalSafePath(value, propertyName) is { } safetyError)
+            SetError(propertyName, safetyError, ValidationSeverity.Blocker);
         else if (!Directory.Exists(value))
             SetError(propertyName, "Verzeichnis existiert nicht", ValidationSeverity.Warning);
         else

@@ -378,6 +378,27 @@ public sealed class FeatureServiceTests : IDisposable
         Assert.Equal(900_000, result.TotalSourceBytes);
     }
 
+    [Fact]
+    public void GetConversionAdvisor_MultipleConsoles_ReturnsPerConsoleBreakdownAndRecommendations()
+    {
+        var candidates = new List<RomCandidate>
+        {
+            new() { MainPath = "ps1/game1.iso", Extension = ".iso", SizeBytes = 1_000_000, ConsoleKey = "ps1" },
+            new() { MainPath = "ps1/game2.bin", Extension = ".bin", SizeBytes = 400_000, ConsoleKey = "ps1" },
+            new() { MainPath = "wii/game3.gcz", Extension = ".gcz", SizeBytes = 700_000, ConsoleKey = "wii" },
+            new() { MainPath = "snes/game4.sfc", Extension = ".sfc", SizeBytes = 100_000, ConsoleKey = "snes" }
+        };
+
+        var result = FeatureService.GetConversionAdvisor(candidates);
+
+        Assert.Equal(2, result.Consoles.Count);
+        Assert.Contains(result.Consoles, static item => item.ConsoleKey.Equals("ps1", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Consoles, static item => item.ConsoleKey.Equals("wii", StringComparison.OrdinalIgnoreCase));
+        Assert.True(result.SavedBytes > 0);
+        Assert.NotEmpty(result.Recommendations);
+        Assert.Contains(result.Recommendations, rec => rec.Contains("ps1", StringComparison.OrdinalIgnoreCase));
+    }
+
     // ═══ GetTargetFormat ════════════════════════════════════════════════
 
     [Theory]

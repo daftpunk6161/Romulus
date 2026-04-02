@@ -19,11 +19,48 @@ public sealed partial class FeatureCommandService
     {
         if (_vm.LastCandidates.Count == 0)
         { _vm.AddLog("Erst einen Lauf starten.", "WARN"); return; }
-        var est = FeatureService.GetConversionEstimate(_vm.LastCandidates);
-        _vm.AddLog($"Konvertierungs-Pipeline: {est.Details.Count} Dateien, Ersparnis ~{FeatureService.FormatSize(est.SavedBytes)}", "INFO");
-        _dialog.Info($"Konvertierungs-Pipeline bereit:\n\n{est.Details.Count} Dateien konvertierbar\n" +
-            $"Geschätzte Ersparnis: {FeatureService.FormatSize(est.SavedBytes)}\n\n" +
-            "Aktiviere 'Konvertierung' und starte einen Move-Lauf.", "Konvertierungs-Pipeline");
+        var advisor = FeatureService.GetConversionAdvisor(_vm.LastCandidates);
+        var convertibleFiles = 0;
+        foreach (var item in advisor.Consoles)
+            convertibleFiles += item.FileCount;
+
+        if (convertibleFiles == 0)
+        {
+            _vm.AddLog("Konvertierungs-Advisor: keine konvertierbaren Dateien gefunden.", "INFO");
+            _dialog.Info("Keine konvertierbaren Dateien gefunden.", "Konvertierungs-Advisor");
+            return;
+        }
+
+        _vm.AddLog($"Konvertierungs-Advisor: {convertibleFiles} Dateien, Ersparnis ~{FeatureService.FormatSize(advisor.SavedBytes)}", "INFO");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Konvertierungs-Advisor");
+        sb.AppendLine(new string('=', 56));
+        sb.AppendLine($"Konvertierbare Dateien: {convertibleFiles}");
+        sb.AppendLine($"Gesamtgroesse vorher: {FeatureService.FormatSize(advisor.TotalSourceBytes)}");
+        sb.AppendLine($"Gesamtgroesse nachher: {FeatureService.FormatSize(advisor.EstimatedTargetBytes)}");
+        sb.AppendLine($"Gesamtersparnis: {FeatureService.FormatSize(advisor.SavedBytes)}");
+        sb.AppendLine();
+        sb.AppendLine("Einsparung pro Konsole");
+        sb.AppendLine(new string('-', 56));
+        foreach (var console in advisor.Consoles)
+        {
+            sb.AppendLine(
+                $"{console.ConsoleKey,-14} Dateien: {console.FileCount,3}  Vorher: {FeatureService.FormatSize(console.SourceBytes),9}  Nachher: {FeatureService.FormatSize(console.EstimatedBytes),9}  Sparen: {FeatureService.FormatSize(console.SavedBytes),9}");
+        }
+
+        if (advisor.Recommendations.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Empfehlungen");
+            sb.AppendLine(new string('-', 56));
+            foreach (var recommendation in advisor.Recommendations)
+                sb.AppendLine($"- {recommendation}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Aktiviere 'Konvertierung' und starte einen Move-Lauf.");
+        _dialog.ShowText("Konvertierungs-Advisor", sb.ToString());
     }
 
     private void ConversionVerify()

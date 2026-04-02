@@ -66,7 +66,9 @@ public static class RunConstants
     public static class AuditActions
     {
         public const string Copy = "COPY";
+        public const string CopyPending = "COPY_PENDING";
         public const string Move = "MOVE";
+        public const string MovePending = "MOVE_PENDING";
         public const string Moved = "MOVED";
         public const string MoveFailed = "MOVE_FAILED";
         public const string JunkRemove = "JUNK_REMOVE";

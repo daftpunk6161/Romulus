@@ -47,6 +47,114 @@ public static partial class FeatureService
     }
 
 
+    public static ConversionAdvisorResult GetConversionAdvisor(IReadOnlyList<RomCandidate> candidates)
+    {
+        long totalSource = 0;
+        long totalEstimated = 0;
+        var grouped = new Dictionary<string, List<ConversionDetail>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in candidates)
+        {
+            var ext = candidate.Extension.TrimStart('.').ToLowerInvariant();
+            var target = GetTargetFormat(ext);
+            if (target is null)
+                continue;
+
+            var ratioKey = $"{ext}_{target}";
+            var ratio = CompressionRatios.GetValueOrDefault(ratioKey, 0.75);
+            var estimated = (long)(candidate.SizeBytes * ratio);
+            var detail = new ConversionDetail(Path.GetFileName(candidate.MainPath), ext, target, candidate.SizeBytes, estimated);
+
+            totalSource += candidate.SizeBytes;
+            totalEstimated += estimated;
+
+            var consoleKey = string.IsNullOrWhiteSpace(candidate.ConsoleKey)
+                ? "unknown"
+                : candidate.ConsoleKey.Trim().ToLowerInvariant();
+
+            if (!grouped.TryGetValue(consoleKey, out var details))
+            {
+                details = [];
+                grouped[consoleKey] = details;
+            }
+
+            details.Add(detail);
+        }
+
+        var consoles = new List<ConsoleConversionEstimate>(grouped.Count);
+        foreach (var (consoleKey, details) in grouped)
+        {
+            long sourceBytes = 0;
+            long estimatedBytes = 0;
+            foreach (var detail in details)
+            {
+                sourceBytes += detail.SourceBytes;
+                estimatedBytes += detail.EstimatedBytes;
+            }
+
+            var savedBytes = sourceBytes - estimatedBytes;
+            var compressionRatio = sourceBytes > 0 ? (double)estimatedBytes / sourceBytes : 1.0;
+            consoles.Add(new ConsoleConversionEstimate(
+                consoleKey,
+                details.Count,
+                sourceBytes,
+                estimatedBytes,
+                savedBytes,
+                compressionRatio,
+                details));
+        }
+
+        consoles.Sort(static (left, right) =>
+        {
+            var bySavings = right.SavedBytes.CompareTo(left.SavedBytes);
+            return bySavings != 0
+                ? bySavings
+                : string.Compare(left.ConsoleKey, right.ConsoleKey, StringComparison.OrdinalIgnoreCase);
+        });
+
+        var recommendations = BuildConversionRecommendations(consoles, totalSource - totalEstimated);
+        return new ConversionAdvisorResult(
+            totalSource,
+            totalEstimated,
+            totalSource - totalEstimated,
+            totalSource > 0 ? (double)totalEstimated / totalSource : 1.0,
+            consoles,
+            recommendations);
+    }
+
+
+    private static IReadOnlyList<string> BuildConversionRecommendations(
+        IReadOnlyList<ConsoleConversionEstimate> consoles,
+        long totalSavedBytes)
+    {
+        if (consoles.Count == 0)
+        {
+            return ["Keine konvertierbaren Dateien gefunden."];
+        }
+
+        var recommendations = new List<string>();
+        var topCount = Math.Min(3, consoles.Count);
+        for (var i = 0; i < topCount; i++)
+        {
+            var entry = consoles[i];
+            recommendations.Add(
+                $"{entry.ConsoleKey}: ~{FormatSize(entry.SavedBytes)} Ersparnis bei {entry.FileCount} Datei(en) (Ziel: {entry.CompressionRatio:P0} der Originalgroesse)");
+        }
+
+        const long oneGb = 1024L * 1024 * 1024;
+        if (totalSavedBytes >= oneGb * 20)
+        {
+            recommendations.Add("Gesamtersparnis ist sehr hoch. Priorisiere diese Konvertierung vor dem naechsten Move-Lauf.");
+        }
+        else if (totalSavedBytes <= oneGb)
+        {
+            recommendations.Add("Gesamtersparnis ist gering. Konvertierung ist optional und kann auf spaeter verschoben werden.");
+        }
+
+        return recommendations;
+    }
+
+
     internal static string? GetTargetFormat(string ext)
     {
         return UiLookupData.Instance.ExtensionTargetFormats.TryGetValue(ext, out var target)

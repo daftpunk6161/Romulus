@@ -654,10 +654,10 @@ public sealed partial class MainViewModel
             var roots = Roots.ToList();
 
             var integrity = await Task.Run(() => RomCleanup.Infrastructure.Audit.RollbackService.VerifyTrashIntegrity(auditPathCopy, roots));
-            if (integrity.Failed > 0 || integrity.SkippedMissingDest > 0)
+            if (integrity.Failed > 0 || integrity.SkippedMissingDest > 0 || integrity.SkippedUnsafe > 0)
             {
                 var integrityWarning =
-                    $"Rollback integrity check found issues. Missing trash files: {integrity.SkippedMissingDest}, failures: {integrity.Failed}. " +
+                    $"Rollback integrity check found issues. Missing trash files: {integrity.SkippedMissingDest}, unsafe entries: {integrity.SkippedUnsafe}, failures: {integrity.Failed}. " +
                     "Continue anyway?";
 
                 if (!_dialog.Confirm(integrityWarning, _loc["Dialog.Rollback.Title"]))

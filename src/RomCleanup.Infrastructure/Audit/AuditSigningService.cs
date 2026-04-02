@@ -282,6 +282,9 @@ public sealed class AuditSigningService
         string? rollbackTrailPath = null;
         var restoredPaths = new List<string>();
         var plannedPaths = new List<string>();
+        var processedPendingOperationKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var suppressedPendingOperationKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pendingConvertSourceRollbacks = new List<bool>();
 
         if (!dryRun)
         {
@@ -318,16 +321,42 @@ public sealed class AuditSigningService
             var newPath = fields.Length > 2 ? fields[2] : "";
             var action = fields.Length > 3 ? fields[3] : "";
 
-            // Rollback MOVE, COPY, JUNK_REMOVE, CONSOLE_SORT, CONVERT, CONVERT_SOURCE, and DAT_RENAME actions
-            if (!string.Equals(action, RunConstants.AuditActions.Move, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.Moved, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.JunkRemove, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.ConsoleSort, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(action, RunConstants.AuditActions.DatRename, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(action, RunConstants.AuditActions.MoveFailed, StringComparison.OrdinalIgnoreCase))
+            {
+                suppressedPendingOperationKeys.Add(BuildPendingOperationKey(RunConstants.AuditActions.Move, oldPath, newPath));
                 continue;
+            }
+
+            var normalizedAction = NormalizeRollbackAction(action);
+            if (normalizedAction is null)
+                continue;
+
+            var isPendingMoveAction = string.Equals(action, RunConstants.AuditActions.MovePending, StringComparison.OrdinalIgnoreCase);
+            var isPendingCopyAction = string.Equals(action, RunConstants.AuditActions.CopyPending, StringComparison.OrdinalIgnoreCase);
+            var isPendingAction = isPendingMoveAction || isPendingCopyAction;
+            var isConvertCreateAction = string.Equals(normalizedAction, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase);
+            var isConvertSourceAction = string.Equals(normalizedAction, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase);
+            var isCopyAction = string.Equals(normalizedAction, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase);
+
+            if (pendingConvertSourceRollbacks.Count > 0 && !isConvertSourceAction && !isConvertCreateAction)
+                pendingConvertSourceRollbacks.Clear();
+
+            var pendingOperationKey = BuildPendingOperationKey(normalizedAction, oldPath, newPath);
+            if (isPendingAction)
+            {
+                if (suppressedPendingOperationKeys.Contains(pendingOperationKey)
+                    || processedPendingOperationKeys.Contains(pendingOperationKey))
+                {
+                    continue;
+                }
+
+                processedPendingOperationKeys.Add(pendingOperationKey);
+            }
+            else if (string.Equals(normalizedAction, RunConstants.AuditActions.Move, StringComparison.OrdinalIgnoreCase)
+                     || isCopyAction)
+            {
+                processedPendingOperationKeys.Add(pendingOperationKey);
+            }
 
             eligible++;
 
@@ -339,13 +368,13 @@ public sealed class AuditSigningService
             var inAllowedRestore = normalizedRestoreRoots.Any(nr =>
                 fullOldPath.StartsWith(nr, StringComparison.OrdinalIgnoreCase));
 
-            var isConvertCreateAction = string.Equals(action, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase);
-            var isCopyAction = string.Equals(action, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase);
             var requiresRestoreTarget = !isConvertCreateAction;
 
             if (!inAllowedCurrent || (requiresRestoreTarget && !inAllowedRestore))
             {
                 skippedUnsafe++;
+                if (isConvertSourceAction)
+                    pendingConvertSourceRollbacks.Add(false);
                 continue;
             }
 
@@ -353,9 +382,19 @@ public sealed class AuditSigningService
             // Missing dest = recovery failure (user can't roll back this entry)
             if (!File.Exists(newPath) && !Directory.Exists(newPath))
             {
-                failed++;
-                skippedMissingDest++;
-                _log?.Invoke($"Rollback failed (missing dest): {newPath}");
+                if (isPendingAction)
+                {
+                    _log?.Invoke($"Rollback skipped (pending action without materialized dest): {newPath}");
+                }
+                else
+                {
+                    failed++;
+                    skippedMissingDest++;
+                    _log?.Invoke($"Rollback failed (missing dest): {newPath}");
+                }
+
+                if (isConvertSourceAction)
+                    pendingConvertSourceRollbacks.Add(false);
                 continue;
             }
 
@@ -365,6 +404,8 @@ public sealed class AuditSigningService
                 if (File.Exists(oldPath) || Directory.Exists(oldPath))
                 {
                     skippedCollision++;
+                    if (isConvertSourceAction)
+                        pendingConvertSourceRollbacks.Add(false);
                     continue;
                 }
             }
@@ -376,6 +417,13 @@ public sealed class AuditSigningService
                 continue;
             }
 
+            if (isConvertCreateAction && pendingConvertSourceRollbacks.Count > 0 && pendingConvertSourceRollbacks.Any(static success => !success))
+            {
+                _log?.Invoke($"Rollback skipped (conversion source restore incomplete): {newPath}");
+                pendingConvertSourceRollbacks.Clear();
+                continue;
+            }
+
             if (dryRun)
             {
                 // SEC-ROLLBACK-01: In dry run, check reparse points and account as unsafe skip
@@ -384,6 +432,8 @@ public sealed class AuditSigningService
                 {
                     skippedUnsafe++;
                     _log?.Invoke($"DRYRUN rollback blocked (reparse point): {newPath}");
+                    if (isConvertSourceAction)
+                        pendingConvertSourceRollbacks.Add(false);
                     continue;
                 }
 
@@ -393,6 +443,8 @@ public sealed class AuditSigningService
                 {
                     skippedUnsafe++;
                     _log?.Invoke($"DRYRUN rollback blocked (restore parent is reparse point): {dryRunParent}");
+                    if (isConvertSourceAction)
+                        pendingConvertSourceRollbacks.Add(false);
                     continue;
                 }
 
@@ -403,6 +455,10 @@ public sealed class AuditSigningService
                     : isCopyAction
                     ? $"DRYRUN rollback copy-delete: {newPath}"
                     : $"DRYRUN rollback: {newPath} -> {oldPath}");
+                if (isConvertSourceAction)
+                    pendingConvertSourceRollbacks.Add(true);
+                else if (isConvertCreateAction)
+                    pendingConvertSourceRollbacks.Clear();
             }
             else
             {
@@ -411,6 +467,8 @@ public sealed class AuditSigningService
                 {
                     skippedUnsafe++;
                     _log?.Invoke($"Rollback skipped (reparse point): {newPath}");
+                    if (isConvertSourceAction)
+                        pendingConvertSourceRollbacks.Add(false);
                     continue;
                 }
 
@@ -431,6 +489,8 @@ public sealed class AuditSigningService
                             oldPath,
                             "OK");
                         AppendRollbackTrailRow(rollbackTrailPath!, newPath, oldPath, action);
+                        if (isConvertCreateAction)
+                            pendingConvertSourceRollbacks.Clear();
                     }
                     else
                     {
@@ -440,6 +500,8 @@ public sealed class AuditSigningService
                         {
                             skippedUnsafe++;
                             _log?.Invoke($"Rollback skipped (restore parent is reparse point): {parentDir}");
+                            if (isConvertSourceAction)
+                                pendingConvertSourceRollbacks.Add(false);
                             continue;
                         }
                         if (parentDir is not null)
@@ -452,11 +514,15 @@ public sealed class AuditSigningService
                             _log?.Invoke($"Rolled back: {newPath} -> {oldPath}");
                             AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "OK");
                             AppendRollbackTrailRow(rollbackTrailPath!, oldPath, newPath, action);
+                            if (isConvertSourceAction)
+                                pendingConvertSourceRollbacks.Add(true);
                         }
                         else
                         {
                             failed++;
                             AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, "MOVE_FAILED");
+                            if (isConvertSourceAction)
+                                pendingConvertSourceRollbacks.Add(false);
                         }
                     }
                 }
@@ -465,6 +531,8 @@ public sealed class AuditSigningService
                     failed++;
                     _log?.Invoke($"Rollback failed: {newPath} -> {oldPath}: {ex.Message}");
                     AppendRollbackRow(rollbackAuditPath!, "ROLLBACK", newPath, oldPath, $"ERROR: {ex.Message}");
+                    if (isConvertSourceAction)
+                        pendingConvertSourceRollbacks.Add(false);
                 }
             }
         }
@@ -487,6 +555,36 @@ public sealed class AuditSigningService
             PlannedPaths = plannedPaths
         };
     }
+
+    private static string? NormalizeRollbackAction(string action)
+    {
+        if (string.Equals(action, RunConstants.AuditActions.MovePending, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.Move, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.Moved, StringComparison.OrdinalIgnoreCase))
+        {
+            return RunConstants.AuditActions.Move;
+        }
+
+        if (string.Equals(action, RunConstants.AuditActions.CopyPending, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase))
+        {
+            return RunConstants.AuditActions.Copy;
+        }
+
+        if (string.Equals(action, RunConstants.AuditActions.JunkRemove, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.ConsoleSort, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.DatRename, StringComparison.OrdinalIgnoreCase))
+        {
+            return action.ToUpperInvariant();
+        }
+
+        return null;
+    }
+
+    private static string BuildPendingOperationKey(string action, string oldPath, string newPath)
+        => $"{action}|{oldPath}|{newPath}";
 
     /// <summary>
     /// Sanitize a CSV field to prevent CSV injection.

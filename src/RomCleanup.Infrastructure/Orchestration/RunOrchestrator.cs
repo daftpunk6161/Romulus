@@ -79,6 +79,10 @@ public sealed partial class RunOrchestrator : IDisposable
     public OperationResult Preflight(RunOptions options)
     {
         var warnings = new List<string>();
+        var validationErrors = RunOptionsBuilder.Validate(options);
+
+        if (validationErrors.Count > 0)
+            return OperationResult.Blocked(string.Join(" ", validationErrors));
 
         if (options.Roots.Count == 0)
             return OperationResult.Blocked("No roots specified");

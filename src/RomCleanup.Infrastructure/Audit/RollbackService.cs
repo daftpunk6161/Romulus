@@ -9,6 +9,22 @@ namespace RomCleanup.Infrastructure.Audit;
 /// </summary>
 public static class RollbackService
 {
+    private static AuditRollbackRootSet ResolveRootSet(string auditPath, IReadOnlyList<string> fallbackRoots)
+    {
+        var resolved = AuditRollbackRootResolver.Resolve(auditPath);
+        if (resolved.RestoreRoots.Count > 0 || resolved.CurrentRoots.Count > 0)
+            return resolved;
+
+        var normalizedFallback = fallbackRoots
+            .Where(static root => !string.IsNullOrWhiteSpace(root))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static root => root, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new AuditRollbackRootSet(normalizedFallback, normalizedFallback);
+    }
+
     /// <summary>
     /// Execute a rollback from the given audit CSV file.
     /// Returns a rollback result with integrity-verified statistics.
@@ -17,7 +33,7 @@ public static class RollbackService
     {
         var fs = new FileSystemAdapter();
         var signingService = new AuditSigningService(fs, keyFilePath: keyFilePath ?? AuditSecurityPaths.GetDefaultSigningKeyPath());
-        var rootArray = roots is string[] arr ? arr : roots.ToArray();
+        var rootSet = ResolveRootSet(auditPath, roots);
 
         // Preserve explicit integrity failure semantics used by UI/tests.
         if (File.Exists(auditPath + ".meta.json"))
@@ -37,7 +53,7 @@ public static class RollbackService
             }
         }
 
-        return signingService.Rollback(auditPath, rootArray, rootArray, dryRun: false);
+        return signingService.Rollback(auditPath, rootSet.RestoreRoots, rootSet.CurrentRoots, dryRun: false);
     }
 
     /// <summary>
@@ -51,8 +67,8 @@ public static class RollbackService
 
         var fs = new FileSystemAdapter();
         var signingService = new AuditSigningService(fs, keyFilePath: keyFilePath ?? AuditSecurityPaths.GetDefaultSigningKeyPath());
-        var rootArray = roots is string[] arr ? arr : roots.ToArray();
+        var rootSet = ResolveRootSet(auditPath, roots);
 
-        return signingService.Rollback(auditPath, rootArray, rootArray, dryRun: true);
+        return signingService.Rollback(auditPath, rootSet.RestoreRoots, rootSet.CurrentRoots, dryRun: true);
     }
 }

@@ -123,6 +123,30 @@ public class RunOrchestratorTests : IDisposable
         Assert.Equal("ok", result.Status);
     }
 
+    [Fact]
+    public void Preflight_ProtectedTrashRoot_ReturnsBlocked()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var protectedPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(protectedPath))
+            return;
+
+        var orch = BuildOrchestrator();
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            TrashRoot = protectedPath
+        };
+
+        var result = orch.Preflight(options);
+
+        Assert.Equal("blocked", result.Status);
+        Assert.Contains("trashRoot", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ── Execute Tests ─────────────────────────────────────────────
 
     [Fact]
@@ -222,7 +246,7 @@ public class RunOrchestratorTests : IDisposable
     }
 
     [Fact]
-    public void Execute_Cancellation_ThrowsOperationCanceled()
+    public void Execute_AlreadyCancelledToken_ReturnsCancelledResult()
     {
         var file1 = CreateFile("Game (USA).zip", 100);
         var cts = new CancellationTokenSource();
@@ -239,6 +263,34 @@ public class RunOrchestratorTests : IDisposable
         };
 
         var result = orch.Execute(options, cts.Token);
+        Assert.Equal("cancelled", result.Status);
+        Assert.Equal(2, result.ExitCode);
+    }
+
+    [Fact]
+    public void Execute_CancellationDuringRun_ReturnsCancelledResult()
+    {
+        CreateFile("Game (USA).zip", 100);
+        CreateFile("Game (Europe).zip", 100);
+
+        var cts = new CancellationTokenSource();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var orch = new RunOrchestrator(fs, audit, onProgress: message =>
+        {
+            if (message.Contains("[Scan]", StringComparison.OrdinalIgnoreCase))
+                cts.Cancel();
+        });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun"
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
         Assert.Equal("cancelled", result.Status);
         Assert.Equal(2, result.ExitCode);
     }
@@ -341,7 +393,7 @@ public class RunOrchestratorTests : IDisposable
     }
 
     [Fact]
-    public void Execute_WithInvalidReportPath_DegradesToCompletedWithErrors()
+    public void Execute_WithInvalidReportPath_BlocksInPreflight()
     {
         CreateFile("Game (USA).zip", 100);
 
@@ -360,8 +412,8 @@ public class RunOrchestratorTests : IDisposable
         var result = orch.Execute(options);
 
         Assert.Null(result.ReportPath);
-        Assert.Equal("completed_with_errors", result.Status);
-        Assert.Equal(1, result.ExitCode);
+        Assert.Equal("blocked", result.Status);
+        Assert.Equal(3, result.ExitCode);
     }
 
     [Fact]
@@ -429,6 +481,42 @@ public class RunOrchestratorTests : IDisposable
             Assert.True(Directory.Exists(trashDedupeDir),
                 "Custom trash directory should be created");
         }
+    }
+
+    [Fact]
+    public void Execute_MoveMode_WritesRollbackRootMetadata_ToAuditSidecar()
+    {
+        var trashDir = Path.Combine(_tempDir, "external_trash");
+        Directory.CreateDirectory(trashDir);
+
+        CreateFile("Game (USA).zip", 100);
+        CreateFile("Game (Europe).zip", 100);
+
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var orch = new RunOrchestrator(fs, audit);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "Move",
+            PreferRegions = new[] { "USA" },
+            TrashRoot = trashDir,
+            AuditPath = Path.Combine(_tempDir, "audit.csv")
+        };
+
+        var result = orch.Execute(options);
+
+        var latestSidecar = Assert.Single(audit.SidecarLog.Where(entry => entry.path == options.AuditPath)).meta;
+        var restoreRoots = Assert.IsType<string[]>(latestSidecar["AllowedRestoreRoots"]);
+        var currentRoots = Assert.IsType<string[]>(latestSidecar["AllowedCurrentRoots"]);
+
+        Assert.Equal("ok", result.Status);
+        Assert.Equal(new[] { Path.GetFullPath(_tempDir) }, restoreRoots);
+        Assert.Equal(
+            new[] { Path.GetFullPath(_tempDir), Path.GetFullPath(trashDir) }.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray(),
+            currentRoots.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray());
     }
 
     [Fact]

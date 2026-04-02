@@ -177,12 +177,10 @@ public sealed class AuditComplianceTests : IDisposable
         var pipelinePath = Path.GetFullPath(Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..",
             ".github", "workflows", "test-pipeline.yml"));
-        if (File.Exists(pipelinePath))
-        {
-            var content = File.ReadAllText(pipelinePath);
-            Assert.Contains("coverage", content, StringComparison.OrdinalIgnoreCase);
-        }
-        // If pipeline file not found (e.g., in CI artifact), test passes as documentation
+        Assert.True(File.Exists(pipelinePath), $"Expected CI workflow at {pipelinePath}");
+
+        var content = File.ReadAllText(pipelinePath);
+        Assert.Contains("coverage", content, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

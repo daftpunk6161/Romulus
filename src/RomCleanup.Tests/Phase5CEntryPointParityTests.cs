@@ -183,6 +183,46 @@ public class Phase5CEntryPointParityTests
         Assert.Contains("OnlyGames", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void RunOptionsBuilder_Validate_RejectsProtectedTrashRoot()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var protectedPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(protectedPath))
+            return;
+
+        var options = new RunOptions
+        {
+            Roots = new[] { GetTestRoot() },
+            Mode = "DryRun",
+            TrashRoot = protectedPath
+        };
+
+        var errors = RunOptionsBuilder.Validate(options);
+
+        Assert.Contains(errors, error => error.Contains("trashRoot", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void RunOptionsBuilder_Validate_RejectsDriveRootAuditPath()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var options = new RunOptions
+        {
+            Roots = new[] { GetTestRoot() },
+            Mode = "DryRun",
+            AuditPath = @"C:\"
+        };
+
+        var errors = RunOptionsBuilder.Validate(options);
+
+        Assert.Contains(errors, error => error.Contains("auditPath", StringComparison.OrdinalIgnoreCase));
+    }
+
     // ───── TASK-163: DryRun + Feature Warnings ─────
 
     [Fact]

@@ -1053,10 +1053,15 @@ app.MapPost("/runs/{runId}/rollback", (string runId, HttpContext ctx, string? dr
     // Safety sequence: DryRun → Summary → Bestätigung → Apply (Projektregeln §4)
     bool isDryRun = !string.Equals(dryRun, "false", StringComparison.OrdinalIgnoreCase);
 
-    var restoreRoots = run.Roots ?? Array.Empty<string>();
-    var currentRoots = string.IsNullOrWhiteSpace(run.TrashRoot)
-        ? restoreRoots
-        : restoreRoots.Append(run.TrashRoot).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    var resolvedRootSet = AuditRollbackRootResolver.Resolve(run.AuditPath);
+    var restoreRoots = resolvedRootSet.RestoreRoots.Count > 0
+        ? resolvedRootSet.RestoreRoots
+        : (run.Roots ?? Array.Empty<string>());
+    var currentRoots = resolvedRootSet.CurrentRoots.Count > 0
+        ? resolvedRootSet.CurrentRoots
+        : (string.IsNullOrWhiteSpace(run.TrashRoot)
+            ? restoreRoots
+            : restoreRoots.Append(run.TrashRoot).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
 
     if (allowedRootPolicy.IsEnforced
         && (restoreRoots.Any(root => !allowedRootPolicy.IsPathAllowed(root))
