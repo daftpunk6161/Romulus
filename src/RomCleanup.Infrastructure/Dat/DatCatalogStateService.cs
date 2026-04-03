@@ -321,11 +321,9 @@ public sealed class DatCatalogStateService
             if (entry.Status is DatInstallStatus.Installed or DatInstallStatus.Stale
                 && !string.IsNullOrEmpty(entry.LocalPath))
             {
-                if (!state.Entries.ContainsKey(entry.Id))
-                {
-                    UpdateStateAfterDownload(state, entry.Id, entry.LocalPath,
-                        entry.FileSizeBytes ?? 0);
-                }
+                // Always update state — re-imports must refresh hash/date/path
+                UpdateStateAfterDownload(state, entry.Id, entry.LocalPath,
+                    entry.FileSizeBytes ?? 0);
             }
             else if (entry.Status == DatInstallStatus.Missing)
             {
