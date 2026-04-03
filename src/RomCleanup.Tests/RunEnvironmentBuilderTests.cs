@@ -1,4 +1,5 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Core.Classification;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
 
@@ -312,5 +313,293 @@ public sealed class RunEnvironmentBuilderTests : IDisposable
 
         Assert.Null(env.ConsoleDetector);
         Assert.Contains(warnings, w => w.Contains("consoles.json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ── BridgeDatSourceAliases ──────────────────────────────────────────
+
+    [Fact]
+    public void BridgeDatSourceAliases_BridgesArcadeToMameDat()
+    {
+        // Catalog has MAME entry with ConsoleKey "MAME" and Id "mame"
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """[{"group":"MAME","system":"MAME","id":"mame","consoleKey":"MAME"}]""");
+
+        // ARCADE console references datSources ["mame"]
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "ARCADE",
+                    "displayName": "Arcade",
+                    "discBased": false,
+                    "uniqueExts": [],
+                    "ambigExts": [],
+                    "folderAliases": ["arcade"],
+                    "datSources": ["mame"]
+                },
+                {
+                    "key": "MAME",
+                    "displayName": "MAME",
+                    "discBased": false,
+                    "uniqueExts": [],
+                    "ambigExts": [],
+                    "folderAliases": ["mame"],
+                    "datSources": ["mame"]
+                }
+            ]
+        }
+        """);
+
+        // Initial map only has MAME (from BuildConsoleMap)
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["MAME"] = Path.Combine(_datRoot, "mame.dat")
+        };
+
+        RunEnvironmentBuilder.BridgeDatSourceAliases(map, detector, _dataDir);
+
+        Assert.True(map.ContainsKey("ARCADE"));
+        Assert.Equal(map["MAME"], map["ARCADE"]);
+    }
+
+    [Fact]
+    public void BridgeDatSourceAliases_DoesNotOverwriteExistingMapping()
+    {
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """[{"group":"MAME","system":"MAME","id":"mame","consoleKey":"MAME"}]""");
+
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "ARCADE",
+                    "displayName": "Arcade",
+                    "discBased": false,
+                    "uniqueExts": [],
+                    "ambigExts": [],
+                    "folderAliases": ["arcade"],
+                    "datSources": ["mame"]
+                }
+            ]
+        }
+        """);
+
+        var arcadeDat = Path.Combine(_datRoot, "fbneo-arcade.dat");
+        var mameDat = Path.Combine(_datRoot, "mame.dat");
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ARCADE"] = arcadeDat,
+            ["MAME"] = mameDat
+        };
+
+        RunEnvironmentBuilder.BridgeDatSourceAliases(map, detector, _dataDir);
+
+        // ARCADE already mapped — must NOT be overwritten
+        Assert.Equal(arcadeDat, map["ARCADE"]);
+    }
+
+    [Fact]
+    public void BridgeDatSourceAliases_NoCatalog_DoesNothing()
+    {
+        // No dat-catalog.json exists
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "ARCADE",
+                    "displayName": "Arcade",
+                    "discBased": false,
+                    "uniqueExts": [],
+                    "ambigExts": [],
+                    "folderAliases": ["arcade"],
+                    "datSources": ["mame"]
+                }
+            ]
+        }
+        """);
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        RunEnvironmentBuilder.BridgeDatSourceAliases(map, detector, _dataDir);
+
+        Assert.Empty(map);
+    }
+
+    [Fact]
+    public void BridgeDatSourceAliases_NoDatSources_SkipsConsole()
+    {
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """[{"group":"No-Intro","system":"SNES","id":"nointro-snes","consoleKey":"SNES"}]""");
+
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "NES",
+                    "displayName": "NES",
+                    "discBased": false,
+                    "uniqueExts": [".nes"],
+                    "ambigExts": [],
+                    "folderAliases": ["nes"]
+                }
+            ]
+        }
+        """);
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SNES"] = Path.Combine(_datRoot, "nointro-snes.dat")
+        };
+
+        RunEnvironmentBuilder.BridgeDatSourceAliases(map, detector, _dataDir);
+
+        // NES has no datSources, so no bridge should be created
+        Assert.False(map.ContainsKey("NES"));
+        Assert.Single(map);
+    }
+
+    [Fact]
+    public void BridgeDatSourceAliases_FallsBackToSecondDatSource()
+    {
+        // Catalog has both mame and fbneo entries
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """
+            [
+                {"group":"MAME","system":"MAME","id":"mame","consoleKey":"MAME"},
+                {"group":"FBNeo","system":"FBNeo","id":"fbneo","consoleKey":"FBNEO"}
+            ]
+            """);
+
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "ARCADE",
+                    "displayName": "Arcade",
+                    "discBased": false,
+                    "uniqueExts": [],
+                    "ambigExts": [],
+                    "folderAliases": ["arcade"],
+                    "datSources": ["mame", "fbneo"]
+                }
+            ]
+        }
+        """);
+
+        // Only FBNEO mapped (MAME DAT not downloaded)
+        var fbneoPath = Path.Combine(_datRoot, "fbneo.dat");
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["FBNEO"] = fbneoPath
+        };
+
+        RunEnvironmentBuilder.BridgeDatSourceAliases(map, detector, _dataDir);
+
+        Assert.True(map.ContainsKey("ARCADE"));
+        Assert.Equal(fbneoPath, map["ARCADE"]);
+    }
+
+    // ── Supplemental DATs ───────────────────────────────────────────────
+
+    [Fact]
+    public void BuildConsoleMap_SupplementalDats_CollectsSecondDatForSameConsoleKey()
+    {
+        // Primary DAT for NES (No-Intro)
+        File.WriteAllText(Path.Combine(_datRoot, "nointro-nes.dat"), "primary");
+        // Supplemental DAT for NES (FBNeo)
+        File.WriteAllText(Path.Combine(_datRoot, "fbneo-nes.dat"), "supplement");
+
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """
+            [
+                {"group":"No-Intro","system":"NES","id":"nointro-nes","consoleKey":"NES"},
+                {"group":"FBNeo","system":"FBNeo NES","id":"fbneo-nes","consoleKey":"NES"}
+            ]
+            """);
+
+        var map = RunEnvironmentBuilder.BuildConsoleMap(_dataDir, _datRoot, out var supplementalDats);
+
+        // Primary map should contain NES → nointro-nes.dat
+        Assert.True(map.ContainsKey("NES"));
+        Assert.EndsWith("nointro-nes.dat", map["NES"], StringComparison.OrdinalIgnoreCase);
+
+        // Supplemental should contain fbneo-nes.dat for NES
+        Assert.True(supplementalDats.ContainsKey("NES"));
+        Assert.Single(supplementalDats["NES"]);
+        Assert.EndsWith("fbneo-nes.dat", supplementalDats["NES"][0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildConsoleMap_SupplementalDats_ExcludedFromFallbackScan()
+    {
+        // Catalog maps NES to nointro-nes.dat and fbneo-nes.dat as supplemental
+        File.WriteAllText(Path.Combine(_datRoot, "nointro-nes.dat"), "primary");
+        File.WriteAllText(Path.Combine(_datRoot, "fbneo-nes.dat"), "supplement");
+
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """
+            [
+                {"group":"No-Intro","system":"NES","id":"nointro-nes","consoleKey":"NES"},
+                {"group":"FBNeo","system":"FBNeo NES","id":"fbneo-nes","consoleKey":"NES"}
+            ]
+            """);
+
+        var map = RunEnvironmentBuilder.BuildConsoleMap(_dataDir, _datRoot, out _);
+
+        // Fallback scan must NOT create phantom "FBNEO-NES" or "NOINTRO-NES" keys
+        Assert.False(map.ContainsKey("FBNEO-NES"));
+        Assert.False(map.ContainsKey("NOINTRO-NES"));
+        Assert.Single(map); // Only NES
+    }
+
+    [Fact]
+    public void BuildConsoleMap_SupplementalDats_MultipleSupplementalsForSameKey()
+    {
+        File.WriteAllText(Path.Combine(_datRoot, "primary.dat"), "primary");
+        File.WriteAllText(Path.Combine(_datRoot, "supp-a.dat"), "supp-a");
+        File.WriteAllText(Path.Combine(_datRoot, "supp-b.dat"), "supp-b");
+
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """
+            [
+                {"group":"Main","system":"MD","id":"primary","consoleKey":"MD"},
+                {"group":"FBNeo","system":"FBNeo MD","id":"supp-a","consoleKey":"MD"},
+                {"group":"Other","system":"Other MD","id":"supp-b","consoleKey":"MD"}
+            ]
+            """);
+
+        var map = RunEnvironmentBuilder.BuildConsoleMap(_dataDir, _datRoot, out var supplementalDats);
+
+        Assert.Single(map); // Only MD
+        Assert.True(supplementalDats.ContainsKey("MD"));
+        Assert.Equal(2, supplementalDats["MD"].Count);
+    }
+
+    [Fact]
+    public void BuildConsoleMap_SupplementalDats_EmptyWhenNoOverlap()
+    {
+        File.WriteAllText(Path.Combine(_datRoot, "nes.dat"), "nes");
+        File.WriteAllText(Path.Combine(_datRoot, "snes.dat"), "snes");
+
+        File.WriteAllText(
+            Path.Combine(_dataDir, "dat-catalog.json"),
+            """
+            [
+                {"group":"No-Intro","system":"NES","id":"nes","consoleKey":"NES"},
+                {"group":"No-Intro","system":"SNES","id":"snes","consoleKey":"SNES"}
+            ]
+            """);
+
+        var map = RunEnvironmentBuilder.BuildConsoleMap(_dataDir, _datRoot, out var supplementalDats);
+
+        Assert.Equal(2, map.Count);
+        Assert.Empty(supplementalDats);
     }
 }

@@ -1119,10 +1119,10 @@ public class GuiViewModelTests
     // ═══ ExtensionFilters (UX-004) ══════════════════════════════════════
 
     [Fact]
-    public void ExtensionFilters_InitializedWith18Items()
+    public void ExtensionFilters_InitializedWith64Items()
     {
         var vm = new MainViewModel();
-        Assert.Equal(18, vm.ExtensionFilters.Count);
+        Assert.Equal(64, vm.ExtensionFilters.Count);
     }
 
     [Fact]
@@ -1157,21 +1157,40 @@ public class GuiViewModelTests
     {
         var vm = new MainViewModel();
         var categories = vm.ExtensionFilters.Select(e => e.Category).Distinct().OrderBy(c => c).ToArray();
-        Assert.Equal(3, categories.Length);
+        Assert.Equal(8, categories.Length);
         Assert.Contains("Archive", categories);
-        Assert.Contains("Cartridge / Modern", categories);
         Assert.Contains("Disc-Images", categories);
+        Assert.Contains("Nintendo", categories);
+        Assert.Contains("Sega", categories);
+        Assert.Contains("Atari", categories);
+        Assert.Contains("Computer / Retro", categories);
     }
 
     [Fact]
-    public void ExtensionFilters_ContainsAllExpectedExtensions()
+    public void ExtensionFilters_ContainsKeyExtensions()
     {
         var vm = new MainViewModel();
-        var expected = new[] { ".chd", ".iso", ".cue", ".gdi", ".img", ".bin", ".cso", ".pbp",
-                               ".zip", ".7z", ".rar",
-                               ".nes", ".gba", ".nds", ".nsp", ".xci", ".wbfs", ".rvz" };
-        var actual = vm.ExtensionFilters.Select(e => e.Extension).ToArray();
-        Assert.Equal(expected, actual);
+        var actual = vm.ExtensionFilters.Select(e => e.Extension).ToHashSet();
+        // Disc images
+        Assert.Contains(".chd", actual);
+        Assert.Contains(".iso", actual);
+        Assert.Contains(".cue", actual);
+        // Archives
+        Assert.Contains(".zip", actual);
+        Assert.Contains(".7z", actual);
+        // Nintendo
+        Assert.Contains(".nes", actual);
+        Assert.Contains(".nsp", actual);
+        // Sega
+        Assert.Contains(".md", actual);
+        Assert.Contains(".sms", actual);
+        // Computer / Retro
+        Assert.Contains(".tzx", actual);
+        Assert.Contains(".adf", actual);
+        Assert.Contains(".d64", actual);
+        // Atari
+        Assert.Contains(".a26", actual);
+        Assert.Contains(".st", actual);
     }
 
     // ═══ HasRunResult (UX-003/TEST-009) ═════════════════════════════════
@@ -4921,5 +4940,60 @@ public class GuiViewModelTests
             Path.GetDirectoryName(Path.GetDirectoryName(
                 Path.GetDirectoryName(typeof(GuiViewModelTests).Assembly.Location)))));
         return Path.Combine(repoRoot!, "src", "RomCleanup.UI.Wpf", folder, fileName);
+    }
+
+    // ═══ UpdateBreakdown fraction normalization ─────────────────────────
+
+    [Fact]
+    public void UpdateBreakdown_FractionsNormalizedToTotal_NotMax()
+    {
+        var vm = new RunViewModel();
+        vm.GamesRaw = 100;
+        vm.DupesRaw = 20;
+        vm.JunkRaw = 10;
+
+        vm.UpdateBreakdown();
+
+        Assert.Equal(70, vm.KeepCount);
+        Assert.Equal(20, vm.MoveCount);
+        Assert.Equal(10, vm.JunkCount);
+
+        // Fractions must sum to ~1.0 (normalized to total)
+        Assert.Equal(0.7, vm.KeepFraction, 3);
+        Assert.Equal(0.2, vm.MoveFraction, 3);
+        Assert.Equal(0.1, vm.JunkFraction, 3);
+
+        var sum = vm.KeepFraction + vm.MoveFraction + vm.JunkFraction;
+        Assert.InRange(sum, 0.99, 1.01);
+    }
+
+    [Fact]
+    public void UpdateBreakdown_ZeroTotal_NoException()
+    {
+        var vm = new RunViewModel();
+        vm.GamesRaw = 0;
+        vm.DupesRaw = 0;
+        vm.JunkRaw = 0;
+
+        vm.UpdateBreakdown();
+
+        Assert.Equal(0.0, vm.KeepFraction);
+        Assert.Equal(0.0, vm.MoveFraction);
+        Assert.Equal(0.0, vm.JunkFraction);
+    }
+
+    [Fact]
+    public void UpdateBreakdown_AllJunk_FractionIsOne()
+    {
+        var vm = new RunViewModel();
+        vm.GamesRaw = 50;
+        vm.DupesRaw = 0;
+        vm.JunkRaw = 50;
+
+        vm.UpdateBreakdown();
+
+        Assert.Equal(0, vm.KeepCount);
+        Assert.Equal(0.0, vm.KeepFraction);
+        Assert.Equal(1.0, vm.JunkFraction, 3);
     }
 }

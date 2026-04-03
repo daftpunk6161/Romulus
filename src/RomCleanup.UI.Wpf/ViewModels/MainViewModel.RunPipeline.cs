@@ -417,6 +417,9 @@ public sealed partial class MainViewModel
     public string DashDatMiss { get => Run.DashDatMiss; set => Run.DashDatMiss = value; }
     public string DashDatUnknown { get => Run.DashDatUnknown; set => Run.DashDatUnknown = value; }
     public string DashDatAmbiguous { get => Run.DashDatAmbiguous; set => Run.DashDatAmbiguous = value; }
+    public string DashDatRenameProposed { get => Run.DashDatRenameProposed; set => Run.DashDatRenameProposed = value; }
+    public string DashDatRenameExecuted { get => Run.DashDatRenameExecuted; set => Run.DashDatRenameExecuted = value; }
+    public string DashDatRenameFailed { get => Run.DashDatRenameFailed; set => Run.DashDatRenameFailed = value; }
     public string DedupeRate { get => Run.DedupeRate; set => Run.DedupeRate = value; }
 
     // ═══ ANALYSE DATA (delegated to RunViewModel) ═══════════════════════
@@ -1177,15 +1180,33 @@ public sealed partial class MainViewModel
                 }
 
                 return entries;
-            }, cancellationToken).ConfigureAwait(false);
+            }, cancellationToken);
         }
         catch (OperationCanceledException)
         {
             return;
         }
 
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
+        {
+            foreach (var (level, message) in hints)
+                AddLogCore(message, level);
+            return;
+        }
+
+        if (!dispatcher.CheckAccess())
+        {
+            await dispatcher.InvokeAsync(() =>
+            {
+                foreach (var (level, message) in hints)
+                    AddLogCore(message, level);
+            });
+            return;
+        }
+
         foreach (var (level, message) in hints)
-            AddLog(message, level);
+            AddLogCore(message, level);
     }
 
     /// <summary>GUI-115: Dispose watch-mode and scheduler resources — unsubscribe all events.</summary>
@@ -1252,6 +1273,9 @@ public sealed partial class MainViewModel
         DashDatMiss = dashboard.DatMissDisplay;
         DashDatUnknown = dashboard.DatUnknownDisplay;
         DashDatAmbiguous = dashboard.DatAmbiguousDisplay;
+        DashDatRenameProposed = dashboard.DatRenameProposedDisplay;
+        DashDatRenameExecuted = dashboard.DatRenameExecutedDisplay;
+        DashDatRenameFailed = dashboard.DatRenameFailedDisplay;
         DedupeRate = dashboard.DedupeRate;
 
         // Raw int values for chart rendering (display strings contain suffixes like "(vorläufig) (Plan)")
@@ -1405,6 +1429,9 @@ public sealed partial class MainViewModel
         DashDatMiss = "–";
         DashDatUnknown = "–";
         DashDatAmbiguous = "–";
+        DashDatRenameProposed = "–";
+        DashDatRenameExecuted = "–";
+        DashDatRenameFailed = "–";
         DedupeRate = "–";
         MoveConsequenceText = "";
         Progress = 0;

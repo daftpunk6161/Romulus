@@ -163,7 +163,7 @@ public sealed class ConversionRegistrySchemaTests
         using var consoles = OpenJson("consoles.json");
 
         var entries = consoles.RootElement.GetProperty("consoles").EnumerateArray().ToArray();
-        Assert.Equal(162, entries.Length);
+        Assert.Equal(163, entries.Length);
 
         var policyCounts = entries
             .GroupBy(
@@ -176,7 +176,7 @@ public sealed class ConversionRegistrySchemaTests
         Assert.Equal(20, GetPolicyCount(policyCounts, "Auto"));
         Assert.Equal(52, GetPolicyCount(policyCounts, "ArchiveOnly"));
         Assert.Equal(6, GetPolicyCount(policyCounts, "ManualOnly"));
-        Assert.Equal(84, GetPolicyCount(policyCounts, "None"));
+        Assert.Equal(85, GetPolicyCount(policyCounts, "None"));
     }
 
     [Fact]

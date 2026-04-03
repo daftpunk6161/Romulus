@@ -27,6 +27,9 @@ public sealed record DashboardProjection(
     string ConvertBlockedDisplay,
     string ConvertReviewDisplay,
     string ConvertSavedBytesDisplay,
+    string DatRenameProposedDisplay,
+    string DatRenameExecutedDisplay,
+    string DatRenameFailedDisplay,
     IReadOnlyList<ConsoleDistributionItem> ConsoleDistribution,
     IReadOnlyList<DedupeGroupItem> DedupeGroups)
 {
@@ -82,6 +85,12 @@ public sealed record DashboardProjection(
             ? FormatBytes(projection.ConvertSavedBytes)
             : "–";
 
+        var hasDatRename = projection.DatRenameProposedCount > 0 || projection.DatRenameExecutedCount > 0;
+        var datRenameProposedDisplay = hasDatRename ? projection.DatRenameProposedCount.ToString() : "–";
+        var datRenameExecutedDisplay = hasDatRename ? projection.DatRenameExecutedCount.ToString() : "–";
+        var datRenameFailedDisplay = hasDatRename && projection.DatRenameFailedCount > 0
+            ? projection.DatRenameFailedCount.ToString() : "–";
+
         return new DashboardProjection(
             Winners: winners,
             Dupes: dupes,
@@ -101,6 +110,9 @@ public sealed record DashboardProjection(
             ConvertBlockedDisplay: convertBlockedDisplay,
             ConvertReviewDisplay: convertReviewDisplay,
             ConvertSavedBytesDisplay: convertSavedBytesDisplay,
+            DatRenameProposedDisplay: datRenameProposedDisplay,
+            DatRenameExecutedDisplay: datRenameExecutedDisplay,
+            DatRenameFailedDisplay: datRenameFailedDisplay,
             ConsoleDistribution: consoleDistribution,
             DedupeGroups: dedupeGroups);
     }

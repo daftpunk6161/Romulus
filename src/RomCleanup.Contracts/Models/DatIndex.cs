@@ -141,6 +141,21 @@ public sealed class DatIndex
         return hashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.GameName, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>Merge all entries from another DatIndex into this one (supplemental DATs).</summary>
+    public void MergeFrom(DatIndex other)
+    {
+        foreach (var consoleKey in other._data.Keys)
+        {
+            if (!other._data.TryGetValue(consoleKey, out var otherHashMap))
+                continue;
+            foreach (var kvp in otherHashMap)
+            {
+                Add(consoleKey, kvp.Key, kvp.Value.GameName, kvp.Value.RomFileName,
+                    kvp.Value.IsBios, kvp.Value.ParentGameName);
+            }
+        }
+    }
+
     /// <summary>Get all indexed console keys (snapshot).</summary>
     public IReadOnlyCollection<string> ConsoleKeys => _data.Keys.ToArray();
 }

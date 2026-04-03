@@ -106,7 +106,7 @@ public sealed class SettingsService : ISettingsService
                 {
                     UseDat = GetBool(dat, "useDat"),
                     EnableDatAudit = GetBool(dat, "enableDatAudit", true),
-                    EnableDatRename = GetBool(dat, "enableDatRename"),
+                    EnableDatRename = GetBool(dat, "enableDatRename", true),
                     DatRoot = GetString(dat, "datRoot"),
                     DatHashType = GetString(dat, "hashType", "SHA1"),
                     DatFallback = GetBool(dat, "datFallback", true)

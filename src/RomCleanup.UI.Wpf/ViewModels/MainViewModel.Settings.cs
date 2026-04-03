@@ -125,7 +125,7 @@ public sealed partial class MainViewModel
     public bool EnableDatAudit { get => _enableDatAudit; set => SetProperty(ref _enableDatAudit, value); }
 
     [ObservableProperty]
-    private bool _enableDatRename;
+    private bool _enableDatRename = true;
 
     [ObservableProperty]
     private bool _datFallback;

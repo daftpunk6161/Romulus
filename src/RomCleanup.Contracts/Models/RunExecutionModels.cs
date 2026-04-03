@@ -10,11 +10,31 @@ public sealed class RunOptions
     /// </summary>
     public static readonly string[] DefaultExtensions =
     {
-        ".zip", ".7z", ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd",
-        ".rvz", ".gcz", ".wbfs", ".ecm", ".nsp", ".xci", ".nes", ".snes",
-        ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".3ds",
-        ".n64", ".z64", ".v64", ".md", ".gen", ".sms", ".gg",
-        ".pce", ".ngp", ".ws", ".rom", ".pbp", ".pkg"
+        // Archives
+        ".zip", ".7z", ".rar",
+        // Disc images
+        ".chd", ".iso", ".bin", ".cue", ".gdi", ".ccd", ".img", ".cso", ".ecm",
+        ".gcz", ".rvz", ".wbfs", ".pbp",
+        // Nintendo
+        ".nes", ".fds", ".sfc", ".smc", ".gb", ".gbc", ".gba", ".vb",
+        ".n64", ".z64", ".v64", ".ndd", ".nds", ".3ds", ".cia", ".dsi",
+        ".nsp", ".xci", ".wux", ".rpx", ".wad", ".bs",
+        // Sega
+        ".md", ".gen", ".sms", ".gg", ".sg", ".sc", ".32x", ".sgx",
+        // NEC
+        ".pce", ".pcfx",
+        // SNK
+        ".ngp",
+        // Bandai
+        ".ws", ".wsc",
+        // Atari
+        ".a26", ".a52", ".a78", ".lnx", ".j64", ".st", ".stx", ".atr", ".xex", ".xfd",
+        // Other handhelds / retro
+        ".col", ".int", ".o2", ".vec", ".min", ".tgc",
+        ".tzx", ".adf", ".d64", ".t64", ".mx1", ".mx2",
+        // Misc
+        ".rom", ".pkg", ".vpk", ".app", ".gpe", ".st2",
+        ".p00", ".prc", ".pdb", ".dmg", ".gxb", ".cdi"
     };
 
     public IReadOnlyList<string> Roots { get; init; } = Array.Empty<string>();

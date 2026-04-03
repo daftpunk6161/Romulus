@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
 
 namespace RomCleanup.Infrastructure.Dat;
 
@@ -15,11 +16,16 @@ public sealed class DatRepositoryAdapter
     /// <summary>Maximum DAT file size to parse (100 MB).</summary>
     private const long MaxDatFileSizeBytes = 100 * 1024 * 1024;
 
-    private readonly Action<string>? _log;
+    /// <summary>7z magic bytes: '7' 'z' 0xBC 0xAF 0x27 0x1C.</summary>
+    private static readonly byte[] SevenZipMagic = { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C };
 
-    public DatRepositoryAdapter(Action<string>? log = null)
+    private readonly Action<string>? _log;
+    private readonly IToolRunner? _toolRunner;
+
+    public DatRepositoryAdapter(Action<string>? log = null, IToolRunner? toolRunner = null)
     {
         _log = log;
+        _toolRunner = toolRunner;
     }
 
     public DatIndex GetDatIndex(string datRoot, IDictionary<string, string> consoleMap,
@@ -176,6 +182,12 @@ public sealed class DatRepositoryAdapter
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* If we can't stat the file, let XmlReader handle it */ }
 
+        // Detect 7z-compressed DAT files and decompress transparently
+        if (Is7zFile(datPath))
+        {
+            return TryParse7zDat(datPath, hashType, settings);
+        }
+
         // Pre-check: reject empty or obviously non-XML files before parsing
         try
         {
@@ -231,6 +243,14 @@ public sealed class DatRepositoryAdapter
                                 "CRC" or "CRC32" => reader.GetAttribute("crc"),
                                 _ => reader.GetAttribute("sha1") // SHA1 default
                             };
+
+                            // Fallback chain: if the preferred hash is absent, try alternatives.
+                            // Many DATs (MAME, FBNeo) only carry CRC32; No-Intro has all four.
+                            if (hash is null && hashType.ToUpperInvariant() is not ("CRC" or "CRC32"))
+                                hash = reader.GetAttribute("md5");
+                            if (hash is null && hashType.ToUpperInvariant() is not ("CRC" or "CRC32"))
+                                hash = reader.GetAttribute("crc");
+
                             if (hash is not null) rom["hash"] = hash;
 
                             var size = reader.GetAttribute("size");
@@ -347,5 +367,99 @@ public sealed class DatRepositoryAdapter
             IgnoreComments = true,
             IgnoreWhitespace = true
         };
+    }
+
+    /// <summary>Detects 7z magic bytes at file start.</summary>
+    private static bool Is7zFile(string filePath)
+    {
+        try
+        {
+            using var fs = File.OpenRead(filePath);
+            var header = new byte[SevenZipMagic.Length];
+            if (fs.Read(header, 0, header.Length) < header.Length)
+                return false;
+            return header.AsSpan().SequenceEqual(SevenZipMagic);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Decompresses a 7z-packed DAT file to a temp directory, locates the inner XML,
+    /// and parses it. Requires an IToolRunner with 7z support.
+    /// </summary>
+    private Dictionary<string, List<Dictionary<string, string>>> TryParse7zDat(
+        string archivePath, string hashType, XmlReaderSettings settings)
+    {
+        var empty = new Dictionary<string, List<Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+
+        if (_toolRunner is null)
+        {
+            _log?.Invoke($"[Warning] DAT file '{archivePath}' is 7z-compressed but no ToolRunner available. Skipped.");
+            return empty;
+        }
+
+        var sevenZipPath = _toolRunner.FindTool("7z");
+        if (string.IsNullOrEmpty(sevenZipPath))
+        {
+            _log?.Invoke($"[Warning] DAT file '{archivePath}' is 7z-compressed but 7z tool not found. Skipped.");
+            return empty;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "romcleanup_dat7z_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var outArg = $"-o{tempDir}";
+            var result = _toolRunner.InvokeProcess(sevenZipPath, new[] { "x", "-y", outArg, archivePath });
+            if (!result.Success)
+            {
+                _log?.Invoke($"[Warning] Failed to decompress 7z DAT '{archivePath}': exit code {result.ExitCode}. Skipped.");
+                return empty;
+            }
+
+            // Security: validate extracted paths stay within tempDir
+            var normalizedTemp = Path.GetFullPath(tempDir).TrimEnd(Path.DirectorySeparatorChar)
+                                 + Path.DirectorySeparatorChar;
+
+            // Find the first .dat or .xml file inside the extracted contents
+            var extractedFiles = Directory.GetFiles(tempDir, "*.*", SearchOption.AllDirectories)
+                .Where(f =>
+                {
+                    var ext = Path.GetExtension(f);
+                    return ext.Equals(".dat", StringComparison.OrdinalIgnoreCase)
+                        || ext.Equals(".xml", StringComparison.OrdinalIgnoreCase);
+                })
+                .Where(f => Path.GetFullPath(f).StartsWith(normalizedTemp, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (extractedFiles.Count == 0)
+            {
+                _log?.Invoke($"[Warning] 7z DAT '{archivePath}' contains no .dat/.xml files after extraction. Skipped.");
+                return empty;
+            }
+
+            var innerDatPath = extractedFiles[0];
+            _log?.Invoke($"[Info] Decompressed 7z DAT '{Path.GetFileName(archivePath)}' → parsing '{Path.GetFileName(innerDatPath)}'");
+
+            // Recursively parse the inner file (it should be plain XML)
+            return ParseDatFileInternal(innerDatPath, hashType, settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log?.Invoke($"[Warning] Error decompressing 7z DAT '{archivePath}': {ex.Message}. Skipped.");
+            return empty;
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                try { Directory.Delete(tempDir, true); }
+                catch (IOException) { /* Best-effort cleanup */ }
+                catch (UnauthorizedAccessException) { /* Permission denied on cleanup — non-fatal */ }
+        }
     }
 }

@@ -539,7 +539,9 @@ public class RunOrchestratorTests : IDisposable
 
         var result = orch.Execute(options);
 
-        var latestSidecar = Assert.Single(audit.SidecarLog.Where(entry => entry.path == options.AuditPath)).meta;
+        var latestSidecar = Assert.Single(
+            audit.SidecarLog,
+            entry => entry.path == options.AuditPath && entry.meta.ContainsKey("FinalCheckpoint")).meta;
         var restoreRoots = Assert.IsType<string[]>(latestSidecar["AllowedRestoreRoots"]);
         var currentRoots = Assert.IsType<string[]>(latestSidecar["AllowedCurrentRoots"]);
 

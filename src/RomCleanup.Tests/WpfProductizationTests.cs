@@ -292,7 +292,7 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("ExtensionFiltersView", configOptionsXaml);
         Assert.Contains("DatMappings", configOptionsXaml);
         Assert.Contains("GameKeyPreviewInput", configOptionsXaml);
-        Assert.Contains("LibraryReportView", resultViewXaml);
+        Assert.Contains("OpenReportCommand", resultViewXaml);
         Assert.Contains("ConversionCapabilities", toolsViewXaml);
     }
 

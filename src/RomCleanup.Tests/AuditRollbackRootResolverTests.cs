@@ -53,6 +53,7 @@ public sealed class AuditRollbackRootResolverTests : IDisposable
     {
         var root = Path.Combine(_tempDir, "restore");
         var trash = Path.Combine(_tempDir, "external-trash");
+        var keyPath = Path.Combine(_tempDir, "audit-signing.key");
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(trash);
 
@@ -67,14 +68,14 @@ public sealed class AuditRollbackRootResolverTests : IDisposable
             $"{root},{oldPath},{newPath},MOVE\n",
             Encoding.UTF8);
 
-        var audit = new AuditCsvStore();
+        var audit = new AuditCsvStore(keyFilePath: keyPath);
         audit.WriteMetadataSidecar(auditPath, new Dictionary<string, object>
         {
             ["AllowedRestoreRoots"] = new[] { root },
             ["AllowedCurrentRoots"] = new[] { trash }
         });
 
-        var verify = RollbackService.VerifyTrashIntegrity(auditPath, [root]);
+        var verify = RollbackService.VerifyTrashIntegrity(auditPath, [root], keyFilePath: keyPath);
 
         Assert.True(verify.DryRun);
         Assert.Equal(1, verify.EligibleRows);

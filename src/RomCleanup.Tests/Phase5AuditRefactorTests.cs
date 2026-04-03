@@ -43,8 +43,10 @@ public class Phase5AuditRefactorTests
         var projection = RunProjectionFactory.Create(result);
         var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: false);
 
-        Assert.Equal("1", dashboard.Winners);
-        Assert.Equal("1", dashboard.Dupes);
+        Assert.StartsWith("1", dashboard.Winners, StringComparison.Ordinal);
+        Assert.StartsWith("1", dashboard.Dupes, StringComparison.Ordinal);
+        Assert.Contains("(vorläufig)", dashboard.Winners, StringComparison.Ordinal);
+        Assert.Contains("(vorläufig)", dashboard.Dupes, StringComparison.Ordinal);
         // Duration should reflect actual ms, not be empty or placeholder
         Assert.NotEqual("–", dashboard.Duration);
         Assert.False(string.IsNullOrWhiteSpace(dashboard.Duration));

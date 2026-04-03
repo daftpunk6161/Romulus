@@ -250,8 +250,12 @@ public sealed class RunEnvironmentBuilder
 
         if (runOptions.EnableDat && !string.IsNullOrWhiteSpace(effectiveDatRoot) && Directory.Exists(effectiveDatRoot))
         {
-            var datRepo = new DatRepositoryAdapter();
-            datConsoleMap = BuildConsoleMap(dataDir, effectiveDatRoot);
+            var datRepo = new DatRepositoryAdapter(toolRunner: toolRunner);
+            datConsoleMap = BuildConsoleMap(dataDir, effectiveDatRoot, out var supplementalDats);
+
+            // Bridge unmapped consoles via datSources aliases (e.g. ARCADE → MAME DAT)
+            if (consoleDetector is not null)
+                BridgeDatSourceAliases(datConsoleMap, consoleDetector, dataDir);
 
             // Diagnostic: show what BuildConsoleMap found.
             var datFileCount = Directory.Exists(effectiveDatRoot)
@@ -259,12 +263,29 @@ public sealed class RunEnvironmentBuilder
                     .Count(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
                              || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
                 : 0;
-            onWarning?.Invoke($"[DAT] DatRoot '{effectiveDatRoot}': {datFileCount} DAT/XML-Dateien gefunden, {datConsoleMap.Count} Konsolen gemappt");
+            var supplementalCount = supplementalDats.Values.Sum(l => l.Count);
+            onWarning?.Invoke($"[DAT] DatRoot '{effectiveDatRoot}': {datFileCount} DAT/XML-Dateien gefunden, {datConsoleMap.Count} Konsolen gemappt, {supplementalCount} ergaenzende DATs");
 
             if (datConsoleMap.Count > 0)
             {
-                datIndex = datRepo.GetDatIndex(effectiveDatRoot, datConsoleMap,
-                    runOptions.HashType ?? settings.Dat.HashType);
+                var hashType = runOptions.HashType ?? settings.Dat.HashType;
+                datIndex = datRepo.GetDatIndex(effectiveDatRoot, datConsoleMap, hashType);
+
+                // Load supplemental DATs (e.g. FBNeo DATs for consoles already mapped via No-Intro)
+                foreach (var (consoleKey, extraPaths) in supplementalDats)
+                {
+                    foreach (var extraPath in extraPaths)
+                    {
+                        var supplementalMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            [consoleKey] = extraPath
+                        };
+                        var extraIndex = datRepo.GetDatIndex(effectiveDatRoot, supplementalMap, hashType);
+                        // Merge entries into main index.
+                        MergeDatIndices(datIndex, extraIndex);
+                    }
+                }
+
                 onWarning?.Invoke($"[DAT] Loaded {datIndex.TotalEntries} hashes for {datIndex.ConsoleCount} consoles");
             }
             else
@@ -335,8 +356,13 @@ public sealed class RunEnvironmentBuilder
     /// Falls back to scanning datRoot for .dat files with console key as stem.
     /// </summary>
     public static Dictionary<string, string> BuildConsoleMap(string dataDir, string datRoot)
+        => BuildConsoleMap(dataDir, datRoot, out _);
+
+    public static Dictionary<string, string> BuildConsoleMap(string dataDir, string datRoot,
+        out Dictionary<string, List<string>> supplementalDats)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        supplementalDats = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
         List<DatCatalogEntry>? entries = null;
@@ -358,9 +384,9 @@ public sealed class RunEnvironmentBuilder
                         if (string.IsNullOrWhiteSpace(entry.ConsoleKey))
                             continue;
 
-                        // Already mapped by a previous entry (e.g. same ConsoleKey from different group)
-                        if (map.ContainsKey(entry.ConsoleKey))
-                            continue;
+                        // Already mapped by a previous entry (e.g. same ConsoleKey from different group):
+                        // try to add as supplemental DAT so both No-Intro + FBNeo hashes are indexed.
+                        var alreadyMapped = map.ContainsKey(entry.ConsoleKey);
 
                         var candidates = new[]
                         {
@@ -373,11 +399,12 @@ public sealed class RunEnvironmentBuilder
                         };
 
                         var found = false;
+                        string? resolvedPath = null;
                         foreach (var candidate in candidates)
                         {
                             if (File.Exists(candidate))
                             {
-                                map[entry.ConsoleKey] = candidate;
+                                resolvedPath = candidate;
                                 found = true;
                                 break;
                             }
@@ -389,7 +416,7 @@ public sealed class RunEnvironmentBuilder
                             var exactMatch = FindExactStemMatch(datRootFiles, entry.Id, entry.System, entry.ConsoleKey);
                             if (exactMatch is not null)
                             {
-                                map[entry.ConsoleKey] = exactMatch;
+                                resolvedPath = exactMatch;
                                 found = true;
                             }
                         }
@@ -401,7 +428,32 @@ public sealed class RunEnvironmentBuilder
 
                             var matched = MatchPackGlob(datRootFiles, entry.PackMatch);
                             if (matched != null)
-                                map[entry.ConsoleKey] = matched;
+                            {
+                                resolvedPath = matched;
+                                found = true;
+                            }
+                        }
+
+                        if (found && resolvedPath is not null)
+                        {
+                            if (!alreadyMapped)
+                            {
+                                map[entry.ConsoleKey] = resolvedPath;
+                            }
+                            else
+                            {
+                                // Supplemental DAT: same ConsoleKey but different DAT source (e.g. FBNeo + No-Intro)
+                                if (!supplementalDats.TryGetValue(entry.ConsoleKey, out var list))
+                                {
+                                    list = new List<string>();
+                                    supplementalDats[entry.ConsoleKey] = list;
+                                }
+                                if (!string.Equals(map[entry.ConsoleKey], resolvedPath, StringComparison.OrdinalIgnoreCase)
+                                    && !list.Contains(resolvedPath, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    list.Add(resolvedPath);
+                                }
+                            }
                         }
                     }
                 }
@@ -414,8 +466,19 @@ public sealed class RunEnvironmentBuilder
 
         if (Directory.Exists(datRoot))
         {
+            // Collect already-mapped file paths to avoid adding catalog-matched DATs
+            // under their raw stem as a phantom console key (e.g. "FBNEO-NES" when
+            // fbneo-nes.dat is already mapped via catalog to ConsoleKey "NES").
+            var mappedPaths = new HashSet<string>(map.Values, StringComparer.OrdinalIgnoreCase);
+            foreach (var extraList in supplementalDats.Values)
+                foreach (var p in extraList)
+                    mappedPaths.Add(p);
+
             foreach (var datFile in GetDatCandidateFiles(datRoot))
             {
+                if (mappedPaths.Contains(datFile))
+                    continue;
+
                 var stem = Path.GetFileNameWithoutExtension(datFile).ToUpperInvariant();
                 if (!map.ContainsKey(stem))
                     map[stem] = datFile;
@@ -496,6 +559,35 @@ public sealed class RunEnvironmentBuilder
         return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static void MergeDatIndices(DatIndex? target, DatIndex? source)
+    {
+        if (target is null || source is null)
+            return;
+
+        foreach (var consoleKey in source.ConsoleKeys.OrderBy(static key => key, StringComparer.OrdinalIgnoreCase))
+        {
+            var entries = source.GetConsoleEntries(consoleKey);
+            if (entries is null || entries.Count == 0)
+                continue;
+
+            foreach (var hash in entries.Keys.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase))
+            {
+                var entry = source.LookupWithFilename(consoleKey, hash);
+                if (entry is null)
+                    continue;
+
+                var value = entry.Value;
+                target.Add(
+                    consoleKey,
+                    hash,
+                    value.GameName,
+                    value.RomFileName,
+                    value.IsBios,
+                    value.ParentGameName);
+            }
+        }
+    }
+
     private static string ComputeEnrichmentFingerprint(
         RunOptions runOptions,
         string dataDir,
@@ -557,6 +649,67 @@ public sealed class RunEnvironmentBuilder
 
         var info = new FileInfo(fullPath);
         lines.Add($"File={fullPath}|{info.Length}|{info.LastWriteTimeUtc.Ticks}");
+    }
+
+    /// <summary>
+    /// Bridges unmapped consoles to existing DAT paths via their datSources aliases.
+    /// Example: ARCADE has datSources ["mame","fbneo"]. If "MAME" is mapped but "ARCADE" is not,
+    /// this resolves ARCADE → MAME's DAT path via the catalog id→ConsoleKey link.
+    /// </summary>
+    internal static void BridgeDatSourceAliases(
+        Dictionary<string, string> map,
+        ConsoleDetector consoleDetector,
+        string dataDir)
+    {
+        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
+        if (!File.Exists(catalogPath))
+            return;
+
+        List<DatCatalogEntry>? entries;
+        try
+        {
+            var json = File.ReadAllText(catalogPath);
+            entries = JsonSerializer.Deserialize<List<DatCatalogEntry>>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        if (entries is null or { Count: 0 })
+            return;
+
+        // Build catalog id → ConsoleKey mapping (first occurrence wins)
+        var idToConsoleKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.Id) && !string.IsNullOrWhiteSpace(entry.ConsoleKey))
+                idToConsoleKey.TryAdd(entry.Id, entry.ConsoleKey);
+        }
+
+        foreach (var consoleKey in consoleDetector.AllConsoleKeys)
+        {
+            if (map.ContainsKey(consoleKey))
+                continue;
+
+            var info = consoleDetector.GetConsole(consoleKey);
+            if (info is null || info.DatSources.Length == 0)
+                continue;
+
+            foreach (var datSourceId in info.DatSources)
+            {
+                // datSourceId is a catalog Id (e.g. "mame").
+                // Find the catalog ConsoleKey for that Id (e.g. "MAME").
+                // If that ConsoleKey is already in the map, bridge it.
+                if (idToConsoleKey.TryGetValue(datSourceId, out var bridgeKey)
+                    && map.TryGetValue(bridgeKey, out var datPath))
+                {
+                    map[consoleKey] = datPath;
+                    break;
+                }
+            }
+        }
     }
 
     public sealed class DatCatalogEntry

@@ -233,6 +233,15 @@ public sealed class RunViewModel : ObservableObject
     private string _dashDatAmbiguous = "–";
     public string DashDatAmbiguous { get => _dashDatAmbiguous; set => SetProperty(ref _dashDatAmbiguous, value); }
 
+    private string _dashDatRenameProposed = "–";
+    public string DashDatRenameProposed { get => _dashDatRenameProposed; set => SetProperty(ref _dashDatRenameProposed, value); }
+
+    private string _dashDatRenameExecuted = "–";
+    public string DashDatRenameExecuted { get => _dashDatRenameExecuted; set => SetProperty(ref _dashDatRenameExecuted, value); }
+
+    private string _dashDatRenameFailed = "–";
+    public string DashDatRenameFailed { get => _dashDatRenameFailed; set => SetProperty(ref _dashDatRenameFailed, value); }
+
     private string _dedupeRate = "–";
     public string DedupeRate { get => _dedupeRate; set => SetProperty(ref _dedupeRate, value); }
 
@@ -271,10 +280,10 @@ public sealed class RunViewModel : ObservableObject
         MoveCount = dupes;
         JunkCount = junk;
 
-        var max = Math.Max(1, Math.Max(keep, Math.Max(dupes, junk)));
-        KeepFraction = (double)keep / max;
-        MoveFraction = (double)dupes / max;
-        JunkFraction = (double)junk / max;
+        var divisor = Math.Max(1, total);
+        KeepFraction = (double)keep / divisor;
+        MoveFraction = (double)dupes / divisor;
+        JunkFraction = (double)junk / divisor;
     }
 
     // ═══ RUN SUMMARY ════════════════════════════════════════════════════

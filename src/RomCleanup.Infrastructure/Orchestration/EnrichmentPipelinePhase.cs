@@ -3,6 +3,7 @@ using RomCleanup.Core.Classification;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Scoring;
 using RomCleanup.Infrastructure.Hashing;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using RomCleanup.Core.SetParsing;
 
@@ -728,10 +729,19 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             return null;
 
         var gate = new object();
+        var lastInvoke = 0L; // Stopwatch ticks of last forwarded call
+        const long ThrottleIntervalTicks = 200 * TimeSpan.TicksPerMillisecond; // 200ms
+
         return message =>
         {
+            var now = Stopwatch.GetTimestamp();
             lock (gate)
+            {
+                if (now - lastInvoke < ThrottleIntervalTicks)
+                    return;
+                lastInvoke = now;
                 onProgress(message);
+            }
         };
     }
 

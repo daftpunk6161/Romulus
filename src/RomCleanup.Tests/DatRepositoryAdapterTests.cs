@@ -270,6 +270,97 @@ public class DatRepositoryAdapterTests : IDisposable
         Assert.NotNull(index);
     }
 
+    // ── Hash fallback chain tests ──
+
+    [Fact]
+    public void GetDatIndex_CrcOnlyDat_FallsBackToCrc()
+    {
+        // FBNeo-style DAT: only crc attribute, no sha1/md5
+        var datContent = @"<?xml version=""1.0""?>
+<datafile>
+  <game name=""mslug5"">
+    <rom name=""268-p1.bin"" size=""524288"" crc=""4352ce78"" />
+  </game>
+</datafile>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "fbneo.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["ARCADE"] = "fbneo.dat" });
+
+        Assert.Equal(1, index.TotalEntries);
+        // The fallback chain should index by CRC32 when SHA1 is absent
+        Assert.Equal("mslug5", index.Lookup("ARCADE", "4352ce78"));
+    }
+
+    [Fact]
+    public void GetDatIndex_Md5OnlyDat_FallsBackToMd5()
+    {
+        var datContent = @"<?xml version=""1.0""?>
+<datafile>
+  <game name=""TestGame"">
+    <rom name=""test.bin"" size=""100"" md5=""d41d8cd98f00b204e9800998ecf8427e"" />
+  </game>
+</datafile>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "md5.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["TEST"] = "md5.dat" });
+
+        Assert.Equal(1, index.TotalEntries);
+        Assert.Equal("TestGame", index.Lookup("TEST", "d41d8cd98f00b204e9800998ecf8427e"));
+    }
+
+    [Fact]
+    public void GetDatIndex_NoHashAttributes_ProducesNoEntries()
+    {
+        // DAT with rom element but no hash attributes
+        var datContent = @"<?xml version=""1.0""?>
+<datafile>
+  <game name=""NoHash"">
+    <rom name=""none.bin"" size=""100"" />
+  </game>
+</datafile>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "nohash.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["TEST"] = "nohash.dat" });
+
+        // ROM without any hash should still create an entry (no hash but name persists)
+        // The hash field will be null so it won't be in the hash index, but game exists
+        Assert.Null(index.Lookup("TEST", "anything"));
+    }
+
+    [Fact]
+    public void GetDatIndex_MixedHashes_Sha1PreferredOverFallback()
+    {
+        // DAT with all hash types – SHA1 should be preferred, not CRC32
+        var datContent = @"<?xml version=""1.0""?>
+<datafile>
+  <game name=""FullHashGame"">
+    <rom name=""full.bin"" size=""100"" sha1=""abc123"" md5=""def456"" crc=""aabbccdd"" />
+  </game>
+</datafile>";
+
+        File.WriteAllText(Path.Combine(_tempDir, "full.dat"), datContent);
+
+        var index = _dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["TEST"] = "full.dat" });
+
+        Assert.Equal(1, index.TotalEntries);
+        // SHA1 is the default hash type – should be indexed by SHA1
+        Assert.Equal("FullHashGame", index.Lookup("TEST", "abc123"));
+        // CRC32 and MD5 should NOT be used when SHA1 is present
+        Assert.Null(index.Lookup("TEST", "aabbccdd"));
+        Assert.Null(index.Lookup("TEST", "def456"));
+    }
+
         [Fact]
         public void GetDatIndex_BillionLaughsPayload_DoesNotExpandEntities_AndReturnsNoEntries_Issue9()
         {
@@ -298,4 +389,141 @@ public class DatRepositoryAdapterTests : IDisposable
                 Assert.NotNull(index);
                 Assert.Equal(0, index.TotalEntries);
         }
+
+    [Fact]
+    public void GetDatIndex_7zCompressedDat_WithoutToolRunner_SkipsGracefully()
+    {
+        // Create a file with 7z magic bytes (not a real 7z, but triggers detection)
+        var magic = new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C, 0x00, 0x00 };
+        File.WriteAllBytes(Path.Combine(_tempDir, "mame.dat"), magic);
+
+        var logMessages = new List<string>();
+        var dat = new DatRepositoryAdapter(log: msg => logMessages.Add(msg));
+
+        var index = dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["MAME"] = "mame.dat" });
+
+        // Without ToolRunner, 7z DATs should be skipped gracefully
+        Assert.Equal(0, index.TotalEntries);
+        Assert.Contains(logMessages, m => m.Contains("7z-compressed") && m.Contains("no ToolRunner"));
+    }
+
+    [Fact]
+    public void GetDatIndex_7zCompressedDat_WithToolRunner_Decompresses()
+    {
+        // This test verifies the full 7z decompression path using a mock ToolRunner
+        // that actually creates the expected XML file in the temp directory.
+        var xmlContent = @"<?xml version=""1.0""?>
+<mame>
+  <machine name=""mslug"">
+    <rom name=""201-p1.bin"" size=""524288"" crc=""08d8b8df"" />
+  </machine>
+</mame>";
+
+        // Create a file with 7z magic bytes
+        var magic = new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C, 0x00, 0x00 };
+        var archivePath = Path.Combine(_tempDir, "mame.dat");
+        File.WriteAllBytes(archivePath, magic);
+
+        var toolRunner = new Fake7zToolRunner(xmlContent);
+        var logMessages = new List<string>();
+        var dat = new DatRepositoryAdapter(log: msg => logMessages.Add(msg), toolRunner: toolRunner);
+
+        var index = dat.GetDatIndex(
+            _tempDir,
+            new Dictionary<string, string> { ["MAME"] = "mame.dat" });
+
+        Assert.Equal(1, index.TotalEntries);
+        Assert.Equal("mslug", index.Lookup("MAME", "08d8b8df"));
+        Assert.Contains(logMessages, m => m.Contains("Decompressed 7z DAT"));
+    }
+
+    /// <summary>Fake IToolRunner that simulates 7z extraction by writing XML to the output directory.</summary>
+    private sealed class Fake7zToolRunner : RomCleanup.Contracts.Ports.IToolRunner
+    {
+        private readonly string _xmlContent;
+
+        public Fake7zToolRunner(string xmlContent) => _xmlContent = xmlContent;
+
+        public string? FindTool(string toolName) => toolName == "7z" ? @"C:\fake\7z.exe" : null;
+
+        public RomCleanup.Contracts.Ports.ToolResult InvokeProcess(
+            string filePath, string[] arguments, string? errorLabel = null)
+        {
+            // Parse -o<dir> from arguments and write the XML there
+            var outDir = arguments.FirstOrDefault(a => a.StartsWith("-o"))?[2..];
+            if (outDir is not null)
+            {
+                Directory.CreateDirectory(outDir);
+                File.WriteAllText(Path.Combine(outDir, "mame.xml"), _xmlContent);
+            }
+            return new RomCleanup.Contracts.Ports.ToolResult(0, "Everything is Ok", true);
+        }
+
+        public RomCleanup.Contracts.Ports.ToolResult Invoke7z(string sevenZipPath, string[] arguments)
+            => InvokeProcess(sevenZipPath, arguments);
+    }
+
+    // ── DatIndex.MergeFrom ──────────────────────────────────────────────
+
+    [Fact]
+    public void DatIndex_MergeFrom_AddsEntriesFromOtherIndex()
+    {
+        var primary = new DatIndex();
+        primary.Add("NES", "aaa111", "Super Mario Bros");
+
+        var supplemental = new DatIndex();
+        supplemental.Add("NES", "bbb222", "Contra");
+
+        primary.MergeFrom(supplemental);
+
+        Assert.Equal(2, primary.TotalEntries);
+        Assert.Equal("Super Mario Bros", primary.Lookup("NES", "aaa111"));
+        Assert.Equal("Contra", primary.Lookup("NES", "bbb222"));
+    }
+
+    [Fact]
+    public void DatIndex_MergeFrom_NewConsoleKey_AddedCorrectly()
+    {
+        var primary = new DatIndex();
+        primary.Add("NES", "aaa111", "Super Mario Bros");
+
+        var supplemental = new DatIndex();
+        supplemental.Add("SNES", "ccc333", "Zelda");
+
+        primary.MergeFrom(supplemental);
+
+        Assert.Equal(2, primary.ConsoleCount);
+        Assert.Equal("Zelda", primary.Lookup("SNES", "ccc333"));
+    }
+
+    [Fact]
+    public void DatIndex_MergeFrom_DuplicateHash_UpdatesEntry()
+    {
+        var primary = new DatIndex();
+        primary.Add("NES", "aaa111", "Original Name");
+
+        var supplemental = new DatIndex();
+        supplemental.Add("NES", "aaa111", "Updated Name");
+
+        primary.MergeFrom(supplemental);
+
+        // The Add method updates existing keys — supplemental overwrites
+        Assert.Equal(1, primary.TotalEntries);
+        Assert.Equal("Updated Name", primary.Lookup("NES", "aaa111"));
+    }
+
+    [Fact]
+    public void DatIndex_MergeFrom_EmptySource_NoChange()
+    {
+        var primary = new DatIndex();
+        primary.Add("NES", "aaa111", "Mario");
+
+        var empty = new DatIndex();
+        primary.MergeFrom(empty);
+
+        Assert.Equal(1, primary.TotalEntries);
+        Assert.Equal("Mario", primary.Lookup("NES", "aaa111"));
+    }
 }

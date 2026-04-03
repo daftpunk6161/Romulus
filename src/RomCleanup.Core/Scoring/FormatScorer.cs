@@ -61,7 +61,12 @@ public static class FormatScorer
             ".nds" or ".gba" or ".gbc" or ".gb" or ".nes" or ".sfc" or ".smc"
             or ".n64" or ".z64" or ".v64" or ".md" or ".gen" or ".sms"
             or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78" or ".lnx" or ".jag"
-            or ".snes" or ".ngp" or ".ws" => 600,
+            or ".snes" or ".ngp" or ".ws" or ".wsc" or ".vb" or ".ndd" or ".dsi" or ".wad" or ".bs"
+            or ".sg" or ".sc" or ".sgx" or ".pcfx" or ".j64" or ".st" or ".stx" or ".atr" or ".xex" or ".xfd"
+            or ".col" or ".int" or ".o2" or ".vec" or ".min" or ".tgc"
+            or ".tzx" or ".adf" or ".d64" or ".t64" or ".mx1" or ".mx2"
+            or ".vpk" or ".app" or ".gpe" or ".st2" or ".p00" or ".prc" or ".pdb" or ".dmg" or ".gxb"
+            or ".img" => 600,
             ".ecm" => 550,
             ".zip" => 500,
             ".7z" => 480,
@@ -149,6 +154,12 @@ public static class FormatScorer
             or ".nds" or ".gba" or ".gbc" or ".gb" or ".nes" or ".sfc" or ".smc"
             or ".n64" or ".z64" or ".v64" or ".md" or ".gen" or ".sms"
             or ".gg" or ".pce" or ".fds" or ".32x" or ".a26" or ".a52" or ".a78" or ".lnx" or ".jag" or ".snes" or ".ngp" or ".ws"
+            or ".wsc" or ".vb" or ".ndd" or ".dsi" or ".wad" or ".bs"
+            or ".sg" or ".sc" or ".sgx" or ".pcfx" or ".j64" or ".st" or ".stx" or ".atr" or ".xex" or ".xfd"
+            or ".col" or ".int" or ".o2" or ".vec" or ".min" or ".tgc"
+            or ".tzx" or ".adf" or ".d64" or ".t64" or ".mx1" or ".mx2"
+            or ".vpk" or ".app" or ".gpe" or ".st2" or ".p00" or ".prc" or ".pdb" or ".dmg" or ".gxb"
+            or ".img"
             or ".ecm" or ".zip" or ".7z" or ".rar" or ".m3u" => true,
             _ => false
         };

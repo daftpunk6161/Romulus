@@ -356,7 +356,8 @@ public sealed class Phase4ConversionInvariantTests
             service.ClearCache();
             var hashes2 = service.GetArchiveHashes(tempZip, "SHA1");
 
-            Assert.Equal(3, hashes1.Length);
+            // 3 entries × (SHA1 + native CRC32) = 6 hashes
+            Assert.Equal(6, hashes1.Length);
             Assert.Equal(hashes1, hashes2); // Must be identical regardless of call order
         }
         finally

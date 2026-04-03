@@ -70,7 +70,7 @@ public sealed class V2RemainingTests : IDisposable
 
         var hashes = svc.GetArchiveHashes(zip, "SHA1", CancellationToken.None);
 
-        Assert.Equal(2, hashes.Length);
+        Assert.Equal(4, hashes.Length);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class V2RemainingTests : IDisposable
 
         // Non-cancelled token should succeed
         var hashes = svc.GetArchiveHashes(zip, "SHA1", CancellationToken.None);
-        Assert.Equal(20, hashes.Length);
+        Assert.Equal(40, hashes.Length);
     }
 
     // ═══════════════════════════════════════════════════════════════════
