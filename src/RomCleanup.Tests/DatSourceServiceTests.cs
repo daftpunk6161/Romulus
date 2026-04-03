@@ -194,6 +194,36 @@ public class DatSourceServiceTests : IDisposable
     }
 
     [Fact]
+    public void ImportLocalDatPacks_RedumpFormat_MatchesByPackMatch()
+    {
+        var sourceDir = Path.Combine(_tempDir, "source", "Redump");
+        Directory.CreateDirectory(sourceDir);
+
+        var sourceDat = Path.Combine(sourceDir, "Panasonic - 3DO Interactive Multiplayer - Datfile (73) (2026-01-15).dat");
+        File.WriteAllText(sourceDat, "redump-3do-content");
+
+        var catalog = new[]
+        {
+            new DatCatalogEntry
+            {
+                Id = "redump-3do",
+                Group = "Redump",
+                System = "Panasonic - 3DO Interactive Multiplayer",
+                Format = "zip-dat",
+                PackMatch = "Panasonic - 3DO Interactive Multiplayer - Datfile*"
+            }
+        };
+
+        using var svc = new DatSourceService(_tempDir);
+        var imported = svc.ImportLocalDatPacks(sourceDir, catalog);
+
+        Assert.Equal(1, imported);
+        var target = Path.Combine(_tempDir, "redump-3do.dat");
+        Assert.True(File.Exists(target));
+        Assert.Equal("redump-3do-content", File.ReadAllText(target));
+    }
+
+    [Fact]
     public async Task VerifyDatSignature_Sidecar404_ReturnsTrue_HttpsIntegrity()
     {
         var path = Path.Combine(_tempDir, "no-sidecar.dat");
@@ -427,7 +457,7 @@ public class DatSourceServiceTests : IDisposable
     }
 
     [Fact]
-    public void ImportLocalDatPacks_ExistingTarget_CreatesBackupAndReplaces()
+    public void ImportLocalDatPacks_ExistingTarget_CreatesBackupThenCleansUp()
     {
         var sourceDir = Path.Combine(_tempDir, "source");
         Directory.CreateDirectory(sourceDir);
@@ -455,8 +485,8 @@ public class DatSourceServiceTests : IDisposable
 
         Assert.Equal(1, imported);
         Assert.Equal("new-pack-content", File.ReadAllText(targetPath));
-        Assert.True(File.Exists(targetPath + ".bak"));
-        Assert.Equal("old-pack-content", File.ReadAllText(targetPath + ".bak"));
+        // .bak is cleaned up after successful import
+        Assert.False(File.Exists(targetPath + ".bak"));
     }
 
     [Fact]

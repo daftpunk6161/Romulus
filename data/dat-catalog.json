@@ -1675,22 +1675,6 @@
     "ConsoleKey": "AWAVE",
     "Format": "raw-dat"
   },
-  {
-    "Group": "Libretro",
-    "Url": "https://raw.githubusercontent.com/libretro/libretro-database/master/dat/Sega%20-%20Naomi.dat",
-    "System": "Sega - Naomi (Libretro)",
-    "Id": "libretro-naomi",
-    "ConsoleKey": "NAOMI",
-    "Format": "raw-dat"
-  },
-  {
-    "Group": "Libretro",
-    "Url": "https://raw.githubusercontent.com/libretro/libretro-database/master/dat/Daphne.dat",
-    "System": "Daphne Laserdisc Games",
-    "Id": "libretro-daphne",
-    "ConsoleKey": "DAPHNE",
-    "Format": "raw-dat"
-  },
 
   {
     "Group": "FBNEO",

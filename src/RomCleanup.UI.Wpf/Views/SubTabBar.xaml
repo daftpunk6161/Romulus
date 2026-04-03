@@ -68,6 +68,10 @@
                          Visibility="{Binding Shell.ShowToolsFeaturesTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Features}"
                          AutomationProperties.Name="Features"/>
+            <RadioButton GroupName="SubTab" Content="DAT-Verwaltung" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowToolsDatManagementTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=DatManagement}"
+                         AutomationProperties.Name="DAT Catalog Management"/>
           </StackPanel>
 
           <StackPanel Orientation="Horizontal"

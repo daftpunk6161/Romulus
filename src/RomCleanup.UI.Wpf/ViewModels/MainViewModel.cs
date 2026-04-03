@@ -55,6 +55,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public CommandPaletteViewModel CommandPalette { get; }
     /// <summary>DatAudit results: read-only audit table with filter/sort.</summary>
     public DatAuditViewModel DatAudit { get; }
+    /// <summary>ADR-0020: DAT Catalog management — browsable grid with status + batch actions.</summary>
+    public DatCatalogViewModel DatCatalog { get; }
     /// <summary>TASK-125: Conversion preview before execution.</summary>
     public ConversionPreviewViewModel ConversionPreview { get; }
 
@@ -85,6 +87,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         Run = new RunViewModel(_loc);
         CommandPalette = new CommandPaletteViewModel(_loc);
         DatAudit = new DatAuditViewModel(_loc, _dialog);
+        DatCatalog = new DatCatalogViewModel(_loc, _dialog, () => DatRoot, AddLog);
         ConversionPreview = new ConversionPreviewViewModel(_loc);
         InitializeRunConfigurationServices(runProfileService, runConfigurationMaterializer);
 

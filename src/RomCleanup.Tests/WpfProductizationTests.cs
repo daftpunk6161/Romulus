@@ -279,7 +279,7 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.DoesNotContain("ConverterParameter=QuickStart", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=Filtering", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=Report", subTabBarXaml);
-        Assert.DoesNotContain("ConverterParameter=DatManagement", subTabBarXaml);
+        Assert.Contains("ConverterParameter=DatManagement", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=Conversion", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=GameKeyLab", subTabBarXaml);
         Assert.DoesNotContain("ConfigFiltersView", mainWindowXaml);

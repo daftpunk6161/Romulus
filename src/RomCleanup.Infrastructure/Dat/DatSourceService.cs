@@ -317,8 +317,7 @@ public sealed class DatSourceService : IDisposable
         Directory.CreateDirectory(datRoot);
 
         var packEntries = catalog
-            .Where(e => !string.IsNullOrWhiteSpace(e.PackMatch)
-                     && string.Equals(e.Format, "nointro-pack", StringComparison.OrdinalIgnoreCase))
+            .Where(e => !string.IsNullOrWhiteSpace(e.PackMatch))
             .ToList();
 
         if (packEntries.Count == 0)
@@ -367,6 +366,12 @@ public sealed class DatSourceService : IDisposable
 
             ReplaceWithBackup(match, targetPath);
             imported++;
+
+            // Clean up .bak after successful copy
+            var bakPath = targetPath + ".bak";
+            try { if (File.Exists(bakPath)) File.Delete(bakPath); }
+            catch (IOException) { /* non-fatal — .bak locked or permission denied */ }
+            catch (UnauthorizedAccessException) { /* non-fatal */ }
         }
 
         return imported;

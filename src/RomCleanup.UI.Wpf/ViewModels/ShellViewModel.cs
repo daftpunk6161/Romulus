@@ -144,7 +144,7 @@ public sealed class ShellViewModel : ObservableObject
 
     public bool ShowToolsExternalToolsTab => true;
     public bool ShowToolsFeaturesTab => true;
-    public bool ShowToolsDatManagementTab => false;
+    public bool ShowToolsDatManagementTab => true;
     public bool ShowToolsConversionTab => false;
     public bool ShowToolsGameKeyLabTab => false;
 
@@ -176,6 +176,7 @@ public sealed class ShellViewModel : ObservableObject
         "Profiles" => "Profile",
         "ExternalTools" => "Externe Tools",
         "Features" => "Werkzeuge & Features",
+        "DatManagement" => "DAT-Verwaltung",
         "ActivityLog" => "Aktivitaet",
         "Appearance" => "Darstellung",
         "About" => "Info",
@@ -232,8 +233,8 @@ public sealed class ShellViewModel : ObservableObject
             ? subTab is "Regions" or "Options" or "Profiles"
             : subTab is "Regions" or "Options",
         ToolsTag => !IsSimpleMode
-            ? subTab is "Features" or "ExternalTools"
-            : subTab is "Features" or "ExternalTools",
+            ? subTab is "Features" or "ExternalTools" or "DatManagement"
+            : subTab is "Features" or "ExternalTools" or "DatManagement",
         SystemTag => !IsSimpleMode
             ? subTab is "ActivityLog" or "Appearance" or "About"
             : subTab is "Appearance" or "About",

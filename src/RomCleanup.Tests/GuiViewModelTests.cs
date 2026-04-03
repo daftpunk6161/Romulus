@@ -4873,7 +4873,7 @@ public class GuiViewModelTests
         Assert.DoesNotContain("ConverterParameter=QuickStart", content);
         Assert.DoesNotContain("ConverterParameter=Filtering", content);
         Assert.DoesNotContain("ConverterParameter=Report", content);
-        Assert.DoesNotContain("ConverterParameter=DatManagement", content);
+        Assert.Contains("ConverterParameter=DatManagement", content);
         Assert.DoesNotContain("ConverterParameter=Conversion", content);
         Assert.DoesNotContain("ConverterParameter=GameKeyLab", content);
     }

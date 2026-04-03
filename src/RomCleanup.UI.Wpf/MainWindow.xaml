@@ -143,6 +143,8 @@
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ExternalTools}"/>
               <views:ToolsView DataContext="{Binding Tools}"
                   Visibility="{Binding DataContext.Shell.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Features}"/>
+              <views:DatCatalogView DataContext="{Binding DatCatalog}"
+                  Visibility="{Binding DataContext.Shell.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatManagement}"/>
             </Grid>
 
             <!-- ── System (sub-tab-aware) ──────────────────────── -->

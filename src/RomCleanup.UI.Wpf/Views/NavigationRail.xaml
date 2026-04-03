@@ -46,7 +46,7 @@
                      AutomationProperties.Name="{Binding Loc[Nav.Config]}">
           <StackPanel HorizontalAlignment="Center" MaxWidth="72">
             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="18" HorizontalAlignment="Center"/>
-            <TextBlock Text="Konfiguration" FontSize="10.5" TextAlignment="Center" TextWrapping="Wrap"
+            <TextBlock Text="Konfig." FontSize="10.5" TextAlignment="Center" TextWrapping="Wrap"
                        Margin="0,4,0,0" Foreground="{DynamicResource BrushTextMuted}"
                        Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
