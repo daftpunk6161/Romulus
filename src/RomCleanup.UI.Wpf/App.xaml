@@ -22,6 +22,8 @@
       <conv:StringEqualsToBoolConverter x:Key="StrEqualsToBool"/>
       <conv:PhaseDetailConverter x:Key="PhaseDetail"/>
       <conv:FractionToWidthConverter x:Key="FractionToWidth"/>
+      <conv:FractionToGridLengthConverter x:Key="FractionToGridLength"/>
+      <conv:IntToVisibilityConverter x:Key="IntToVis"/>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

@@ -911,4 +911,71 @@ public class ConsoleDetectorTests
         var detector = CreateDetectorFromJson();
         Assert.Null(detector.DetectByKeywordDynamic(null!));
     }
+
+    // ── Vendor-prefix folder detection ──────────────────────────────────
+
+    [Theory]
+    [InlineData("Sony Playstation 2", "PS2")]
+    [InlineData("Sony Playstation", "PS1")]
+    [InlineData("Sony PSP", "PSP")]
+    [InlineData("Microsoft Xbox 360", "X360")]
+    [InlineData("Microsoft Xbox", "XBOX")]
+    [InlineData("Sega Dreamcast", "DC")]
+    [InlineData("Nintendo Game Boy Advance", "GBA")]
+    [InlineData("Sega Game Gear", "GG")]
+    [InlineData("Sega Genesis", "MD")]
+    [InlineData("NEC PC Engine CD", "PCECD")]
+    [InlineData("SNK Neo Geo", "NEOGEO")]
+    [InlineData("Atari Jaguar", "JAG")]
+    public void DetectByFolder_VendorPrefixWithoutHyphen_ResolvesConsole(string folderName, string expectedKey)
+    {
+        var detector = CreateDetectorFromJson();
+        var filePath = $@"A:\Collections\{folderName}\roms\game.bin";
+        var root = @"A:\Collections";
+        Assert.Equal(expectedKey, detector.DetectByFolder(filePath, root));
+    }
+
+    [Theory]
+    [InlineData("Sony - Playstation 2", "PS2")]
+    [InlineData("Sony - PSP", "PSP")]
+    [InlineData("Microsoft - Xbox 360", "X360")]
+    public void DetectByFolder_VendorPrefixWithHyphen_StillWorks(string folderName, string expectedKey)
+    {
+        var detector = CreateDetectorFromJson();
+        var filePath = $@"A:\Collections\{folderName}\roms\game.bin";
+        var root = @"A:\Collections";
+        Assert.Equal(expectedKey, detector.DetectByFolder(filePath, root));
+    }
+
+    [Fact]
+    public void DetectByFolder_VendorPrefixCaseInsensitive()
+    {
+        var detector = CreateDetectorFromJson();
+        Assert.Equal("PS2", detector.DetectByFolder(@"A:\SONY PLAYSTATION 2\game.bin", @"A:\"));
+        Assert.Equal("PS2", detector.DetectByFolder(@"A:\sony playstation 2\game.bin", @"A:\"));
+    }
+
+    [Fact]
+    public void DetectByFolder_UnknownVendorPrefix_ReturnsNull()
+    {
+        var detector = CreateDetectorFromJson();
+        Assert.Null(detector.DetectByFolder(@"A:\Acme FooBar\game.bin", @"A:\"));
+    }
+
+    [Fact]
+    public void DetectByFolder_MugenFolder_ReturnsMUGEN()
+    {
+        var detector = CreateDetectorFromJson();
+        Assert.Equal("MUGEN", detector.DetectByFolder(@"A:\Collections\MUGEN\roms\game.zip", @"A:\Collections"));
+    }
+
+    [Fact]
+    public void DetectByFolder_MugenFolder_PreventsAtariSTFalsePositive()
+    {
+        var detector = CreateDetectorFromJson();
+        // Even though the zip may contain .st files, the folder detection should take priority
+        var result = detector.Detect(@"A:\Collections\MUGEN\roms\game.zip", @"A:\Collections");
+        Assert.Equal("MUGEN", result);
+        Assert.NotEqual("ATARIST", result);
+    }
 }

@@ -297,3 +297,27 @@ public sealed class DatAuditStatusToLabelConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>Converts a double fraction (0.0–1.0) to a star-sized GridLength for stacked bar charts.</summary>
+public sealed class FractionToGridLengthConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is double fraction and > 0)
+            return new GridLength(Math.Max(fraction, 0.001), GridUnitType.Star);
+        return new GridLength(0, GridUnitType.Pixel);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>Converts int > 0 to Visible, else Collapsed.</summary>
+public sealed class IntToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is int i and > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

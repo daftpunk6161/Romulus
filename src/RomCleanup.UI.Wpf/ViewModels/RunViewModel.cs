@@ -236,10 +236,46 @@ public sealed class RunViewModel : ObservableObject
     private string _dedupeRate = "–";
     public string DedupeRate { get => _dedupeRate; set => SetProperty(ref _dedupeRate, value); }
 
-    // ═══ RAW CHART DATA (int values for ScottPlot, unaffected by display formatting) ═
+    // ═══ RAW CHART DATA (int values for charts, unaffected by display formatting) ═
     public int GamesRaw { get; set; }
     public int DupesRaw { get; set; }
     public int JunkRaw { get; set; }
+
+    // ═══ BREAKDOWN BAR FRACTIONS (0.0–1.0) ══════════════════════════════
+    private int _keepCount;
+    public int KeepCount { get => _keepCount; set => SetProperty(ref _keepCount, value); }
+
+    private int _moveCount;
+    public int MoveCount { get => _moveCount; set => SetProperty(ref _moveCount, value); }
+
+    private int _junkCount;
+    public int JunkCount { get => _junkCount; set => SetProperty(ref _junkCount, value); }
+
+    private double _keepFraction;
+    public double KeepFraction { get => _keepFraction; set => SetProperty(ref _keepFraction, value); }
+
+    private double _moveFraction;
+    public double MoveFraction { get => _moveFraction; set => SetProperty(ref _moveFraction, value); }
+
+    private double _junkFraction;
+    public double JunkFraction { get => _junkFraction; set => SetProperty(ref _junkFraction, value); }
+
+    public void UpdateBreakdown()
+    {
+        var total = GamesRaw;
+        var dupes = DupesRaw;
+        var junk = JunkRaw;
+        var keep = Math.Max(0, total - dupes - junk);
+
+        KeepCount = keep;
+        MoveCount = dupes;
+        JunkCount = junk;
+
+        var max = Math.Max(1, Math.Max(keep, Math.Max(dupes, junk)));
+        KeepFraction = (double)keep / max;
+        MoveFraction = (double)dupes / max;
+        JunkFraction = (double)junk / max;
+    }
 
     // ═══ RUN SUMMARY ════════════════════════════════════════════════════
     private string _runSummaryText = "";

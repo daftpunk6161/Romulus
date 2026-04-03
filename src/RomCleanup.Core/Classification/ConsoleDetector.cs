@@ -255,6 +255,16 @@ public sealed class ConsoleDetector
         return null;
     }
 
+    // Known console vendor prefixes — used to strip vendor from folder names
+    // like "Sony Playstation 2" → try "Playstation 2" against folderMap.
+    private static readonly string[] KnownVendorPrefixes =
+    [
+        "Sony", "Microsoft", "Nintendo", "Sega", "Atari", "SNK", "NEC",
+        "Commodore", "Amstrad", "Bandai", "Coleco", "Mattel", "Magnavox",
+        "Sharp", "Panasonic", "Philips", "Casio", "Tiger", "Watara",
+        "GCE", "Emerson", "Fairchild"
+    ];
+
     private string? ResolveFolderAlias(string? folderSegment)
     {
         if (string.IsNullOrWhiteSpace(folderSegment))
@@ -263,15 +273,28 @@ public sealed class ConsoleDetector
         if (_folderMap.TryGetValue(folderSegment, out var direct))
             return direct;
 
-        // Support common vendor-prefixed folder names like "Sony - Playstation 2".
+        // Support vendor-prefixed folder names like "Sony - Playstation 2".
         var parts = folderSegment.Split(" - ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length <= 1)
-            return null;
-
-        foreach (var part in parts)
+        if (parts.Length > 1)
         {
-            if (_folderMap.TryGetValue(part, out var resolved))
-                return resolved;
+            foreach (var part in parts)
+            {
+                if (_folderMap.TryGetValue(part, out var resolved))
+                    return resolved;
+            }
+        }
+
+        // Support vendor-prefixed folder names WITHOUT hyphen: "Sony Playstation 2".
+        // Strip known vendor prefix and try the remainder as alias.
+        foreach (var vendor in KnownVendorPrefixes)
+        {
+            if (folderSegment.StartsWith(vendor + " ", StringComparison.OrdinalIgnoreCase)
+                && folderSegment.Length > vendor.Length + 1)
+            {
+                var remainder = folderSegment[(vendor.Length + 1)..].Trim();
+                if (remainder.Length > 0 && _folderMap.TryGetValue(remainder, out var vendorResolved))
+                    return vendorResolved;
+            }
         }
 
         return null;

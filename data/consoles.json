@@ -457,7 +457,8 @@
       ],
       "folderAliases": [
         "dc",
-        "dreamcast"
+        "dreamcast",
+        "sega dreamcast"
       ],
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
@@ -1206,7 +1207,10 @@
         "ps1",
         "psx",
         "playstation",
-        "playstation1"
+        "playstation1",
+        "sony playstation",
+        "sony ps1",
+        "sony psx"
       ],
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
@@ -1216,7 +1220,11 @@
         "PSX",
         "PlayStation"
       ],
-      "zipIdentifyingExts": [".ccd", ".sub", ".pbp"]
+      "zipIdentifyingExts": [
+        ".ccd",
+        ".sub",
+        ".pbp"
+      ]
     },
     {
       "key": "PS2",
@@ -1239,7 +1247,10 @@
       "folderAliases": [
         "ps2",
         "playstation2",
-        "playstation 2"
+        "playstation 2",
+        "sony playstation 2",
+        "sony playstation2",
+        "sony ps2"
       ],
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
@@ -1248,7 +1259,11 @@
         "PS2",
         "PlayStation 2"
       ],
-      "zipIdentifyingExts": [".nrg", ".mdf", ".mds"]
+      "zipIdentifyingExts": [
+        ".nrg",
+        ".mdf",
+        ".mds"
+      ]
     },
     {
       "key": "PS3",
@@ -1302,7 +1317,9 @@
       ],
       "folderAliases": [
         "psp",
-        "playstation portable"
+        "playstation portable",
+        "sony psp",
+        "sony playstation portable"
       ],
       "conversionPolicy": "Auto",
       "preferredConversionTarget": ".chd",
@@ -1733,7 +1750,9 @@
       "folderAliases": [
         "x360",
         "xbox360",
-        "xbox 360"
+        "xbox 360",
+        "microsoft xbox 360",
+        "microsoft xbox360"
       ],
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".chd",
@@ -1785,7 +1804,9 @@
         ".img"
       ],
       "folderAliases": [
-        "xbox"
+        "xbox",
+        "microsoft xbox",
+        "original xbox"
       ],
       "conversionPolicy": "ManualOnly",
       "preferredConversionTarget": ".chd",
@@ -3352,6 +3373,27 @@
       "alternativeTargets": [],
       "keywords": [
         "MSX2"
+      ]
+    },
+    {
+      "key": "MUGEN",
+      "displayName": "M.U.G.E.N",
+      "discBased": false,
+      "family": "Engine",
+      "hashStrategy": "container-sha1",
+      "datSources": [],
+      "uniqueExts": [],
+      "ambigExts": [],
+      "folderAliases": [
+        "mugen",
+        "m.u.g.e.n"
+      ],
+      "conversionPolicy": "None",
+      "preferredConversionTarget": null,
+      "alternativeTargets": [],
+      "keywords": [
+        "MUGEN",
+        "M.U.G.E.N"
       ]
     },
     {

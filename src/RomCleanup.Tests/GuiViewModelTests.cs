@@ -4433,13 +4433,17 @@ public class GuiViewModelTests
     {
         var xaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
 
-        // Redesigned dashboard: no Expanders, no pie chart, compact bar chart
+        // Redesigned dashboard: pure XAML stacked bar, no ScottPlot for breakdown
         Assert.DoesNotContain("MinWidth=\"420\"", xaml);
         Assert.DoesNotContain("Height=\"460\"", xaml);
-        Assert.Contains("chartBeforeAfter", xaml);
+        Assert.Contains("KeepFraction", xaml);
+        Assert.Contains("MoveFraction", xaml);
+        Assert.Contains("JunkFraction", xaml);
         Assert.Contains("ConsoleDistribution", xaml);
         // No redundant inline dedupe decisions (own tab handles that)
         Assert.DoesNotContain("DedupeGroupItems", xaml);
+        // No ScottPlot in ResultView (pure XAML bars)
+        Assert.DoesNotContain("scott:", xaml);
     }
 
     // ═══ TASK-115: SmartActionBar RunState DataTriggers ════════════════

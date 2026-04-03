@@ -1258,6 +1258,7 @@ public sealed partial class MainViewModel
         Run.GamesRaw = projection.Games;
         Run.DupesRaw = projection.Dupes;
         Run.JunkRaw = projection.Junk;
+        Run.UpdateBreakdown();
 
         // A-21: Load DatAudit results into DatAuditViewModel
         DatAudit.LoadResult(result.DatAuditResult);
