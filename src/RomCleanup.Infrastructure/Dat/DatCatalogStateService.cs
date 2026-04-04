@@ -321,9 +321,15 @@ public sealed class DatCatalogStateService
             if (entry.Status is DatInstallStatus.Installed or DatInstallStatus.Stale
                 && !string.IsNullOrEmpty(entry.LocalPath))
             {
-                // Always update state — re-imports must refresh hash/date/path
-                UpdateStateAfterDownload(state, entry.Id, entry.LocalPath,
-                    entry.FileSizeBytes ?? 0);
+                // Only update state for new entries or when the local path changed
+                // (e.g. re-import to different location). This preserves InstalledDate
+                // and avoids expensive re-hashing on every periodic scan.
+                if (!state.Entries.TryGetValue(entry.Id, out var existing)
+                    || !string.Equals(existing.LocalPath, entry.LocalPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    UpdateStateAfterDownload(state, entry.Id, entry.LocalPath,
+                        entry.FileSizeBytes ?? 0);
+                }
             }
             else if (entry.Status == DatInstallStatus.Missing)
             {

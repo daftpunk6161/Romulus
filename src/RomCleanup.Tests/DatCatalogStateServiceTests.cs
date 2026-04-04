@@ -557,4 +557,99 @@ public class DatCatalogStateServiceTests : IDisposable
         Assert.Equal("Test System", loaded.UserEntries[0].System);
         Assert.Contains("removed-builtin", loaded.RemovedBuiltinIds);
     }
+
+    // ═══ FULLSCAN REGRESSION: INSTALLEDDATE STABILITY ════════════════════
+
+    [Fact]
+    public void FullScan_ExistingEntry_DoesNotResetInstalledDate()
+    {
+        var datPath = Path.Combine(_datRoot, "stable.dat");
+        File.WriteAllText(datPath, "<xml/>");
+        File.SetLastWriteTimeUtc(datPath, DateTime.UtcNow.AddDays(-5));
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new() { Id = "stable", Group = "Test", System = "Stable System", ConsoleKey = "STB", Format = "raw-dat" }
+        };
+
+        // First scan — establishes InstalledDate
+        var state = DatCatalogStateService.FullScan(catalog, _datRoot, new DatCatalogState());
+        Assert.True(state.Entries.ContainsKey("stable"));
+        var originalDate = state.Entries["stable"].InstalledDate;
+        var originalHash = state.Entries["stable"].FileSha256;
+
+        // Second scan — must NOT reset InstalledDate when path is unchanged
+        state = DatCatalogStateService.FullScan(catalog, _datRoot, state);
+        Assert.Equal(originalDate, state.Entries["stable"].InstalledDate);
+        Assert.Equal(originalHash, state.Entries["stable"].FileSha256);
+    }
+
+    [Fact]
+    public void FullScan_MovedEntry_UpdatesStateWithNewPath()
+    {
+        var datPath1 = Path.Combine(_datRoot, "moved.dat");
+        File.WriteAllText(datPath1, "<xml-moved/>");
+        File.SetLastWriteTimeUtc(datPath1, DateTime.UtcNow.AddDays(-3));
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new() { Id = "moved", Group = "Test", System = "Moved System", ConsoleKey = "MOV", Format = "raw-dat" }
+        };
+
+        // First scan
+        var state = DatCatalogStateService.FullScan(catalog, _datRoot, new DatCatalogState());
+        var originalPath = state.Entries["moved"].LocalPath;
+
+        // Simulate file being replaced at a different detected path
+        // by modifying the state's tracked path to simulate a path mismatch
+        state.Entries["moved"].LocalPath = @"C:\old\path\moved.dat";
+
+        // Second scan — path changed, so state should be updated
+        state = DatCatalogStateService.FullScan(catalog, _datRoot, state);
+        Assert.Equal(originalPath, state.Entries["moved"].LocalPath);
+    }
+
+    [Fact]
+    public void FullScan_StaleEntry_StaysStale_WithoutResettingInstalledDate()
+    {
+        var datPath = Path.Combine(_datRoot, "stale-stable.dat");
+        File.WriteAllText(datPath, "<xml-stale/>");
+        File.SetLastWriteTimeUtc(datPath, DateTime.UtcNow.AddDays(-400));
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new() { Id = "stale-stable", Group = "Test", System = "Stale Stable", ConsoleKey = "SSL", Format = "raw-dat" }
+        };
+
+        // First scan — picks up stale entry
+        var state = DatCatalogStateService.FullScan(catalog, _datRoot, new DatCatalogState());
+        Assert.True(state.Entries.ContainsKey("stale-stable"));
+        var firstDate = state.Entries["stale-stable"].InstalledDate;
+
+        // Second scan — must preserve InstalledDate even for stale entries
+        state = DatCatalogStateService.FullScan(catalog, _datRoot, state);
+        Assert.Equal(firstDate, state.Entries["stale-stable"].InstalledDate);
+    }
+
+    [Fact]
+    public void FullScan_IsDeterministic_StateUnchangedBetweenScans()
+    {
+        File.WriteAllText(Path.Combine(_datRoot, "det-fs.dat"), "<xml-det/>");
+        File.SetLastWriteTimeUtc(Path.Combine(_datRoot, "det-fs.dat"), DateTime.UtcNow.AddDays(-10));
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new() { Id = "det-fs", Group = "Test", System = "Det FS", ConsoleKey = "DFS", Format = "raw-dat" }
+        };
+
+        var state1 = DatCatalogStateService.FullScan(catalog, _datRoot, new DatCatalogState());
+        var hash1 = state1.Entries["det-fs"].FileSha256;
+        var date1 = state1.Entries["det-fs"].InstalledDate;
+        var path1 = state1.Entries["det-fs"].LocalPath;
+
+        var state2 = DatCatalogStateService.FullScan(catalog, _datRoot, state1);
+        Assert.Equal(hash1, state2.Entries["det-fs"].FileSha256);
+        Assert.Equal(date1, state2.Entries["det-fs"].InstalledDate);
+        Assert.Equal(path1, state2.Entries["det-fs"].LocalPath);
+    }
 }

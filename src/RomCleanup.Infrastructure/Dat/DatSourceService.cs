@@ -432,7 +432,7 @@ public sealed class DatSourceService : IDisposable
         {
             File.Copy(sourcePath, destinationPath, overwrite: false);
             // Touch timestamp so staleness check reflects import time, not source file age
-            File.SetLastWriteTime(destinationPath, DateTime.Now);
+            File.SetLastWriteTimeUtc(destinationPath, DateTime.UtcNow);
         }
         catch (IOException)
         {
