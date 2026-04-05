@@ -87,6 +87,204 @@ public sealed class StandaloneConversionServiceTests : IDisposable
         Assert.Equal(ConversionOutcome.Success, result.Outcome);
     }
 
+    // ──────────────────────────────────────────
+    // ConvertFile error paths
+    // ──────────────────────────────────────────
+
+    [Fact]
+    public void ConvertFile_SourceNotFound_ReturnsError()
+    {
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var result = service.ConvertFile(Path.Combine(_tempDir, "nonexistent.bin"));
+
+        Assert.Equal(ConversionOutcome.Error, result.Outcome);
+        Assert.Contains("not found", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ConvertFile_NoTargetForExtension_ReturnsSkipped()
+    {
+        var filePath = CreateFile(Path.Combine(_tempDir, "PSX", "game.txt"));
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var result = service.ConvertFile(filePath, consoleKey: "PSX");
+
+        Assert.Equal(ConversionOutcome.Skipped, result.Outcome);
+    }
+
+    [Fact]
+    public void ConvertFile_RequestedFormatMismatch_ReturnsSkipped()
+    {
+        var filePath = CreateFile(Path.Combine(_tempDir, "PSX", "game.bin"));
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        // Requesting .rvz but conversion would produce .chd
+        var result = service.ConvertFile(filePath, consoleKey: "PSX", targetFormat: ".rvz");
+
+        Assert.Equal(ConversionOutcome.Skipped, result.Outcome);
+        Assert.Contains("does not match", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ConvertFile_NullConverter_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new StandaloneConversionService(null!));
+    }
+
+    [Fact]
+    public void ConvertFile_NoIndex_UsesPathDetection()
+    {
+        var filePath = CreateFile(Path.Combine(_tempDir, "PSX", "game.bin"));
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter, collectionIndex: null);
+
+        var result = service.ConvertFile(filePath);
+
+        // PSX detected from path
+        Assert.Equal(ConversionOutcome.Success, result.Outcome);
+    }
+
+    // ──────────────────────────────────────────
+    // ConvertDirectory
+    // ──────────────────────────────────────────
+
+    [Fact]
+    public void ConvertDirectory_NonExistentDir_ReturnsEmptyReport()
+    {
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(Path.Combine(_tempDir, "nonexistent"));
+
+        Assert.Empty(report.Results);
+        Assert.Equal(0, report.Converted);
+        Assert.Equal(0, report.Skipped);
+        Assert.Equal(0, report.Errors);
+    }
+
+    [Fact]
+    public void ConvertDirectory_EmptyDir_ReturnsEmptyReport()
+    {
+        var emptyDir = Path.Combine(_tempDir, "empty");
+        Directory.CreateDirectory(emptyDir);
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(emptyDir, consoleKey: "PSX");
+
+        Assert.Empty(report.Results);
+        Assert.Equal(0, report.Converted);
+    }
+
+    [Fact]
+    public void ConvertDirectory_WithMatchingFiles_ReportsConvertedCount()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        CreateFile(Path.Combine(dir, "game1.bin"));
+        CreateFile(Path.Combine(dir, "game2.bin"));
+        CreateFile(Path.Combine(dir, "readme.txt")); // won't match converter
+
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(dir, consoleKey: "PSX");
+
+        Assert.Equal(3, report.Results.Count);
+        Assert.Equal(2, report.Converted); // 2 bin files match
+        Assert.Equal(1, report.Skipped);   // 1 txt file skipped
+        Assert.Equal(0, report.Errors);
+    }
+
+    [Fact]
+    public void ConvertDirectory_Recursive_IncludesSubdirs()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        CreateFile(Path.Combine(dir, "game1.bin"));
+        CreateFile(Path.Combine(dir, "sub", "game2.bin"));
+
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(dir, consoleKey: "PSX", recursive: true);
+
+        Assert.Equal(2, report.Converted);
+    }
+
+    [Fact]
+    public void ConvertDirectory_NonRecursive_ExcludesSubdirs()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        CreateFile(Path.Combine(dir, "game1.bin"));
+        CreateFile(Path.Combine(dir, "sub", "game2.bin"));
+
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(dir, consoleKey: "PSX", recursive: false);
+
+        Assert.Equal(1, report.Converted);
+    }
+
+    [Fact]
+    public void ConvertDirectory_Cancellation_ThrowsOperationCanceled()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        CreateFile(Path.Combine(dir, "game1.bin"));
+        CreateFile(Path.Combine(dir, "game2.bin"));
+        CreateFile(Path.Combine(dir, "game3.bin"));
+
+        var cts = new CancellationTokenSource();
+        var converter = new CancellingFakeConverter(cts);
+        using var service = new StandaloneConversionService(converter);
+
+        Assert.Throws<OperationCanceledException>(() =>
+            service.ConvertDirectory(dir, consoleKey: "PSX", cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public void ConvertDirectory_ErrorOutcome_CountedInErrors()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        CreateFile(Path.Combine(dir, "game.bin"));
+
+        var converter = new ErrorFakeConverter();
+        using var service = new StandaloneConversionService(converter);
+
+        var report = service.ConvertDirectory(dir, consoleKey: "PSX");
+
+        Assert.Equal(0, report.Converted);
+        Assert.Equal(0, report.Skipped);
+        Assert.Equal(1, report.Errors);
+    }
+
+    // ──────────────────────────────────────────
+    // Dispose
+    // ──────────────────────────────────────────
+
+    [Fact]
+    public void Dispose_DisposesLifetime()
+    {
+        var lifetime = new TrackingDisposable();
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        var service = new StandaloneConversionService(converter, lifetime: lifetime);
+
+        Assert.False(lifetime.Disposed);
+        service.Dispose();
+        Assert.True(lifetime.Disposed);
+    }
+
+    [Fact]
+    public void Dispose_NullLifetime_DoesNotThrow()
+    {
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        var service = new StandaloneConversionService(converter, lifetime: null);
+        service.Dispose(); // should not throw
+    }
+
     private string CreateFile(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -170,5 +368,41 @@ public sealed class StandaloneConversionServiceTests : IDisposable
 
         public ValueTask<IReadOnlyList<CollectionRunSnapshot>> ListRunSnapshotsAsync(int limit = 50, CancellationToken ct = default)
             => ValueTask.FromResult<IReadOnlyList<CollectionRunSnapshot>>(Array.Empty<CollectionRunSnapshot>());
+    }
+
+    private sealed class CancellingFakeConverter : IFormatConverter
+    {
+        private readonly CancellationTokenSource _cts;
+
+        public CancellingFakeConverter(CancellationTokenSource cts) => _cts = cts;
+
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
+            => new(".chd", "chdman", "createcd");
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
+        {
+            _cts.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(sourcePath, null, ConversionOutcome.Error, "Should not reach here");
+        }
+
+        public bool Verify(string targetPath, ConversionTarget target) => true;
+    }
+
+    private sealed class ErrorFakeConverter : IFormatConverter
+    {
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
+            => new(".chd", "chdman", "createcd");
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
+            => new(sourcePath, null, ConversionOutcome.Error, "Simulated error");
+
+        public bool Verify(string targetPath, ConversionTarget target) => false;
+    }
+
+    private sealed class TrackingDisposable : IDisposable
+    {
+        public bool Disposed { get; private set; }
+        public void Dispose() => Disposed = true;
     }
 }
