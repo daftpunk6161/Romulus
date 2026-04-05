@@ -306,6 +306,76 @@ public sealed class ApiProductizationIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task Runs_FixDat_WithQueryOutputPath_WritesFixDatFile()
+    {
+        using var factory = ApiTestFactory.Create(new Dictionary<string, string?> { ["ApiKey"] = ApiKey });
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        var datRoot = CreateTempRoot();
+        var outputRoot = CreateTempRoot();
+
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "Unrelated Candidate (USA).chd"), "rom");
+
+            File.WriteAllText(
+                Path.Combine(datRoot, "psx.dat"),
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <datafile>
+                  <header>
+                    <name>PSX DAT</name>
+                  </header>
+                  <game name="Missing Adventure">
+                    <description>Missing Adventure</description>
+                    <rom name="Missing Adventure.chd" sha1="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" size="123" />
+                  </game>
+                </datafile>
+                """);
+
+            var runPayload = JsonSerializer.Serialize(new
+            {
+                roots = new[] { root },
+                mode = "DryRun",
+                enableDat = true,
+                datRoot,
+                extensions = new[] { ".chd" }
+            });
+
+            using var runContent = new StringContent(runPayload, Encoding.UTF8, "application/json");
+            var runResponse = await client.PostAsync("/runs?wait=true", runContent);
+            Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
+
+            using var runDoc = JsonDocument.Parse(await runResponse.Content.ReadAsStringAsync());
+            var runId = runDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(runId));
+
+            var outputPath = Path.Combine(outputRoot, "api-fixdat.dat");
+            var fixDatUrl =
+                $"/runs/{runId}/fixdat?outputPath={Uri.EscapeDataString(outputPath)}&name={Uri.EscapeDataString("Api-FixDAT-Test")}";
+
+            var fixDatResponse = await client.PostAsync(fixDatUrl, content: null);
+            Assert.Equal(HttpStatusCode.OK, fixDatResponse.StatusCode);
+
+            using var responseDoc = JsonDocument.Parse(await fixDatResponse.Content.ReadAsStringAsync());
+            Assert.Equal("Api-FixDAT-Test", responseDoc.RootElement.GetProperty("datName").GetString());
+            Assert.Equal(outputPath, responseDoc.RootElement.GetProperty("outputPath").GetString(), StringComparer.OrdinalIgnoreCase);
+            Assert.True(File.Exists(outputPath));
+
+            var xml = await File.ReadAllTextAsync(outputPath);
+            Assert.Contains("Missing Adventure", xml, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("<?xml version=\"1.0\" encoding=\"utf-8\"?>", xml, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+            SafeDeleteDirectory(datRoot);
+            SafeDeleteDirectory(outputRoot);
+        }
+    }
+
     private static HttpClient CreateClientWithApiKey(WebApplicationFactory<Program> factory, string? clientId = null)
     {
         var client = factory.CreateClient();

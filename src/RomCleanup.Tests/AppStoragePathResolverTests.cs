@@ -62,4 +62,20 @@ public class AppStoragePathResolverTests
 
         Assert.Equal(expected, path);
     }
+
+    [Fact]
+    public void ResolveRoamingPath_PathTraversal_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            AppStoragePathResolver.ResolveRoamingPath("..", "escape.txt"));
+    }
+
+    [Fact]
+    public void ResolveLocalPath_RootedSegment_Throws()
+    {
+        var rooted = Path.Combine(Path.GetTempPath(), "outside.txt");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            AppStoragePathResolver.ResolveLocalPath("cache", rooted));
+    }
 }

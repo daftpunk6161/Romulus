@@ -90,11 +90,14 @@ public static class DatAnalysisService
     public static FixDatResult BuildFixDatFromCompleteness(
         DatIndex datIndex,
         CompletenessReport report,
-        string datName)
+        string datName,
+        DateTime? generatedUtc = null)
     {
         ArgumentNullException.ThrowIfNull(datIndex);
         ArgumentNullException.ThrowIfNull(report);
         ArgumentException.ThrowIfNullOrWhiteSpace(datName);
+
+        var generatedOnUtc = (generatedUtc ?? DateTime.UtcNow).ToUniversalTime();
 
         var gameElements = new List<XElement>();
         var consoleSummaries = new List<FixDatConsoleSummary>();
@@ -140,8 +143,8 @@ public static class DatAnalysisService
             new XElement("datafile",
                 new XElement("header",
                     new XElement("name", datName),
-                    new XElement("description", $"Romulus FixDAT generated {DateTime.UtcNow:yyyy-MM-dd}"),
-                    new XElement("version", DateTime.UtcNow.ToString("yyyy-MM-dd")),
+                    new XElement("description", $"Romulus FixDAT generated {generatedOnUtc:yyyy-MM-dd}"),
+                    new XElement("version", generatedOnUtc.ToString("yyyy-MM-dd")),
                     new XElement("author", "Romulus")),
                 gameElements));
 
@@ -150,7 +153,7 @@ public static class DatAnalysisService
             consoleSummaries.Count,
             gameElements.Count,
             totalMissingRoms,
-            document.ToString(SaveOptions.None),
+            SerializeXmlWithDeclaration(document),
             consoleSummaries);
     }
 
@@ -340,6 +343,14 @@ public static class DatAnalysisService
         };
         using var reader = XmlReader.Create(path, settings);
         return XDocument.Load(reader);
+    }
+
+    private static string SerializeXmlWithDeclaration(XDocument document)
+    {
+        if (document.Declaration is null)
+            return document.ToString(SaveOptions.None);
+
+        return string.Concat(document.Declaration.ToString(), Environment.NewLine, document.ToString(SaveOptions.None));
     }
 
     private static IReadOnlyList<XElement> BuildFixDatRomElements(

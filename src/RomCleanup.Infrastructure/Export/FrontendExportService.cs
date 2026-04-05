@@ -253,12 +253,13 @@ public static class FrontendExportService
         var lines = new List<string>
         {
             "#EXTM3U",
-            $"#PLAYLIST:{collectionName}"
+            $"#PLAYLIST:{SanitizeM3uDisplayText(collectionName, "Collection")}"
         };
 
         foreach (var playlist in playlists)
         {
-            lines.Add($"#GROUP:{playlist.ConsoleLabel} - {playlist.PlaylistName}");
+            lines.Add($"#GROUP:{SanitizeM3uDisplayText(playlist.ConsoleLabel, "Unknown")}" +
+                      $" - {SanitizeM3uDisplayText(playlist.PlaylistName, "Playlist")}");
             AppendPlaylistEntries(lines, playlist.Entries);
             lines.Add(string.Empty);
         }
@@ -271,7 +272,7 @@ public static class FrontendExportService
         var lines = new List<string>
         {
             "#EXTM3U",
-            $"#PLAYLIST:{playlistName}"
+            $"#PLAYLIST:{SanitizeM3uDisplayText(playlistName, "Collection")}"
         };
 
         AppendPlaylistEntries(lines, entries);
@@ -282,8 +283,8 @@ public static class FrontendExportService
     {
         foreach (var game in entries)
         {
-            lines.Add($"#EXTINF:-1,{game.DisplayName}");
-            lines.Add(game.SourcePath.Replace('\\', '/'));
+            lines.Add($"#EXTINF:-1,{SanitizeM3uDisplayText(game.DisplayName, "Unknown")}");
+            lines.Add(SanitizeM3uPath(game.SourcePath));
         }
     }
 
@@ -310,6 +311,39 @@ public static class FrontendExportService
 
     private static string CollapseWhitespace(string value)
         => string.Join(" ", value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Trim();
+
+    private static string SanitizeM3uDisplayText(string? value, string fallback)
+    {
+        var sanitized = CollapseWhitespace(RemoveControlChars(value));
+        return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized;
+    }
+
+    private static string SanitizeM3uPath(string? value)
+    {
+        var sanitized = RemoveControlChars(value).Trim().Replace('\\', '/');
+        if (string.IsNullOrWhiteSpace(sanitized))
+            return "./unknown";
+
+        // Prevent comment-injection by ensuring entry paths cannot begin with '#'.
+        if (sanitized.StartsWith('#'))
+            sanitized = "_" + sanitized;
+
+        return sanitized;
+    }
+
+    private static string RemoveControlChars(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var sb = new StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            sb.Append(char.IsControl(ch) ? ' ' : ch);
+        }
+
+        return sb.ToString();
+    }
 
     private static IReadOnlyList<FrontendExportArtifact> WriteRetroArchArtifacts(
         IReadOnlyList<ExportableGame> games,

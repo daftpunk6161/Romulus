@@ -73,4 +73,31 @@ public sealed class DatAnalysisServiceFixDatTests
         var doc = XDocument.Parse(result.XmlContent);
         Assert.Empty(doc.Root!.Descendants("game"));
     }
+
+    [Fact]
+    public void BuildFixDatFromCompleteness_WithFixedTimestamp_IsDeterministic_AndIncludesDeclaration()
+    {
+        var datIndex = new DatIndex();
+        datIndex.Add("psx", new string('c', 40), "Chrono Trigger", "Chrono Trigger (Disc 1).chd");
+
+        var report = new CompletenessReport(
+        [
+            new CompletenessEntry(
+                "psx",
+                TotalInDat: 1,
+                Verified: 0,
+                MissingCount: 1,
+                Percentage: 0.0,
+                MissingGames: ["Chrono Trigger"])
+        ]);
+
+        var generatedUtc = new DateTime(2026, 04, 05, 12, 30, 45, DateTimeKind.Utc);
+
+        var first = DatAnalysisService.BuildFixDatFromCompleteness(datIndex, report, "Fixed-FixDAT", generatedUtc);
+        var second = DatAnalysisService.BuildFixDatFromCompleteness(datIndex, report, "Fixed-FixDAT", generatedUtc);
+
+        Assert.Equal(first.XmlContent, second.XmlContent);
+        Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>", first.XmlContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<version>2026-04-05</version>", first.XmlContent, StringComparison.Ordinal);
+    }
 }

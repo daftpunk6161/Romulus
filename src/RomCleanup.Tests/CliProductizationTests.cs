@@ -173,4 +173,19 @@ public sealed class CliProductizationTests : IDisposable
         Assert.Equal(outputPath, result.Options.OutputPath);
         Assert.Equal("Romulus-FixDAT", result.Options.DatName);
     }
+
+    [Fact]
+    public void CliArgsParser_DatFixDat_RejectsUncOutputPath()
+    {
+        var result = CliArgsParser.Parse([
+            "dat", "fixdat",
+            "--roots", _tempDir,
+            "--output", "\\\\server\\share\\fixdat.dat"
+        ]);
+
+        Assert.Equal(CliCommand.Run, result.Command);
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains(result.Errors, error =>
+            error.Contains("must not be a UNC path", StringComparison.OrdinalIgnoreCase));
+    }
 }

@@ -406,4 +406,57 @@ public sealed class FrontendExportRegressionTests : IDisposable
         Assert.True(disc1Index < disc2Index, "Disc 1 entry must appear before Disc 2.");
         Assert.DoesNotContain("Tekken 3", content, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task FrontendExportService_M3u_SingleFileExport_SanitizesControlCharsAndCommentPrefix()
+    {
+        var outputPath = Path.Combine(_tempRoot, "single-playlist.m3u");
+        var candidates = new[]
+        {
+            new RomCandidate
+            {
+                MainPath = "#Saga (Disc 1).chd\r\n#EXTINF:-1,HACK",
+                GameKey = "saga",
+                ConsoleKey = "ps1",
+                Region = "US",
+                Extension = ".chd",
+                SizeBytes = 1024,
+                DatMatch = true,
+                Category = FileCategory.Game
+            },
+            new RomCandidate
+            {
+                MainPath = "#Saga (Disc 2).chd",
+                GameKey = "saga",
+                ConsoleKey = "ps1",
+                Region = "US",
+                Extension = ".chd",
+                SizeBytes = 1024,
+                DatMatch = true,
+                Category = FileCategory.Game
+            }
+        };
+
+        var result = await FrontendExportService.ExportAsync(
+            new FrontendExportRequest(
+                FrontendExportTargets.M3u,
+                outputPath,
+                "Collection",
+                ["C:/roms"],
+                [".chd"]),
+            new FileSystemAdapter(),
+            collectionIndex: null,
+            enrichmentFingerprint: null,
+            runCandidates: candidates);
+
+        Assert.Equal(FrontendExportTargets.M3u, result.Frontend);
+        var artifact = Assert.Single(result.Artifacts);
+        Assert.Equal(Path.GetFullPath(outputPath), artifact.Path, StringComparer.OrdinalIgnoreCase);
+
+        var content = await File.ReadAllTextAsync(outputPath);
+        Assert.Contains("#PLAYLIST:", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n#EXTINF:-1,HACK", content, StringComparison.Ordinal);
+        Assert.Contains("_#Saga (Disc 1).chd", content, StringComparison.Ordinal);
+        Assert.Contains("_#Saga (Disc 2).chd", content, StringComparison.Ordinal);
+    }
 }

@@ -2,6 +2,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -342,10 +343,22 @@ public sealed class FeatureCommandServiceTests : IDisposable
     // ═══ COMPLETENESS ═══════════════════════════════════════════════════
 
     [Fact]
-    public void Completeness_ShowsResult()
+    public async Task Completeness_ShowsResult()
     {
         _sut.RegisterCommands();
-        _vm.FeatureCommands["Completeness"].Execute(null);
+
+        var command = _vm.FeatureCommands["Completeness"];
+        if (command is IAsyncRelayCommand asyncCommand)
+        {
+            asyncCommand.Execute(null);
+            if (asyncCommand.ExecutionTask is { } executionTask)
+                await executionTask;
+        }
+        else
+        {
+            command.Execute(null);
+        }
+
         Assert.True(HasOutput());
     }
 
@@ -438,6 +451,48 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.Contains(_dialog.ShowTextCalls, call =>
             call.Title.Contains("Vorschau", StringComparison.OrdinalIgnoreCase));
         Assert.Empty(_dialog.ErrorCalls);
+    }
+
+    [Fact]
+    public void RuleEngine_CustomJunkEditor_InvalidRegex_ShowsValidationError()
+    {
+        _sut.RegisterCommands();
+        _dialog.YesNoCancelResult = Contracts.Ports.ConfirmResult.No;
+        _dialog.ShowMultilineInputBoxResult =
+            """
+            {
+              "enabled": true,
+              "rules": [
+                {
+                  "field": "name",
+                  "operator": "regex",
+                  "value": "(",
+                  "logic": "AND",
+                  "action": "SetCategoryJunk",
+                  "priority": 1000,
+                  "enabled": true
+                }
+              ]
+            }
+            """;
+
+        _vm.FeatureCommands["RuleEngine"].Execute(null);
+
+        Assert.Contains(_dialog.ErrorCalls, message =>
+            message.Contains("regex", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void RuleEngine_CustomJunkEditor_PromptUsesRoamingPath()
+    {
+        _sut.RegisterCommands();
+        _dialog.YesNoCancelResult = Contracts.Ports.ConfirmResult.No;
+        _dialog.ShowMultilineInputBoxResult = "";
+
+        _vm.FeatureCommands["RuleEngine"].Execute(null);
+
+        var expectedPath = AppStoragePathResolver.ResolveRoamingPath("custom-junk-rules.json");
+        Assert.Contains(expectedPath, _dialog.LastMultilinePrompt ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     // ═══ CONVERSION PIPELINE ════════════════════════════════════════════
@@ -1259,6 +1314,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         public Contracts.Ports.ConfirmResult YesNoCancelResult { get; set; } = Contracts.Ports.ConfirmResult.Yes;
         public string ShowInputBoxResult { get; set; } = "";
         public string? ShowMultilineInputBoxResult { get; set; }
+        public string? LastMultilinePrompt { get; private set; }
 
         public List<string> InfoCalls { get; } = [];
         public List<string> ErrorCalls { get; } = [];
@@ -1273,7 +1329,10 @@ public sealed class FeatureCommandServiceTests : IDisposable
         public ConfirmResult YesNoCancel(string message, string title = "Frage") => YesNoCancelResult;
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => ShowInputBoxResult;
         public string ShowMultilineInputBox(string prompt, string title = "Eingabe", string defaultValue = "")
-            => ShowMultilineInputBoxResult ?? ShowInputBoxResult;
+        {
+            LastMultilinePrompt = prompt;
+            return ShowMultilineInputBoxResult ?? ShowInputBoxResult;
+        }
         public void ShowText(string title, string content) => ShowTextCalls.Add((title, content));
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
         public bool ConfirmConversionReview(string title, string summary, IReadOnlyList<RomCleanup.Contracts.Models.ConversionReviewEntry> entries) => ConfirmResult;

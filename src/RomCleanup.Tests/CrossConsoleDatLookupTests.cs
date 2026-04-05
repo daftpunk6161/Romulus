@@ -26,7 +26,7 @@ public sealed class CrossConsoleDatLookupTests : IDisposable
     }
 
     [Fact]
-    public void Execute_DatFirstCrossConsoleLookup_BeatsDetectorBias()
+    public void Execute_DatFirstCrossConsoleLookup_ResolvesConsoleButCrossFamilyIsBlocked()
     {
         var root = Path.Combine(_tempDir, "cross-console");
         var snesFolder = Path.Combine(root, "SNES");
@@ -41,6 +41,7 @@ public sealed class CrossConsoleDatLookupTests : IDisposable
         datIndex.Add("PS1", hash!, "Actual PS1 Game", "actual.bin", isBios: false);
 
         // Detector context points to SNES, but DAT-first lookup must still route to PS1.
+        // With family-conflict gate, the final decision must be blocked despite DAT match.
         var detector = new ConsoleDetector([
             new ConsoleInfo(
                 Key: "SNES",
@@ -74,8 +75,8 @@ public sealed class CrossConsoleDatLookupTests : IDisposable
         var candidate = Assert.Single(result);
         Assert.True(candidate.DatMatch);
         Assert.Equal("PS1", candidate.ConsoleKey);
-        Assert.Equal(SortDecision.DatVerified, candidate.SortDecision);
-        Assert.Equal(DecisionClass.DatVerified, candidate.DecisionClass);
+        Assert.Equal(SortDecision.Blocked, candidate.SortDecision);
+        Assert.Equal(DecisionClass.Blocked, candidate.DecisionClass);
     }
 
     [Fact]

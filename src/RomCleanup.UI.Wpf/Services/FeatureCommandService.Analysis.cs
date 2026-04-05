@@ -90,7 +90,7 @@ public sealed partial class FeatureCommandService
             $"Plattform: {header.Platform}\nFormat: {header.Format}\nDetails: {header.Details}");
     }
 
-    private void Completeness()
+    private async Task CompletenessAsync()
     {
         if (!TryCreateCurrentRunEnvironment(out var materialized, out var environment) || materialized is null || environment is null)
             return;
@@ -103,20 +103,21 @@ public sealed partial class FeatureCommandService
                 return;
             }
 
-            var report = CompletenessReportService.BuildAsync(
+            var report = await CompletenessReportService.BuildAsync(
                 environment.DatIndex,
                 materialized.Options.Roots.ToArray(),
                 environment.CollectionIndex,
                 materialized.Options.Extensions.ToArray(),
-                _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null).GetAwaiter().GetResult();
+                _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null);
 
             _dialog.ShowText("Vollstaendigkeit", CompletenessReportService.FormatReport(report));
 
             if (!_dialog.Confirm("FixDAT fuer fehlende Spiele erzeugen?", "Vollstaendigkeit"))
                 return;
 
-            var datName = $"Romulus-FixDAT-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
-            var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(environment.DatIndex, report, datName);
+            var generatedUtc = DateTime.UtcNow;
+            var datName = $"Romulus-FixDAT-{generatedUtc:yyyyMMdd-HHmmss}";
+            var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(environment.DatIndex, report, datName, generatedUtc);
 
             if (fixDat.MissingGames == 0)
             {
@@ -128,7 +129,7 @@ public sealed partial class FeatureCommandService
             if (!TryResolveSafeOutputPath(savePath, "FixDAT-Export", out var safePath))
                 return;
 
-            File.WriteAllText(safePath, fixDat.XmlContent, Encoding.UTF8);
+            await File.WriteAllTextAsync(safePath, fixDat.XmlContent, Encoding.UTF8);
             _vm.AddLog($"FixDAT exportiert: {safePath} (Spiele={fixDat.MissingGames}, ROMs={fixDat.MissingRoms})", "INFO");
         }
     }

@@ -123,14 +123,15 @@ public sealed class DecisionResolverTests
     }
 
     [Fact]
-    public void Resolve_IntraFamilyConflict_Tier0_NoConflict_DatVerified()
+    public void Resolve_IntraFamilyConflict_Tier0_NoConflict_NormalizedToReview()
     {
-        // Tier0 without conflict → DatVerified (intra-family is irrelevant without conflict).
+        // Non-None conflict type normalizes hasConflict to true.
+        // Therefore Tier0 + IntraFamily yields Review.
         var actual = DecisionResolver.Resolve(
             EvidenceTier.Tier0_ExactDat, hasConflict: false, confidence: 100,
             datAvailable: true, conflictType: ConflictType.IntraFamily);
 
-        Assert.Equal(DecisionClass.DatVerified, actual);
+        Assert.Equal(DecisionClass.Review, actual);
     }
 
     [Fact]

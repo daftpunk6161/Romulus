@@ -2,8 +2,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -15,6 +17,7 @@ public sealed partial class FeatureCommandService
 
     private const string CustomJunkRulesFileName = "custom-junk-rules.json";
     private const string CustomJunkRuleAction = "SetCategoryJunk";
+    private static readonly TimeSpan CustomJunkRegexTimeout = TimeSpan.FromMilliseconds(200);
 
     private static readonly HashSet<string> AllowedCustomJunkFields = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -190,13 +193,14 @@ public sealed partial class FeatureCommandService
     {
         try
         {
-            var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-            Directory.CreateDirectory(dataDir);
+            var rulesPath = ResolveCustomJunkRulesPath();
+            var rulesDirectory = Path.GetDirectoryName(rulesPath);
+            if (!string.IsNullOrWhiteSpace(rulesDirectory))
+                Directory.CreateDirectory(rulesDirectory);
 
-            var rulesPath = Path.Combine(dataDir, CustomJunkRulesFileName);
             var editorText = _dialog.ShowMultilineInputBox(
                 "Custom Junk Rules als JSON bearbeiten.\n\n"
-                + "Datei: data/custom-junk-rules.json\n"
+                + $"Datei: {rulesPath}\n"
                 + "Felder: name, region, extension, path\n"
                 + "Operatoren: contains, equals, regex\n"
                 + "Logic: AND oder OR\n"
@@ -227,6 +231,9 @@ public sealed partial class FeatureCommandService
             LogError("SEC-CUSTOM-RULES", $"Custom Junk Rules Editor fehlgeschlagen: {ex.Message}");
         }
     }
+
+    private static string ResolveCustomJunkRulesPath()
+        => AppStoragePathResolver.ResolveRoamingPath(CustomJunkRulesFileName);
 
     private static string LoadCustomJunkRulesEditorContent(string rulesPath)
     {
@@ -344,6 +351,13 @@ public sealed partial class FeatureCommandService
                 ruleHasError = true;
             }
 
+            if (string.Equals(op, "regex", StringComparison.OrdinalIgnoreCase)
+                && !TryValidateCustomRegexPattern(value, out var regexError))
+            {
+                errors.Add($"Regel {index + 1}: Regex ungueltig ({regexError}).");
+                ruleHasError = true;
+            }
+
             if (!AllowedCustomJunkLogic.Contains(logic))
             {
                 errors.Add($"Regel {index + 1}: Logic '{sourceRule.Logic}' ist ungueltig (nur AND/OR).");
@@ -411,6 +425,22 @@ public sealed partial class FeatureCommandService
         };
         preview = BuildCustomJunkRulesPreview(normalizedDocument);
         return true;
+    }
+
+    private static bool TryValidateCustomRegexPattern(string pattern, out string error)
+    {
+        error = string.Empty;
+
+        try
+        {
+            _ = new Regex(pattern, RegexOptions.CultureInvariant, CustomJunkRegexTimeout);
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
     }
 
     private static string BuildCustomJunkRulesPreview(CustomJunkRulesDocument document)

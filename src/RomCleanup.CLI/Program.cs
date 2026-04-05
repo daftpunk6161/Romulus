@@ -632,21 +632,32 @@ internal static class Program
             env.CollectionIndex,
             runOptions.Extensions).GetAwaiter().GetResult();
 
+        var generatedUtc = DateTime.UtcNow;
         var datName = string.IsNullOrWhiteSpace(opts.DatName)
-            ? $"Romulus-FixDAT-{DateTime.UtcNow:yyyyMMdd-HHmmss}"
+            ? $"Romulus-FixDAT-{generatedUtc:yyyyMMdd-HHmmss}"
             : opts.DatName.Trim();
 
-        var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, completeness, datName);
+        var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, completeness, datName, generatedUtc);
 
         var targetPath = opts.OutputPath;
         if (string.IsNullOrWhiteSpace(targetPath))
         {
             targetPath = Path.Combine(
                 ArtifactPathResolver.GetArtifactDirectory(runOptions.Roots, AppIdentity.ArtifactDirectories.Reports),
-                $"fixdat-{DateTime.UtcNow:yyyyMMdd-HHmmss}.dat");
+                $"fixdat-{generatedUtc:yyyyMMdd-HHmmss}.dat");
         }
 
-        var safeTargetPath = SafetyValidator.EnsureSafeOutputPath(targetPath);
+        string safeTargetPath;
+        try
+        {
+            safeTargetPath = SafetyValidator.EnsureSafeOutputPath(targetPath, allowUnc: false);
+        }
+        catch (InvalidOperationException ex)
+        {
+            SafeErrorWriteLine($"[Error] Invalid fixdat output path: {ex.Message}");
+            return 3;
+        }
+
         var outputDirectory = Path.GetDirectoryName(safeTargetPath);
         if (!string.IsNullOrWhiteSpace(outputDirectory))
             Directory.CreateDirectory(outputDirectory);

@@ -57,6 +57,19 @@ public sealed class FamilyDecisionGateFixTests
         Assert.Equal(expected, result);
     }
 
+    [Fact]
+    public void DecisionResolver_ConflictTypeNone_DoesNotForceConflict()
+    {
+        var result = DecisionResolver.Resolve(
+            EvidenceTier.Tier0_ExactDat,
+            hasConflict: false,
+            confidence: 100,
+            datAvailable: true,
+            conflictType: ConflictType.None);
+
+        Assert.Equal(DecisionClass.DatVerified, result);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     //  F4: ClassifyConflictType – Unknown family handling
     // ──────────────────────────────────────────────────────────────────

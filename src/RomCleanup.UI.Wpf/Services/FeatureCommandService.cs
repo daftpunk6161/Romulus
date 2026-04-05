@@ -197,7 +197,7 @@ public sealed partial class FeatureCommandService
         cmds[FeatureCommandKeys.RomFilter] = new RelayCommand(RomFilter);
         cmds[FeatureCommandKeys.MissingRom] = new RelayCommand(MissingRom);
         cmds[FeatureCommandKeys.HeaderAnalysis] = new RelayCommand(HeaderAnalysis);
-        cmds[FeatureCommandKeys.Completeness] = new RelayCommand(Completeness);
+        cmds[FeatureCommandKeys.Completeness] = new AsyncRelayCommand(CompletenessAsync);
         cmds[FeatureCommandKeys.DryRunCompare] = new RelayCommand(DryRunCompare);
 
 

@@ -49,7 +49,7 @@ public static class RuleEngine
                 errors.Add($"Invalid operator '{cond.Op}'. Must be one of: {string.Join(", ", ValidOperators)}");
             if (cond.Op == "regex")
             {
-                try { _ = new Regex(cond.Value); }
+                try { _ = new Regex(cond.Value, RegexOptions.None, RegexTimeout); }
                 catch (ArgumentException) { errors.Add($"Invalid regex pattern: {cond.Value}"); }
             }
         }

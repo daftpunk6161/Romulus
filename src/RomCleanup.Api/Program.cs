@@ -1808,8 +1808,8 @@ app.MapGet("/runs/{runId}/completeness", async (string runId, HttpContext ctx, R
 
 app.MapPost("/runs/{runId}/fixdat", async (
     string runId,
-    string? outputPath,
-    string? name,
+    [FromQuery] string? outputPath,
+    [FromQuery] string? name,
     HttpContext ctx,
     RunLifecycleManager mgr,
     AllowedRootPathPolicy allowedRootPolicy,
@@ -1880,13 +1880,23 @@ app.MapPost("/runs/{runId}/fixdat", async (
             : null,
         ct);
 
+    var generatedUtc = DateTime.UtcNow;
     var datName = string.IsNullOrWhiteSpace(name)
         ? $"Romulus-FixDAT-{runId}"
         : name.Trim();
 
-    var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, report, datName);
+    var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, report, datName, generatedUtc);
 
-    var safeOutputPath = SafetyValidator.EnsureSafeOutputPath(outputPath.Trim());
+    string safeOutputPath;
+    try
+    {
+        safeOutputPath = SafetyValidator.EnsureSafeOutputPath(outputPath.Trim(), allowUnc: false);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return ApiError(400, SecurityErrorCodes.InvalidPath, $"Invalid outputPath: {ex.Message}", ErrorKind.Critical, runId: runId);
+    }
+
     var directory = Path.GetDirectoryName(safeOutputPath);
     if (!string.IsNullOrWhiteSpace(directory))
         Directory.CreateDirectory(directory);
