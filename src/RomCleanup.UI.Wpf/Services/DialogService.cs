@@ -146,6 +146,21 @@ public static class DialogService
     }
 
     /// <summary>
+    /// Themed XAML-based multi-line input dialog for larger text payloads (e.g. JSON).
+    /// Returns user input, or empty string if cancelled.
+    /// </summary>
+    public static string ShowMultilineInputBox(string prompt, string title = "Eingabe", string defaultValue = "", Window? owner = null)
+    {
+        return InvokeOnUiThread(() =>
+        {
+            var previousFocus = Keyboard.FocusedElement;
+            var result = InputDialog.ShowMultiline(prompt, title, defaultValue, owner ?? GetMainWindow());
+            (previousFocus as UIElement)?.Focus();
+            return result;
+        });
+    }
+
+    /// <summary>
     /// GUI-054: Danger-Confirm dialog requiring typed confirmation text.
     /// Returns true only if user typed the confirmation and clicked confirm.
     /// </summary>

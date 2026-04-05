@@ -1806,6 +1806,111 @@ app.MapGet("/runs/{runId}/completeness", async (string runId, HttpContext ctx, R
     });
 });
 
+app.MapPost("/runs/{runId}/fixdat", async (
+    string runId,
+    string? outputPath,
+    string? name,
+    HttpContext ctx,
+    RunLifecycleManager mgr,
+    AllowedRootPathPolicy allowedRootPolicy,
+    CancellationToken ct) =>
+{
+    if (!Guid.TryParse(runId, out _))
+        return ApiError(400, "RUN-INVALID-ID", "Invalid run ID format.");
+
+    var run = mgr.Get(runId);
+    if (run is null)
+        return ApiError(404, "RUN-NOT-FOUND", "Run not found.", runId: runId);
+
+    if (!CanAccessRun(run, GetClientBindingId(ctx, trustForwardedFor)))
+        return ApiError(403, "AUTH-FORBIDDEN", "Run belongs to a different client.", ErrorKind.Critical, runId: runId);
+
+    if (run.Status == "running")
+        return ApiError(409, "RUN-IN-PROGRESS", "Run still in progress.", runId: runId);
+
+    if (string.IsNullOrWhiteSpace(outputPath))
+        return ApiError(400, "FIXDAT-OUTPUT-REQUIRED", "outputPath is required.", runId: runId);
+
+    var outputPathError = ValidatePathSecurity(outputPath.Trim(), "outputPath", allowedRootPolicy);
+    if (outputPathError is not null)
+        return outputPathError;
+
+    var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
+        ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+    var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+
+    var runRoots = run.Roots ?? Array.Empty<string>();
+    if (runRoots.Length == 0)
+        return ApiError(400, "RUN-NO-ROOTS", "Run has no roots configured.", runId: runId);
+
+    foreach (var runRoot in runRoots)
+    {
+        var pathError = ValidatePathSecurity(runRoot, "roots", allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
+    }
+
+    var effectiveDatRoot = run.DatRoot ?? settings.Dat?.DatRoot;
+    if (!string.IsNullOrWhiteSpace(effectiveDatRoot))
+    {
+        var pathError = ValidatePathSecurity(effectiveDatRoot, "datRoot", allowedRootPolicy);
+        if (pathError is not null)
+            return pathError;
+    }
+
+    var runOptions = new RomCleanup.Contracts.Models.RunOptions
+    {
+        Roots = runRoots,
+        EnableDat = true,
+        DatRoot = effectiveDatRoot,
+        Extensions = run.Extensions
+    };
+
+    using var env = new RunEnvironmentFactory().Create(runOptions);
+    if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
+        return ApiError(400, "DAT-NOT-AVAILABLE", "No DAT index available. Configure DatRoot in settings.", runId: runId);
+
+    var report = await CompletenessReportService.BuildAsync(
+        env.DatIndex,
+        runOptions.Roots,
+        env.CollectionIndex,
+        runOptions.Extensions,
+        run.CoreRunResult is { } fixDatRunResult
+            ? RunArtifactProjection.Project(fixDatRunResult).AllCandidates
+            : null,
+        ct);
+
+    var datName = string.IsNullOrWhiteSpace(name)
+        ? $"Romulus-FixDAT-{runId}"
+        : name.Trim();
+
+    var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, report, datName);
+
+    var safeOutputPath = SafetyValidator.EnsureSafeOutputPath(outputPath.Trim());
+    var directory = Path.GetDirectoryName(safeOutputPath);
+    if (!string.IsNullOrWhiteSpace(directory))
+        Directory.CreateDirectory(directory);
+
+    await File.WriteAllTextAsync(safeOutputPath, fixDat.XmlContent, Encoding.UTF8, ct);
+
+    return Results.Ok(new
+    {
+        runId,
+        outputPath = safeOutputPath,
+        fixDat.DatName,
+        fixDat.ConsoleCount,
+        fixDat.MissingGames,
+        fixDat.MissingRoms,
+        consoles = fixDat.Consoles
+    });
+})
+    .WithSummary("Generate a FixDAT from run completeness and persist it to disk")
+    .Produces(StatusCodes.Status200OK)
+    .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+    .Produces<OperationErrorResponse>(StatusCodes.Status403Forbidden)
+    .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound)
+    .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict);
+
 // Graceful shutdown: cancel active runs before process exits
 app.Lifetime.ApplicationStopping.Register(() =>
 {

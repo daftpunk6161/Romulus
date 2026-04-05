@@ -40,10 +40,11 @@ public sealed class CliProductizationTests : IDisposable
         Assert.Contains("romulus workflows", text, StringComparison.Ordinal);
         Assert.Contains("romulus compare --run <run-id> --compare-to <run-id>", text, StringComparison.Ordinal);
         Assert.Contains("romulus trends [--limit <n>] [-o <file>]", text, StringComparison.Ordinal);
+        Assert.Contains("romulus dat fixdat --roots <path>", text, StringComparison.Ordinal);
         Assert.Contains("--workflow <id>", text, StringComparison.Ordinal);
         Assert.Contains("--profile <id>", text, StringComparison.Ordinal);
         Assert.Contains("--profile-file <file>", text, StringComparison.Ordinal);
-        Assert.Contains("launchbox|emulationstation|playnite|mister|analoguepocket|onionos", text, StringComparison.Ordinal);
+        Assert.Contains("m3u|launchbox|emulationstation|playnite|mister|analoguepocket|onionos", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -135,6 +136,7 @@ public sealed class CliProductizationTests : IDisposable
     }
 
     [Theory]
+    [InlineData("m3u")]
     [InlineData("mister")]
     [InlineData("analoguepocket")]
     [InlineData("onionos")]
@@ -150,5 +152,25 @@ public sealed class CliProductizationTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.NotNull(result.Options);
         Assert.Equal(format, result.Options!.ExportFormat, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CliArgsParser_DatFixDat_ParsesRootsOutputAndName()
+    {
+        var outputPath = Path.Combine(_tempDir, "fixdat.dat");
+
+        var result = CliArgsParser.Parse([
+            "dat", "fixdat",
+            "--roots", _tempDir,
+            "--output", outputPath,
+            "--name", "Romulus-FixDAT"
+        ]);
+
+        Assert.Equal(CliCommand.DatFix, result.Command);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.Options);
+        Assert.Equal(_tempDir, Assert.Single(result.Options!.Roots));
+        Assert.Equal(outputPath, result.Options.OutputPath);
+        Assert.Equal("Romulus-FixDAT", result.Options.DatName);
     }
 }

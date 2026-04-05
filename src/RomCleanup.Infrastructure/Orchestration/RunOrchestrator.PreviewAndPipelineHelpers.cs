@@ -7,6 +7,7 @@ using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Linking;
 using RomCleanup.Infrastructure.Metrics;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Quarantine;
 using RomCleanup.Infrastructure.Reporting;
 
@@ -752,10 +753,7 @@ public sealed partial class RunOrchestrator
             // Fallback to user profile directory if primary report target is not writable.
             try
             {
-                var fallbackDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    Contracts.AppIdentity.AppFolderName,
-                    "reports");
+                var fallbackDir = AppStoragePathResolver.ResolveRoamingPath("reports");
                 Directory.CreateDirectory(fallbackDir);
 
                 var fallbackFileName = Path.GetFileName(options.ReportPath!) ?? $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html";

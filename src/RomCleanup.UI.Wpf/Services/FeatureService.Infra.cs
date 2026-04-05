@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.Infrastructure.Reporting;
@@ -87,8 +88,7 @@ public static partial class FeatureService
 
     public static bool IsPortableMode()
     {
-        var marker = Path.Combine(AppContext.BaseDirectory, ".portable");
-        return File.Exists(marker);
+        return AppStoragePathResolver.IsPortableMode();
     }
 
 

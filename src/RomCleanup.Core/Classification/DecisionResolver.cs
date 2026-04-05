@@ -36,6 +36,12 @@ public static class DecisionResolver
         bool datAvailable,
         ConflictType conflictType)
     {
+        // Normalize: if a non-None conflict type is supplied, hasConflict must be true.
+        // This prevents callers from accidentally bypassing the cross-family gate
+        // by passing conflictType=CrossFamily but hasConflict=false.
+        if (conflictType != ConflictType.None)
+            hasConflict = true;
+
         // ── Cross-family conflict gate (applies to ALL tiers) ──
         // Fundamentally different platform families (e.g. PS1/RedumpDisc vs Vita/Hybrid)
         // are always blocked regardless of evidence strength.

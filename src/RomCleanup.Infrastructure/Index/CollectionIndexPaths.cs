@@ -1,4 +1,5 @@
 using RomCleanup.Contracts;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.Infrastructure.Index;
 
@@ -18,17 +19,10 @@ public static class CollectionIndexPaths
 
     /// <summary>
     /// Resolve the default index database path.
-    /// Uses portable mode when a `.portable` marker exists next to the executable.
-    /// Otherwise stores the database in the application's roaming AppData folder.
+    /// Uses centralized storage resolution for portable vs standard app data mode.
     /// </summary>
     public static string ResolveDefaultDatabasePath()
     {
-        var baseDir = File.Exists(Path.Combine(AppContext.BaseDirectory, ".portable"))
-            ? Path.Combine(AppContext.BaseDirectory, ".romcleanup")
-            : Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                AppIdentity.AppFolderName);
-
-        return Path.Combine(baseDir, "collection.db");
+        return AppStoragePathResolver.ResolveRoamingPath("collection.db");
     }
 }

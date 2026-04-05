@@ -335,4 +335,75 @@ public sealed class FrontendExportRegressionTests : IDisposable
         var rom = json.RootElement.GetProperty("roms")[0];
         Assert.Contains("Roms/gb", rom.GetProperty("targetPath").GetString(), StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task FrontendExportService_M3u_DirectoryExport_GroupsAndOrdersDiscEntries()
+    {
+        var outputDirectory = Path.Combine(_tempRoot, "m3u-export");
+        var candidates = new[]
+        {
+            new RomCandidate
+            {
+                MainPath = @"C:\roms\ps1\Metal Gear Solid (Disc 2).chd",
+                GameKey = "metal-gear-solid",
+                ConsoleKey = "ps1",
+                Region = "US",
+                Extension = ".chd",
+                SizeBytes = 1024,
+                DatMatch = true,
+                Category = FileCategory.Game
+            },
+            new RomCandidate
+            {
+                MainPath = @"C:\roms\ps1\Metal Gear Solid (Disc 1).chd",
+                GameKey = "metal-gear-solid",
+                ConsoleKey = "ps1",
+                Region = "US",
+                Extension = ".chd",
+                SizeBytes = 1024,
+                DatMatch = true,
+                Category = FileCategory.Game
+            },
+            new RomCandidate
+            {
+                MainPath = @"C:\roms\ps1\Tekken 3.chd",
+                GameKey = "tekken-3",
+                ConsoleKey = "ps1",
+                Region = "US",
+                Extension = ".chd",
+                SizeBytes = 2048,
+                DatMatch = true,
+                Category = FileCategory.Game
+            }
+        };
+
+        var result = await FrontendExportService.ExportAsync(
+            new FrontendExportRequest(
+                FrontendExportTargets.M3u,
+                outputDirectory,
+                "Collection",
+                [@"C:\roms"],
+                [".chd"]),
+            new FileSystemAdapter(),
+            collectionIndex: null,
+            enrichmentFingerprint: null,
+            runCandidates: candidates);
+
+        Assert.Equal(FrontendExportTargets.M3u, result.Frontend);
+        var artifact = Assert.Single(result.Artifacts);
+        Assert.EndsWith(".m3u", artifact.Path, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(artifact.Path));
+
+        var content = await File.ReadAllTextAsync(artifact.Path);
+        var disc1Path = candidates[1].MainPath.Replace('\\', '/');
+        var disc2Path = candidates[0].MainPath.Replace('\\', '/');
+
+        var disc1Index = content.IndexOf(disc1Path, StringComparison.Ordinal);
+        var disc2Index = content.IndexOf(disc2Path, StringComparison.Ordinal);
+
+        Assert.True(disc1Index >= 0);
+        Assert.True(disc2Index >= 0);
+        Assert.True(disc1Index < disc2Index, "Disc 1 entry must appear before Disc 2.");
+        Assert.DoesNotContain("Tekken 3", content, StringComparison.OrdinalIgnoreCase);
+    }
 }

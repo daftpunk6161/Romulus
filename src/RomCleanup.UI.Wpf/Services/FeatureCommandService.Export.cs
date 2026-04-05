@@ -103,7 +103,8 @@ public sealed partial class FeatureCommandService
             "  7 - Playnite Bibliothek\n" +
             "  8 - MiSTer Paket (games/)\n" +
             "  9 - Analogue Pocket Paket (Assets/)\n" +
-            " 10 - OnionOS Paket (Roms/)\n\n" +
+            " 10 - OnionOS Paket (Roms/)\n" +
+            " 11 - M3U Multi-Disc Playlist\n\n" +
             "Nummer eingeben:",
             "Sammlung exportieren");
         if (string.IsNullOrWhiteSpace(choice))
@@ -141,8 +142,11 @@ public sealed partial class FeatureCommandService
             case "10":
                 ExportFrontend(FrontendExportTargets.OnionOs, "Ordner|*.*", "onionos", "Romulus");
                 break;
+            case "11":
+                ExportFrontend(FrontendExportTargets.M3u, "Playlist (*.m3u)|*.m3u", "Romulus.m3u", "Romulus");
+                break;
             default:
-                _vm.AddLog("Ungueltige Auswahl. Bitte 1 bis 10 eingeben.", "WARN");
+                _vm.AddLog("Ungueltige Auswahl. Bitte 1 bis 11 eingeben.", "WARN");
                 break;
         }
     }

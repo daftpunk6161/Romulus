@@ -272,6 +272,40 @@ public sealed class ApiProductizationIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task Runs_FixDat_WithoutOutputPath_ReturnsBadRequest()
+    {
+        using var factory = ApiTestFactory.Create(new Dictionary<string, string?> { ["ApiKey"] = ApiKey });
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "FixDat Candidate (USA).zip"), "fixdat");
+            var runPayload = JsonSerializer.Serialize(new
+            {
+                roots = new[] { root },
+                mode = "DryRun"
+            });
+
+            using var runContent = new StringContent(runPayload, Encoding.UTF8, "application/json");
+            var runResponse = await client.PostAsync("/runs?wait=true", runContent);
+            Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
+
+            using var runDoc = JsonDocument.Parse(await runResponse.Content.ReadAsStringAsync());
+            var runId = runDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(runId));
+
+            var fixDatResponse = await client.PostAsync($"/runs/{runId}/fixdat", content: null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, fixDatResponse.StatusCode);
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
     private static HttpClient CreateClientWithApiKey(WebApplicationFactory<Program> factory, string? clientId = null)
     {
         var client = factory.CreateClient();

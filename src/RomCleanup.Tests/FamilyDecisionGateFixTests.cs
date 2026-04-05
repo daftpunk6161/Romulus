@@ -43,6 +43,20 @@ public sealed class FamilyDecisionGateFixTests
         Assert.Equal(DecisionClass.Blocked, result);
     }
 
+    [Theory]
+    [InlineData(ConflictType.CrossFamily, DecisionClass.Blocked)]
+    [InlineData(ConflictType.IntraFamily, DecisionClass.Review)]
+    public void DecisionResolver_ConflictTypeNormalizesHasConflict(ConflictType conflictType, DecisionClass expected)
+    {
+        // Even when hasConflict=false, a non-None conflictType must be respected.
+        // The guard normalizes hasConflict to true, preventing accidental bypass.
+        var result = DecisionResolver.Resolve(
+            EvidenceTier.Tier0_ExactDat, hasConflict: false, confidence: 100,
+            datAvailable: true, conflictType: conflictType);
+
+        Assert.Equal(expected, result);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     //  F4: ClassifyConflictType – Unknown family handling
     // ──────────────────────────────────────────────────────────────────
@@ -118,15 +132,45 @@ public sealed class FamilyDecisionGateFixTests
     [InlineData("AUX", "fallback")]
     [InlineData("COM1", "fallback")]
     [InlineData("LPT3", "fallback")]
-    public void Sort_ReservedWindowsName_RoutesToFallback(string reason, string expected)
+    public void ToSafeReasonSegment_ReservedWindowsName_ReturnsFallback(string reason, string expected)
     {
-        // ConsoleSorter's sort uses ToSafeReasonSegment internally.
-        // We verify via BuildSortReasonTag + the blocked/unknown folder routing.
-        // Since ToSafeReasonSegment is private, we test through an integration path.
-        // The reserved name defense is critical for Windows safety.
-        var candidate = CreateCandidate(SortDecision.Unknown, "insufficient-evidence");
-        var tag = ConsoleSorter.BuildSortReasonTag(candidate);
-        Assert.Equal("insufficient-evidence", tag);
+        var result = ConsoleSorter.ToSafeReasonSegment(reason, "fallback");
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("..", "fallback")]          // pure traversal → regex strips both dots → empty → fallback
+    [InlineData("../etc/passwd", "etc-passwd")]  // dots/slashes stripped by regex → safe segment
+    [InlineData("..\\system32", "system32")]     // backslash stripped by regex → safe segment
+    public void ToSafeReasonSegment_PathTraversal_ProducesSafeOutput(string reason, string expected)
+    {
+        var result = ConsoleSorter.ToSafeReasonSegment(reason, "fallback");
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(null, "fallback")]
+    [InlineData("", "fallback")]
+    [InlineData("   ", "fallback")]
+    public void ToSafeReasonSegment_NullOrEmpty_ReturnsFallback(string? reason, string expected)
+    {
+        var result = ConsoleSorter.ToSafeReasonSegment(reason, "fallback");
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ToSafeReasonSegment_ValidReason_ReturnsNormalized()
+    {
+        var result = ConsoleSorter.ToSafeReasonSegment("Cross Family Conflict!", "fallback");
+        Assert.Equal("cross-family-conflict", result);
+    }
+
+    [Fact]
+    public void ToSafeReasonSegment_LongReason_TruncatedTo64()
+    {
+        var longReason = new string('a', 100);
+        var result = ConsoleSorter.ToSafeReasonSegment(longReason, "fallback");
+        Assert.Equal(64, result.Length);
     }
 
     // ──────────────────────────────────────────────────────────────────

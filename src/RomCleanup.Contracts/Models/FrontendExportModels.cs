@@ -6,6 +6,7 @@ public static class FrontendExportTargets
     public const string Json = "json";
     public const string Excel = "excel";
     public const string RetroArch = "retroarch";
+    public const string M3u = "m3u";
     public const string LaunchBox = "launchbox";
     public const string EmulationStation = "emulationstation";
     public const string Playnite = "playnite";
@@ -19,6 +20,7 @@ public static class FrontendExportTargets
         Json,
         Excel,
         RetroArch,
+        M3u,
         LaunchBox,
         EmulationStation,
         Playnite,

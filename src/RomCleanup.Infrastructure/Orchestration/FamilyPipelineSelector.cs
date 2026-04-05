@@ -1,4 +1,5 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
 
 namespace RomCleanup.Infrastructure.Orchestration;
 
@@ -6,7 +7,7 @@ namespace RomCleanup.Infrastructure.Orchestration;
 /// Applies family-specific post-enrichment adjustments before candidate materialization.
 /// This keeps family conflict escalation and DAT-vs-detector consistency in one place.
 /// </summary>
-public sealed class FamilyPipelineSelector
+public sealed class FamilyPipelineSelector : IFamilyPipelineSelector
 {
     public FamilyPipelineDecision Apply(FamilyPipelineInput input)
     {
@@ -78,23 +79,3 @@ public sealed class FamilyPipelineSelector
             : $"{baseReason}; {suffix}";
     }
 }
-
-public sealed record FamilyPipelineInput(
-    DecisionClass DecisionClass,
-    SortDecision SortDecision,
-    MatchEvidence MatchEvidence,
-    int DetectionConfidence,
-    bool DetectionConflict,
-    ConflictType ConflictType,
-    bool DatMatch,
-    PlatformFamily DetectedFamily,
-    PlatformFamily ResolvedFamily,
-    MatchKind FinalMatchKind);
-
-public readonly record struct FamilyPipelineDecision(
-    DecisionClass DecisionClass,
-    SortDecision SortDecision,
-    MatchEvidence MatchEvidence,
-    int DetectionConfidence,
-    bool DetectionConflict,
-    ConflictType ConflictType);

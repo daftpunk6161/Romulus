@@ -111,6 +111,25 @@ public sealed partial class FeatureCommandService
                 _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null).GetAwaiter().GetResult();
 
             _dialog.ShowText("Vollstaendigkeit", CompletenessReportService.FormatReport(report));
+
+            if (!_dialog.Confirm("FixDAT fuer fehlende Spiele erzeugen?", "Vollstaendigkeit"))
+                return;
+
+            var datName = $"Romulus-FixDAT-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+            var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(environment.DatIndex, report, datName);
+
+            if (fixDat.MissingGames == 0)
+            {
+                _dialog.Info("Keine fehlenden DAT-Eintraege erkannt. Es wurde keine FixDAT-Datei erzeugt.", "FixDAT");
+                return;
+            }
+
+            var savePath = _dialog.SaveFile("FixDAT speichern", "DAT (*.dat)|*.dat", $"{datName}.dat");
+            if (!TryResolveSafeOutputPath(savePath, "FixDAT-Export", out var safePath))
+                return;
+
+            File.WriteAllText(safePath, fixDat.XmlContent, Encoding.UTF8);
+            _vm.AddLog($"FixDAT exportiert: {safePath} (Spiele={fixDat.MissingGames}, ROMs={fixDat.MissingRoms})", "INFO");
         }
     }
 

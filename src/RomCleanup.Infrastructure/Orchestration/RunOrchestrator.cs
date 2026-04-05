@@ -38,7 +38,7 @@ public sealed partial class RunOrchestrator : IDisposable
     private readonly string? _enrichmentFingerprint;
     private readonly PersistedReviewDecisionService? _reviewDecisionService;
     private readonly IFamilyDatStrategyResolver? _familyDatStrategyResolver;
-    private readonly FamilyPipelineSelector? _familyPipelineSelector;
+    private readonly IFamilyPipelineSelector? _familyPipelineSelector;
     private bool _disposed;
 
     public RunOrchestrator(
@@ -57,7 +57,7 @@ public sealed partial class RunOrchestrator : IDisposable
         string? enrichmentFingerprint = null,
         PersistedReviewDecisionService? reviewDecisionService = null,
         IFamilyDatStrategyResolver? familyDatStrategyResolver = null,
-        FamilyPipelineSelector? familyPipelineSelector = null)
+        IFamilyPipelineSelector? familyPipelineSelector = null)
     {
         _fs = fs;
         _audit = audit;

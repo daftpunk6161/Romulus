@@ -23,11 +23,7 @@ public sealed class SettingsLoader
     /// <summary>
     /// User settings path: %APPDATA%\RomCleanupRegionDedupe\settings.json
     /// </summary>
-    public static string UserSettingsPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            Contracts.AppIdentity.AppFolderName,
-            "settings.json");
+    public static string UserSettingsPath => AppStoragePathResolver.ResolveRoamingPath("settings.json");
 
     /// <summary>
     /// Load settings with fallback chain: user settings → defaults.json → hardcoded defaults.

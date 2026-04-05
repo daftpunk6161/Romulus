@@ -26,7 +26,7 @@ public sealed partial class FeatureCommandService
 {
     private static readonly HashSet<string> SafeShellFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".html", ".htm", ".csv", ".json", ".xml", ".txt", ".log", ".lpl"
+        ".html", ".htm", ".csv", ".json", ".xml", ".txt", ".log", ".lpl", ".m3u"
     };
 
     private readonly MainViewModel _vm;

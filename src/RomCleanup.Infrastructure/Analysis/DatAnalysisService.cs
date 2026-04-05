@@ -87,6 +87,95 @@ public static class DatAnalysisService
         return sb.ToString();
     }
 
+    public static FixDatResult BuildFixDatFromCompleteness(
+        DatIndex datIndex,
+        CompletenessReport report,
+        string datName)
+    {
+        ArgumentNullException.ThrowIfNull(datIndex);
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentException.ThrowIfNullOrWhiteSpace(datName);
+
+        var gameElements = new List<XElement>();
+        var consoleSummaries = new List<FixDatConsoleSummary>();
+        var totalMissingRoms = 0;
+
+        foreach (var entry in report.Entries
+                     .Where(static completeness => completeness.MissingCount > 0)
+                     .OrderBy(static completeness => completeness.ConsoleKey, StringComparer.OrdinalIgnoreCase))
+        {
+            var missingGames = new HashSet<string>(entry.MissingGames, StringComparer.OrdinalIgnoreCase);
+            if (missingGames.Count == 0)
+                continue;
+
+            var indexed = datIndex.GetConsoleEntriesDetailed(entry.ConsoleKey)
+                .Where(indexedEntry => missingGames.Contains(indexedEntry.Entry.GameName))
+                .GroupBy(indexedEntry => indexedEntry.Entry.GameName, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var consoleRomCount = 0;
+            foreach (var game in indexed)
+            {
+                var romElements = BuildFixDatRomElements(game.Key, game)
+                    .OrderBy(static rom => rom.Attribute("name")?.Value, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                consoleRomCount += romElements.Length;
+                gameElements.Add(new XElement("game",
+                    new XAttribute("name", game.Key),
+                    new XElement("description", game.Key),
+                    romElements));
+            }
+
+            if (indexed.Length > 0)
+            {
+                consoleSummaries.Add(new FixDatConsoleSummary(entry.ConsoleKey, indexed.Length, consoleRomCount));
+                totalMissingRoms += consoleRomCount;
+            }
+        }
+
+        var document = new XDocument(
+            new XDeclaration("1.0", "utf-8", null),
+            new XElement("datafile",
+                new XElement("header",
+                    new XElement("name", datName),
+                    new XElement("description", $"Romulus FixDAT generated {DateTime.UtcNow:yyyy-MM-dd}"),
+                    new XElement("version", DateTime.UtcNow.ToString("yyyy-MM-dd")),
+                    new XElement("author", "Romulus")),
+                gameElements));
+
+        return new FixDatResult(
+            datName,
+            consoleSummaries.Count,
+            gameElements.Count,
+            totalMissingRoms,
+            document.ToString(SaveOptions.None),
+            consoleSummaries);
+    }
+
+    public static string FormatFixDatReport(FixDatResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("FixDAT Generator");
+        sb.AppendLine(new string('=', 50));
+        sb.AppendLine($"\n  Name:          {result.DatName}");
+        sb.AppendLine($"  Consoles:      {result.ConsoleCount}");
+        sb.AppendLine($"  Missing games: {result.MissingGames}");
+        sb.AppendLine($"  Missing ROMs:  {result.MissingRoms}");
+
+        if (result.Consoles.Count > 0)
+        {
+            sb.AppendLine("\n  By console:");
+            foreach (var console in result.Consoles.OrderBy(static item => item.ConsoleKey, StringComparer.OrdinalIgnoreCase))
+                sb.AppendLine($"    {console.ConsoleKey,-20} games={console.MissingGames,5}  roms={console.MissingRoms,5}");
+        }
+
+        return sb.ToString();
+    }
+
     public static (string Report, int LocalCount, int OldCount) BuildDatAutoUpdateReport(string datRoot)
     {
         var dataDir = RunEnvironmentBuilder.TryResolveDataDir() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
@@ -251,5 +340,74 @@ public static class DatAnalysisService
         };
         using var reader = XmlReader.Create(path, settings);
         return XDocument.Load(reader);
+    }
+
+    private static IReadOnlyList<XElement> BuildFixDatRomElements(
+        string gameName,
+        IEnumerable<(string Hash, DatIndex.DatIndexEntry Entry)> entries)
+    {
+        var result = new List<XElement>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in entries)
+        {
+            var romName = !string.IsNullOrWhiteSpace(item.Entry.RomFileName)
+                ? item.Entry.RomFileName!
+                : SanitizeFallbackRomName(gameName) + ".bin";
+
+            var normalizedHash = NormalizeHash(item.Hash);
+            if (string.IsNullOrWhiteSpace(normalizedHash))
+                continue;
+
+            var dedupeKey = $"{romName}|{normalizedHash}";
+            if (!seen.Add(dedupeKey))
+                continue;
+
+            var rom = new XElement("rom",
+                new XAttribute("name", romName),
+                new XAttribute("size", "0"));
+
+            if (normalizedHash.Length == 40)
+                rom.SetAttributeValue("sha1", normalizedHash);
+            else if (normalizedHash.Length == 32)
+                rom.SetAttributeValue("md5", normalizedHash);
+            else if (normalizedHash.Length == 8)
+                rom.SetAttributeValue("crc", normalizedHash);
+            else
+                rom.SetAttributeValue("sha1", normalizedHash);
+
+            result.Add(rom);
+        }
+
+        if (result.Count == 0)
+        {
+            result.Add(new XElement("rom",
+                new XAttribute("name", SanitizeFallbackRomName(gameName) + ".bin"),
+                new XAttribute("size", "0")));
+        }
+
+        return result;
+    }
+
+    private static string NormalizeHash(string? hash)
+    {
+        if (string.IsNullOrWhiteSpace(hash))
+            return string.Empty;
+
+        var normalized = hash.Trim().ToLowerInvariant();
+        return normalized.All(Uri.IsHexDigit) ? normalized : string.Empty;
+    }
+
+    private static string SanitizeFallbackRomName(string gameName)
+    {
+        if (string.IsNullOrWhiteSpace(gameName))
+            return "missing-rom";
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(gameName.Length);
+        foreach (var ch in gameName.Trim())
+            builder.Append(invalid.Contains(ch) ? '_' : ch);
+
+        return builder.ToString().Trim('.', ' ');
     }
 }

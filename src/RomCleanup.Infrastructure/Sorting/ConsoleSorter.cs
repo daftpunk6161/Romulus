@@ -589,7 +589,7 @@ public sealed class ConsoleSorter
         "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     };
 
-    private static string ToSafeReasonSegment(string? reason, string fallback)
+    internal static string ToSafeReasonSegment(string? reason, string fallback)
     {
         if (string.IsNullOrWhiteSpace(reason))
             return fallback;

@@ -9,6 +9,7 @@ using RomCleanup.Infrastructure.Analysis;
 using RomCleanup.Infrastructure.Conversion;
 using RomCleanup.Infrastructure.Index;
 using RomCleanup.Infrastructure.Orchestration;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.Models;
 using RomCleanup.UI.Wpf.Services;
 using RunState = RomCleanup.UI.Wpf.Models.RunState;
@@ -805,7 +806,7 @@ public sealed partial class MainViewModel
     {
         var dirs = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName, RomCleanup.Contracts.AppIdentity.ArtifactDirectories.Reports),
+            AppStoragePathResolver.ResolveRoamingPath(RomCleanup.Contracts.AppIdentity.ArtifactDirectories.Reports),
             Path.Combine(Directory.GetCurrentDirectory(), RomCleanup.Contracts.AppIdentity.ArtifactDirectories.Reports)
         };
 

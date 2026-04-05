@@ -7,6 +7,7 @@ using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
 using RomCleanup.Infrastructure.Index;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Tools;
 
 namespace RomCleanup.Infrastructure.Analysis;
@@ -17,13 +18,9 @@ namespace RomCleanup.Infrastructure.Analysis;
 /// </summary>
 public static class IntegrityService
 {
-    private static readonly string TrendFile = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        AppIdentity.AppFolderName, "trend-history.json");
+    private static readonly string TrendFile = AppStoragePathResolver.ResolveRoamingPath("trend-history.json");
 
-    private static readonly string BaselinePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        AppIdentity.AppFolderName, "integrity-baseline.json");
+    private static readonly string BaselinePath = AppStoragePathResolver.ResolveRoamingPath("integrity-baseline.json");
 
     // --- Header Analysis ---
 

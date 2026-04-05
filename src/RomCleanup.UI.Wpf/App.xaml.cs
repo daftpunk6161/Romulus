@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.State;
 using RomCleanup.UI.Wpf.Services;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -122,9 +123,7 @@ public partial class App : Application
     {
         try
         {
-            var logDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                RomCleanup.Contracts.AppIdentity.AppFolderName);
+            var logDir = AppStoragePathResolver.ResolveRoamingAppDirectory();
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "crash.log");
             File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] {ex}\n\n");

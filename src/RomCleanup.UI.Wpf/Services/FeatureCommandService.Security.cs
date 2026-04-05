@@ -2,8 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Reporting;
@@ -14,6 +12,37 @@ namespace RomCleanup.UI.Wpf.Services;
 public sealed partial class FeatureCommandService
 {
     // ═══ SICHERHEIT & INTEGRITÄT ════════════════════════════════════════
+
+    private const string CustomJunkRulesFileName = "custom-junk-rules.json";
+    private const string CustomJunkRuleAction = "SetCategoryJunk";
+
+    private static readonly HashSet<string> AllowedCustomJunkFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "name", "region", "extension", "path"
+    };
+
+    private static readonly HashSet<string> AllowedCustomJunkOperators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "contains", "equals", "regex"
+    };
+
+    private static readonly HashSet<string> AllowedCustomJunkLogic = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AND", "OR"
+    };
+
+    private static readonly JsonSerializerOptions CustomJunkRulesReadOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip
+    };
+
+    private static readonly JsonSerializerOptions CustomJunkRulesWriteOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
 
     private void PatchPipeline()
     {
@@ -140,8 +169,297 @@ public sealed partial class FeatureCommandService
 
     private void RuleEngine()
     {
-        try { _dialog.ShowText("Regel-Engine", FeatureService.BuildRuleEngineReport()); }
-        catch (Exception ex) { LogError("SEC-RULES", $"Fehler beim Laden der Regeln: {ex.Message}"); }
+        var mode = _dialog.YesNoCancel(
+            "Regel-Engine\n\nJA = Regel-Report anzeigen\nNEIN = Custom Junk Rules bearbeiten\nABBRECHEN = Nichts tun",
+            "Regel-Engine");
+
+        if (mode == ConfirmResult.Cancel)
+            return;
+
+        if (mode == ConfirmResult.Yes)
+        {
+            try { _dialog.ShowText("Regel-Engine", FeatureService.BuildRuleEngineReport()); }
+            catch (Exception ex) { LogError("SEC-RULES", $"Fehler beim Laden der Regeln: {ex.Message}"); }
+            return;
+        }
+
+        EditCustomJunkRules();
+    }
+
+    private void EditCustomJunkRules()
+    {
+        try
+        {
+            var dataDir = FeatureService.ResolveDataDirectory() ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+            Directory.CreateDirectory(dataDir);
+
+            var rulesPath = Path.Combine(dataDir, CustomJunkRulesFileName);
+            var editorText = _dialog.ShowMultilineInputBox(
+                "Custom Junk Rules als JSON bearbeiten.\n\n"
+                + "Datei: data/custom-junk-rules.json\n"
+                + "Felder: name, region, extension, path\n"
+                + "Operatoren: contains, equals, regex\n"
+                + "Logic: AND oder OR\n"
+                + "Aktion: SetCategoryJunk\n\n"
+                + "Leer lassen oder abbrechen = keine Aenderung.",
+                "Custom Junk Rules Editor",
+                LoadCustomJunkRulesEditorContent(rulesPath));
+
+            if (string.IsNullOrWhiteSpace(editorText))
+                return;
+
+            if (!TryNormalizeCustomJunkRules(editorText, out var normalizedDocument, out var preview, out var validationError))
+            {
+                _dialog.Error($"Regeln konnten nicht gespeichert werden:\n\n{validationError}", "Custom Junk Rules Editor");
+                return;
+            }
+
+            _dialog.ShowText("Custom Junk Rules Vorschau", preview);
+            if (!_dialog.Confirm("Regeln aus der Vorschau speichern?", "Custom Junk Rules Editor"))
+                return;
+
+            var normalizedJson = JsonSerializer.Serialize(normalizedDocument, CustomJunkRulesWriteOptions);
+            File.WriteAllText(rulesPath, normalizedJson, Encoding.UTF8);
+            _vm.AddLog($"Custom Junk Rules gespeichert: {rulesPath} ({normalizedDocument.Rules.Count} Regeln)", "INFO");
+        }
+        catch (Exception ex)
+        {
+            LogError("SEC-CUSTOM-RULES", $"Custom Junk Rules Editor fehlgeschlagen: {ex.Message}");
+        }
+    }
+
+    private static string LoadCustomJunkRulesEditorContent(string rulesPath)
+    {
+        if (!File.Exists(rulesPath))
+            return BuildDefaultCustomJunkRulesJson();
+
+        var existing = File.ReadAllText(rulesPath);
+        if (string.IsNullOrWhiteSpace(existing))
+            return BuildDefaultCustomJunkRulesJson();
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<CustomJunkRulesDocument>(existing, CustomJunkRulesReadOptions);
+            return parsed is null
+                ? BuildDefaultCustomJunkRulesJson()
+                : JsonSerializer.Serialize(parsed, CustomJunkRulesWriteOptions);
+        }
+        catch (JsonException)
+        {
+            // Invalid JSON should stay visible to the user so they can repair it.
+            return existing;
+        }
+    }
+
+    private static string BuildDefaultCustomJunkRulesJson()
+    {
+        var template = new CustomJunkRulesDocument
+        {
+            Enabled = true,
+            Rules =
+            [
+                new CustomJunkRuleEntry
+                {
+                    Field = "name",
+                    Operator = "contains",
+                    Value = "(Beta)",
+                    Logic = "AND",
+                    Action = CustomJunkRuleAction,
+                    Priority = 1000,
+                    Enabled = true
+                }
+            ]
+        };
+
+        return JsonSerializer.Serialize(template, CustomJunkRulesWriteOptions);
+    }
+
+    private static bool TryNormalizeCustomJunkRules(
+        string json,
+        out CustomJunkRulesDocument normalizedDocument,
+        out string preview,
+        out string validationError)
+    {
+        normalizedDocument = new CustomJunkRulesDocument();
+        preview = string.Empty;
+        validationError = string.Empty;
+
+        CustomJunkRulesDocument? parsed;
+        try
+        {
+            parsed = JsonSerializer.Deserialize<CustomJunkRulesDocument>(json, CustomJunkRulesReadOptions);
+        }
+        catch (JsonException ex)
+        {
+            validationError = $"Ungueltiges JSON: {ex.Message}";
+            return false;
+        }
+
+        if (parsed is null)
+        {
+            validationError = "JSON konnte nicht gelesen werden.";
+            return false;
+        }
+
+        if (parsed.Rules is null)
+        {
+            validationError = "Feld 'rules' fehlt.";
+            return false;
+        }
+
+        var errors = new List<string>();
+        var normalizedRules = new List<CustomJunkRuleEntry>(parsed.Rules.Count);
+
+        for (var index = 0; index < parsed.Rules.Count; index++)
+        {
+            var sourceRule = parsed.Rules[index] ?? new CustomJunkRuleEntry();
+            var field = (sourceRule.Field ?? string.Empty).Trim().ToLowerInvariant();
+            var op = (sourceRule.Operator ?? string.Empty).Trim().ToLowerInvariant();
+            var value = (sourceRule.Value ?? string.Empty).Trim();
+            var logic = string.IsNullOrWhiteSpace(sourceRule.Logic)
+                ? "AND"
+                : sourceRule.Logic.Trim().ToUpperInvariant();
+            var action = string.IsNullOrWhiteSpace(sourceRule.Action)
+                ? CustomJunkRuleAction
+                : sourceRule.Action.Trim();
+            var priority = sourceRule.Priority > 0 ? sourceRule.Priority : 1000 + index;
+            var ruleEngineOperator = op == "equals" ? "eq" : op;
+            var ruleHasError = false;
+
+            if (!AllowedCustomJunkFields.Contains(field))
+            {
+                errors.Add($"Regel {index + 1}: Feld '{sourceRule.Field}' ist nicht erlaubt.");
+                ruleHasError = true;
+            }
+
+            if (!AllowedCustomJunkOperators.Contains(op))
+            {
+                errors.Add($"Regel {index + 1}: Operator '{sourceRule.Operator}' ist nicht erlaubt.");
+                ruleHasError = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                errors.Add($"Regel {index + 1}: Value darf nicht leer sein.");
+                ruleHasError = true;
+            }
+
+            if (!AllowedCustomJunkLogic.Contains(logic))
+            {
+                errors.Add($"Regel {index + 1}: Logic '{sourceRule.Logic}' ist ungueltig (nur AND/OR).");
+                ruleHasError = true;
+            }
+
+            if (!string.Equals(action, CustomJunkRuleAction, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add($"Regel {index + 1}: Action muss '{CustomJunkRuleAction}' sein.");
+                ruleHasError = true;
+            }
+
+            if (ruleHasError)
+                continue;
+
+            var ruleEngineRule = new ClassificationRule
+            {
+                Name = $"custom-junk-{index + 1}",
+                Priority = priority,
+                Action = "junk",
+                Enabled = sourceRule.Enabled,
+                Conditions =
+                [
+                    new RuleCondition
+                    {
+                        Field = MapToRuleEngineField(field),
+                        Op = ruleEngineOperator,
+                        Value = value
+                    }
+                ]
+            };
+
+            var syntax = RomCleanup.Core.Rules.RuleEngine.ValidateSyntax(ruleEngineRule);
+            if (!syntax.Valid)
+            {
+                var details = syntax.Errors.Count == 0
+                    ? "Unbekannter Syntaxfehler"
+                    : string.Join("; ", syntax.Errors);
+                errors.Add($"Regel {index + 1}: {details}");
+                continue;
+            }
+
+            normalizedRules.Add(new CustomJunkRuleEntry
+            {
+                Field = field,
+                Operator = op,
+                Value = value,
+                Logic = logic,
+                Action = CustomJunkRuleAction,
+                Priority = priority,
+                Enabled = sourceRule.Enabled
+            });
+        }
+
+        if (errors.Count > 0)
+        {
+            validationError = string.Join("\n", errors);
+            return false;
+        }
+
+        normalizedDocument = new CustomJunkRulesDocument
+        {
+            Enabled = parsed.Enabled,
+            Rules = normalizedRules
+        };
+        preview = BuildCustomJunkRulesPreview(normalizedDocument);
+        return true;
+    }
+
+    private static string BuildCustomJunkRulesPreview(CustomJunkRulesDocument document)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Custom Junk Rules Vorschau");
+        sb.AppendLine(new string('=', 56));
+        sb.AppendLine($"Aktiviert: {(document.Enabled ? "Ja" : "Nein")}");
+        sb.AppendLine($"Regeln: {document.Rules.Count}");
+        sb.AppendLine();
+
+        foreach (var indexedRule in document.Rules.Select((rule, idx) => (rule, idx)))
+        {
+            sb.AppendLine($"[{indexedRule.idx + 1}] {(indexedRule.rule.Enabled ? "aktiv" : "inaktiv")}");
+            sb.AppendLine($"  {indexedRule.rule.Field} {indexedRule.rule.Operator} \"{indexedRule.rule.Value}\"");
+            sb.AppendLine($"  Logic={indexedRule.rule.Logic}, Priority={indexedRule.rule.Priority}, Action={indexedRule.rule.Action}");
+        }
+
+        if (document.Rules.Count == 0)
+            sb.AppendLine("(Keine Regeln definiert)");
+
+        return sb.ToString();
+    }
+
+    private static string MapToRuleEngineField(string field)
+        => field switch
+        {
+            "name" => "Name",
+            "region" => "Region",
+            "extension" => "Extension",
+            "path" => "Path",
+            _ => field
+        };
+
+    private sealed class CustomJunkRulesDocument
+    {
+        public bool Enabled { get; set; } = true;
+        public List<CustomJunkRuleEntry> Rules { get; set; } = [];
+    }
+
+    private sealed class CustomJunkRuleEntry
+    {
+        public string Field { get; set; } = string.Empty;
+        public string Operator { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string Logic { get; set; } = "AND";
+        public string Action { get; set; } = CustomJunkRuleAction;
+        public int Priority { get; set; } = 1000;
+        public bool Enabled { get; set; } = true;
     }
 
     private void HeaderRepair()

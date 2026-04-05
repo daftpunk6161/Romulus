@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Configuration;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.UI.Wpf.ViewModels;
 
 namespace RomCleanup.UI.Wpf.Services;
@@ -17,8 +18,7 @@ public sealed class SettingsService : ISettingsService
     private const int CurrentVersion = 1;
 
     private static readonly string SettingsDir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            RomCleanup.Contracts.AppIdentity.AppFolderName);
+        AppStoragePathResolver.ResolveRoamingAppDirectory();
 
     private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
     private static readonly object SettingsWriteLock = new();

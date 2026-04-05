@@ -41,6 +41,9 @@ public sealed class WpfDialogService : IDialogService
     public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "")
         => DialogService.ShowInputBox(prompt, title, defaultValue);
 
+    public string ShowMultilineInputBox(string prompt, string title = "Eingabe", string defaultValue = "")
+        => DialogService.ShowMultilineInputBox(prompt, title, defaultValue);
+
     public void ShowText(string title, string content)
         => DialogService.ShowText(title, content);
 

@@ -1,4 +1,5 @@
 using RomCleanup.Contracts;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.Infrastructure.Profiles;
 
@@ -11,8 +12,7 @@ public static class RunProfilePaths
         if (!string.IsNullOrWhiteSpace(overrideDirectory))
             return Path.GetFullPath(overrideDirectory);
 
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, AppIdentity.AppFolderName, "profiles");
+        return AppStoragePathResolver.ResolveRoamingPath("profiles");
     }
 
     public static string ResolveBuiltInProfilesPath(string dataDir)

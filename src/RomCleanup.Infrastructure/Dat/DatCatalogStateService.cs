@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
-using RomCleanup.Infrastructure.Dat;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.Infrastructure.Dat;
 
@@ -28,10 +28,7 @@ public sealed class DatCatalogStateService
     /// </summary>
     public static string GetDefaultStatePath()
     {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            AppIdentity.AppFolderName,
-            "dat-catalog-state.json");
+        return AppStoragePathResolver.ResolveRoamingPath("dat-catalog-state.json");
     }
 
     /// <summary>

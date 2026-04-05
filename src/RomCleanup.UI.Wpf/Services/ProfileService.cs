@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Safety;
 
 namespace RomCleanup.UI.Wpf.Services;
@@ -11,7 +12,7 @@ namespace RomCleanup.UI.Wpf.Services;
 public sealed class ProfileService
 {
     private static readonly string SettingsDir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName);
+        AppStoragePathResolver.ResolveRoamingAppDirectory();
 
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
@@ -15,6 +16,7 @@ using RomCleanup.Infrastructure.Orchestration;
 using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Profiles;
 using RomCleanup.Infrastructure.Review;
+using RomCleanup.Infrastructure.Safety;
 using RomCleanup.Infrastructure.Watch;
 using RomCleanup.Infrastructure.Workflow;
 
@@ -76,6 +78,9 @@ internal static class Program
 
                 case CliCommand.DatDiff:
                     return SubcommandDatDiff(result.Options!);
+
+                case CliCommand.DatFix:
+                    return SubcommandDatFix(result.Options!);
 
                 case CliCommand.IntegrityCheck:
                     return SubcommandIntegrityCheck();
@@ -596,6 +601,60 @@ internal static class Program
         var diff = DatAnalysisService.CompareDatFiles(opts.DatFileA!, opts.DatFileB!);
         var report = DatAnalysisService.FormatDatDiffReport(opts.DatFileA!, opts.DatFileB!, diff);
         SafeStandardWriteLine(report);
+        return 0;
+    }
+
+    private static int SubcommandDatFix(CliRunOptions opts)
+    {
+        SafeErrorWriteLine($"[FixDAT] Scanning {opts.Roots.Length} root(s)...");
+        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+
+        opts.EnableDat = true;
+
+        var (runOptions, mapErrors) = CliOptionsMapper.Map(opts, settings, dataDir);
+        if (runOptions is null)
+        {
+            CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);
+            return 3;
+        }
+
+        using var env = new RunEnvironmentFactory().Create(runOptions, SafeErrorWriteLine);
+        if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
+        {
+            SafeErrorWriteLine("[Error] No DAT index available. Configure DatRoot in settings or use --dat-root.");
+            return 1;
+        }
+
+        var completeness = CompletenessReportService.BuildAsync(
+            env.DatIndex,
+            runOptions.Roots,
+            env.CollectionIndex,
+            runOptions.Extensions).GetAwaiter().GetResult();
+
+        var datName = string.IsNullOrWhiteSpace(opts.DatName)
+            ? $"Romulus-FixDAT-{DateTime.UtcNow:yyyyMMdd-HHmmss}"
+            : opts.DatName.Trim();
+
+        var fixDat = DatAnalysisService.BuildFixDatFromCompleteness(env.DatIndex, completeness, datName);
+
+        var targetPath = opts.OutputPath;
+        if (string.IsNullOrWhiteSpace(targetPath))
+        {
+            targetPath = Path.Combine(
+                ArtifactPathResolver.GetArtifactDirectory(runOptions.Roots, AppIdentity.ArtifactDirectories.Reports),
+                $"fixdat-{DateTime.UtcNow:yyyyMMdd-HHmmss}.dat");
+        }
+
+        var safeTargetPath = SafetyValidator.EnsureSafeOutputPath(targetPath);
+        var outputDirectory = Path.GetDirectoryName(safeTargetPath);
+        if (!string.IsNullOrWhiteSpace(outputDirectory))
+            Directory.CreateDirectory(outputDirectory);
+
+        File.WriteAllText(safeTargetPath, fixDat.XmlContent, Encoding.UTF8);
+        SafeStandardWriteLine(DatAnalysisService.FormatFixDatReport(fixDat));
+        SafeErrorWriteLine($"[FixDAT] Written: {safeTargetPath}");
+
         return 0;
     }
 

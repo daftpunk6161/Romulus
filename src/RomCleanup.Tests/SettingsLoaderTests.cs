@@ -1,4 +1,5 @@
 using RomCleanup.Infrastructure.Configuration;
+using RomCleanup.Infrastructure.Paths;
 using Xunit;
 
 namespace RomCleanup.Tests;
@@ -125,10 +126,11 @@ public class SettingsLoaderTests : IDisposable
     }
 
     [Fact]
-    public void UserSettingsPath_ContainsAppData()
+    public void UserSettingsPath_UsesResolvedStorageBase()
     {
         var path = SettingsLoader.UserSettingsPath;
-        Assert.Contains("RomCleanupRegionDedupe", path);
+        var expectedBase = AppStoragePathResolver.ResolveRoamingAppDirectory();
+        Assert.StartsWith(expectedBase, path, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith("settings.json", path);
     }
 

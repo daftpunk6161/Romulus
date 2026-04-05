@@ -68,3 +68,15 @@ public sealed record ConfigDiffEntry(string Key, string SavedValue, string Curre
 
 /// <summary>DAT file diff result comparing two Logiqx XML DAT files.</summary>
 public sealed record DatDiffResult(IReadOnlyList<string> Added, IReadOnlyList<string> Removed, int ModifiedCount, int UnchangedCount);
+
+/// <summary>Per-console summary for generated FixDAT output.</summary>
+public sealed record FixDatConsoleSummary(string ConsoleKey, int MissingGames, int MissingRoms);
+
+/// <summary>Generated FixDAT document and summary counters.</summary>
+public sealed record FixDatResult(
+    string DatName,
+    int ConsoleCount,
+    int MissingGames,
+    int MissingRoms,
+    string XmlContent,
+    IReadOnlyList<FixDatConsoleSummary> Consoles);

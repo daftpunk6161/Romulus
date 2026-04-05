@@ -5,8 +5,6 @@ namespace RomCleanup.Infrastructure.Paths;
 
 public static class ArtifactPathResolver
 {
-    private const string AppFolderName = Contracts.AppIdentity.AppFolderName;
-
     public static string GetArtifactDirectory(IReadOnlyList<string> roots, string artifactFolderName)
     {
         ArgumentNullException.ThrowIfNull(roots);
@@ -26,8 +24,7 @@ public static class ArtifactPathResolver
             return GetSiblingDirectory(normalizedRoots[0], artifactFolderName);
 
         var artifactRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            AppFolderName,
+            AppStoragePathResolver.ResolveRoamingAppDirectory(),
             "artifacts",
             "multi-root-" + ComputeFingerprint(normalizedRoots));
 

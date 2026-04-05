@@ -7,6 +7,7 @@ using System.Windows.Input;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Infrastructure.Analysis;
+using RomCleanup.Infrastructure.Paths;
 using RomCleanup.Infrastructure.Reporting;
 using RomCleanup.Infrastructure.Tools;
 using RomCleanup.UI.Wpf.ViewModels;
@@ -79,14 +80,15 @@ public sealed partial class FeatureCommandService
     private void PortableMode()
     {
         var isPortable = FeatureService.IsPortableMode();
+        var resolvedSettingsDir = AppStoragePathResolver.ResolveRoamingAppDirectory();
         var sb = new StringBuilder();
         sb.AppendLine("Portable-Modus\n");
         sb.AppendLine($"  Aktueller Modus: {(isPortable ? "PORTABEL" : "Standard (AppData)")}");
         sb.AppendLine($"  Programm-Verzeichnis: {AppContext.BaseDirectory}");
-        if (isPortable) sb.AppendLine($"  Settings-Ordner: {Path.Combine(AppContext.BaseDirectory, ".romcleanup")}");
+        if (isPortable) sb.AppendLine($"  Settings-Ordner: {resolvedSettingsDir}");
         else
         {
-            sb.AppendLine($"  Settings-Ordner: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), RomCleanup.Contracts.AppIdentity.AppFolderName)}");
+            sb.AppendLine($"  Settings-Ordner: {resolvedSettingsDir}");
             sb.AppendLine("\n  Tipp: Erstelle '.portable' im Programmverzeichnis für Portable-Modus.");
         }
         _dialog.ShowText("Portable-Modus", sb.ToString());

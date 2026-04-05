@@ -1,5 +1,7 @@
 namespace RomCleanup.Infrastructure.Audit;
 
+using RomCleanup.Infrastructure.Paths;
+
 /// <summary>
 /// Centralizes persistent paths for audit integrity artifacts.
 /// </summary>
@@ -7,19 +9,16 @@ public static class AuditSecurityPaths
 {
     public static string GetDefaultSigningKeyPath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, Contracts.AppIdentity.AppFolderName, "security", "audit-signing.key");
+        return AppStoragePathResolver.ResolveRoamingPath("security", "audit-signing.key");
     }
 
     public static string GetDefaultAuditDirectory()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, Contracts.AppIdentity.AppFolderName, "audit");
+        return AppStoragePathResolver.ResolveRoamingPath("audit");
     }
 
     public static string GetDefaultReportDirectory()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, Contracts.AppIdentity.AppFolderName, "reports");
+        return AppStoragePathResolver.ResolveRoamingPath("reports");
     }
 }

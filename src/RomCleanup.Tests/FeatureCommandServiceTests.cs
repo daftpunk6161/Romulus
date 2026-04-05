@@ -375,8 +375,69 @@ public sealed class FeatureCommandServiceTests : IDisposable
     public void RuleEngine_ShowsRuleReport()
     {
         _sut.RegisterCommands();
+        _dialog.YesNoCancelResult = Contracts.Ports.ConfirmResult.Yes;
         _vm.FeatureCommands["RuleEngine"].Execute(null);
         Assert.True(HasOutput());
+    }
+
+    [Fact]
+    public void RuleEngine_CustomJunkEditor_InvalidRule_ShowsValidationError()
+    {
+        _sut.RegisterCommands();
+        _dialog.YesNoCancelResult = Contracts.Ports.ConfirmResult.No;
+        _dialog.ShowMultilineInputBoxResult =
+            """
+            {
+              "enabled": true,
+              "rules": [
+                {
+                  "field": "filename",
+                  "operator": "contains",
+                  "value": "(Beta)",
+                  "logic": "AND",
+                  "action": "SetCategoryJunk",
+                  "priority": 1000,
+                  "enabled": true
+                }
+              ]
+            }
+            """;
+
+        _vm.FeatureCommands["RuleEngine"].Execute(null);
+
+        Assert.Contains(_dialog.ErrorCalls, message =>
+            message.Contains("nicht erlaubt", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void RuleEngine_CustomJunkEditor_ValidRule_ShowsPreviewBeforeSave()
+    {
+        _sut.RegisterCommands();
+        _dialog.YesNoCancelResult = Contracts.Ports.ConfirmResult.No;
+        _dialog.ConfirmResult = false; // don't persist to shared data dir during tests
+        _dialog.ShowMultilineInputBoxResult =
+            """
+            {
+              "enabled": true,
+              "rules": [
+                {
+                  "field": "name",
+                  "operator": "contains",
+                  "value": "(Beta)",
+                  "logic": "AND",
+                  "action": "SetCategoryJunk",
+                  "priority": 1000,
+                  "enabled": true
+                }
+              ]
+            }
+            """;
+
+        _vm.FeatureCommands["RuleEngine"].Execute(null);
+
+        Assert.Contains(_dialog.ShowTextCalls, call =>
+            call.Title.Contains("Vorschau", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(_dialog.ErrorCalls);
     }
 
     // ═══ CONVERSION PIPELINE ════════════════════════════════════════════
@@ -1195,9 +1256,12 @@ public sealed class FeatureCommandServiceTests : IDisposable
         public string? BrowseFolderResult { get; set; }
         public string? SaveFileResult { get; set; }
         public bool ConfirmResult { get; set; } = true;
+        public Contracts.Ports.ConfirmResult YesNoCancelResult { get; set; } = Contracts.Ports.ConfirmResult.Yes;
         public string ShowInputBoxResult { get; set; } = "";
+        public string? ShowMultilineInputBoxResult { get; set; }
 
         public List<string> InfoCalls { get; } = [];
+        public List<string> ErrorCalls { get; } = [];
         public List<(string Title, string Content)> ShowTextCalls { get; } = [];
 
         public string? BrowseFolder(string title = "Ordner auswählen") => BrowseFolderResult;
@@ -1205,9 +1269,11 @@ public sealed class FeatureCommandServiceTests : IDisposable
         public string? SaveFile(string title = "Speichern unter", string filter = "Alle Dateien|*.*", string? defaultFileName = null) => SaveFileResult;
         public bool Confirm(string message, string title = "Bestätigung") => ConfirmResult;
         public void Info(string message, string title = "Information") => InfoCalls.Add(message);
-        public void Error(string message, string title = "Fehler") { }
-        public ConfirmResult YesNoCancel(string message, string title = "Frage") => Contracts.Ports.ConfirmResult.Yes;
+        public void Error(string message, string title = "Fehler") => ErrorCalls.Add(message);
+        public ConfirmResult YesNoCancel(string message, string title = "Frage") => YesNoCancelResult;
         public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => ShowInputBoxResult;
+        public string ShowMultilineInputBox(string prompt, string title = "Eingabe", string defaultValue = "")
+            => ShowMultilineInputBoxResult ?? ShowInputBoxResult;
         public void ShowText(string title, string content) => ShowTextCalls.Add((title, content));
         public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen") => true;
         public bool ConfirmConversionReview(string title, string summary, IReadOnlyList<RomCleanup.Contracts.Models.ConversionReviewEntry> entries) => ConfirmResult;

@@ -136,7 +136,7 @@ Usage:
 
 Subcommands:
   romulus analyze --roots <path>              Collection health score and heatmap
-    romulus export --roots <path> [--format csv|json|excel|retroarch|launchbox|emulationstation|playnite|mister|analoguepocket|onionos] [-o <file>]
+    romulus export --roots <path> [--format csv|json|excel|retroarch|m3u|launchbox|emulationstation|playnite|mister|analoguepocket|onionos] [-o <file>]
   romulus profiles list
   romulus profiles show --id <profile-id>
   romulus profiles import --input <file>
@@ -148,6 +148,7 @@ Subcommands:
   romulus compare --run <run-id> --compare-to <run-id> [-o <file>]
   romulus trends [--limit <n>] [-o <file>]
   romulus dat diff --old <path> --new <path>  Compare two Logiqx DAT files
+    romulus dat fixdat --roots <path> [--dat-root <path>] [--name <title>] [-o <file>]
   romulus integrity baseline --roots <path>   Create integrity baseline
   romulus integrity check                     Check files against baseline
   romulus history [--offset <n>] [--limit <n>] [-o <file>]

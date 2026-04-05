@@ -1,0 +1,76 @@
+using System.Xml.Linq;
+using RomCleanup.Contracts.Models;
+using RomCleanup.Infrastructure.Analysis;
+using Xunit;
+
+namespace RomCleanup.Tests;
+
+public sealed class DatAnalysisServiceFixDatTests
+{
+    [Fact]
+    public void BuildFixDatFromCompleteness_GeneratesLogiqxDocumentForMissingGames()
+    {
+        var datIndex = new DatIndex();
+        datIndex.Add("ps1", new string('a', 40), "Metal Gear Solid", "Metal Gear Solid (Disc 1).chd");
+        datIndex.Add("ps1", "1a2b3c4d", "Tekken 3", null);
+
+        var report = new CompletenessReport(
+        [
+            new CompletenessEntry(
+                "ps1",
+                TotalInDat: 2,
+                Verified: 0,
+                MissingCount: 2,
+                Percentage: 0.0,
+                MissingGames: ["Metal Gear Solid", "Tekken 3"])
+        ]);
+
+        var result = DatAnalysisService.BuildFixDatFromCompleteness(datIndex, report, "Romulus-Test-FixDAT");
+
+        Assert.Equal("Romulus-Test-FixDAT", result.DatName);
+        Assert.Equal(1, result.ConsoleCount);
+        Assert.Equal(2, result.MissingGames);
+        Assert.Equal(2, result.MissingRoms);
+
+        var doc = XDocument.Parse(result.XmlContent);
+        var games = doc.Root!.Descendants("game").ToArray();
+        Assert.Equal(2, games.Length);
+
+        var mgs = Assert.Single(games, game => string.Equals(game.Attribute("name")?.Value, "Metal Gear Solid", StringComparison.OrdinalIgnoreCase));
+        var mgsRom = Assert.Single(mgs.Elements("rom"));
+        Assert.Equal("Metal Gear Solid (Disc 1).chd", mgsRom.Attribute("name")?.Value);
+        Assert.Equal(new string('a', 40), mgsRom.Attribute("sha1")?.Value);
+
+        var tekken = Assert.Single(games, game => string.Equals(game.Attribute("name")?.Value, "Tekken 3", StringComparison.OrdinalIgnoreCase));
+        var tekkenRom = Assert.Single(tekken.Elements("rom"));
+        Assert.Equal("Tekken 3.bin", tekkenRom.Attribute("name")?.Value);
+        Assert.Equal("1a2b3c4d", tekkenRom.Attribute("crc")?.Value);
+    }
+
+    [Fact]
+    public void BuildFixDatFromCompleteness_NoMissingGames_ReturnsHeaderOnlyDocument()
+    {
+        var datIndex = new DatIndex();
+        datIndex.Add("snes", new string('b', 40), "Super Mario World", "Super Mario World.sfc");
+
+        var report = new CompletenessReport(
+        [
+            new CompletenessEntry(
+                "snes",
+                TotalInDat: 1,
+                Verified: 1,
+                MissingCount: 0,
+                Percentage: 100.0,
+                MissingGames: Array.Empty<string>())
+        ]);
+
+        var result = DatAnalysisService.BuildFixDatFromCompleteness(datIndex, report, "Empty-FixDAT");
+
+        Assert.Equal(0, result.ConsoleCount);
+        Assert.Equal(0, result.MissingGames);
+        Assert.Equal(0, result.MissingRoms);
+
+        var doc = XDocument.Parse(result.XmlContent);
+        Assert.Empty(doc.Root!.Descendants("game"));
+    }
+}

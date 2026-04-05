@@ -141,6 +141,20 @@ public sealed class DatIndex
         return hashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.GameName, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Get all hash entries with metadata for a console in deterministic hash order.
+    /// </summary>
+    public IReadOnlyList<(string Hash, DatIndexEntry Entry)> GetConsoleEntriesDetailed(string consoleKey)
+    {
+        if (!_data.TryGetValue(consoleKey, out var hashMap))
+            return [];
+
+        return hashMap
+            .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => (kvp.Key, kvp.Value))
+            .ToArray();
+    }
+
     /// <summary>Merge all entries from another DatIndex into this one (supplemental DATs).</summary>
     public void MergeFrom(DatIndex other)
     {

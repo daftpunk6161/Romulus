@@ -42,7 +42,7 @@ public static class SharedServiceRegistration
         services.AddSingleton<IRunEnvironmentFactory, RunEnvironmentFactory>();
         services.AddSingleton<IPhasePlanBuilder, PhasePlanBuilder>();
         services.AddSingleton<IFamilyDatStrategyResolver, FamilyDatStrategyResolver>();
-        services.AddSingleton<FamilyPipelineSelector>();
+        services.AddSingleton<IFamilyPipelineSelector, FamilyPipelineSelector>();
 
         return services;
     }

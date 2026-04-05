@@ -5,6 +5,7 @@ using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Caching;
+using RomCleanup.Infrastructure.Paths;
 
 namespace RomCleanup.Infrastructure.Hashing;
 
@@ -160,13 +161,7 @@ public sealed class FileHashService : IDisposable
 
     public static string ResolveDefaultPersistentCachePath()
     {
-        var baseDir = File.Exists(Path.Combine(AppContext.BaseDirectory, ".portable"))
-            ? Path.Combine(AppContext.BaseDirectory, ".romcleanup")
-            : Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                AppIdentity.AppFolderName);
-
-        return Path.Combine(baseDir, "cache", "file-hashes-v1.json");
+        return AppStoragePathResolver.ResolveLocalPath("cache", "file-hashes-v1.json");
     }
 
     public void Dispose()

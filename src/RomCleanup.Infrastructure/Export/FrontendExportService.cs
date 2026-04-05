@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using System.Text.RegularExpressions;
 using RomCleanup.Infrastructure.Analysis;
 using RomCleanup.Infrastructure.Safety;
 
@@ -11,6 +12,19 @@ namespace RomCleanup.Infrastructure.Export;
 
 public static class FrontendExportService
 {
+    private static readonly Regex DiscMarkerRegex = new(
+        @"(?ix)
+        [\s._-]*
+        [\(\[]?
+        (?:
+            (?:disc|disk|cd)\s*(?<disc>\d{1,2})(?:\s*of\s*\d{1,2})?
+            |
+            (?<disc2>\d{1,2})\s*of\s*\d{1,2}
+        )
+        [\)\]]?",
+        RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(100));
+
     public static async Task<FrontendExportResult> ExportAsync(
         FrontendExportRequest request,
         IFileSystem fileSystem,
@@ -39,6 +53,7 @@ public static class FrontendExportService
         var artifacts = normalizedFrontend switch
         {
             FrontendExportTargets.RetroArch => WriteRetroArchArtifacts(loaded.Games, request.OutputPath, request.CollectionName),
+            FrontendExportTargets.M3u => WriteM3uArtifacts(loaded.Games, request.OutputPath, request.CollectionName),
             FrontendExportTargets.LaunchBox => WriteLaunchBoxArtifacts(loaded.Games, request.OutputPath),
             FrontendExportTargets.EmulationStation => WriteEmulationStationArtifacts(loaded.Games, request.OutputPath),
             FrontendExportTargets.Playnite => WritePlayniteArtifacts(loaded.Games, request.OutputPath),
@@ -120,6 +135,181 @@ public static class FrontendExportService
 
         return (candidates, games, source);
     }
+
+    private static IReadOnlyList<FrontendExportArtifact> WriteM3uArtifacts(
+        IReadOnlyList<ExportableGame> games,
+        string outputPath,
+        string collectionName)
+    {
+        var playlists = BuildMultiDiscPlaylists(games);
+
+        if (HasFileExtension(outputPath))
+        {
+            var content = BuildMergedM3uContent(playlists, games, collectionName);
+            return WriteSingleArtifact(outputPath, "M3U playlist", content);
+        }
+
+        var root = EnsureTargetRoot(outputPath, "playlists");
+        if (playlists.Count == 0)
+        {
+            var fallbackFileName = SanitizeFileNameSegment(collectionName) + ".m3u";
+            var fallbackPath = EnsureChildPath(root, fallbackFileName);
+            File.WriteAllText(fallbackPath, BuildM3uContent(collectionName, OrderPlaylistEntries(games)), Encoding.UTF8);
+            return [new FrontendExportArtifact(fallbackPath, collectionName, games.Count)];
+        }
+
+        return playlists
+            .Select(playlist =>
+            {
+                var consoleRoot = EnsureChildPath(root, SanitizeFileNameSegment(playlist.ConsoleLabel));
+                Directory.CreateDirectory(consoleRoot);
+
+                var fileName = SanitizeFileNameSegment(playlist.PlaylistName) + ".m3u";
+                var targetPath = EnsureChildPath(consoleRoot, fileName);
+
+                File.WriteAllText(targetPath, BuildM3uContent(playlist.PlaylistName, playlist.Entries), Encoding.UTF8);
+                return new FrontendExportArtifact(targetPath, $"{playlist.ConsoleLabel}: {playlist.PlaylistName}", playlist.Entries.Count);
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<M3uPlaylistGroup> BuildMultiDiscPlaylists(IReadOnlyList<ExportableGame> games)
+    {
+        var grouped = new Dictionary<(string ConsoleLabel, string GroupKey), List<M3uPlaylistEntry>>();
+
+        foreach (var game in games)
+        {
+            var discEntry = TryBuildDiscPlaylistEntry(game);
+            if (discEntry is null)
+                continue;
+
+            var key = (discEntry.ConsoleLabel, NormalizePlaylistKey(discEntry.PlaylistName));
+            if (!grouped.TryGetValue(key, out var bucket))
+            {
+                bucket = new List<M3uPlaylistEntry>();
+                grouped[key] = bucket;
+            }
+
+            bucket.Add(discEntry);
+        }
+
+        return grouped
+            .Values
+            .Where(static bucket => bucket.Count > 1)
+            .Select(bucket =>
+            {
+                var ordered = bucket
+                    .OrderBy(static entry => entry.DiscNumber)
+                    .ThenBy(static entry => entry.Game.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(static entry => entry.Game.SourcePath, StringComparer.OrdinalIgnoreCase)
+                    .Select(static entry => entry.Game)
+                    .ToArray();
+
+                var first = bucket[0];
+                return new M3uPlaylistGroup(first.ConsoleLabel, first.PlaylistName, ordered);
+            })
+            .OrderBy(static playlist => playlist.ConsoleLabel, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static playlist => playlist.PlaylistName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static M3uPlaylistEntry? TryBuildDiscPlaylistEntry(ExportableGame game)
+    {
+        var title = Path.GetFileNameWithoutExtension(game.FileName);
+        if (string.IsNullOrWhiteSpace(title))
+            title = game.DisplayName;
+
+        var match = DiscMarkerRegex.Match(title);
+        if (!match.Success)
+            return null;
+
+        var discToken = match.Groups["disc"].Success
+            ? match.Groups["disc"].Value
+            : match.Groups["disc2"].Success
+                ? match.Groups["disc2"].Value
+                : string.Empty;
+
+        if (!int.TryParse(discToken, out var discNumber) || discNumber <= 0)
+            return null;
+
+        var playlistName = CollapseWhitespace(DiscMarkerRegex.Replace(title, " "));
+        if (string.IsNullOrWhiteSpace(playlistName))
+            playlistName = game.DisplayName;
+
+        return new M3uPlaylistEntry(game, game.ConsoleLabel, playlistName, discNumber);
+    }
+
+    private static string BuildMergedM3uContent(
+        IReadOnlyList<M3uPlaylistGroup> playlists,
+        IReadOnlyList<ExportableGame> allGames,
+        string collectionName)
+    {
+        if (playlists.Count == 1)
+            return BuildM3uContent(playlists[0].PlaylistName, playlists[0].Entries);
+
+        if (playlists.Count == 0)
+            return BuildM3uContent(collectionName, OrderPlaylistEntries(allGames));
+
+        var lines = new List<string>
+        {
+            "#EXTM3U",
+            $"#PLAYLIST:{collectionName}"
+        };
+
+        foreach (var playlist in playlists)
+        {
+            lines.Add($"#GROUP:{playlist.ConsoleLabel} - {playlist.PlaylistName}");
+            AppendPlaylistEntries(lines, playlist.Entries);
+            lines.Add(string.Empty);
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string BuildM3uContent(string playlistName, IReadOnlyList<ExportableGame> entries)
+    {
+        var lines = new List<string>
+        {
+            "#EXTM3U",
+            $"#PLAYLIST:{playlistName}"
+        };
+
+        AppendPlaylistEntries(lines, entries);
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static void AppendPlaylistEntries(List<string> lines, IReadOnlyList<ExportableGame> entries)
+    {
+        foreach (var game in entries)
+        {
+            lines.Add($"#EXTINF:-1,{game.DisplayName}");
+            lines.Add(game.SourcePath.Replace('\\', '/'));
+        }
+    }
+
+    private static ExportableGame[] OrderPlaylistEntries(IEnumerable<ExportableGame> entries)
+    {
+        return entries
+            .OrderBy(static game => game.ConsoleLabel, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static game => game.SourcePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string NormalizePlaylistKey(string value)
+    {
+        var normalized = new string(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToUpperInvariant)
+            .ToArray());
+
+        return string.IsNullOrWhiteSpace(normalized)
+            ? value.Trim().ToUpperInvariant()
+            : normalized;
+    }
+
+    private static string CollapseWhitespace(string value)
+        => string.Join(" ", value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Trim();
 
     private static IReadOnlyList<FrontendExportArtifact> WriteRetroArchArtifacts(
         IReadOnlyList<ExportableGame> games,
@@ -513,4 +703,15 @@ public static class FrontendExportService
             $"{game.ConsoleLabel}|{game.GameKey}|{game.SourcePath}|{game.Extension}"));
         return Convert.ToHexString(bytes[..8]);
     }
+
+    private sealed record M3uPlaylistEntry(
+        ExportableGame Game,
+        string ConsoleLabel,
+        string PlaylistName,
+        int DiscNumber);
+
+    private sealed record M3uPlaylistGroup(
+        string ConsoleLabel,
+        string PlaylistName,
+        IReadOnlyList<ExportableGame> Entries);
 }

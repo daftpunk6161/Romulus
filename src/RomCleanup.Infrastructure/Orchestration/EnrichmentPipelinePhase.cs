@@ -18,7 +18,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
 {
     private const int ParallelizationThreshold = 4;
     private static readonly IFamilyDatStrategyResolver DefaultFamilyDatStrategyResolver = new FamilyDatStrategyResolver();
-    private static readonly FamilyPipelineSelector DefaultFamilyPipelineSelector = new();
+    private static readonly IFamilyPipelineSelector DefaultFamilyPipelineSelector = new FamilyPipelineSelector();
 
     /// <summary>Generic stems too short or ambiguous to qualify as strict DAT name candidates.</summary>
     private static readonly HashSet<string> GenericDatNameBlocklist = new(StringComparer.OrdinalIgnoreCase)
@@ -151,7 +151,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         Contracts.Ports.IHeaderlessHasher? headerlessHasher,
         IReadOnlySet<string>? knownBiosHashes,
         IFamilyDatStrategyResolver? familyDatStrategyResolver,
-        FamilyPipelineSelector? familyPipelineSelector,
+        IFamilyPipelineSelector? familyPipelineSelector,
         PipelineContext context,
         VersionScorer versionScorer,
         Action<string>? onProgress)
@@ -920,7 +920,7 @@ public sealed record EnrichmentPhaseInput(
     Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
     IReadOnlySet<string>? KnownBiosHashes = null,
     IFamilyDatStrategyResolver? FamilyDatStrategyResolver = null,
-    FamilyPipelineSelector? FamilyPipelineSelector = null);
+    IFamilyPipelineSelector? FamilyPipelineSelector = null);
 
 public sealed record EnrichmentPhaseStreamingInput(
     IAsyncEnumerable<ScannedFileEntry> Files,
@@ -931,4 +931,4 @@ public sealed record EnrichmentPhaseStreamingInput(
     Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
     IReadOnlySet<string>? KnownBiosHashes = null,
     IFamilyDatStrategyResolver? FamilyDatStrategyResolver = null,
-    FamilyPipelineSelector? FamilyPipelineSelector = null);
+    IFamilyPipelineSelector? FamilyPipelineSelector = null);

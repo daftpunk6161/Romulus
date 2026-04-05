@@ -544,12 +544,20 @@ internal static class CliArgsParser
     private static CliParseResult ParseDatSubcommand(string[] args)
     {
         if (args.Length == 0)
-            return CliParseResult.ValidationError(["[Error] 'dat' requires a sub-action: diff"]);
+            return CliParseResult.ValidationError(["[Error] 'dat' requires a sub-action: diff, fixdat"]);
 
         var action = args[0].ToLowerInvariant();
-        if (action != "diff")
-            return CliParseResult.ValidationError([$"[Error] Unknown dat action '{action}'. Available: diff"]);
 
+        return action switch
+        {
+            "diff" => ParseDatDiffAction(args),
+            "fix" or "fixdat" => ParseDatFixDatAction(args),
+            _ => CliParseResult.ValidationError([$"[Error] Unknown dat action '{action}'. Available: diff, fixdat"])
+        };
+    }
+
+    private static CliParseResult ParseDatDiffAction(string[] args)
+    {
         var opts = new CliRunOptions();
         var errors = new List<string>();
         for (int i = 1; i < args.Length; i++)
@@ -573,6 +581,60 @@ internal static class CliArgsParser
         if (string.IsNullOrWhiteSpace(opts.DatFileA) || string.IsNullOrWhiteSpace(opts.DatFileB))
             return CliParseResult.ValidationError(["[Error] dat diff requires --old <path> --new <path>"]);
         return CliParseResult.Subcommand(CliCommand.DatDiff, opts);
+    }
+
+    private static CliParseResult ParseDatFixDatAction(string[] args)
+    {
+        var opts = new CliRunOptions();
+        var errors = new List<string>();
+        for (int i = 1; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--roots" or "-roots":
+                    if (!TryConsumeValue(args, ref i, "--roots", errors, out var rootsRaw))
+                        break;
+                    if (TryParseRootsArgument(rootsRaw, out var roots, out var rootsError))
+                        opts.Roots = roots;
+                    else
+                        errors.Add($"[Error] {rootsError}");
+                    break;
+                case "-o" or "--output":
+                    if (!TryConsumeValue(args, ref i, "--output", errors, out var outputVal))
+                        break;
+                    opts.OutputPath = outputVal;
+                    break;
+                case "--name":
+                    if (!TryConsumeValue(args, ref i, "--name", errors, out var datNameVal))
+                        break;
+                    opts.DatName = datNameVal;
+                    break;
+                case "--dat-root" or "--datroot":
+                    if (!TryConsumeValue(args, ref i, "--dat-root", errors, out var datRootVal))
+                        break;
+                    opts.DatRoot = datRootVal;
+                    opts.DatRootExplicit = true;
+                    break;
+                default:
+                    if (!args[i].StartsWith("-"))
+                        opts.Roots = [.. opts.Roots, args[i]];
+                    else
+                        errors.Add($"[Error] Unknown flag '{args[i]}' for dat fixdat.");
+                    break;
+            }
+        }
+
+        if (errors.Count > 0) return CliParseResult.ValidationError(errors);
+
+        if (opts.Roots.Length == 0)
+            return CliParseResult.ValidationError(["[Error] dat fixdat requires --roots <path>."]);
+
+        var pathError = ValidateOptionalPath(opts.OutputPath, "fixdat output path", allowUnc: false)
+            ?? ValidateOptionalPath(opts.DatRoot, "DAT root", allowUnc: false);
+        if (pathError is not null)
+            return CliParseResult.ValidationError([$"[Error] {pathError}"]);
+
+        return CliParseResult.Subcommand(CliCommand.DatFix, opts);
     }
 
     private static CliParseResult ParseIntegritySubcommand(string[] args)
@@ -1432,6 +1494,7 @@ internal enum CliCommand
     Compare,
     Trends,
     DatDiff,
+    DatFix,
     IntegrityCheck,
     IntegrityBaseline,
     History,
@@ -1512,6 +1575,7 @@ internal sealed class CliRunOptions
     public string? TargetFormat { get; set; }
     public string? DatFileA { get; set; }
     public string? DatFileB { get; set; }
+    public string? DatName { get; set; }
     public string[] LeftRoots { get; set; } = Array.Empty<string>();
     public string[] RightRoots { get; set; } = Array.Empty<string>();
     public string? LeftLabel { get; set; }
