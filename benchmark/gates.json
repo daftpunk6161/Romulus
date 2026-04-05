@@ -89,6 +89,15 @@
       "mediumMin":      { "target": 0.25, "hardFail": 0.20 },
       "hardMin":        { "target": 0.12, "hardFail": 0.10 },
       "adversarialMin": { "target": 0.01, "hardFail": 0.005 }
+    },
+
+    "familyDecisionGates": {
+      "NoIntroCartridge": { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.20, "maxUnknownRate": 0.70 },
+      "RedumpDisc":       { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.25, "maxUnknownRate": 0.70 },
+      "Arcade":           { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.25, "maxUnknownRate": 0.80 },
+      "ComputerTOSEC":    { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.30, "maxUnknownRate": 0.85 },
+      "Hybrid":           { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.25, "maxUnknownRate": 0.80 },
+      "FolderBased":      { "minDatVerifiedRate": 0.00, "maxFalsePositiveRate": 0.35, "maxUnknownRate": 0.95 }
     }
   }
 }

@@ -135,7 +135,7 @@ public class Phase2RecognitionQualityTests : IDisposable
     }
 
     [Fact]
-    public void ConsoleSorter_Blocked_NotMoved_CountedAsBlocked()
+    public void ConsoleSorter_Blocked_MovesToBlockedReasonFolder_AndCountsBlocked()
     {
         var filePath = CreateFile("blocked.nes", "blocked content");
         var detector = BuildDetector();
@@ -150,15 +150,48 @@ public class Phase2RecognitionQualityTests : IDisposable
         {
             [filePath] = "Blocked"
         };
+        var enrichedSortReasons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [filePath] = "cross-family conflict"
+        };
+
+        var result = sorter.Sort(
+            new[] { _tempDir }, new[] { ".nes" }, dryRun: false,
+            enrichedConsoleKeys: enrichedConsoleKeys,
+            enrichedSortDecisions: enrichedSortDecisions,
+            enrichedSortReasons: enrichedSortReasons);
+
+        var expectedPath = Path.Combine(_tempDir, "_BLOCKED", "cross-family-conflict", "blocked.nes");
+        Assert.True(File.Exists(expectedPath), "Blocked file should be moved to blocked staging folder");
+        Assert.Equal(1, result.Blocked);
+        Assert.Equal(0, result.Moved);
+    }
+
+    [Fact]
+    public void ConsoleSorter_Unknown_MovesToUnknownFolder()
+    {
+        var filePath = CreateFile("unknown.nes", "unknown content");
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var sorter = new ConsoleSorter(fs, detector);
+
+        var enrichedConsoleKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [filePath] = "UNKNOWN"
+        };
+        var enrichedSortDecisions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [filePath] = "Unknown"
+        };
 
         var result = sorter.Sort(
             new[] { _tempDir }, new[] { ".nes" }, dryRun: false,
             enrichedConsoleKeys: enrichedConsoleKeys,
             enrichedSortDecisions: enrichedSortDecisions);
 
-        Assert.True(File.Exists(filePath), "Blocked file should not be moved");
-        Assert.Equal(1, result.Blocked);
-        Assert.Equal(0, result.Moved);
+        var expectedPath = Path.Combine(_tempDir, "_UNKNOWN", "unknown.nes");
+        Assert.True(File.Exists(expectedPath), "Unknown file should be moved to unknown staging folder");
+        Assert.Equal(1, result.Unknown);
     }
 
     [Fact]
@@ -238,6 +271,20 @@ public class Phase2RecognitionQualityTests : IDisposable
         var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: true);
 
         Assert.Equal(0, result.Total); // _REVIEW should be excluded
+    }
+
+    [Fact]
+    public void ConsoleSorter_ExcludedFolders_Include_Blocked_And_Unknown()
+    {
+        CreateFile("_BLOCKED" + Path.DirectorySeparatorChar + "cross-family-conflict" + Path.DirectorySeparatorChar + "game.nes", "blocked");
+        CreateFile("_UNKNOWN" + Path.DirectorySeparatorChar + "mystery.nes", "unknown");
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var sorter = new ConsoleSorter(fs, detector);
+
+        var result = sorter.Sort(new[] { _tempDir }, new[] { ".nes" }, dryRun: true);
+
+        Assert.Equal(0, result.Total); // _BLOCKED/_UNKNOWN should be excluded
     }
 
     // ─── TASK-022/030: MetricsAggregator categoryRecognitionRate + SortDecision counts ───

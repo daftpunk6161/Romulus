@@ -54,6 +54,7 @@ public static class HypothesisResolver
             Signals = signals,
             Reasoning = evidence.Reasoning,
             HasConflict = resolved.HasConflict,
+            ConflictType = resolved.ConflictType,
         };
     }
 
@@ -68,8 +69,11 @@ public static class HypothesisResolver
     /// 6. Single-source detections are capped per source type.
     /// 7. AMBIGUOUS is returned when two strong conflicting consoles are equally plausible.
     /// 8. SortDecision is derived from confidence, conflict, and evidence type.
+    /// 9. Cross-family conflicts escalate to Blocked; intra-family conflicts without structural evidence → Review.
     /// </summary>
-    public static ConsoleDetectionResult Resolve(IReadOnlyList<DetectionHypothesis> hypotheses)
+    public static ConsoleDetectionResult Resolve(
+        IReadOnlyList<DetectionHypothesis> hypotheses,
+        Func<string, PlatformFamily>? familyLookup = null)
     {
         if (hypotheses.Count == 0)
             return ConsoleDetectionResult.Unknown;
@@ -228,8 +232,16 @@ public static class HypothesisResolver
             aggregateConfidence = Math.Min(aggregateConfidence, winnerSources[0].SingleSourceCap());
         }
 
-        // Derive SortDecision
-        var decisionClass = DecisionResolver.Resolve(primaryTier, hasConflict, aggregateConfidence);
+        // Classify conflict type using platform family information
+        var conflictType = ConflictType.None;
+        if (hasConflict && familyLookup is not null && sorted.Count >= 2)
+        {
+            conflictType = ClassifyConflictType(sorted, familyLookup);
+        }
+
+        // Derive SortDecision with family-conflict awareness
+        var decisionClass = DecisionResolver.Resolve(primaryTier, hasConflict, aggregateConfidence,
+            datAvailable: false, conflictType: conflictType);
         var sortDecision = decisionClass.ToSortDecision();
 
         var matchEvidence = BuildMatchEvidence(
@@ -252,7 +264,8 @@ public static class HypothesisResolver
             isSoftOnly,
             sortDecision,
             decisionClass,
-            matchEvidence);
+            matchEvidence,
+            conflictType);
     }
 
     /// <summary>
@@ -370,4 +383,35 @@ public static class HypothesisResolver
         DetectionSource.AmbiguousExtension => 0,
         _ => 0,
     };
+
+    /// <summary>
+    /// Classify whether a conflict is intra-family or cross-family.
+    /// Cross-family = different platform families (e.g. PS1/RedumpDisc vs Vita/Hybrid).
+    /// Intra-family = same family (e.g. PS1 vs PS2, both RedumpDisc).
+    /// </summary>
+    internal static ConflictType ClassifyConflictType(
+        List<KeyValuePair<string, (int TotalConfidence, int MaxSingleConfidence, List<DetectionHypothesis> Items, int MaxSourcePriority)>> sortedGroups,
+        Func<string, PlatformFamily> familyLookup)
+    {
+        if (sortedGroups.Count < 2)
+            return ConflictType.None;
+
+        var winnerFamily = familyLookup(sortedGroups[0].Key);
+
+        // Check ALL competing groups, not just the runner-up.
+        // This catches 3+ console scenarios (PS1 vs PS2 vs PSP).
+        for (int i = 1; i < sortedGroups.Count; i++)
+        {
+            var competitorFamily = familyLookup(sortedGroups[i].Key);
+
+            // Unknown family on either side → treat as intra-family (conservative: don't over-block)
+            if (winnerFamily == PlatformFamily.Unknown || competitorFamily == PlatformFamily.Unknown)
+                continue;
+
+            if (winnerFamily != competitorFamily)
+                return ConflictType.CrossFamily;
+        }
+
+        return ConflictType.IntraFamily;
+    }
 }

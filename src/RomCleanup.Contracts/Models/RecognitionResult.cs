@@ -16,4 +16,5 @@ public sealed record RecognitionResult
     public IReadOnlyList<RecognitionSignal> Signals { get; init; } = Array.Empty<RecognitionSignal>();
     public string Reasoning { get; init; } = string.Empty;
     public bool HasConflict { get; init; }
+    public ConflictType ConflictType { get; init; } = ConflictType.None;
 }

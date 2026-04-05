@@ -33,6 +33,9 @@ public sealed record RomCandidate
     /// <summary>Whether multiple detection methods disagreed on the console.</summary>
     public bool DetectionConflict { get; init; }
 
+    /// <summary>Classification of the detection conflict (none/intra-family/cross-family).</summary>
+    public ConflictType DetectionConflictType { get; init; } = ConflictType.None;
+
     /// <summary>Whether at least one hard evidence source (DAT/Header/UniqueExt) contributed to detection.</summary>
     public bool HasHardEvidence { get; init; }
 

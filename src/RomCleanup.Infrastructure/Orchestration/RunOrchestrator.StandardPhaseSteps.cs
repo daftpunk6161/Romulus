@@ -146,6 +146,7 @@ public sealed partial class RunOrchestrator
         // We use the SortDecision computed by HypothesisResolver to route files.
         Dictionary<string, string>? enrichedConsoleKeys = null;
         Dictionary<string, string>? enrichedSortDecisions = null;
+        Dictionary<string, string>? enrichedSortReasons = null;
         Dictionary<string, string>? enrichedCategories = null;
         if (state.AllCandidates is not null)
         {
@@ -153,11 +154,15 @@ public sealed partial class RunOrchestrator
                 state.AllCandidates.Count, StringComparer.OrdinalIgnoreCase);
             enrichedSortDecisions = new Dictionary<string, string>(
                 state.AllCandidates.Count, StringComparer.OrdinalIgnoreCase);
+            enrichedSortReasons = new Dictionary<string, string>(
+                state.AllCandidates.Count, StringComparer.OrdinalIgnoreCase);
             enrichedCategories = new Dictionary<string, string>(
                 state.AllCandidates.Count, StringComparer.OrdinalIgnoreCase);
             foreach (var c in state.AllCandidates)
             {
                 enrichedCategories[c.MainPath] = c.Category.ToString();
+                enrichedSortDecisions[c.MainPath] = c.SortDecision.ToString();
+                enrichedSortReasons[c.MainPath] = BuildSortReasonTag(c);
 
                 if (string.IsNullOrEmpty(c.ConsoleKey) ||
                     c.ConsoleKey is "UNKNOWN" or "AMBIGUOUS")
@@ -168,17 +173,20 @@ public sealed partial class RunOrchestrator
 
                 // Pass through the actual console key for all decisions
                 enrichedConsoleKeys[c.MainPath] = c.ConsoleKey;
-                enrichedSortDecisions[c.MainPath] = c.SortDecision.ToString();
 
                 if (options.ApproveReviews && c.SortDecision == SortDecision.Review)
                 {
                     enrichedSortDecisions[c.MainPath] = SortDecision.Sort.ToString();
+                    enrichedSortReasons[c.MainPath] = "review-approved";
                 }
 
                 // Non-game categories are blocked
                 if (c.Category != FileCategory.Game)
                 {
                     enrichedSortDecisions[c.MainPath] = SortDecision.Blocked.ToString();
+                    enrichedSortReasons[c.MainPath] = c.Category == FileCategory.Junk
+                        ? "junk-category"
+                        : "non-game-category";
                 }
             }
         }
@@ -191,6 +199,7 @@ public sealed partial class RunOrchestrator
             options.Roots, options.Extensions, dryRun: dryRunSort, cancellationToken,
             enrichedConsoleKeys: enrichedConsoleKeys,
             enrichedSortDecisions: enrichedSortDecisions,
+            enrichedSortReasons: enrichedSortReasons,
             enrichedCategories: enrichedCategories,
             candidatePaths: candidatePaths);
 
@@ -244,6 +253,28 @@ public sealed partial class RunOrchestrator
         return remainingPaths
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static string BuildSortReasonTag(RomCandidate candidate)
+    {
+        if (candidate.DetectionConflictType == ConflictType.CrossFamily)
+            return "cross-family-conflict";
+
+        if (candidate.DetectionConflictType == ConflictType.IntraFamily)
+            return "intra-family-conflict";
+
+        if (candidate.SortDecision == SortDecision.Unknown)
+            return "insufficient-evidence";
+
+        if (candidate.SortDecision == SortDecision.Blocked && candidate.Category == FileCategory.Junk)
+            return "junk-category";
+
+        if (!string.IsNullOrWhiteSpace(candidate.MatchEvidence.Reasoning))
+            return candidate.MatchEvidence.Reasoning;
+
+        return candidate.PrimaryMatchKind != MatchKind.None
+            ? candidate.PrimaryMatchKind.ToString()
+            : candidate.ClassificationReasonCode;
     }
 
     private PhaseStepResult RunWinnerConversionStep(

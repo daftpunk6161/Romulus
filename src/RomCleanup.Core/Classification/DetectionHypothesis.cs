@@ -26,6 +26,7 @@ public sealed record DetectionHypothesis(
 /// <param name="HasHardEvidence">True if at least one hypothesis came from a hard evidence source.</param>
 /// <param name="IsSoftOnly">True if all hypotheses are from soft evidence sources only.</param>
 /// <param name="SortDecision">The computed sorting gate decision.</param>
+/// <param name="ConflictType">Classification of the detection conflict (None, IntraFamily, CrossFamily).</param>
 public sealed record ConsoleDetectionResult(
     string ConsoleKey,
     int Confidence,
@@ -36,7 +37,8 @@ public sealed record ConsoleDetectionResult(
     bool IsSoftOnly = true,
     SortDecision SortDecision = SortDecision.Blocked,
     DecisionClass DecisionClass = DecisionClass.Blocked,
-    MatchEvidence? MatchEvidence = null)
+    MatchEvidence? MatchEvidence = null,
+    ConflictType ConflictType = ConflictType.None)
 {
     /// <summary>Unknown result with 0 confidence.</summary>
     public static ConsoleDetectionResult Unknown { get; } = new(

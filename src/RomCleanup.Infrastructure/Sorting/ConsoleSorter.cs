@@ -18,13 +18,19 @@ public sealed class ConsoleSorter
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex RxReasonSegment = new(@"[^a-z0-9_-]+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly string[] ExcludedFolders =
     {
         RunConstants.WellKnownFolders.TrashRegionDedupe,
         RunConstants.WellKnownFolders.TrashJunk,
         RunConstants.WellKnownFolders.Bios,
         RunConstants.WellKnownFolders.Junk,
-        RunConstants.WellKnownFolders.Review
+        RunConstants.WellKnownFolders.Review,
+        RunConstants.WellKnownFolders.Blocked,
+        RunConstants.WellKnownFolders.Unknown
     };
 
     private readonly IFileSystem _fs;
@@ -55,7 +61,12 @@ public sealed class ConsoleSorter
     /// </param>
     /// <param name="enrichedSortDecisions">
     /// Optional: pre-enriched SortDecision mappings (filePath → "Sort"/"Review"/"Blocked"/"DatVerified").
-    /// When provided, controls routing: Review → _REVIEW/{ConsoleKey}/, Blocked → no move.
+    /// When provided, controls routing: Review → _REVIEW/{ConsoleKey}/,
+    /// Blocked → _BLOCKED/{Reason}/, Unknown → _UNKNOWN/.
+    /// </param>
+    /// <param name="enrichedSortReasons">
+    /// Optional: pre-enriched reason tag mappings (filePath → reason).
+    /// Used for reason-aware review/blocked audit tags and blocked subfolders.
     /// </param>
     /// <param name="enrichedCategories">
     /// Optional: pre-enriched category mappings (filePath → "Game"/"Junk"/"NonGame"/"Bios"/"Unknown").
@@ -73,6 +84,7 @@ public sealed class ConsoleSorter
         CancellationToken cancellationToken = default,
         IReadOnlyDictionary<string, string>? enrichedConsoleKeys = null,
         IReadOnlyDictionary<string, string>? enrichedSortDecisions = null,
+        IReadOnlyDictionary<string, string>? enrichedSortReasons = null,
         IReadOnlyDictionary<string, string>? enrichedCategories = null,
         IReadOnlyList<string>? candidatePaths = null)
     {
@@ -115,41 +127,35 @@ public sealed class ConsoleSorter
                     continue;
                 }
 
+                // SortDecision routing: determine destination based on enriched decision
+                var sortDecision = enrichedSortDecisions is not null &&
+                    enrichedSortDecisions.TryGetValue(filePath, out var sd) ? sd : null;
+                var sortReason = enrichedSortReasons is not null &&
+                    enrichedSortReasons.TryGetValue(filePath, out var sr) ? sr : null;
+                var category = enrichedCategories is not null &&
+                    enrichedCategories.TryGetValue(filePath, out var cat) ? cat : null;
+
                 // Sorting uses enrichment as the single source of truth.
                 var hasEnrichedKey = enrichedConsoleKeys.TryGetValue(filePath, out var enrichedKey);
                 var consoleKey = hasEnrichedKey && !string.IsNullOrEmpty(enrichedKey)
                     ? enrichedKey
                     : "UNKNOWN";
 
-                if (consoleKey == "UNKNOWN" || string.IsNullOrEmpty(consoleKey))
-                {
-                    unknown++;
-                    IncrementReason(unknownReasons, "no-match");
-                    continue;
-                }
+                var hasKnownConsole = !string.IsNullOrEmpty(consoleKey)
+                    && !string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
+                    && RxValidConsoleKey.IsMatch(consoleKey);
 
-                // Security: validate console key format
-                if (!RxValidConsoleKey.IsMatch(consoleKey))
-                {
-                    unknown++;
-                    IncrementReason(unknownReasons, "invalid-key");
-                    continue;
-                }
+                var isBlockedDecision = string.Equals(sortDecision, "Blocked", StringComparison.OrdinalIgnoreCase);
+                var isUnknownDecision = string.Equals(sortDecision, "Unknown", StringComparison.OrdinalIgnoreCase);
 
-                // SortDecision routing: determine destination based on enriched decision
-                var sortDecision = enrichedSortDecisions is not null &&
-                    enrichedSortDecisions.TryGetValue(filePath, out var sd) ? sd : null;
-                var category = enrichedCategories is not null &&
-                    enrichedCategories.TryGetValue(filePath, out var cat) ? cat : null;
-
-                // Blocked or Unknown files are not moved
-                if (string.Equals(sortDecision, "Blocked", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(sortDecision, "Unknown", StringComparison.OrdinalIgnoreCase))
+                // Blocked/Unknown routing
+                if (isBlockedDecision || isUnknownDecision)
                 {
-                    // Junk with known console → _TRASH_JUNK/{ConsoleKey}/
+                    // Junk with known/unknown console → _TRASH_JUNK/{ConsoleKey}/
                     if (string.Equals(category, "Junk", StringComparison.OrdinalIgnoreCase))
                     {
-                        var junkDir = Path.Combine(root, RunConstants.WellKnownFolders.TrashJunk, consoleKey);
+                        var junkConsoleKey = hasKnownConsole ? consoleKey : "UNKNOWN";
+                        var junkDir = Path.Combine(root, RunConstants.WellKnownFolders.TrashJunk, junkConsoleKey);
                         var junkFileName = Path.GetFileName(filePath);
                         if (setPrimaryToMembers.TryGetValue(filePath, out var junkMembers))
                         {
@@ -159,11 +165,14 @@ public sealed class ConsoleSorter
                                 junkMembers,
                                 junkDir,
                                 dryRun,
-                                $"junk-sort:{consoleKey}");
+                                $"junk-sort:{junkConsoleKey}");
 
                             if (setMoveResult.PrimaryMoved)
                             {
-                                blocked++;
+                                if (isBlockedDecision)
+                                    blocked++;
+                                else
+                                    unknown++;
                                 setMembersMoved += setMoveResult.MembersMoved;
                                 pathMutations.AddRange(setMoveResult.PathMutations);
                             }
@@ -176,11 +185,14 @@ public sealed class ConsoleSorter
                         {
                             if (TryMoveFile(root, filePath, junkDir, junkFileName, dryRun, out var actualDest))
                             {
-                                blocked++;
+                                if (isBlockedDecision)
+                                    blocked++;
+                                else
+                                    unknown++;
                                 if (actualDest is not null)
                                 {
                                     pathMutations.Add(new PathMutation(filePath, actualDest));
-                                    WriteAuditRow(root, filePath, actualDest, $"junk-sort:{consoleKey}");
+                                    WriteAuditRow(root, filePath, actualDest, $"junk-sort:{junkConsoleKey}");
                                 }
                             }
                             else
@@ -192,14 +204,71 @@ public sealed class ConsoleSorter
                         continue;
                     }
 
-                    blocked++;
+                    // Non-junk blocked/unknown files are moved to dedicated staging folders.
+                    var reasonSegment = ToSafeReasonSegment(sortReason,
+                        isBlockedDecision ? "blocked" : "unknown");
+                    var decisionDir = isBlockedDecision
+                        ? Path.Combine(root, RunConstants.WellKnownFolders.Blocked, reasonSegment)
+                        : Path.Combine(root, RunConstants.WellKnownFolders.Unknown);
+                    var decisionFileName = Path.GetFileName(filePath);
+                    if (setPrimaryToMembers.TryGetValue(filePath, out var decisionMembers))
+                    {
+                        var setMoveResult = MoveSetAtomically(
+                            root,
+                            filePath,
+                            decisionMembers,
+                            decisionDir,
+                            dryRun,
+                            isBlockedDecision
+                                ? $"blocked-sort:{reasonSegment}"
+                                : $"unknown-sort:{reasonSegment}");
+
+                        if (setMoveResult.PrimaryMoved)
+                        {
+                            if (isBlockedDecision)
+                                blocked++;
+                            else
+                                unknown++;
+                            setMembersMoved += setMoveResult.MembersMoved;
+                            pathMutations.AddRange(setMoveResult.PathMutations);
+                        }
+                        else
+                        {
+                            failed += decisionMembers.Count + 1;
+                        }
+                    }
+                    else
+                    {
+                        if (TryMoveFile(root, filePath, decisionDir, decisionFileName, dryRun, out var actualDest))
+                        {
+                            if (isBlockedDecision)
+                                blocked++;
+                            else
+                                unknown++;
+                            if (actualDest is not null)
+                            {
+                                pathMutations.Add(new PathMutation(filePath, actualDest));
+                                WriteAuditRow(root, filePath, actualDest,
+                                    isBlockedDecision
+                                        ? $"blocked-sort:{reasonSegment}"
+                                        : $"unknown-sort:{reasonSegment}");
+                            }
+                        }
+                        else
+                        {
+                            failed++;
+                        }
+                    }
+
                     continue;
                 }
 
                 // Review files → _REVIEW/{ConsoleKey}/
                 if (string.Equals(sortDecision, "Review", StringComparison.OrdinalIgnoreCase))
                 {
-                    var reviewDir = Path.Combine(root, RunConstants.WellKnownFolders.Review, consoleKey);
+                    var reviewConsoleKey = hasKnownConsole ? consoleKey : "UNKNOWN";
+                    var reviewReason = ToSafeReasonSegment(sortReason, "review");
+                    var reviewDir = Path.Combine(root, RunConstants.WellKnownFolders.Review, reviewConsoleKey);
                     var reviewFileName = Path.GetFileName(filePath);
                     if (setPrimaryToMembers.TryGetValue(filePath, out var reviewMembers))
                     {
@@ -209,7 +278,7 @@ public sealed class ConsoleSorter
                             reviewMembers,
                             reviewDir,
                             dryRun,
-                            $"review-sort:{consoleKey}");
+                            $"review-sort:{reviewConsoleKey}:{reviewReason}");
 
                         if (setMoveResult.PrimaryMoved)
                         {
@@ -230,7 +299,7 @@ public sealed class ConsoleSorter
                             if (actualDest is not null)
                             {
                                 pathMutations.Add(new PathMutation(filePath, actualDest));
-                                WriteAuditRow(root, filePath, actualDest, $"review-sort:{consoleKey}");
+                                WriteAuditRow(root, filePath, actualDest, $"review-sort:{reviewConsoleKey}:{reviewReason}");
                             }
                         }
                         else
@@ -239,6 +308,16 @@ public sealed class ConsoleSorter
                         }
                     }
 
+                    continue;
+                }
+
+                if (!hasKnownConsole)
+                {
+                    unknown++;
+                    IncrementReason(unknownReasons,
+                        string.IsNullOrWhiteSpace(consoleKey) || string.Equals(consoleKey, "UNKNOWN", StringComparison.OrdinalIgnoreCase)
+                            ? "no-match"
+                            : "invalid-key");
                     continue;
                 }
 
@@ -500,6 +579,22 @@ public sealed class ConsoleSorter
         {
             return false;
         }
+    }
+
+    private static string ToSafeReasonSegment(string? reason, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return fallback;
+
+        var normalized = reason.Trim().ToLowerInvariant();
+        normalized = RxReasonSegment.Replace(normalized, "-").Trim('-');
+
+        if (normalized.Length == 0)
+            return fallback;
+
+        return normalized.Length > 64
+            ? normalized[..64]
+            : normalized;
     }
 
     private void WriteAuditRow(string root, string oldPath, string newPath, string reasonTag)

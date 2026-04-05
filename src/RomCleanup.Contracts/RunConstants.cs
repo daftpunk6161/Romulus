@@ -115,6 +115,12 @@ public static class RunConstants
         /// <summary>Review staging directory (uncertain classification).</summary>
         public const string Review = "_REVIEW";
 
+        /// <summary>Blocked staging directory (unsafe conflicts / hard blocks).</summary>
+        public const string Blocked = "_BLOCKED";
+
+        /// <summary>Unknown staging directory (insufficient evidence).</summary>
+        public const string Unknown = "_UNKNOWN";
+
         /// <summary>Quarantine directory.</summary>
         public const string Quarantine = "_QUARANTINE";
 

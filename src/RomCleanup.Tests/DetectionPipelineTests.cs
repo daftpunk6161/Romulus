@@ -842,6 +842,163 @@ public sealed class DetectionPipelineTests
     #endregion
 
     // ──────────────────────────────────────────────────────────────────
+    //  HypothesisResolver — Family Conflict Classification
+    // ──────────────────────────────────────────────────────────────────
+
+    #region Family Conflict
+
+    private static PlatformFamily TestFamilyLookup(string consoleKey) => consoleKey switch
+    {
+        "PS1" or "PS2" or "SAT" or "DC" => PlatformFamily.RedumpDisc,
+        "NES" or "SNES" or "N64" or "GB" or "GBA" or "MD" => PlatformFamily.NoIntroCartridge,
+        "VITA" or "PSP" or "3DS" or "NDS" or "SWITCH" => PlatformFamily.Hybrid,
+        "ARCADE" or "NEOGEO" => PlatformFamily.Arcade,
+        "AMIGA" or "C64" or "DOS" => PlatformFamily.ComputerTOSEC,
+        _ => PlatformFamily.Unknown,
+    };
+
+    [Fact]
+    public void Resolver_CrossFamilyConflict_PS1vsVita_ReturnsBlocked()
+    {
+        // PS1 = RedumpDisc, Vita = Hybrid → cross-family → Blocked
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("VITA", 85, DetectionSource.FolderName, "folder=Vita"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.CrossFamily, result.ConflictType);
+        Assert.Equal(DecisionClass.Blocked, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_IntraFamilyConflict_PS1vsPS2_ReturnsReview()
+    {
+        // PS1 = RedumpDisc, PS2 = RedumpDisc → intra-family → Review
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("PS2", 85, DetectionSource.FolderName, "folder=PS2"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.IntraFamily, result.ConflictType);
+        Assert.Equal(DecisionClass.Review, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_CrossFamilyConflict_NESvsARCADE_ReturnsBlocked()
+    {
+        // NES = NoIntroCartridge, ARCADE = Arcade → cross-family
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("NES", 90, DetectionSource.CartridgeHeader, "iNES header"),
+            new("ARCADE", 85, DetectionSource.FolderName, "folder=arcade"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.CrossFamily, result.ConflictType);
+        Assert.Equal(DecisionClass.Blocked, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_IntraFamilyConflict_NESvsSNES_ReturnsReview()
+    {
+        // NES = NoIntroCartridge, SNES = NoIntroCartridge → intra-family
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("NES", 90, DetectionSource.CartridgeHeader, "iNES header"),
+            new("SNES", 85, DetectionSource.FolderName, "folder=SNES"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.IntraFamily, result.ConflictType);
+        Assert.Equal(DecisionClass.Review, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_ThreeFamilies_CrossFamily_ReturnsBlocked()
+    {
+        // PS1=RedumpDisc, VITA=Hybrid, NES=NoIntroCartridge → cross-family
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("VITA", 70, DetectionSource.FolderName, "folder=Vita"),
+            new("NES", 60, DetectionSource.FilenameKeyword, "keyword=[NES]"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.CrossFamily, result.ConflictType);
+        Assert.Equal(DecisionClass.Blocked, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_NoFamilyLookup_NoConflictType()
+    {
+        // Without familyLookup, ConflictType remains None (backward compatible).
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("VITA", 85, DetectionSource.FolderName, "folder=Vita"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, familyLookup: null);
+
+        Assert.True(result.HasConflict);
+        Assert.Equal(ConflictType.None, result.ConflictType);
+        // Without family info, original behavior: Review (Tier1 + conflict)
+        Assert.Equal(DecisionClass.Review, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_UnknownFamily_TreatedAsIntraFamily()
+    {
+        // Unknown keys → family = Unknown → treated conservatively as IntraFamily (not CrossFamily).
+        PlatformFamily lookup(string key) => key == "PS1" ? PlatformFamily.RedumpDisc : PlatformFamily.Unknown;
+
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("MYSTERY", 85, DetectionSource.FolderName, "folder=mystery"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, lookup);
+
+        Assert.True(result.HasConflict);
+        // Unknown family → not cross-family
+        Assert.NotEqual(ConflictType.CrossFamily, result.ConflictType);
+        Assert.NotEqual(DecisionClass.Blocked, result.DecisionClass);
+    }
+
+    [Fact]
+    public void Resolver_NoConflict_ConflictTypeIsNone()
+    {
+        var hypotheses = new List<DetectionHypothesis>
+        {
+            new("PS1", 90, DetectionSource.DiscHeader, "disc-header=PS1"),
+            new("PS1", 85, DetectionSource.FolderName, "folder=PS1"),
+        };
+
+        var result = HypothesisResolver.Resolve(hypotheses, TestFamilyLookup);
+
+        Assert.False(result.HasConflict);
+        Assert.Equal(ConflictType.None, result.ConflictType);
+    }
+
+    #endregion
+
+    // ──────────────────────────────────────────────────────────────────
     //  DetectionHypothesis & ConsoleDetectionResult model classes
     // ──────────────────────────────────────────────────────────────────
 

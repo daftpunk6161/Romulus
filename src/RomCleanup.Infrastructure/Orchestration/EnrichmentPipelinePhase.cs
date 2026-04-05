@@ -1,7 +1,9 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
 using RomCleanup.Core.GameKeys;
 using RomCleanup.Core.Scoring;
+using RomCleanup.Infrastructure.Dat;
 using RomCleanup.Infrastructure.Hashing;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -15,6 +17,8 @@ namespace RomCleanup.Infrastructure.Orchestration;
 public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInput, List<RomCandidate>>
 {
     private const int ParallelizationThreshold = 4;
+    private static readonly IFamilyDatStrategyResolver DefaultFamilyDatStrategyResolver = new FamilyDatStrategyResolver();
+    private static readonly FamilyPipelineSelector DefaultFamilyPipelineSelector = new();
 
     public string Name => "Enrichment";
 
@@ -30,7 +34,9 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             foreach (var file in input.Files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, input.KnownBiosHashes, context, versionScorer, onProgress));
+                candidates.Add(MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex,
+                    input.HeaderlessHasher, input.KnownBiosHashes, input.FamilyDatStrategyResolver, input.FamilyPipelineSelector,
+                    context, versionScorer, onProgress));
             }
 
             return candidates;
@@ -58,6 +64,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     input.DatIndex,
                     input.HeaderlessHasher,
                     input.KnownBiosHashes,
+                    input.FamilyDatStrategyResolver,
+                    input.FamilyPipelineSelector,
                     context,
                     versionScorers.Value!,
                     onProgress);
@@ -79,7 +87,9 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             await foreach (var file in input.Files.WithCancellation(cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex, input.HeaderlessHasher, input.KnownBiosHashes, context, versionScorer, onProgress);
+                yield return MapToCandidate(file, input.ConsoleDetector, input.HashService, input.ArchiveHashService, input.DatIndex,
+                    input.HeaderlessHasher, input.KnownBiosHashes, input.FamilyDatStrategyResolver, input.FamilyPipelineSelector,
+                    context, versionScorer, onProgress);
             }
 
             yield break;
@@ -102,6 +112,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
                     input.DatIndex,
                     input.HeaderlessHasher,
                     input.KnownBiosHashes,
+                    input.FamilyDatStrategyResolver,
+                    input.FamilyPipelineSelector,
                     context,
                     versionScorers.Value!,
                     onProgress);
@@ -132,10 +144,15 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         DatIndex? datIndex,
         Contracts.Ports.IHeaderlessHasher? headerlessHasher,
         IReadOnlySet<string>? knownBiosHashes,
+        IFamilyDatStrategyResolver? familyDatStrategyResolver,
+        FamilyPipelineSelector? familyPipelineSelector,
         PipelineContext context,
         VersionScorer versionScorer,
         Action<string>? onProgress)
     {
+        familyDatStrategyResolver ??= DefaultFamilyDatStrategyResolver;
+        familyPipelineSelector ??= DefaultFamilyPipelineSelector;
+
         var filePath = file.Path;
         var root = file.Root;
         var ext = file.Extension;
@@ -181,8 +198,30 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var verScore = versionScorer.GetVersionScore(fileName);
 
         // DAT-first lookup first, then fallback to detector-guided resolution only if needed.
+        var preDetectFamily = ResolveFamily(consoleDetector, consoleKey, detectionResult);
+        var preDetectHashStrategy = ResolveHashStrategy(consoleDetector, consoleKey, detectionResult);
+        var preDetectDatPolicy = familyDatStrategyResolver.ResolvePolicy(preDetectFamily, ext, preDetectHashStrategy);
+
         var datResult = LookupDat(filePath, ext, sizeBytes, consoleKey, detectionConflict,
-            datIndex, hashService, archiveHashService, headerlessHasher, detectionResult: null, context, onProgress);
+            datIndex, hashService, archiveHashService, headerlessHasher, preDetectDatPolicy,
+            detectionResult: null, context, onProgress);
+
+        // Even with a DAT-first hit, run detector once to gather family/context evidence.
+        // This enables post-validation for cross-family mismatches (Phase 4).
+        if (datResult.DatMatch && detectionResult is null && consoleDetector is not null)
+        {
+            var parityDetection = consoleDetector.DetectWithConfidence(filePath, root);
+            if (parityDetection.ConsoleKey is not "UNKNOWN" and not "")
+            {
+                detectionResult = parityDetection;
+                detectionConfidence = Math.Max(detectionConfidence, parityDetection.Confidence);
+                detectionConflict = parityDetection.HasConflict;
+                hasHardEvidence = parityDetection.HasHardEvidence;
+                isSoftOnly = parityDetection.IsSoftOnly;
+                if (matchEvidence.PrimaryMatchKind == MatchKind.None)
+                    matchEvidence = parityDetection.MatchEvidence ?? matchEvidence;
+            }
+        }
 
         if (!datResult.DatMatch && consoleDetector is not null)
         {
@@ -196,12 +235,17 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             decisionClass = detectionResult.DecisionClass;
             matchEvidence = detectionResult.MatchEvidence ?? matchEvidence;
 
+            var postDetectFamily = ResolveFamily(consoleDetector, consoleKey, detectionResult);
+            var postDetectHashStrategy = ResolveHashStrategy(consoleDetector, consoleKey, detectionResult);
+            var postDetectDatPolicy = familyDatStrategyResolver.ResolvePolicy(postDetectFamily, ext, postDetectHashStrategy);
+
             datResult = LookupDat(filePath, ext, sizeBytes, consoleKey, detectionConflict,
-                datIndex, hashService, archiveHashService, headerlessHasher, detectionResult, context, onProgress);
+                datIndex, hashService, archiveHashService, headerlessHasher, postDetectDatPolicy,
+                detectionResult, context, onProgress);
         }
 
         consoleKey = datResult.ConsoleKey;
-        detectionConflict = datResult.DetectionConflict;
+        detectionConflict = datResult.DetectionConflict || (detectionResult?.HasConflict ?? false);
         var computedHash = datResult.ComputedHash;
         var computedHeaderlessHash = datResult.ComputedHeaderlessHash;
 
@@ -217,11 +261,16 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             computedHeaderlessHash, context, onProgress);
 
         // DAT authority — tier-based decision. DAT remains the highest authority.
+        // Derive conflict type from detector result for family-aware escalation.
+        var conflictType = detectionResult?.ConflictType ?? ConflictType.None;
+        var datAvailableForConsole = datIndex is not null && datIndex.ConsoleCount > 0;
+
         if (datResult.DatMatch && consoleKey is not "")
         {
             var datTier = datResult.DatMatchKind.GetTier();
             var datConfidence = datResult.DatNameOnlyMatch ? 85 : 100;
-            var datDecision = DecisionResolver.Resolve(datTier, detectionConflict, datConfidence);
+            var datDecision = DecisionResolver.Resolve(datTier, detectionConflict, datConfidence,
+                datAvailable: datAvailableForConsole, conflictType: conflictType);
 
             detectionConfidence = Math.Max(detectionConfidence, datConfidence);
             decisionClass = datDecision;
@@ -261,7 +310,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         else if (detectionResult is not null)
         {
             var fallbackTier = matchEvidence.PrimaryMatchKind.GetTier();
-            decisionClass = DecisionResolver.Resolve(fallbackTier, detectionConflict, detectionConfidence);
+            decisionClass = DecisionResolver.Resolve(fallbackTier, detectionConflict, detectionConfidence,
+                datAvailable: datAvailableForConsole, conflictType: conflictType);
             sortDecision = decisionClass.ToSortDecision();
         }
 
@@ -277,6 +327,29 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             : matchEvidence.PrimaryMatchKind;
         var finalEvidenceTier = finalMatchKind.GetTier();
         var platformFamily = consoleDetector?.GetPlatformFamily(consoleKey) ?? PlatformFamily.Unknown;
+
+        var detectedFamily = detectionResult is not null && consoleDetector is not null
+            ? consoleDetector.GetPlatformFamily(detectionResult.ConsoleKey)
+            : PlatformFamily.Unknown;
+
+        var familyDecision = familyPipelineSelector.Apply(new FamilyPipelineInput(
+            DecisionClass: decisionClass,
+            SortDecision: sortDecision,
+            MatchEvidence: matchEvidence,
+            DetectionConfidence: detectionConfidence,
+            DetectionConflict: detectionConflict,
+            ConflictType: conflictType,
+            DatMatch: datResult.DatMatch,
+            DetectedFamily: detectedFamily,
+            ResolvedFamily: platformFamily,
+            FinalMatchKind: finalMatchKind));
+
+        decisionClass = familyDecision.DecisionClass;
+        sortDecision = familyDecision.SortDecision;
+        matchEvidence = familyDecision.MatchEvidence;
+        detectionConfidence = familyDecision.DetectionConfidence;
+        detectionConflict = familyDecision.DetectionConflict;
+        conflictType = familyDecision.ConflictType;
 
         return CandidateFactory.Create(
             normalizedPath: filePath,
@@ -300,6 +373,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             classificationConfidence: classification.Confidence,
             detectionConfidence: detectionConfidence,
             detectionConflict: detectionConflict,
+            detectionConflictType: conflictType,
             hasHardEvidence: hasHardEvidence,
             isSoftOnly: isSoftOnly,
             sortDecision: sortDecision,
@@ -328,6 +402,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         DatIndex? datIndex, FileHashService? hashService,
         ArchiveHashService? archiveHashService,
         Contracts.Ports.IHeaderlessHasher? headerlessHasher,
+        FamilyDatPolicy datPolicy,
         ConsoleDetectionResult? detectionResult,
         PipelineContext context,
         Action<string>? onProgress)
@@ -354,7 +429,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         var isArchive = lowerExt is ".zip" or ".7z";
 
         // For archives: try inner hashes first (DATs store ROM content hashes, not container hashes)
-        if (isArchive && archiveHashService is not null)
+        if (isArchive && archiveHashService is not null && datPolicy.PreferArchiveInnerHash)
         {
             var innerHashes = archiveHashService.GetArchiveHashes(filePath, context.Options.HashType);
             foreach (var innerHash in innerHashes)
@@ -384,7 +459,8 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         }
 
         // For non-archives: try headerless hash first (No-Intro DATs hash without headers for NES/SNES/7800/Lynx)
-        if (!datMatch && !isArchive && headerlessHasher is not null && consoleKey is not "UNKNOWN" and not "")
+        if (!datMatch && !isArchive && datPolicy.UseHeaderlessHash && headerlessHasher is not null
+            && consoleKey is not "UNKNOWN" and not "")
         {
             computedHeaderlessHash = headerlessHasher.ComputeHeaderlessHash(filePath, consoleKey, context.Options.HashType);
             if (computedHeaderlessHash is not null)
@@ -417,7 +493,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         }
 
         // Fallback: try container hash (works for uncompressed ROMs, CHD, ISO, etc.)
-        if (!datMatch)
+        if (!datMatch && datPolicy.UseContainerHash)
         {
             var hash = hashService.GetHash(filePath, context.Options.HashType);
             computedHash ??= hash;
@@ -450,53 +526,68 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         }
 
         // Stage 4: Name-based fallback for disc images (CHD raw SHA1 ≠ per-track SHA1 in Redump DATs)
-        if (!datMatch && lowerExt is ".chd" or ".iso" or ".gcm" or ".img" or ".cso" or ".rvz")
+        if (!datMatch
+            && datPolicy.AllowNameOnlyDatMatch
+            && lowerExt is ".chd" or ".iso" or ".gcm" or ".img" or ".cso" or ".rvz")
         {
             var stem = Path.GetFileNameWithoutExtension(filePath);
-            if (!string.IsNullOrEmpty(stem))
+            if (!string.IsNullOrEmpty(stem)
+                && (!datPolicy.RequireStrictNameForNameOnly || IsStrictDatNameCandidate(stem)))
             {
                 if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
                 {
-                    var nameMatches = datIndex.LookupAllByName(stem);
-                    if (nameMatches.Count == 1)
+                    // Conservative guard: unknown-console name-only fallback only with detector context.
+                    // This prevents pre-detection false positives for families where name-only matching is unsafe.
+                    if (detectionResult is null)
                     {
-                        datMatch = true;
-                        datNameOnlyMatch = true;
-                        datMatchKind = MatchKind.DatNameOnlyMatch;
-                        var previousConsole = consoleKey;
-                        consoleKey = nameMatches[0].ConsoleKey;
-                        datMatchedBios = nameMatches[0].Entry.IsBios;
-                        datGameName = nameMatches[0].Entry.GameName;
-                        if (!string.IsNullOrEmpty(previousConsole) &&
-                            previousConsole != "UNKNOWN" &&
-                            !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            detectionConflict = true;
-                        }
-                            onProgress?.Invoke(
-                                $"[DAT] Konsole via DAT-Name erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                        onProgress?.Invoke(
+                            $"[DAT] Name-Only-Fallback uebersprungen (kein Detector-Kontext): {Path.GetFileName(filePath)}");
                     }
-                    else if (nameMatches.Count > 1 && detectionResult is not null)
+                    else
                     {
-                        var resolution = ResolveUnknownDatNameMatch(nameMatches, detectionResult);
-                        if (resolution.IsMatch)
+                        var nameMatches = datIndex.LookupAllByName(stem);
+                        if (nameMatches.Count == 1)
                         {
                             datMatch = true;
                             datNameOnlyMatch = true;
                             datMatchKind = MatchKind.DatNameOnlyMatch;
-                            datMatchedBios = resolution.IsBios;
-                            datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
-                            datGameName = resolution.DatGameName;
                             var previousConsole = consoleKey;
-                            consoleKey = resolution.ConsoleKey!;
+                            consoleKey = nameMatches[0].ConsoleKey;
+                            datMatchedBios = nameMatches[0].Entry.IsBios;
+                            datGameName = nameMatches[0].Entry.GameName;
                             if (!string.IsNullOrEmpty(previousConsole) &&
                                 previousConsole != "UNKNOWN" &&
                                 !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
                             {
                                 detectionConflict = true;
                             }
+
                             onProgress?.Invoke(
-                                $"[DAT] Mehrdeutigen Name via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                                $"[DAT] Konsole via DAT-Name erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                        }
+                        else if (nameMatches.Count > 1)
+                        {
+                            var resolution = ResolveUnknownDatNameMatch(nameMatches, detectionResult);
+                            if (resolution.IsMatch)
+                            {
+                                datMatch = true;
+                                datNameOnlyMatch = true;
+                                datMatchKind = MatchKind.DatNameOnlyMatch;
+                                datMatchedBios = resolution.IsBios;
+                                datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
+                                datGameName = resolution.DatGameName;
+                                var previousConsole = consoleKey;
+                                consoleKey = resolution.ConsoleKey!;
+                                if (!string.IsNullOrEmpty(previousConsole) &&
+                                    previousConsole != "UNKNOWN" &&
+                                    !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    detectionConflict = true;
+                                }
+
+                                onProgress?.Invoke(
+                                    $"[DAT] Mehrdeutigen Name via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                            }
                         }
                     }
                 }
@@ -714,6 +805,73 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         return new DatUnknownResolution(true, selectedKey, matchMap[selectedKey].IsBios, true, matchMap[selectedKey].GameName);
     }
 
+    private static PlatformFamily ResolveFamily(
+        ConsoleDetector? consoleDetector,
+        string consoleKey,
+        ConsoleDetectionResult? detectionResult)
+    {
+        if (consoleDetector is not null && !string.IsNullOrWhiteSpace(consoleKey)
+            && consoleKey is not "UNKNOWN" and not "AMBIGUOUS")
+        {
+            return consoleDetector.GetPlatformFamily(consoleKey);
+        }
+
+        if (consoleDetector is not null && detectionResult is { Hypotheses.Count: > 0 })
+        {
+            var topHypothesis = detectionResult.Hypotheses
+                .OrderByDescending(h => h.Confidence)
+                .ThenBy(h => h.ConsoleKey, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (topHypothesis is not null)
+                return consoleDetector.GetPlatformFamily(topHypothesis.ConsoleKey);
+        }
+
+        return PlatformFamily.Unknown;
+    }
+
+    private static string? ResolveHashStrategy(
+        ConsoleDetector? consoleDetector,
+        string consoleKey,
+        ConsoleDetectionResult? detectionResult)
+    {
+        if (consoleDetector is not null && !string.IsNullOrWhiteSpace(consoleKey)
+            && consoleKey is not "UNKNOWN" and not "AMBIGUOUS")
+        {
+            return consoleDetector.GetConsole(consoleKey)?.HashStrategy;
+        }
+
+        if (consoleDetector is not null && detectionResult is { Hypotheses.Count: > 0 })
+        {
+            var topHypothesis = detectionResult.Hypotheses
+                .OrderByDescending(h => h.Confidence)
+                .ThenBy(h => h.ConsoleKey, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (topHypothesis is not null)
+                return consoleDetector.GetConsole(topHypothesis.ConsoleKey)?.HashStrategy;
+        }
+
+        return null;
+    }
+
+    private static bool IsStrictDatNameCandidate(string stem)
+    {
+        if (string.IsNullOrWhiteSpace(stem))
+            return false;
+
+        var normalized = stem.Trim();
+        if (normalized.Length < 3)
+            return false;
+
+        var lowered = normalized.ToLowerInvariant();
+        if (lowered is "track" or "disk" or "disc" or "rom" or "game" or "image")
+            return false;
+
+        var lettersOrDigits = normalized.Count(char.IsLetterOrDigit);
+        return lettersOrDigits >= 3;
+    }
+
     private static int GetParallelismHint(int itemCountHint = int.MaxValue)
     {
         var optimalThreads = ParallelHasher.GetOptimalThreadCount();
@@ -754,7 +912,9 @@ public sealed record EnrichmentPhaseInput(
     ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex,
     Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
-    IReadOnlySet<string>? KnownBiosHashes = null);
+    IReadOnlySet<string>? KnownBiosHashes = null,
+    IFamilyDatStrategyResolver? FamilyDatStrategyResolver = null,
+    FamilyPipelineSelector? FamilyPipelineSelector = null);
 
 public sealed record EnrichmentPhaseStreamingInput(
     IAsyncEnumerable<ScannedFileEntry> Files,
@@ -763,4 +923,6 @@ public sealed record EnrichmentPhaseStreamingInput(
     ArchiveHashService? ArchiveHashService,
     DatIndex? DatIndex,
     Contracts.Ports.IHeaderlessHasher? HeaderlessHasher = null,
-    IReadOnlySet<string>? KnownBiosHashes = null);
+    IReadOnlySet<string>? KnownBiosHashes = null,
+    IFamilyDatStrategyResolver? FamilyDatStrategyResolver = null,
+    FamilyPipelineSelector? FamilyPipelineSelector = null);

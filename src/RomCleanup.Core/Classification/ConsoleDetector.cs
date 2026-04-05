@@ -465,7 +465,7 @@ public sealed class ConsoleDetector
             hypotheses.Add(new DetectionHypothesis(byKeyword.Value.ConsoleKey, byKeyword.Value.Confidence,
                 DetectionSource.FilenameKeyword, $"keyword={fileName}"));
 
-        return HypothesisResolver.Resolve(hypotheses);
+        return HypothesisResolver.Resolve(hypotheses, GetPlatformFamily);
     }
 
     private static bool ShouldDowngradeGenericPs1Header(string? byFolder, string byHeader, string discExt)
