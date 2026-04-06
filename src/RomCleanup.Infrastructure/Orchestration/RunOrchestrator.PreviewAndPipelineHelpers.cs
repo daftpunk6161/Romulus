@@ -125,7 +125,7 @@ public sealed partial class RunOrchestrator
         return false;
     }
 
-    private static RunOutcome ResolveRunOutcome(RunResultBuilder result)
+    internal static RunOutcome ResolveRunOutcome(RunResultBuilder result)
     {
         var hasErrors = result.ConvertErrorCount > 0
                         || result.ConvertVerifyFailedCount > 0
@@ -648,7 +648,7 @@ public sealed partial class RunOrchestrator
         ApplyConversionReport(output.ConversionResults, result);
     }
 
-    private static void ApplyConversionReport(IReadOnlyList<ConversionResult> results, RunResultBuilder builder)
+    internal static void ApplyConversionReport(IReadOnlyList<ConversionResult> results, RunResultBuilder builder)
     {
         var reviewCount = results.Count(r =>
             r.Plan?.RequiresReview == true
@@ -700,7 +700,7 @@ public sealed partial class RunOrchestrator
         };
     }
 
-    private static long? ResolveTotalTargetBytes(ConversionResult result)
+    internal static long? ResolveTotalTargetBytes(ConversionResult result)
     {
         long totalBytes = 0;
         var hasMeasuredBytes = false;
