@@ -15,6 +15,7 @@ namespace RomCleanup.Infrastructure.Tools;
 public sealed class ToolRunnerAdapter : IToolRunner
 {
     internal const string ConversionToolsRootOverrideEnvVar = "ROMCLEANUP_CONVERSION_TOOLS_ROOT";
+    internal const int MaxToolOutputBytes = 100 * 1024 * 1024;
     private const string DefaultConversionToolsRoot = @"C:\tools\conversion";
 
     private readonly string? _toolHashesPath;
@@ -339,8 +340,14 @@ public sealed class ToolRunnerAdapter : IToolRunner
             // Read both stdout and stderr asynchronously to prevent pipe deadlock.
             // If either pipe fills its 4KB OS buffer while the parent blocks reading the other,
             // both processes deadlock indefinitely.
-            stderrTask = Task.Run(() => stderr = process.StandardError.ReadToEnd());
-            stdoutTask = Task.Run(() => stdout = process.StandardOutput.ReadToEnd());
+            stderrTask = Task.Run(() =>
+            {
+                stderr = ReadToEndWithByteBudget(process.StandardError, MaxToolOutputBytes, out _);
+            });
+            stdoutTask = Task.Run(() =>
+            {
+                stdout = ReadToEndWithByteBudget(process.StandardOutput, MaxToolOutputBytes, out _);
+            });
 
             var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(_timeoutMinutes);
             var deadlineUtc = DateTime.UtcNow + effectiveTimeout;
@@ -445,6 +452,81 @@ public sealed class ToolRunnerAdapter : IToolRunner
         {
             // Best effort only.
         }
+    }
+
+    internal static string ReadToEndWithByteBudget(StreamReader reader, int maxBytes, out bool wasTruncated)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+
+        var buffer = new char[4096];
+        var builder = new StringBuilder();
+        var writtenBytes = 0;
+        wasTruncated = false;
+
+        while (true)
+        {
+            var read = reader.Read(buffer, 0, buffer.Length);
+            if (read <= 0)
+                break;
+
+            if (writtenBytes >= maxBytes)
+            {
+                wasTruncated = true;
+                continue;
+            }
+
+            var chunk = new string(buffer, 0, read);
+            var chunkBytes = Encoding.UTF8.GetByteCount(chunk);
+            if (writtenBytes + chunkBytes <= maxBytes)
+            {
+                builder.Append(chunk);
+                writtenBytes += chunkBytes;
+                continue;
+            }
+
+            var remaining = maxBytes - writtenBytes;
+            if (remaining > 0)
+            {
+                var prefixLength = FindUtf8PrefixLength(chunk, remaining);
+                if (prefixLength > 0)
+                {
+                    var prefix = chunk[..prefixLength];
+                    builder.Append(prefix);
+                    writtenBytes += Encoding.UTF8.GetByteCount(prefix);
+                }
+            }
+
+            wasTruncated = true;
+        }
+
+        if (wasTruncated)
+        {
+            builder.AppendLine();
+            builder.Append($"[output truncated after {maxBytes} bytes]");
+        }
+
+        return builder.ToString();
+    }
+
+    private static int FindUtf8PrefixLength(string value, int maxBytes)
+    {
+        if (string.IsNullOrEmpty(value) || maxBytes <= 0)
+            return 0;
+
+        var low = 0;
+        var high = value.Length;
+
+        while (low < high)
+        {
+            var mid = (low + high + 1) / 2;
+            var bytes = Encoding.UTF8.GetByteCount(value.AsSpan(0, mid));
+            if (bytes <= maxBytes)
+                low = mid;
+            else
+                high = mid - 1;
+        }
+
+        return low;
     }
 
     private static string BuildFailureOutput(

@@ -1,3 +1,4 @@
+using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
 using RomCleanup.Core.Classification;
@@ -99,22 +100,28 @@ public sealed partial class RunOrchestrator : IDisposable
                 return OperationResult.Blocked($"Root does not exist: {root}");
         }
 
-        // F-06: Audit directory write test
-        if (!string.IsNullOrEmpty(options.AuditPath))
+        if (!TryValidateWritablePath(options.AuditPath, treatAsDirectory: false, out var auditWriteError))
+            return OperationResult.Blocked($"Audit directory not writable: {auditWriteError}");
+
+        if (!TryValidateWritablePath(options.TrashRoot, treatAsDirectory: true, out var trashWriteError))
+            return OperationResult.Blocked($"trashRoot not writable: {trashWriteError}");
+
+        if (!TryValidateWritablePath(options.ReportPath, treatAsDirectory: false, out var reportWriteError))
+            warnings.Add($"reportPath not writable: {reportWriteError}. A fallback report path may be used.");
+
+        if (!string.IsNullOrWhiteSpace(options.ConvertFormat))
         {
-            var auditDir = Path.GetDirectoryName(options.AuditPath);
-            if (!string.IsNullOrEmpty(auditDir))
+            if (_converter is null)
             {
-                try
+                warnings.Add("ConvertFormat is set but no converter is configured.");
+            }
+            else
+            {
+                var missingTools = _converter.GetMissingToolsForFormat(options.ConvertFormat);
+                if (missingTools.Count > 0)
                 {
-                    _fs.EnsureDirectory(auditDir);
-                    var testFile = Path.Combine(auditDir, $".write_test_{Guid.NewGuid():N}");
-                    File.WriteAllText(testFile, "");
-                    File.Delete(testFile);
-                }
-                catch (Exception ex)
-                {
-                    return OperationResult.Blocked($"Audit directory not writable: {ex.Message}");
+                    return OperationResult.Blocked(
+                        $"Conversion tools unavailable for format '{options.ConvertFormat}': {string.Join(", ", missingTools)}");
                 }
             }
         }
@@ -133,6 +140,45 @@ public sealed partial class RunOrchestrator : IDisposable
         result.Meta["RootCount"] = options.Roots.Count;
         result.Meta["ExtensionCount"] = options.Extensions.Count;
         return result;
+    }
+
+    private bool TryValidateWritablePath(string? configuredPath, bool treatAsDirectory, out string reason)
+    {
+        reason = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return true;
+
+        string targetDirectory;
+        try
+        {
+            var normalized = Path.GetFullPath(configuredPath);
+            targetDirectory = treatAsDirectory
+                ? normalized
+                : (Path.GetDirectoryName(normalized) ?? string.Empty);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            reason = ex.Message;
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(targetDirectory))
+            return true;
+
+        try
+        {
+            _fs.EnsureDirectory(targetDirectory);
+            var probePath = Path.Combine(targetDirectory, $".write_test_{Guid.NewGuid():N}");
+            File.WriteAllText(probePath, string.Empty);
+            File.Delete(probePath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            reason = ex.Message;
+            return false;
+        }
     }
 
     /// <summary>
@@ -167,7 +213,7 @@ public sealed partial class RunOrchestrator : IDisposable
         {
             _onProgress?.Invoke($"[Preflight] Blockiert: {preflight.Reason}");
             result.Status = RunOutcome.Blocked.ToStatusString();
-            result.ExitCode = 3;
+            result.ExitCode = RunOutcome.Blocked.ToExitCode();
             return result.Build();
         }
         _onProgress?.Invoke($"[Preflight] OK — {options.Roots.Count} Root(s), {options.Extensions.Count} Extension(s), Modus: {options.Mode}");
@@ -238,7 +284,7 @@ public sealed partial class RunOrchestrator : IDisposable
         {
             sw.Stop();
             result.Status = RunOutcome.Cancelled.ToStatusString();
-            result.ExitCode = 2;
+            result.ExitCode = RunOutcome.Cancelled.ToExitCode();
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
 
@@ -263,7 +309,7 @@ public sealed partial class RunOrchestrator : IDisposable
         {
             sw.Stop();
             result.Status = RunOutcome.Failed.ToStatusString();
-            result.ExitCode = 4;
+            result.ExitCode = RunOutcome.Failed.ToExitCode();
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
 

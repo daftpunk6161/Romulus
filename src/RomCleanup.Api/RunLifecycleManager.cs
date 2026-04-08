@@ -177,9 +177,12 @@ public sealed class RunLifecycleManager
         {
             run.CancellationRequested = true;
             run.CancelledAtUtc = DateTime.UtcNow;
-            try { run.CancellationSource.Cancel(); }
-            catch (ObjectDisposedException) { /* CTS already disposed — run already finished */ }
-            return new RunCancelResult(RunCancelDisposition.Accepted, run);
+
+            // F01 hardening: cancel and dispose are synchronized on RunRecord.
+            var cancellationAccepted = run.TryCancelExecution();
+            return new RunCancelResult(
+                cancellationAccepted ? RunCancelDisposition.Accepted : RunCancelDisposition.NoOp,
+                run);
         }
 
         return new RunCancelResult(RunCancelDisposition.NoOp, run);
@@ -274,7 +277,7 @@ public sealed class RunLifecycleManager
 
         try
         {
-            var ct = run.CancellationSource.Token;
+            var ct = run.GetCancellationToken();
             var outcome = _executor(run, _fs, _audit, ct);
             run.Status = outcome.Status;
             run.Result = outcome.Result;
@@ -314,7 +317,7 @@ public sealed class RunLifecycleManager
             run.ReportPath = File.Exists(reportPath) ? reportPath : run.ReportPath;
             run.CompletedUtc = DateTime.UtcNow;
             UpdateRecoveryState(run);
-            run.CancellationSource.Dispose();
+            run.DisposeCancellationSource();
             lock (_activeLock)
             {
                 if (_activeRunId == run.RunId)

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Tools;
 using Xunit;
@@ -410,6 +411,33 @@ public sealed class ToolRunnerAdapterCoverageTests : IDisposable
         // Doesn't throw, just clamps — verify by using it
         var runner = new ToolRunnerAdapter(timeoutMinutes: -5);
         Assert.NotNull(runner);
+    }
+
+    [Fact]
+    public void ReadToEndWithByteBudget_WithinLimit_DoesNotTruncate()
+    {
+        const string content = "small-output";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+
+        var result = ToolRunnerAdapter.ReadToEndWithByteBudget(reader, 1024, out var truncated);
+
+        Assert.False(truncated);
+        Assert.Equal(content, result);
+    }
+
+    [Fact]
+    public void ReadToEndWithByteBudget_ExceedsLimit_TruncatesAndMarksOutput()
+    {
+        var content = new string('x', 5000);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+
+        var result = ToolRunnerAdapter.ReadToEndWithByteBudget(reader, 1024, out var truncated);
+
+        Assert.True(truncated);
+        Assert.Contains("truncated", result, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result.StartsWith(new string('x', 256), StringComparison.Ordinal));
     }
 
     // =================================================================

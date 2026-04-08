@@ -38,6 +38,63 @@ public sealed class CliProgramTests : IDisposable
         Assert.Equal(0, exitCode);
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(4, 4)]
+    [InlineData(99, 1)]
+    public void NormalizeProcessExitCode_PreservesDocumentedRange(int raw, int expected)
+    {
+        Assert.Equal(expected, CliProgram.NormalizeProcessExitCode(raw));
+    }
+
+    [Fact]
+    public void BuildRunMutexName_NormalizesRootScopeDeterministically()
+    {
+        var nestedRoot = Path.Combine(_tempDir, "Nested");
+        Directory.CreateDirectory(nestedRoot);
+
+        var first = CliProgram.BuildRunMutexName(new[] { _tempDir, nestedRoot });
+        var second = CliProgram.BuildRunMutexName(new[] { nestedRoot, _tempDir.ToUpperInvariant() });
+
+        Assert.Equal(first, second);
+        Assert.StartsWith("Global\\RomCleanup.Cli.Run.", first, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RunForTests_WhenRunMutexAlreadyHeld_ReturnsExitCode3()
+    {
+        lock (SharedTestLocks.ConsoleLock)
+        {
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+
+            try
+            {
+                CliProgram.SetConsoleOverrides(stdout, stderr);
+
+                var mutexName = CliProgram.BuildRunMutexName(new[] { _tempDir });
+                using var heldMutex = new Mutex(initiallyOwned: true, mutexName, out var createdNew);
+                Assert.True(createdNew);
+
+                var exitCode = CliProgram.RunForTests(new CliRunOptions
+                {
+                    Roots = new[] { _tempDir },
+                    Mode = "DryRun"
+                });
+
+                Assert.Equal(3, exitCode);
+                Assert.Contains("already active", stderr.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                CliProgram.SetConsoleOverrides(null, null);
+            }
+        }
+    }
+
     // ═══ ParseArgs: Help flags ═════════════════════════════════════════
 
     [Theory]

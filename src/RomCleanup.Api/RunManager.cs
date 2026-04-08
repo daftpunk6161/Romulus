@@ -266,6 +266,7 @@ public sealed class RunRecord
     private string? _progressMessage;
     private string _recoveryState = "in-progress";
     private bool _cancellationRequested;
+    private bool _cancellationSourceDisposed;
     private bool _canRollback;
     private readonly HashSet<string> _approvedReviewPaths = new(StringComparer.OrdinalIgnoreCase);
 
@@ -389,6 +390,49 @@ public sealed class RunRecord
     }
 
     internal CancellationTokenSource CancellationSource { get; } = new();
+
+    internal CancellationToken GetCancellationToken()
+    {
+        lock (_lock)
+        {
+            if (_cancellationSourceDisposed)
+                return CancellationToken.None;
+
+            return CancellationSource.Token;
+        }
+    }
+
+    internal bool TryCancelExecution()
+    {
+        lock (_lock)
+        {
+            if (_cancellationSourceDisposed)
+                return false;
+
+            try
+            {
+                CancellationSource.Cancel();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                _cancellationSourceDisposed = true;
+                return false;
+            }
+        }
+    }
+
+    internal void DisposeCancellationSource()
+    {
+        lock (_lock)
+        {
+            if (_cancellationSourceDisposed)
+                return;
+
+            CancellationSource.Dispose();
+            _cancellationSourceDisposed = true;
+        }
+    }
 }
 
 public sealed class ApiRunResult

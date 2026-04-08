@@ -18,7 +18,21 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         long savedBytes = 0;
         var movedSourcePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sidecarPrimed = false;
+        var totalLosers = input.Groups.Sum(g => g.Losers.Count);
         var hasAuditPath = !string.IsNullOrEmpty(input.Options.AuditPath);
+        var skipConflicts = string.Equals(input.Options.ConflictPolicy, "Skip", StringComparison.OrdinalIgnoreCase);
+        var overwriteConflicts = string.Equals(input.Options.ConflictPolicy, "Overwrite", StringComparison.OrdinalIgnoreCase);
+
+        if (TryEstimateCrossVolumeMoveBytes(input, out var freeSpaceProbePath, out var estimatedMoveBytes))
+        {
+            var availableBytes = context.FileSystem.GetAvailableFreeSpace(freeSpaceProbePath!);
+            if (availableBytes.HasValue && availableBytes.Value < estimatedMoveBytes)
+            {
+                context.OnProgress?.Invoke(
+                    $"[Move] Abbruch: Zu wenig freier Speicher im Ziel ({availableBytes.Value} Bytes verfuegbar, {estimatedMoveBytes} Bytes benoetigt).");
+                return new MovePhaseResult(0, totalLosers, 0, 0, movedSourcePaths);
+            }
+        }
 
         if (hasAuditPath)
         {
@@ -37,7 +51,6 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         // This prevents orphaned BIN/TRACK files when their CUE/GDI/CCD is moved to trash.
         var alreadyMovedAsSetMember = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var totalLosers = input.Groups.Sum(g => g.Losers.Count);
         var processedLosers = 0;
 
         foreach (var group in input.Groups)
@@ -72,8 +85,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     continue;
                 }
 
-                if (string.Equals(input.Options.ConflictPolicy, "Skip", StringComparison.OrdinalIgnoreCase)
-                    && context.FileSystem.FileExists(destPath))
+                if (skipConflicts && context.FileSystem.FileExists(destPath))
                 {
                     context.OnProgress?.Invoke($"Skip (conflict): {Path.GetFileName(loser.MainPath)}");
                     if (hasAuditPath)
@@ -139,8 +151,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                         break;
                     }
 
-                    if (string.Equals(input.Options.ConflictPolicy, "Skip", StringComparison.OrdinalIgnoreCase)
-                        && context.FileSystem.FileExists(memberDest))
+                    if (skipConflicts && context.FileSystem.FileExists(memberDest))
                     {
                         setPreflightFailed = true;
                         break;
@@ -174,7 +185,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                     continue;
                 }
 
-                var actualDest = context.FileSystem.MoveItemSafely(loser.MainPath, destPath);
+                var actualDest = context.FileSystem.MoveItemSafely(loser.MainPath, destPath, overwriteConflicts);
                 if (actualDest is not null)
                 {
                     var movedItems = new List<(string SourcePath, string ActualDestPath, string Category)>();
@@ -190,7 +201,7 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
                             context.AuditStore.Flush(input.Options.AuditPath!);
                         }
 
-                        var memberActual = context.FileSystem.MoveItemSafely(plannedMemberMove.SourcePath, plannedMemberMove.DestPath);
+                        var memberActual = context.FileSystem.MoveItemSafely(plannedMemberMove.SourcePath, plannedMemberMove.DestPath, overwriteConflicts);
                         if (memberActual is null)
                         {
                             memberMoveFailed = true;
@@ -302,6 +313,59 @@ public sealed class MovePipelinePhase : IPipelinePhase<MovePhaseInput, MovePhase
         }
 
         return new MovePhaseResult(moveCount, failCount, savedBytes, skipCount, movedSourcePaths);
+    }
+
+    private static bool TryEstimateCrossVolumeMoveBytes(
+        MovePhaseInput input,
+        out string? destinationProbePath,
+        out long estimatedBytes)
+    {
+        destinationProbePath = null;
+        estimatedBytes = 0;
+
+        if (string.IsNullOrWhiteSpace(input.Options.TrashRoot))
+            return false;
+
+        string trashRoot;
+        try
+        {
+            trashRoot = Path.GetFullPath(input.Options.TrashRoot);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+
+        var trashDrive = Path.GetPathRoot(trashRoot);
+        if (string.IsNullOrWhiteSpace(trashDrive))
+            return false;
+
+        destinationProbePath = trashRoot;
+
+        foreach (var loser in input.Groups.SelectMany(static group => group.Losers))
+        {
+            if (string.IsNullOrWhiteSpace(loser.MainPath))
+                continue;
+
+            string sourceFullPath;
+            try
+            {
+                sourceFullPath = Path.GetFullPath(loser.MainPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+
+            var sourceDrive = Path.GetPathRoot(sourceFullPath);
+            if (string.IsNullOrWhiteSpace(sourceDrive))
+                continue;
+
+            if (!string.Equals(sourceDrive, trashDrive, StringComparison.OrdinalIgnoreCase))
+                estimatedBytes += Math.Max(0, loser.SizeBytes);
+        }
+
+        return estimatedBytes > 0;
     }
 
 

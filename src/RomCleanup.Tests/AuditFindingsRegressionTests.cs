@@ -111,6 +111,7 @@ public sealed class AuditFindingsRegressionTests : IDisposable
     [InlineData(1, 1)]
     [InlineData(2, 2)]
     [InlineData(3, 3)]
+    [InlineData(4, 4)]
     [InlineData(42, 1)]
     [InlineData(-1, 1)]
     [InlineData(255, 1)]
@@ -121,6 +122,7 @@ public sealed class AuditFindingsRegressionTests : IDisposable
             0 => 0,
             2 => 2,
             3 => 3,
+            4 => 4,
             _ => 1
         };
         Assert.Equal(expected, normalized);

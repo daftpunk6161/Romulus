@@ -30,6 +30,16 @@ public static class RunOutcomeExtensions
         RunConstants.StatusFailed => RunOutcome.Failed,
         _ => RunOutcome.Failed
     };
+
+    public static int ToExitCode(this RunOutcome outcome) => outcome switch
+    {
+        RunOutcome.Ok => 0,
+        RunOutcome.Failed => 1,
+        RunOutcome.Cancelled => 2,
+        RunOutcome.Blocked => 3,
+        RunOutcome.CompletedWithErrors => 4,
+        _ => 1
+    };
 }
 
 /// <summary>

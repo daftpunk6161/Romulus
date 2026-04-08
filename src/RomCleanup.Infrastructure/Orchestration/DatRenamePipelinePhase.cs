@@ -1,4 +1,5 @@
 using RomCleanup.Contracts.Models;
+using RomCleanup.Contracts;
 using RomCleanup.Core.Audit;
 
 namespace RomCleanup.Infrastructure.Orchestration;
@@ -16,6 +17,7 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
         context.Metrics.StartPhase(Name);
 
         var proposals = new List<DatRenameProposal>(input.Entries.Count);
+        var executableItems = new List<DatRenameExecutionItem>(input.Entries.Count);
         var pathMutations = new List<PathMutation>();
         var proposedCount = 0;
         var executedCount = 0;
@@ -52,9 +54,10 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
             if (!executeMode)
                 continue;
 
+            var targetPath = Path.Combine(Path.GetDirectoryName(entry.FilePath) ?? string.Empty, proposal.TargetFileName);
+
             if (skipOnConflict)
             {
-                var targetPath = Path.Combine(Path.GetDirectoryName(entry.FilePath) ?? string.Empty, proposal.TargetFileName);
                 if (context.FileSystem.TestPath(targetPath, "Leaf"))
                 {
                     skippedCount++;
@@ -62,30 +65,88 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
                 }
             }
 
-            var renamedPath = context.FileSystem.RenameItemSafely(entry.FilePath, proposal.TargetFileName);
-            if (renamedPath is null)
+            executableItems.Add(new DatRenameExecutionItem(entry, proposal, targetPath));
+        }
+
+        if (executeMode && executableItems.Count > 0)
+        {
+            var winnersByTargetPath = new Dictionary<string, DatRenameExecutionItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in executableItems
+                .OrderByDescending(static item => item.Entry.Confidence)
+                .ThenBy(static item => item.Entry.FilePath, StringComparer.OrdinalIgnoreCase))
             {
-                failedCount++;
-                continue;
+                if (!winnersByTargetPath.ContainsKey(item.TargetPath))
+                    winnersByTargetPath[item.TargetPath] = item;
             }
 
-            executedCount++;
-            pathMutations.Add(new PathMutation(entry.FilePath, renamedPath));
-
-            if (!string.IsNullOrWhiteSpace(input.Options.AuditPath))
+            foreach (var item in executableItems.OrderBy(static item => item.Entry.FilePath, StringComparer.OrdinalIgnoreCase))
             {
-                var root = PipelinePhaseHelpers.FindRootForPath(entry.FilePath, input.Options.Roots);
-                if (root is not null)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var winner = winnersByTargetPath[item.TargetPath];
+                if (!string.Equals(winner.Entry.FilePath, item.Entry.FilePath, StringComparison.OrdinalIgnoreCase))
                 {
-                    var reason = $"dat-rename|game:{entry.DatGameName}|confidence:{entry.Confidence}";
+                    skippedCount++;
+                    continue;
+                }
+
+                var auditPath = input.Options.AuditPath;
+                string? root = null;
+                if (!string.IsNullOrWhiteSpace(auditPath))
+                {
+                    root = PipelinePhaseHelpers.FindRootForPath(item.Entry.FilePath, input.Options.Roots);
+                    if (root is not null)
+                    {
+                        var pendingReason = $"dat-rename:write-ahead|game:{item.Entry.DatGameName}|confidence:{item.Entry.Confidence}";
+                        context.AuditStore.AppendAuditRow(
+                            auditPath,
+                            root,
+                            item.Entry.FilePath,
+                            item.TargetPath,
+                            RunConstants.AuditActions.DatRenamePending,
+                            item.Entry.ConsoleKey,
+                            item.Entry.Hash,
+                            pendingReason);
+                        context.AuditStore.Flush(auditPath);
+                    }
+                }
+
+                var renamedPath = context.FileSystem.RenameItemSafely(item.Entry.FilePath, item.Proposal.TargetFileName);
+                if (renamedPath is null)
+                {
+                    failedCount++;
+
+                    if (!string.IsNullOrWhiteSpace(auditPath) && root is not null)
+                    {
+                        var failedReason = $"dat-rename:rename-failed|game:{item.Entry.DatGameName}|confidence:{item.Entry.Confidence}";
+                        context.AuditStore.AppendAuditRow(
+                            auditPath,
+                            root,
+                            item.Entry.FilePath,
+                            item.TargetPath,
+                            RunConstants.AuditActions.DatRenameFailed,
+                            item.Entry.ConsoleKey,
+                            item.Entry.Hash,
+                            failedReason);
+                    }
+
+                    continue;
+                }
+
+                executedCount++;
+                pathMutations.Add(new PathMutation(item.Entry.FilePath, renamedPath));
+
+                if (!string.IsNullOrWhiteSpace(auditPath) && root is not null)
+                {
+                    var reason = $"dat-rename|game:{item.Entry.DatGameName}|confidence:{item.Entry.Confidence}";
                     context.AuditStore.AppendAuditRow(
-                        input.Options.AuditPath,
+                        auditPath,
                         root,
-                        entry.FilePath,
+                        item.Entry.FilePath,
                         renamedPath,
-                        "DAT_RENAME",
-                        entry.ConsoleKey,
-                        entry.Hash,
+                        RunConstants.AuditActions.DatRename,
+                        item.Entry.ConsoleKey,
+                        item.Entry.Hash,
                         reason);
                 }
             }
@@ -101,6 +162,11 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
             skippedCount,
             failedCount);
     }
+
+    private sealed record DatRenameExecutionItem(
+        DatAuditEntry Entry,
+        DatRenameProposal Proposal,
+        string TargetPath);
 }
 
 /// <summary>

@@ -85,6 +85,37 @@ public sealed class WpfProductizationTests : IDisposable
     }
 
     [Fact]
+    public void MainViewModel_Explicitness_TracksOnlyUserOverridesAfterSelection()
+    {
+        var vm = CreateViewModel();
+        vm.Roots.Add(_tempRoot);
+
+        vm.SelectedWorkflowScenarioId = WorkflowScenarioIds.FullAudit;
+
+        var baselineExplicitness = vm.BuildCurrentRunConfigurationExplicitness();
+        Assert.False(baselineExplicitness.RemoveJunk);
+        Assert.False(baselineExplicitness.SortConsole);
+
+        vm.RemoveJunk = !vm.RemoveJunk;
+
+        var changedExplicitness = vm.BuildCurrentRunConfigurationExplicitness();
+        Assert.True(changedExplicitness.RemoveJunk);
+        Assert.False(changedExplicitness.SortConsole);
+    }
+
+    [Fact]
+    public void MainViewModel_ApproveConversionReview_RoundTripsThroughRunConfigurationDraft()
+    {
+        var vm = CreateViewModel();
+        vm.Roots.Add(_tempRoot);
+        vm.ApproveConversionReview = true;
+
+        var draft = vm.BuildCurrentRunConfigurationDraft(includeSelections: false);
+
+        Assert.True(draft.ApproveConversionReview);
+    }
+
+    [Fact]
     public void FeatureCommandService_ProfileSave_AndLoad_ReuseSharedProfileModel()
     {
         var dialog = new RecordingDialogService();

@@ -89,6 +89,30 @@ public class ConsoleSorterTests : IDisposable
     }
 
     [Fact]
+    public void Sort_Move_OverwritePolicy_ReplacesExistingTarget()
+    {
+        var source = CreateFile("Collision.nes", "new-content");
+        var existingTarget = CreateFile(Path.Combine("NES", "Collision.nes"), "old-content");
+
+        var detector = BuildDetector();
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var sorter = new ConsoleSorter(fs, detector);
+
+        var result = sorter.Sort(
+            new[] { _tempDir },
+            new[] { ".nes" },
+            dryRun: false,
+            enrichedConsoleKeys: EnrichedKeys((source, "NES")),
+            candidatePaths: new[] { source },
+            conflictPolicy: "Overwrite");
+
+        Assert.Equal(1, result.Moved);
+        Assert.False(File.Exists(source));
+        Assert.Equal("new-content", File.ReadAllText(existingTarget));
+        Assert.False(File.Exists(Path.Combine(_tempDir, "NES", "Collision__DUP1.nes")));
+    }
+
+    [Fact]
     public void Sort_AlreadyInCorrectFolder_Skipped()
     {
         CreateFile("NES" + Path.DirectorySeparatorChar + "Game.nes", "nes content");

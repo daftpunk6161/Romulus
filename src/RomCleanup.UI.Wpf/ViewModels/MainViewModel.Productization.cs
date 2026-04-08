@@ -17,6 +17,7 @@ public sealed partial class MainViewModel
 {
     private RunProfileService _runProfileService = null!;
     private RunConfigurationMaterializer _runConfigurationMaterializer = null!;
+    private RunConfigurationDraft? _selectionBaselineDraft;
     private bool _suppressRunConfigurationSelectionApply;
     private bool _applyingRunConfigurationSelection;
     private bool _wizardAnalysisDirty = true;
@@ -181,6 +182,7 @@ public sealed partial class MainViewModel
             ConvertFormat = (ConvertEnabled || ConvertOnly) ? "auto" : null,
             ConvertOnly = ConvertOnly,
             ApproveReviews = ApproveReviews,
+            ApproveConversionReview = ApproveConversionReview,
             ConflictPolicy = ConflictPolicy.ToString(),
             TrashRoot = string.IsNullOrWhiteSpace(TrashRoot) ? null : TrashRoot
         };
@@ -188,26 +190,36 @@ public sealed partial class MainViewModel
 
     internal RunConfigurationExplicitness BuildCurrentRunConfigurationExplicitness()
     {
+        var hasSelection = !string.IsNullOrWhiteSpace(NormalizeSelection(SelectedWorkflowScenarioId))
+                           || !string.IsNullOrWhiteSpace(NormalizeSelection(SelectedRunProfileId));
+
+        if (!hasSelection || _selectionBaselineDraft is null)
+            return CreateAllExplicit();
+
+        var currentDraft = BuildCurrentRunConfigurationDraft(includeSelections: false);
+        var baselineDraft = _selectionBaselineDraft;
+
         return new RunConfigurationExplicitness
         {
-            Mode = true,
-            PreferRegions = true,
-            Extensions = true,
-            RemoveJunk = true,
-            OnlyGames = true,
-            KeepUnknownWhenOnlyGames = true,
-            AggressiveJunk = true,
-            SortConsole = true,
-            EnableDat = true,
-            EnableDatAudit = true,
-            EnableDatRename = true,
-            DatRoot = true,
-            HashType = true,
-            ConvertFormat = true,
-            ConvertOnly = true,
-            ApproveReviews = true,
-            ConflictPolicy = true,
-            TrashRoot = true
+            Mode = !AreEquivalent(currentDraft.Mode, baselineDraft.Mode),
+            PreferRegions = !AreEquivalent(currentDraft.PreferRegions, baselineDraft.PreferRegions),
+            Extensions = !AreEquivalent(currentDraft.Extensions, baselineDraft.Extensions),
+            RemoveJunk = currentDraft.RemoveJunk != baselineDraft.RemoveJunk,
+            OnlyGames = currentDraft.OnlyGames != baselineDraft.OnlyGames,
+            KeepUnknownWhenOnlyGames = currentDraft.KeepUnknownWhenOnlyGames != baselineDraft.KeepUnknownWhenOnlyGames,
+            AggressiveJunk = currentDraft.AggressiveJunk != baselineDraft.AggressiveJunk,
+            SortConsole = currentDraft.SortConsole != baselineDraft.SortConsole,
+            EnableDat = currentDraft.EnableDat != baselineDraft.EnableDat,
+            EnableDatAudit = currentDraft.EnableDatAudit != baselineDraft.EnableDatAudit,
+            EnableDatRename = currentDraft.EnableDatRename != baselineDraft.EnableDatRename,
+            DatRoot = !AreEquivalent(currentDraft.DatRoot, baselineDraft.DatRoot),
+            HashType = !AreEquivalent(currentDraft.HashType, baselineDraft.HashType),
+            ConvertFormat = !AreEquivalent(currentDraft.ConvertFormat, baselineDraft.ConvertFormat),
+            ConvertOnly = currentDraft.ConvertOnly != baselineDraft.ConvertOnly,
+            ApproveReviews = currentDraft.ApproveReviews != baselineDraft.ApproveReviews,
+            ApproveConversionReview = currentDraft.ApproveConversionReview != baselineDraft.ApproveConversionReview,
+            ConflictPolicy = !AreEquivalent(currentDraft.ConflictPolicy, baselineDraft.ConflictPolicy),
+            TrashRoot = !AreEquivalent(currentDraft.TrashRoot, baselineDraft.TrashRoot)
         };
     }
 
@@ -231,6 +243,7 @@ public sealed partial class MainViewModel
             ConvertFormat = draft.ConvertFormat,
             ConvertOnly = draft.ConvertOnly,
             ApproveReviews = draft.ApproveReviews,
+            ApproveConversionReview = draft.ApproveConversionReview,
             ConflictPolicy = draft.ConflictPolicy,
             TrashRoot = draft.TrashRoot,
             Mode = draft.Mode
@@ -276,6 +289,7 @@ public sealed partial class MainViewModel
             ["convertFormat"] = draft.ConvertFormat ?? string.Empty,
             ["convertOnly"] = draft.ConvertOnly?.ToString() ?? string.Empty,
             ["approveReviews"] = draft.ApproveReviews?.ToString() ?? string.Empty,
+            ["approveConversionReview"] = draft.ApproveConversionReview?.ToString() ?? string.Empty,
             ["conflictPolicy"] = draft.ConflictPolicy ?? string.Empty,
             ["trashRoot"] = draft.TrashRoot ?? string.Empty
         };
@@ -290,6 +304,7 @@ public sealed partial class MainViewModel
         var profileId = NormalizeSelection(SelectedRunProfileId);
         if (workflowId is null && profileId is null)
         {
+            _selectionBaselineDraft = null;
             OnRunConfigurationSelectionMetadataChanged();
             return;
         }
@@ -349,11 +364,13 @@ public sealed partial class MainViewModel
             ConvertEnabled = !string.IsNullOrWhiteSpace(draft.ConvertFormat);
             ConvertOnly = draft.ConvertOnly ?? false;
             ApproveReviews = draft.ApproveReviews ?? false;
+            ApproveConversionReview = draft.ApproveConversionReview ?? false;
             TrashRoot = draft.TrashRoot ?? string.Empty;
             ApplyConflictPolicyFromDraft(draft.ConflictPolicy);
             ApplyPreferredRegions(draft.PreferRegions);
             ApplySelectedExtensions(draft.Extensions);
             SetRunConfigurationSelectionInternal(materialized.Workflow?.Id, materialized.EffectiveProfileId);
+            _selectionBaselineDraft = draft;
         }
         finally
         {
@@ -648,7 +665,50 @@ public sealed partial class MainViewModel
     {
         SelectedWorkflowScenarioId = workflowScenarioId;
         SelectedRunProfileId = profileId;
+        if (NormalizeSelection(workflowScenarioId) is null && NormalizeSelection(profileId) is null)
+            _selectionBaselineDraft = null;
     }
+
+    private static RunConfigurationExplicitness CreateAllExplicit()
+        => new()
+        {
+            Mode = true,
+            PreferRegions = true,
+            Extensions = true,
+            RemoveJunk = true,
+            OnlyGames = true,
+            KeepUnknownWhenOnlyGames = true,
+            AggressiveJunk = true,
+            SortConsole = true,
+            EnableDat = true,
+            EnableDatAudit = true,
+            EnableDatRename = true,
+            DatRoot = true,
+            HashType = true,
+            ConvertFormat = true,
+            ConvertOnly = true,
+            ApproveReviews = true,
+            ApproveConversionReview = true,
+            ConflictPolicy = true,
+            TrashRoot = true
+        };
+
+    private static bool AreEquivalent(string? left, string? right)
+        => string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static bool AreEquivalent(string[]? left, string[]? right)
+    {
+        var normalizedLeft = NormalizeStringArray(left);
+        var normalizedRight = NormalizeStringArray(right);
+        return normalizedLeft.SequenceEqual(normalizedRight, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string[] NormalizeStringArray(string[]? values)
+        => (values ?? Array.Empty<string>())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     private WorkflowScenarioDefinition? TryGetSelectedWorkflow()
         => AvailableWorkflows.FirstOrDefault(item => string.Equals(item.Id, SelectedWorkflowScenarioId, StringComparison.OrdinalIgnoreCase));

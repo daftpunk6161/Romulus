@@ -172,7 +172,7 @@ public sealed class AuditP0P1FixTests : IDisposable
         // Assert: should rename
         Assert.Equal(1, result.ExecutedCount);
         Assert.Equal(1, fs.RenameCalls);
-        Assert.Equal(1, audit.AppendCalls);
+        Assert.Equal(2, audit.AppendCalls);
     }
 
     // ═══════════════════════════════════════════════════════════════════

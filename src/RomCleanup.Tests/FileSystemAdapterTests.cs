@@ -155,6 +155,22 @@ public class FileSystemAdapterTests : IDisposable
     }
 
     [Fact]
+    public void MoveItemSafely_Overwrite_ReplacesExistingDestination()
+    {
+        var src = Path.Combine(_tempDir, "source-overwrite.rom");
+        var dst = Path.Combine(_tempDir, "target-overwrite.rom");
+        File.WriteAllText(src, "new-content");
+        File.WriteAllText(dst, "old-content");
+
+        var movedPath = _fs.MoveItemSafely(src, dst, overwrite: true);
+
+        Assert.Equal(dst, movedPath);
+        Assert.False(File.Exists(src));
+        Assert.Equal("new-content", File.ReadAllText(dst));
+        Assert.False(File.Exists(Path.Combine(_tempDir, "target-overwrite__DUP1.rom")));
+    }
+
+    [Fact]
     public void MoveItemSafely_SamePath_Throws()
     {
         var file = Path.Combine(_tempDir, "test.rom");
@@ -226,6 +242,15 @@ public class FileSystemAdapterTests : IDisposable
         var dst = Path.Combine(_tempDir, "unsafe. ");
 
         Assert.Throws<InvalidOperationException>(() => _fs.CopyFile(src, dst));
+    }
+
+    [Fact]
+    public void GetAvailableFreeSpace_ValidPath_ReturnsValue()
+    {
+        var value = _fs.GetAvailableFreeSpace(_tempDir);
+
+        Assert.True(value.HasValue);
+        Assert.True(value.Value >= 0);
     }
 
     // --- ResolveChildPathWithinRoot ---

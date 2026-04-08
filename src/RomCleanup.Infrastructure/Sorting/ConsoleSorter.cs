@@ -86,11 +86,13 @@ public sealed class ConsoleSorter
         IReadOnlyDictionary<string, string>? enrichedSortDecisions = null,
         IReadOnlyDictionary<string, string>? enrichedSortReasons = null,
         IReadOnlyDictionary<string, string>? enrichedCategories = null,
-        IReadOnlyList<string>? candidatePaths = null)
+        IReadOnlyList<string>? candidatePaths = null,
+        string? conflictPolicy = null)
     {
         int total = 0, moved = 0, skipped = 0, unknown = 0, setMembersMoved = 0, failed = 0, reviewed = 0, blocked = 0;
         var unknownReasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var pathMutations = new List<PathMutation>();
+        var overwriteConflicts = string.Equals(conflictPolicy, "Overwrite", StringComparison.OrdinalIgnoreCase);
 
         foreach (var root in roots)
         {
@@ -165,7 +167,8 @@ public sealed class ConsoleSorter
                                 junkMembers,
                                 junkDir,
                                 dryRun,
-                                $"junk-sort:{junkConsoleKey}");
+                                $"junk-sort:{junkConsoleKey}",
+                                overwriteConflicts);
 
                             if (setMoveResult.PrimaryMoved)
                             {
@@ -183,7 +186,7 @@ public sealed class ConsoleSorter
                         }
                         else
                         {
-                            if (TryMoveFile(root, filePath, junkDir, junkFileName, dryRun, out var actualDest))
+                            if (TryMoveFile(root, filePath, junkDir, junkFileName, dryRun, overwriteConflicts, out var actualDest))
                             {
                                 if (isBlockedDecision)
                                     blocked++;
@@ -221,7 +224,8 @@ public sealed class ConsoleSorter
                             dryRun,
                             isBlockedDecision
                                 ? $"blocked-sort:{reasonSegment}"
-                                : $"unknown-sort:{reasonSegment}");
+                                : $"unknown-sort:{reasonSegment}",
+                            overwriteConflicts);
 
                         if (setMoveResult.PrimaryMoved)
                         {
@@ -239,7 +243,7 @@ public sealed class ConsoleSorter
                     }
                     else
                     {
-                        if (TryMoveFile(root, filePath, decisionDir, decisionFileName, dryRun, out var actualDest))
+                        if (TryMoveFile(root, filePath, decisionDir, decisionFileName, dryRun, overwriteConflicts, out var actualDest))
                         {
                             if (isBlockedDecision)
                                 blocked++;
@@ -278,7 +282,8 @@ public sealed class ConsoleSorter
                             reviewMembers,
                             reviewDir,
                             dryRun,
-                            $"review-sort:{reviewConsoleKey}:{reviewReason}");
+                            $"review-sort:{reviewConsoleKey}:{reviewReason}",
+                            overwriteConflicts);
 
                         if (setMoveResult.PrimaryMoved)
                         {
@@ -293,7 +298,7 @@ public sealed class ConsoleSorter
                     }
                     else
                     {
-                        if (TryMoveFile(root, filePath, reviewDir, reviewFileName, dryRun, out var actualDest))
+                        if (TryMoveFile(root, filePath, reviewDir, reviewFileName, dryRun, overwriteConflicts, out var actualDest))
                         {
                             reviewed++;
                             if (actualDest is not null)
@@ -348,7 +353,8 @@ public sealed class ConsoleSorter
                             members,
                             expectedDir,
                             dryRun,
-                            consoleKey);
+                            consoleKey,
+                            overwriteConflicts);
                         if (setMoveResult.PrimaryMoved)
                         {
                             moved++;
@@ -361,7 +367,7 @@ public sealed class ConsoleSorter
                 else
                 {
                     // Standalone file — no set members
-                    if (TryMoveFile(root, filePath, expectedDir, fileName, dryRun, out var actualDest))
+                    if (TryMoveFile(root, filePath, expectedDir, fileName, dryRun, overwriteConflicts, out var actualDest))
                     {
                         moved++;
                         if (actualDest is not null)
@@ -391,7 +397,8 @@ public sealed class ConsoleSorter
         List<string> members,
         string destDir,
         bool dryRun,
-        string auditReasonTag)
+        string auditReasonTag,
+        bool overwriteConflicts)
     {
         if (dryRun) return (true, members.Count, Array.Empty<PathMutation>());
 
@@ -404,7 +411,7 @@ public sealed class ConsoleSorter
             var primaryDest = ResolveMoveDestination(root, primaryPath, destDir);
             if (primaryDest is null) return (false, 0, Array.Empty<PathMutation>());
             _fs.EnsureDirectory(destDir);
-            var primaryActualDest = _fs.MoveItemSafely(primaryPath, primaryDest);
+            var primaryActualDest = _fs.MoveItemSafely(primaryPath, primaryDest, overwriteConflicts);
             if (primaryActualDest is null)
                 return (false, 0, Array.Empty<PathMutation>());
             completedMoves.Add((primaryPath, primaryActualDest));
@@ -417,7 +424,7 @@ public sealed class ConsoleSorter
                     throw new InvalidOperationException(
                         $"Path traversal blocked for set member: {member}");
 
-                var memberActualDest = _fs.MoveItemSafely(member, memberDest);
+                var memberActualDest = _fs.MoveItemSafely(member, memberDest, overwriteConflicts);
                 if (memberActualDest is null)
                     throw new InvalidOperationException(
                         $"Move failed for set member: {member}");
@@ -470,7 +477,14 @@ public sealed class ConsoleSorter
         return _fs.ResolveChildPathWithinRoot(root, Path.Combine(relativeDest, fileName));
     }
 
-    private bool TryMoveFile(string root, string sourcePath, string destDir, string fileName, bool dryRun, out string? actualDestinationPath)
+    private bool TryMoveFile(
+        string root,
+        string sourcePath,
+        string destDir,
+        string fileName,
+        bool dryRun,
+        bool overwriteConflicts,
+        out string? actualDestinationPath)
     {
         if (dryRun)
         {
@@ -492,7 +506,7 @@ public sealed class ConsoleSorter
             return false; // path traversal blocked
         }
 
-        actualDestinationPath = _fs.MoveItemSafely(sourcePath, destPath);
+        actualDestinationPath = _fs.MoveItemSafely(sourcePath, destPath, overwriteConflicts);
         return actualDestinationPath is not null;
     }
 

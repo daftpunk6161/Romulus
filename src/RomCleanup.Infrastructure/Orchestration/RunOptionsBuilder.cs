@@ -40,6 +40,12 @@ public static class RunOptionsBuilder
         if (reportPathError is not null)
             errors.Add(reportPathError);
 
+        var normalizedRoots = NormalizeAndPruneRoots(options.Roots);
+        ValidateOutputOutsideRoots(options.TrashRoot, "trashRoot", normalizedRoots, errors);
+        ValidateOutputOutsideRoots(options.DatRoot, "datRoot", normalizedRoots, errors);
+        ValidateOutputOutsideRoots(options.AuditPath, "auditPath", normalizedRoots, errors);
+        ValidateOutputOutsideRoots(options.ReportPath, "reportPath", normalizedRoots, errors);
+
         return errors;
     }
 
@@ -72,11 +78,7 @@ public static class RunOptionsBuilder
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        var normalizedRoots = options.Roots
-            .Where(static p => !string.IsNullOrWhiteSpace(p))
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var normalizedRoots = NormalizeAndPruneRoots(options.Roots);
 
         var normalizedExtensions = options.Extensions
             .Where(static e => !string.IsNullOrWhiteSpace(e))
@@ -122,6 +124,64 @@ public static class RunOptionsBuilder
             HashType = string.IsNullOrWhiteSpace(options.HashType) ? "SHA1" : options.HashType,
             DiscBasedConsoles = new HashSet<string>(options.DiscBasedConsoles, StringComparer.OrdinalIgnoreCase)
         };
+    }
+
+    private static string[] NormalizeAndPruneRoots(IEnumerable<string> roots)
+    {
+        var normalizedRoots = roots
+            .Where(static p => !string.IsNullOrWhiteSpace(p))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static p => p.Length)
+            .ThenBy(static p => p, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var prunedRoots = new List<string>(normalizedRoots.Length);
+        foreach (var candidate in normalizedRoots)
+        {
+            if (prunedRoots.Any(existingRoot => IsSameOrNestedPath(candidate, existingRoot)))
+                continue;
+
+            prunedRoots.Add(candidate);
+        }
+
+        return prunedRoots.ToArray();
+    }
+
+    private static void ValidateOutputOutsideRoots(
+        string? outputPath,
+        string label,
+        IReadOnlyList<string> roots,
+        ICollection<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath) || roots.Count == 0)
+            return;
+
+        string normalizedOutput;
+        try
+        {
+            normalizedOutput = Path.GetFullPath(outputPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return;
+        }
+
+        if (roots.Any(root => IsSameOrNestedPath(normalizedOutput, root)))
+            errors.Add($"{label} must not be inside any configured root path.");
+    }
+
+    private static bool IsSameOrNestedPath(string candidatePath, string rootPath)
+    {
+        var candidate = Path.GetFullPath(candidatePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = Path.GetFullPath(rootPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return candidate.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     public static RunOptions WithApproveConversionReview(RunOptions options, bool approveConversionReview)

@@ -1,4 +1,5 @@
 using LiteDB;
+using System.Text;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Infrastructure.Index;
 using Xunit;
@@ -32,6 +33,19 @@ public sealed class LiteDbCollectionIndexTests : IDisposable
         Assert.Equal(DateTimeKind.Utc, metadata.CreatedUtc.Kind);
         Assert.Equal(DateTimeKind.Utc, metadata.UpdatedUtc.Kind);
         Assert.True(metadata.UpdatedUtc >= metadata.CreatedUtc);
+    }
+
+    [Fact]
+    public void NormalizePathForKey_NfdAndNfcProduceSamePath()
+    {
+        var nfdPath = Path.Combine(_tempDir, "U\u0308bung.rom");
+        var nfcPath = Path.Combine(_tempDir, "\u00DCbung.rom");
+
+        var normalizedNfd = LiteDbCollectionIndex.NormalizePathForKey(nfdPath);
+        var normalizedNfc = LiteDbCollectionIndex.NormalizePathForKey(nfcPath);
+
+        Assert.Equal(normalizedNfc, normalizedNfd);
+        Assert.True(normalizedNfd.IsNormalized(NormalizationForm.FormC));
     }
 
     [Fact]

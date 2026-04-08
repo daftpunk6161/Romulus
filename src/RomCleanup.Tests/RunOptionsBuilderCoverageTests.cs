@@ -120,6 +120,40 @@ public sealed class RunOptionsBuilderCoverageTests
         Assert.NotEmpty(errors);
     }
 
+    [Fact]
+    public void Validate_TrashRootInsideRoot_Error()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "RunOptionsBuilderCoverage", Guid.NewGuid().ToString("N"));
+        var trash = Path.Combine(root, "_TRASH");
+        var opts = new RunOptions
+        {
+            Roots = [root],
+            TrashRoot = trash
+        };
+
+        var errors = RunOptionsBuilder.Validate(opts);
+
+        Assert.Contains(errors, e => e.Contains("trashRoot", StringComparison.OrdinalIgnoreCase)
+            && e.Contains("inside", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Validate_AuditPathInsideRoot_Error()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "RunOptionsBuilderCoverage", Guid.NewGuid().ToString("N"));
+        var auditPath = Path.Combine(root, "audit", "audit.csv");
+        var opts = new RunOptions
+        {
+            Roots = [root],
+            AuditPath = auditPath
+        };
+
+        var errors = RunOptionsBuilder.Validate(opts);
+
+        Assert.Contains(errors, e => e.Contains("auditPath", StringComparison.OrdinalIgnoreCase)
+            && e.Contains("inside", StringComparison.OrdinalIgnoreCase));
+    }
+
     // ═══ Normalize ═══════════════════════════════════════════════════
 
     [Fact]
@@ -187,6 +221,23 @@ public sealed class RunOptionsBuilderCoverageTests
         };
         var result = RunOptionsBuilder.Normalize(opts);
         Assert.Equal(2, result.Roots.Count);
+    }
+
+    [Fact]
+    public void Normalize_OverlappingRoots_ChildRootIsRemoved()
+    {
+        var parent = Path.Combine(Path.GetTempPath(), "RunOptionsBuilderCoverage", "roots", Guid.NewGuid().ToString("N"));
+        var child = Path.Combine(parent, "SNES");
+
+        var opts = new RunOptions
+        {
+            Roots = [child, parent]
+        };
+
+        var result = RunOptionsBuilder.Normalize(opts);
+
+        Assert.Single(result.Roots);
+        Assert.Equal(Path.GetFullPath(parent), result.Roots[0], ignoreCase: true);
     }
 
     [Fact]

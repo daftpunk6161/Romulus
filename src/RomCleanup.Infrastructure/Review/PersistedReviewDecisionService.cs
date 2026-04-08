@@ -42,9 +42,24 @@ public sealed class PersistedReviewDecisionService : IDisposable
             if (approvals.Count == 0)
                 return candidates;
 
-            var approvedPaths = approvals
-                .Select(static approval => approval.Path)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var approvedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var staleCount = 0;
+            foreach (var approval in approvals)
+            {
+                if (IsApprovalStale(approval))
+                {
+                    staleCount++;
+                    continue;
+                }
+
+                approvedPaths.Add(approval.Path);
+            }
+
+            if (staleCount > 0)
+                _onWarning?.Invoke($"[ReviewStore] Ignored {staleCount} stale approval(s) due to file changes.");
+
+            if (approvedPaths.Count == 0)
+                return candidates;
 
             var changed = false;
             var updated = new RomCandidate[candidates.Count];
@@ -97,7 +112,8 @@ public sealed class PersistedReviewDecisionService : IDisposable
                     MatchLevel = candidate.MatchEvidence.Level,
                     MatchReasoning = candidate.MatchEvidence.Reasoning ?? string.Empty,
                     Source = source,
-                    ApprovedUtc = nowUtc
+                    ApprovedUtc = nowUtc,
+                    FileLastWriteUtcTicks = TryGetLastWriteUtcTicks(candidate.MainPath)
                 })
                 .ToArray();
 
@@ -127,6 +143,7 @@ public sealed class PersistedReviewDecisionService : IDisposable
         {
             var approvals = await _store.ListApprovalsAsync(paths, ct).ConfigureAwait(false);
             return approvals
+                .Where(static approval => !IsApprovalStale(approval))
                 .Select(static approval => approval.Path)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
@@ -145,5 +162,39 @@ public sealed class PersistedReviewDecisionService : IDisposable
         _disposed = true;
         if (_store is IDisposable disposableStore)
             disposableStore.Dispose();
+    }
+
+    private static bool IsApprovalStale(ReviewApprovalEntry approval)
+    {
+        if (!approval.FileLastWriteUtcTicks.HasValue)
+            return false;
+
+        try
+        {
+            if (!File.Exists(approval.Path))
+                return true;
+
+            var currentTicks = File.GetLastWriteTimeUtc(approval.Path).Ticks;
+            return currentTicks != approval.FileLastWriteUtcTicks.Value;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    private static long? TryGetLastWriteUtcTicks(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+                return null;
+
+            return File.GetLastWriteTimeUtc(path).Ticks;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 }

@@ -29,6 +29,7 @@ public sealed partial class MainViewModel
         nameof(UseDat),
         nameof(EnableDatRename),
         nameof(ApproveReviews),
+        nameof(ApproveConversionReview),
         nameof(DatRoot),
         nameof(DatHashType),
         nameof(ConvertEnabled),
@@ -732,6 +733,8 @@ public sealed partial class MainViewModel
             try { _cts?.Cancel(); } catch (ObjectDisposedException) { }
         }
         CurrentRunState = RunState.Cancelled;
+        Progress = 0;
+        ProgressText = string.Empty;
         BusyHint = _loc["Progress.BusyHint.CancelRequested"];
         ShowMoveCompleteBanner = false;
         SetRunSummary(_loc["Result.Summary.Cancelled"], UiErrorSeverity.Warning);
@@ -1615,6 +1618,7 @@ public sealed partial class MainViewModel
         builder.Append("useDat=").Append(UseDat).Append('|');
         builder.Append("enableDatRename=").Append(EnableDatRename).Append('|');
         builder.Append("approveReviews=").Append(ApproveReviews).Append('|');
+        builder.Append("approveConversionReview=").Append(ApproveConversionReview).Append('|');
         builder.Append("datRoot=").Append(DatRoot).Append('|');
         builder.Append("datHashType=").Append(DatHashType).Append('|');
         builder.Append("convertEnabled=").Append(ConvertEnabled).Append('|');

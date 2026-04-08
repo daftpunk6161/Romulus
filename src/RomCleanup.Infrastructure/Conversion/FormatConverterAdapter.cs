@@ -509,6 +509,38 @@ public sealed class FormatConverterAdapter : IFormatConverter
         };
     }
 
+    public IReadOnlyList<string> GetMissingToolsForFormat(string? convertFormat)
+    {
+        var requiredTools = DetermineRequiredToolsForFormat(convertFormat);
+        if (requiredTools.Count == 0)
+            return Array.Empty<string>();
+
+        var missing = new List<string>(requiredTools.Count);
+        foreach (var tool in requiredTools)
+        {
+            if (string.IsNullOrWhiteSpace(_tools.FindTool(tool)))
+                missing.Add(tool);
+        }
+
+        return missing;
+    }
+
+    private static IReadOnlyList<string> DetermineRequiredToolsForFormat(string? convertFormat)
+    {
+        if (string.IsNullOrWhiteSpace(convertFormat))
+            return Array.Empty<string>();
+
+        return convertFormat.Trim().ToLowerInvariant() switch
+        {
+            "chd" => ["chdman"],
+            "rvz" => ["dolphintool"],
+            "zip" => ["7z"],
+            "7z" => ["7z"],
+            "auto" => ["chdman", "dolphintool", "7z"],
+            _ => Array.Empty<string>()
+        };
+    }
+
     private static bool IsSupportedSourceForTarget(string sourceExt, ConversionTarget target)
     {
         if (string.IsNullOrWhiteSpace(sourceExt))

@@ -70,6 +70,34 @@ public sealed class PersistedReviewDecisionServiceTests : IDisposable
         Assert.Contains(Path.GetFullPath(secondPath), approvedPaths);
     }
 
+    [Fact]
+    public async Task ApplyApprovalsAsync_FileChangedAfterApproval_DoesNotPromoteCandidate()
+    {
+        var warningMessages = new List<string>();
+        using var service = new PersistedReviewDecisionService(
+            new LiteDbReviewDecisionStore(_databasePath),
+            onWarning: warningMessages.Add);
+
+        var stalePath = Path.Combine(_tempDir, "stale.bin");
+        File.WriteAllText(stalePath, "v1");
+
+        await service.PersistApprovalsAsync(
+        [
+            CreateCandidate(stalePath, SortDecision.Review)
+        ], "test");
+
+        File.WriteAllText(stalePath, "v2");
+        File.SetLastWriteTimeUtc(stalePath, DateTime.UtcNow.AddMinutes(1));
+
+        var updated = await service.ApplyApprovalsAsync(
+        [
+            CreateCandidate(stalePath, SortDecision.Review)
+        ]);
+
+        Assert.Equal(SortDecision.Review, updated[0].SortDecision);
+        Assert.Contains(warningMessages, message => message.Contains("stale", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static RomCandidate CreateCandidate(string path, SortDecision sortDecision, string consoleKey = "UNKNOWN")
         => new()
         {

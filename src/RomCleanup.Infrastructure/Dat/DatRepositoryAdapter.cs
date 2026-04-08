@@ -169,6 +169,8 @@ public sealed class DatRepositoryAdapter
         string datPath, string hashType, XmlReaderSettings settings)
     {
         var games = new Dictionary<string, List<Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+        var requestedHashType = NormalizeHashType(hashType);
+        var fallbackWarningEmitted = false;
 
         // P2-DAT-04: Reject excessively large DAT files to prevent unbounded memory growth
         try
@@ -236,7 +238,8 @@ public sealed class DatRepositoryAdapter
                             var romName = reader.GetAttribute("name");
                             if (romName is not null) rom["name"] = romName;
 
-                            var hash = hashType.ToUpperInvariant() switch
+                            var selectedHashType = requestedHashType;
+                            var hash = requestedHashType switch
                             {
                                 "SHA256" => reader.GetAttribute("sha256"),
                                 "MD5" => reader.GetAttribute("md5"),
@@ -246,12 +249,31 @@ public sealed class DatRepositoryAdapter
 
                             // Fallback chain: if the preferred hash is absent, try alternatives.
                             // Many DATs (MAME, FBNeo) only carry CRC32; No-Intro has all four.
-                            if (hash is null && hashType.ToUpperInvariant() is not ("CRC" or "CRC32"))
+                            if (hash is null && requestedHashType is not ("CRC" or "CRC32"))
+                            {
                                 hash = reader.GetAttribute("md5");
-                            if (hash is null && hashType.ToUpperInvariant() is not ("CRC" or "CRC32"))
-                                hash = reader.GetAttribute("crc");
+                                if (hash is not null)
+                                    selectedHashType = "MD5";
+                            }
 
-                            if (hash is not null) rom["hash"] = hash;
+                            if (hash is null && requestedHashType is not ("CRC" or "CRC32"))
+                            {
+                                hash = reader.GetAttribute("crc");
+                                if (hash is not null)
+                                    selectedHashType = "CRC";
+                            }
+
+                            if (hash is not null)
+                            {
+                                rom["hash"] = hash;
+                                if (!fallbackWarningEmitted
+                                    && !string.Equals(selectedHashType, requestedHashType, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    _log?.Invoke(
+                                        $"[Warning] DAT '{datPath}' lacks requested hash type '{requestedHashType}' for one or more entries. Using '{selectedHashType}' fallback; verify HashType alignment.");
+                                    fallbackWarningEmitted = true;
+                                }
+                            }
 
                             var size = reader.GetAttribute("size");
                             if (size is not null) rom["size"] = size;
@@ -281,6 +303,21 @@ public sealed class DatRepositoryAdapter
         }
 
         return games;
+    }
+
+    private static string NormalizeHashType(string hashType)
+    {
+        if (string.IsNullOrWhiteSpace(hashType))
+            return "SHA1";
+
+        return hashType.Trim().ToUpperInvariant() switch
+        {
+            "CRC32" => "CRC32",
+            "CRC" => "CRC",
+            "MD5" => "MD5",
+            "SHA256" => "SHA256",
+            _ => "SHA1"
+        };
     }
 
     private static bool IsDatGameElement(string localName)

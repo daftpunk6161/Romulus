@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text;
+using System.Security.Cryptography;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Errors;
 using RomCleanup.Contracts.Models;
@@ -26,7 +27,7 @@ namespace RomCleanup.CLI;
 /// Headless CLI entry point for ROM Cleanup.
 /// Thin adapter wiring CliArgsParser → CliOptionsMapper → RunEnvironmentBuilder → RunOrchestrator → CliOutputWriter.
 /// ADR-008.
-/// Exit codes: 0=Success, 1=Error, 2=Cancelled, 3=Preflight failed.
+/// Exit codes: 0=Success, 1=Error, 2=Cancelled, 3=Preflight failed, 4=Completed with errors.
 /// </summary>
 internal static class Program
 {
@@ -172,6 +173,13 @@ internal static class Program
             return 3;
         }
 
+        using var runExecutionLease = TryAcquireRunExecutionLease(cliOpts);
+        if (runExecutionLease is null)
+        {
+            SafeErrorWriteLine("[Blocked] Another CLI run is already active for the selected roots.");
+            return 3;
+        }
+
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(externalCancellationToken);
         ConsoleCancelEventHandler? cancelHandler = null;
         var cancelCount = 0;
@@ -295,13 +303,7 @@ internal static class Program
                     JsonlLogRotation.Rotate(cliOpts.LogPath);
             }
 
-            return result.ExitCode switch
-            {
-                0 => 0,
-                2 => 2,
-                3 => 3,
-                _ => 1
-            };
+            return NormalizeProcessExitCode(result.ExitCode);
         }
         finally
         {
@@ -1403,6 +1405,33 @@ internal static class Program
         }
     }
 
+    internal static string BuildRunMutexName(IReadOnlyList<string> roots)
+    {
+        var normalizedRoots = roots
+            .Where(static root => !string.IsNullOrWhiteSpace(root))
+            .Select(NormalizeRootForMutexScope)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static root => root, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var scope = normalizedRoots.Length == 0
+            ? "global"
+            : string.Join("|", normalizedRoots);
+
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope)));
+        return $"Global\\RomCleanup.Cli.Run.{hash[..32]}";
+    }
+
+    internal static int NormalizeProcessExitCode(int rawExitCode)
+        => rawExitCode switch
+        {
+            0 => 0,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            _ => 1
+        };
+
     private static TextWriter GetStdout()
         => ConsoleOverrideEnabled.Value ? (StdoutOverride.Value ?? Console.Out) : Console.Out;
 
@@ -1465,6 +1494,60 @@ internal static class Program
             return false;
 
         return Console.IsInputRedirected || !Environment.UserInteractive;
+    }
+
+    private static IDisposable? TryAcquireRunExecutionLease(CliRunOptions cliOpts)
+    {
+        var mutexName = BuildRunMutexName(cliOpts.Roots);
+
+        try
+        {
+            var mutex = new Mutex(initiallyOwned: true, mutexName, out var createdNew);
+            if (!createdNew)
+            {
+                mutex.Dispose();
+                return null;
+            }
+
+            return new RunExecutionMutexLease(mutex);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeRootForMutexScope(string root)
+        => Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .ToUpperInvariant();
+
+    private sealed class RunExecutionMutexLease : IDisposable
+    {
+        private Mutex? _mutex;
+
+        public RunExecutionMutexLease(Mutex mutex)
+            => _mutex = mutex;
+
+        public void Dispose()
+        {
+            var mutex = Interlocked.Exchange(ref _mutex, null);
+            if (mutex is null)
+                return;
+
+            try
+            {
+                mutex.ReleaseMutex();
+            }
+            catch (ApplicationException)
+            {
+                // Mutex ownership may already be lost on process shutdown/cancel paths.
+            }
+            finally
+            {
+                mutex.Dispose();
+            }
+        }
     }
 
 }

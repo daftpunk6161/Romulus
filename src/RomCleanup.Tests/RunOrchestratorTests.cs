@@ -108,7 +108,7 @@ public class RunOrchestratorTests : IDisposable
     [Fact]
     public void Preflight_AuditPath_WritableDir_Succeeds()
     {
-        var auditDir = Path.Combine(_tempDir, "audit");
+        var auditDir = Path.Combine(Path.GetTempPath(), "RunOrchAudit", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(auditDir);
         var orch = BuildOrchestrator();
         var options = new RunOptions
@@ -145,6 +145,28 @@ public class RunOrchestratorTests : IDisposable
 
         Assert.Equal("blocked", result.Status);
         Assert.Contains("trashRoot", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Preflight_ConvertFormatWithMissingTools_ReturnsBlocked()
+    {
+        var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var converter = new MissingToolsConverter(["chdman"]);
+        var orch = new RunOrchestrator(fs, audit, converter: converter);
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            ConvertFormat = "chd"
+        };
+
+        var result = orch.Preflight(options);
+
+        Assert.Equal("blocked", result.Status);
+        Assert.Contains("chdman", result.Reason, StringComparison.OrdinalIgnoreCase);
     }
 
     // ── Execute Tests ─────────────────────────────────────────────
@@ -376,7 +398,7 @@ public class RunOrchestratorTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var audit = new FakeAuditStore();
         var orch = new RunOrchestrator(fs, audit);
-        var reportPath = Path.Combine(_tempDir, "reports", "result.html");
+        var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReports", Guid.NewGuid().ToString("N"), "result.html");
 
         var options = new RunOptions
         {
@@ -421,7 +443,8 @@ public class RunOrchestratorTests : IDisposable
     {
         CreateFile("Game (USA).zip", 100);
 
-        var blocker = Path.Combine(_tempDir, "reports-blocker");
+        var blocker = Path.Combine(Path.GetTempPath(), "RunOrchReportsBlocker", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.GetDirectoryName(blocker)!);
         File.WriteAllText(blocker, "not a directory");
         var primaryReportPath = Path.Combine(blocker, "result.html");
 
@@ -457,7 +480,7 @@ public class RunOrchestratorTests : IDisposable
         var fs = new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter();
         var audit = new FakeAuditStore();
         var orch = new RunOrchestrator(fs, audit, converter: new FakeFormatConverter());
-        var reportPath = Path.Combine(_tempDir, "reports", "convert-only.html");
+        var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReports", Guid.NewGuid().ToString("N"), "convert-only.html");
 
         var options = new RunOptions
         {
@@ -484,7 +507,7 @@ public class RunOrchestratorTests : IDisposable
     [Fact]
     public void Execute_MoveMode_TrashRoot_UsesCustomTrash()
     {
-        var trashDir = Path.Combine(_tempDir, "custom_trash");
+        var trashDir = Path.Combine(Path.GetTempPath(), "RunOrchTrash", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(trashDir);
 
         CreateFile("Game (USA).zip", 100);
@@ -517,8 +540,10 @@ public class RunOrchestratorTests : IDisposable
     [Fact]
     public void Execute_MoveMode_WritesRollbackRootMetadata_ToAuditSidecar()
     {
-        var trashDir = Path.Combine(_tempDir, "external_trash");
+        var trashDir = Path.Combine(Path.GetTempPath(), "RunOrchTrash", Guid.NewGuid().ToString("N"));
+        var auditDir = Path.Combine(Path.GetTempPath(), "RunOrchAudit", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(trashDir);
+        Directory.CreateDirectory(auditDir);
 
         CreateFile("Game (USA).zip", 100);
         CreateFile("Game (Europe).zip", 100);
@@ -534,8 +559,10 @@ public class RunOrchestratorTests : IDisposable
             Mode = "Move",
             PreferRegions = new[] { "USA" },
             TrashRoot = trashDir,
-            AuditPath = Path.Combine(_tempDir, "audit.csv")
+            AuditPath = Path.Combine(auditDir, "audit.csv")
         };
+
+        File.WriteAllText(options.AuditPath, "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n");
 
         var result = orch.Execute(options);
 
@@ -828,7 +855,8 @@ public class RunOrchestratorTests : IDisposable
     public void Execute_ConvertOnly_Success_WritesVerifiedAuditSidecar()
     {
         CreateFile("Convert Me.zip", 128);
-        var auditPath = Path.Combine(_tempDir, "convert-only-audit.csv");
+        var auditPath = Path.Combine(Path.GetTempPath(), "RunOrchAudit", Guid.NewGuid().ToString("N"), "convert-only-audit.csv");
+        Directory.CreateDirectory(Path.GetDirectoryName(auditPath)!);
         var audit = new RomCleanup.Infrastructure.Audit.AuditCsvStore();
         var orchestrator = new RunOrchestrator(
             new RomCleanup.Infrastructure.FileSystem.FileSystemAdapter(),
@@ -1280,6 +1308,19 @@ public class RunOrchestratorTests : IDisposable
             => _verificationOk;
     }
 
+    private sealed class MissingToolsConverter(IReadOnlyList<string> missingTools) : IFormatConverter
+    {
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension) => null;
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
+            => new(sourcePath, sourcePath, ConversionOutcome.Skipped);
+
+        public bool Verify(string targetPath, ConversionTarget target) => true;
+
+        public IReadOnlyList<string> GetMissingToolsForFormat(string? convertFormat)
+            => missingTools;
+    }
+
     [Fact]
     public void Execute_Phase6_SkipsJunkRemovedGroups()
     {
@@ -1341,6 +1382,7 @@ public class RunOrchestratorTests : IDisposable
 
         Assert.Equal("ok", okResult.Status);
         Assert.Equal("completed_with_errors", failResult.Status);
+        Assert.Equal(4, failResult.ExitCode);
         Assert.True(failResult.ConvertVerifyFailedCount > 0);
         Assert.True(failProjection.FailCount > okProjection.FailCount);
         Assert.True(failProjection.HealthScore < okProjection.HealthScore);

@@ -23,4 +23,11 @@ public interface IFormatConverter
     /// Verify a converted file using the appropriate tool.
     /// </summary>
     bool Verify(string targetPath, ConversionTarget target);
+
+    /// <summary>
+    /// Returns missing tool names for a requested conversion format before execution starts.
+    /// Default implementation returns no missing tools to keep backward compatibility.
+    /// </summary>
+    IReadOnlyList<string> GetMissingToolsForFormat(string? convertFormat)
+        => Array.Empty<string>();
 }

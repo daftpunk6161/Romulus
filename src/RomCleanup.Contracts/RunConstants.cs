@@ -94,7 +94,9 @@ public static class RunConstants
         public const string ConsoleSort = "CONSOLE_SORT";
         public const string Convert = "CONVERT";
         public const string ConvertSource = "CONVERT_SOURCE";
+        public const string DatRenamePending = "DAT_RENAME_PENDING";
         public const string DatRename = "DAT_RENAME";
+        public const string DatRenameFailed = "DAT_RENAME_FAILED";
     }
 
     // ── Well-known folder names ─────────────────────────────────────

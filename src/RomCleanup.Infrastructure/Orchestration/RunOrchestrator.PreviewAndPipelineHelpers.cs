@@ -78,7 +78,7 @@ public sealed partial class RunOrchestrator
             runOutcome = RunOutcome.CompletedWithErrors;
 
         result.Status = runOutcome.ToStatusString();
-        result.ExitCode = runOutcome == RunOutcome.Ok ? 0 : 1;
+        result.ExitCode = runOutcome.ToExitCode();
 
         try
         {
@@ -91,7 +91,7 @@ public sealed partial class RunOrchestrator
             if (runOutcome == RunOutcome.Ok)
             {
                 result.Status = RunOutcome.CompletedWithErrors.ToStatusString();
-                result.ExitCode = 1;
+                result.ExitCode = RunOutcome.CompletedWithErrors.ToExitCode();
             }
         }
 

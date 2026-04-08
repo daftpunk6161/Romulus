@@ -47,13 +47,14 @@ builder.Services.AddOpenApi(OpenApiSpec.DocumentName, OpenApiSpec.Configure);
 var app = builder.Build();
 
 // --- Middleware ---
-var apiKey = configuredApiKey;
-if (string.IsNullOrEmpty(apiKey))
+var apiKeys = ParseApiKeys(configuredApiKey);
+if (apiKeys.Count == 0)
 {
     if (app.Environment.IsDevelopment() && !headlessOptions.AllowRemoteClients)
     {
-        apiKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
-        Console.WriteLine($"[Dev] Generated API key: {apiKey}");
+        var generatedApiKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        apiKeys = [generatedApiKey];
+        Console.WriteLine($"[Dev] Generated API key: {generatedApiKey}");
     }
     else
     {
@@ -143,18 +144,20 @@ app.Use(async (ctx, next) =>
     var clientBindingId = SanitizeClientBindingId(rawClientId) ?? clientIp;
     ctx.Items["ClientBindingId"] = clientBindingId;
 
-    if (!rateLimiter.TryAcquire(clientIp))
+    // API key validation (fixed-time comparison)
+    var providedKey = ctx.Request.Headers["X-Api-Key"].FirstOrDefault();
+    if (!FixedTimeEqualsAny(apiKeys, providedKey))
     {
-        ctx.Response.Headers["Retry-After"] = Math.Max(1, (int)Math.Ceiling(rateLimitWindow.TotalSeconds)).ToString();
-        await WriteApiError(ctx, 429, "RUN-RATE-LIMIT", "Too many requests.", ErrorKind.Transient);
+        await WriteApiError(ctx, 401, "AUTH-UNAUTHORIZED", "Unauthorized", ErrorKind.Critical);
         return;
     }
 
-    // API key validation (fixed-time comparison)
-    var providedKey = ctx.Request.Headers["X-Api-Key"].FirstOrDefault();
-    if (!FixedTimeEquals(apiKey, providedKey))
+    var rateLimitBucket = BuildRateLimitBucketId(providedKey!);
+
+    if (!rateLimiter.TryAcquire(rateLimitBucket))
     {
-        await WriteApiError(ctx, 401, "AUTH-UNAUTHORIZED", "Unauthorized", ErrorKind.Critical);
+        ctx.Response.Headers["Retry-After"] = Math.Max(1, (int)Math.Ceiling(rateLimitWindow.TotalSeconds)).ToString();
+        await WriteApiError(ctx, 429, "RUN-RATE-LIMIT", "Too many requests.", ErrorKind.Transient);
         return;
     }
 
@@ -1966,6 +1969,37 @@ static bool FixedTimeEquals(string expected, string? actual)
     var a = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(expected));
     var b = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(actual));
     return CryptographicOperations.FixedTimeEquals(a, b);
+}
+
+static bool FixedTimeEqualsAny(IReadOnlyList<string> expectedKeys, string? actual)
+{
+    if (actual is null || expectedKeys.Count == 0)
+        return false;
+
+    var matched = false;
+    foreach (var key in expectedKeys)
+        matched |= FixedTimeEquals(key, actual);
+
+    return matched;
+}
+
+static List<string> ParseApiKeys(string? configuredValue)
+{
+    if (string.IsNullOrWhiteSpace(configuredValue))
+        return [];
+
+    return configuredValue
+        .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
+        .Select(static key => key.Trim())
+        .Where(static key => !string.IsNullOrWhiteSpace(key))
+        .Distinct(StringComparer.Ordinal)
+        .ToList();
+}
+
+static string BuildRateLimitBucketId(string apiKey)
+{
+    var hash = SHA256.HashData(Encoding.UTF8.GetBytes(apiKey));
+    return "api-key:" + Convert.ToHexString(hash.AsSpan(0, 8));
 }
 
 static void SafeConsoleWriteLine(string message)

@@ -32,6 +32,20 @@ public interface IFileSystem
         return Array.Empty<string>();
     }
     string? MoveItemSafely(string sourcePath, string destinationPath);
+
+    string? MoveItemSafely(string sourcePath, string destinationPath, bool overwrite)
+    {
+        // Default contract behavior preserves historical rename-on-conflict semantics.
+        return MoveItemSafely(sourcePath, destinationPath);
+    }
+
+    long? GetAvailableFreeSpace(string path)
+    {
+        // Contract-level default intentionally performs no direct I/O.
+        // Implementations with real filesystem access should override this method.
+        return null;
+    }
+
     /// <summary>
     /// SEC-MOVE-04: Move with explicit root containment validation.
     /// Returns null if destination is outside allowedRoot.

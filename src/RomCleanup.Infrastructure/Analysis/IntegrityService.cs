@@ -108,7 +108,9 @@ public static class IntegrityService
                 baseline[relPath] = new IntegrityEntry(hash, fi.Length, fi.LastWriteTimeUtc);
             });
 
-        var entries = new Dictionary<string, IntegrityEntry>(baseline, StringComparer.OrdinalIgnoreCase);
+        var entries = baseline
+            .OrderBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         var wrapper = new IntegrityBaseline(commonRoot, entries);
         Directory.CreateDirectory(Path.GetDirectoryName(BaselinePath)!);
         File.WriteAllText(BaselinePath, JsonSerializer.Serialize(wrapper, new JsonSerializerOptions { WriteIndented = true }));

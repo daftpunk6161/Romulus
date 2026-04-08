@@ -156,6 +156,28 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
+    public async Task RateLimit_DifferentApiKeys_SameClient_HaveIndependentBuckets()
+    {
+        using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["ApiKey"] = "integration-test-key;integration-test-key-2",
+            ["RateLimitRequests"] = "1",
+            ["RateLimitWindowSeconds"] = "60"
+        });
+
+        using var firstClient = CreateClientWithApiKey(factory, "integration-test-key");
+        using var secondClient = CreateClientWithApiKey(factory, "integration-test-key-2");
+
+        var firstKeyFirstRequest = await firstClient.GetAsync("/health");
+        var secondKeyFirstRequest = await secondClient.GetAsync("/health");
+        var firstKeySecondRequest = await firstClient.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.OK, firstKeyFirstRequest.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondKeyFirstRequest.StatusCode);
+        Assert.Equal((HttpStatusCode)429, firstKeySecondRequest.StatusCode);
+    }
+
+    [Fact]
     public async Task RateLimit_TrustForwardedForFalse_IgnoresHeaderValue()
     {
         using var factory = CreateFactory(new Dictionary<string, string?>
@@ -1134,9 +1156,12 @@ public sealed class ApiIntegrationTests
     }
 
     private static HttpClient CreateClientWithApiKey(WebApplicationFactory<Program> factory)
+        => CreateClientWithApiKey(factory, ApiKey);
+
+    private static HttpClient CreateClientWithApiKey(WebApplicationFactory<Program> factory, string apiKey)
     {
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         return client;
     }
@@ -1242,7 +1267,7 @@ public sealed class ApiIntegrationTests
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("not allowed", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RUN-INVALID-CONFIG", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1389,6 +1414,7 @@ public sealed class ApiIntegrationTests
         using var client = CreateClientWithApiKey(factory);
 
         var root = CreateTempRoot();
+        var trashRoot = Path.Combine(Path.GetTempPath(), "RomCleanup_ApiTrash_" + Guid.NewGuid().ToString("N"));
         try
         {
             File.WriteAllText(Path.Combine(root, "MegaGame (Europe).zip"), "eu");
@@ -1399,7 +1425,7 @@ public sealed class ApiIntegrationTests
                 roots = new[] { root },
                 mode = "Move",
                 removeJunk = false,
-                trashRoot = root,
+                trashRoot,
                 preferRegions = new[] { "US", "EU" }
             });
 
@@ -1423,6 +1449,7 @@ public sealed class ApiIntegrationTests
         finally
         {
             SafeDeleteDirectory(root);
+            SafeDeleteDirectory(trashRoot);
         }
     }
 
@@ -1433,6 +1460,7 @@ public sealed class ApiIntegrationTests
         using var client = CreateClientWithApiKey(factory);
 
         var root = CreateTempRoot();
+        var trashRoot = Path.Combine(Path.GetTempPath(), "RomCleanup_ApiTrash_" + Guid.NewGuid().ToString("N"));
         try
         {
             File.WriteAllText(Path.Combine(root, "MegaGame (Europe).zip"), "eu");
@@ -1443,7 +1471,7 @@ public sealed class ApiIntegrationTests
                 roots = new[] { root },
                 mode = "Move",
                 removeJunk = false,
-                trashRoot = root,
+                trashRoot,
                 preferRegions = new[] { "US", "EU" }
             });
 
@@ -1451,7 +1479,7 @@ public sealed class ApiIntegrationTests
             var response = await client.PostAsync("/runs?wait=true", content);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-            var trashDir = Path.Combine(root, "_TRASH_REGION_DEDUPE");
+            var trashDir = Path.Combine(trashRoot, "_TRASH_REGION_DEDUPE");
             Assert.True(Directory.Exists(trashDir));
             var moved = Directory.GetFiles(trashDir);
             Assert.NotEmpty(moved);
@@ -1459,6 +1487,7 @@ public sealed class ApiIntegrationTests
         finally
         {
             SafeDeleteDirectory(root);
+            SafeDeleteDirectory(trashRoot);
         }
     }
 

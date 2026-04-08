@@ -1,4 +1,5 @@
 using LiteDB;
+using System.Text;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
@@ -511,8 +512,11 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path must not be empty.", nameof(path));
 
-        return Path.GetFullPath(path);
+        return NormalizePathForKey(path);
     }
+
+    internal static string NormalizePathForKey(string path)
+        => Path.GetFullPath(path).Normalize(NormalizationForm.FormC);
 
     private static string NormalizeRootPrefix(string root)
     {

@@ -137,6 +137,38 @@ public class RunManagerTests
     }
 
     [Fact]
+    public async Task Cancel_WhenCancellationSourceAlreadyDisposed_ReturnsNoOpWithoutThrow()
+    {
+        using var runStarted = new ManualResetEventSlim(false);
+        using var allowCompletion = new ManualResetEventSlim(false);
+
+        var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
+        {
+            runStarted.Set();
+            allowCompletion.Wait(TimeSpan.FromSeconds(5));
+            return new RunExecutionOutcome(ApiRunStatus.Completed, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            });
+        });
+
+        var run = mgr.TryCreate(new RunRequest { Roots = new[] { GetTestRoot() }, Mode = "DryRun" }, "DryRun");
+        Assert.NotNull(run);
+        Assert.True(runStarted.Wait(TimeSpan.FromSeconds(2)));
+
+        run!.CancellationSource.Dispose();
+
+        var cancelResult = mgr.Cancel(run.RunId);
+        Assert.Equal(RunCancelDisposition.NoOp, cancelResult.Disposition);
+
+        allowCompletion.Set();
+
+        var completion = await mgr.WaitForCompletion(run.RunId, 25, TimeSpan.FromSeconds(5));
+        Assert.Equal(RunWaitDisposition.Completed, completion.Disposition);
+    }
+
+    [Fact]
     public void RunRecord_ReviewApprovalMethods_AreConsistent()
     {
         var run = new RunRecord

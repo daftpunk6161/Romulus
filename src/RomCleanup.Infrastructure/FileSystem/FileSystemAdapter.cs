@@ -148,6 +148,9 @@ public sealed class FileSystemAdapter : IFileSystem
     }
 
     public string? MoveItemSafely(string sourcePath, string destinationPath)
+        => MoveItemSafely(sourcePath, destinationPath, overwrite: false);
+
+    public string? MoveItemSafely(string sourcePath, string destinationPath, bool overwrite)
     {
         if (string.IsNullOrWhiteSpace(sourcePath))
             throw new ArgumentException("Source path must not be empty.", nameof(sourcePath));
@@ -185,20 +188,18 @@ public sealed class FileSystemAdapter : IFileSystem
         var destDir = Path.GetDirectoryName(fullDest);
         if (!string.IsNullOrEmpty(destDir))
         {
-            // Block reparse points on destination parent
-            if (Directory.Exists(destDir))
-            {
-                var destDirInfo = new DirectoryInfo(destDir);
-                if ((destDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-                    throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
-            }
+            // F27: validate the full destination ancestry, not only the immediate parent.
+            var root = Path.GetPathRoot(fullDest) ?? destDir;
+            if (HasReparsePointInAncestry(fullDest, root))
+                throw new InvalidOperationException("Blocked: Destination path targets a reparse-point directory.");
+
             Directory.CreateDirectory(destDir);
         }
 
         // SEC-IO-01: Catch locked-file/IO errors gracefully → return null
         try
         {
-            return MoveItemSafelyCore(fullSource, fullDest);
+            return MoveItemSafelyCore(fullSource, fullDest, overwrite);
         }
         catch (IOException) when (File.Exists(fullSource))
         {
@@ -224,7 +225,7 @@ public sealed class FileSystemAdapter : IFileSystem
         if (!normalizedDest.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        return MoveItemSafely(sourcePath, destinationPath);
+        return MoveItemSafely(sourcePath, destinationPath, overwrite: false);
     }
 
     public string? RenameItemSafely(string sourcePath, string newFileName)
@@ -265,7 +266,7 @@ public sealed class FileSystemAdapter : IFileSystem
 
         try
         {
-            return MoveItemSafelyCore(fullSource, fullTarget);
+            return MoveItemSafelyCore(fullSource, fullTarget, overwrite: false);
         }
         catch (IOException) when (File.Exists(fullSource))
         {
@@ -277,8 +278,14 @@ public sealed class FileSystemAdapter : IFileSystem
     /// <summary>
     /// Core move logic with collision handling. Separated for IOException catch scope.
     /// </summary>
-    private static string MoveItemSafelyCore(string fullSource, string fullDest)
+    private static string MoveItemSafelyCore(string fullSource, string fullDest, bool overwrite)
     {
+        if (overwrite)
+        {
+            File.Move(fullSource, fullDest, overwrite: true);
+            return fullDest;
+        }
+
         // Collision handling with __DUP suffix (V2-H07: try/catch eliminates TOCTOU)
         var finalDest = fullDest;
         if (File.Exists(finalDest))
@@ -342,6 +349,27 @@ public sealed class FileSystemAdapter : IFileSystem
         }
 
         return finalDest;
+    }
+
+    public long? GetAvailableFreeSpace(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return null;
+
+            var fullPath = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrWhiteSpace(root))
+                return null;
+
+            var drive = new DriveInfo(root);
+            return drive.AvailableFreeSpace;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     public bool MoveDirectorySafely(string sourcePath, string destinationPath)

@@ -149,6 +149,9 @@ public sealed partial class MainViewModel
     private bool _approveReviews;
 
     [ObservableProperty]
+    private bool _approveConversionReview;
+
+    [ObservableProperty]
     private bool _crcVerifyScan;
 
     [ObservableProperty]

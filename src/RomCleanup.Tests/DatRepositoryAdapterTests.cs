@@ -294,6 +294,31 @@ public class DatRepositoryAdapterTests : IDisposable
         Assert.Equal("mslug5", index.Lookup("ARCADE", "4352ce78"));
     }
 
+        [Fact]
+        public void GetDatIndex_PreferredHashMissing_EmitsFallbackWarning()
+        {
+                var datContent = @"<?xml version=""1.0""?>
+<datafile>
+    <game name=""FallbackGame"">
+        <rom name=""fallback.bin"" size=""100"" crc=""1234abcd"" />
+    </game>
+</datafile>";
+
+                File.WriteAllText(Path.Combine(_tempDir, "fallback-warning.dat"), datContent);
+                var logMessages = new List<string>();
+                var dat = new DatRepositoryAdapter(log: message => logMessages.Add(message));
+
+                var index = dat.GetDatIndex(
+                        _tempDir,
+                        new Dictionary<string, string> { ["TEST"] = "fallback-warning.dat" },
+                        hashType: "SHA256");
+
+                Assert.Equal("FallbackGame", index.Lookup("TEST", "1234abcd"));
+                Assert.Contains(logMessages, message =>
+                        message.Contains("fallback", StringComparison.OrdinalIgnoreCase)
+                        && message.Contains("SHA256", StringComparison.OrdinalIgnoreCase));
+        }
+
     [Fact]
     public void GetDatIndex_Md5OnlyDat_FallsBackToMd5()
     {

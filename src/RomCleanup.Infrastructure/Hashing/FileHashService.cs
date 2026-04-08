@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using RomCleanup.Contracts;
 using RomCleanup.Contracts.Models;
@@ -65,7 +66,7 @@ public sealed class FileHashService : IDisposable
     {
         ThrowIfDisposed();
 
-        var fullPath = Path.GetFullPath(path);
+        var fullPath = NormalizePathForCacheKey(path);
         var normalizedHashType = NormalizeHashType(hashType);
         var cacheKey = $"{normalizedHashType}|{fullPath}";
 
@@ -319,7 +320,7 @@ public sealed class FileHashService : IDisposable
                 _persistentEntries[BuildCacheKey(entry.HashType, entry.Path)] = entry with
                 {
                     HashType = NormalizeHashType(entry.HashType),
-                    Path = Path.GetFullPath(entry.Path)
+                    Path = NormalizePathForCacheKey(entry.Path)
                 };
             }
 
@@ -469,8 +470,11 @@ public sealed class FileHashService : IDisposable
         return true;
     }
 
+    internal static string NormalizePathForCacheKey(string path)
+        => Path.GetFullPath(path).Normalize(NormalizationForm.FormC);
+
     private static string BuildCacheKey(string hashType, string path)
-        => $"{NormalizeHashType(hashType)}|{Path.GetFullPath(path)}";
+        => $"{NormalizeHashType(hashType)}|{NormalizePathForCacheKey(path)}";
 
     private void ThrowIfDisposed()
     {

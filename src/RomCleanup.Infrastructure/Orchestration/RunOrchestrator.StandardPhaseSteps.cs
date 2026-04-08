@@ -201,7 +201,8 @@ public sealed partial class RunOrchestrator
             enrichedSortDecisions: enrichedSortDecisions,
             enrichedSortReasons: enrichedSortReasons,
             enrichedCategories: enrichedCategories,
-            candidatePaths: candidatePaths);
+            candidatePaths: candidatePaths,
+            conflictPolicy: options.ConflictPolicy);
 
         if (!dryRunSort && result.ConsoleSortResult?.PathMutations is { Count: > 0 } pathMutations)
             state.ApplyPathMutations(pathMutations);

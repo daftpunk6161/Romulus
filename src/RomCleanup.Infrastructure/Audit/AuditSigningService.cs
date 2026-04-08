@@ -327,16 +327,24 @@ public sealed class AuditSigningService
                 continue;
             }
 
+            if (string.Equals(action, RunConstants.AuditActions.DatRenameFailed, StringComparison.OrdinalIgnoreCase))
+            {
+                suppressedPendingOperationKeys.Add(BuildPendingOperationKey(RunConstants.AuditActions.DatRename, oldPath, newPath));
+                continue;
+            }
+
             var normalizedAction = NormalizeRollbackAction(action);
             if (normalizedAction is null)
                 continue;
 
             var isPendingMoveAction = string.Equals(action, RunConstants.AuditActions.MovePending, StringComparison.OrdinalIgnoreCase);
             var isPendingCopyAction = string.Equals(action, RunConstants.AuditActions.CopyPending, StringComparison.OrdinalIgnoreCase);
-            var isPendingAction = isPendingMoveAction || isPendingCopyAction;
+            var isPendingDatRenameAction = string.Equals(action, RunConstants.AuditActions.DatRenamePending, StringComparison.OrdinalIgnoreCase);
+            var isPendingAction = isPendingMoveAction || isPendingCopyAction || isPendingDatRenameAction;
             var isConvertCreateAction = string.Equals(normalizedAction, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase);
             var isConvertSourceAction = string.Equals(normalizedAction, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase);
             var isCopyAction = string.Equals(normalizedAction, RunConstants.AuditActions.Copy, StringComparison.OrdinalIgnoreCase);
+            var isDatRenameAction = string.Equals(normalizedAction, RunConstants.AuditActions.DatRename, StringComparison.OrdinalIgnoreCase);
 
             if (pendingConvertSourceRollbacks.Count > 0 && !isConvertSourceAction && !isConvertCreateAction)
                 pendingConvertSourceRollbacks.Clear();
@@ -353,7 +361,8 @@ public sealed class AuditSigningService
                 processedPendingOperationKeys.Add(pendingOperationKey);
             }
             else if (string.Equals(normalizedAction, RunConstants.AuditActions.Move, StringComparison.OrdinalIgnoreCase)
-                     || isCopyAction)
+                     || isCopyAction
+                     || isDatRenameAction)
             {
                 processedPendingOperationKeys.Add(pendingOperationKey);
             }
@@ -571,11 +580,16 @@ public sealed class AuditSigningService
             return RunConstants.AuditActions.Copy;
         }
 
+        if (string.Equals(action, RunConstants.AuditActions.DatRenamePending, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, RunConstants.AuditActions.DatRename, StringComparison.OrdinalIgnoreCase))
+        {
+            return RunConstants.AuditActions.DatRename;
+        }
+
         if (string.Equals(action, RunConstants.AuditActions.JunkRemove, StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, RunConstants.AuditActions.ConsoleSort, StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, RunConstants.AuditActions.Convert, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(action, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(action, RunConstants.AuditActions.DatRename, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(action, RunConstants.AuditActions.ConvertSource, StringComparison.OrdinalIgnoreCase))
         {
             return action.ToUpperInvariant();
         }

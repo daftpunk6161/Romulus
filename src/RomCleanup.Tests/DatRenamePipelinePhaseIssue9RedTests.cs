@@ -1,5 +1,6 @@
 using RomCleanup.Contracts.Models;
 using RomCleanup.Contracts.Ports;
+using RomCleanup.Contracts;
 using RomCleanup.Infrastructure.Metrics;
 using RomCleanup.Infrastructure.Orchestration;
 using Xunit;
@@ -92,7 +93,8 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
         Assert.Equal(1, result.ProposedCount);
         Assert.Equal(1, result.ExecutedCount);
         Assert.Equal(1, fs.RenameCalls);
-        Assert.Equal(1, audit.AppendCalls);
+        Assert.Equal(2, audit.AppendCalls);
+        Assert.Contains(RunConstants.AuditActions.DatRenamePending, audit.Actions);
         Assert.Equal("DAT_RENAME", audit.LastAction);
     }
 
@@ -183,13 +185,59 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
             Assert.Equal(1, fs.RenameCalls);
             Assert.Equal(1, result.ExecutedCount);
             Assert.Equal(0, result.SkippedCount);
-            Assert.Equal(1, audit.AppendCalls);
+            Assert.Equal(2, audit.AppendCalls);
+            Assert.Contains(RunConstants.AuditActions.DatRenamePending, audit.Actions);
+            Assert.Contains(RunConstants.AuditActions.DatRename, audit.Actions);
         }
         finally
         {
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Execute_TargetCollisionWithinBatch_KeepsHigherConfidenceWinner_Issue9()
+    {
+        var options = new RunOptions
+        {
+            Mode = "Move",
+            Roots = [@"C:\roms"],
+            AuditPath = @"C:\audit\run.csv"
+        };
+
+        var highConfidence = new DatAuditEntry(
+            FilePath: @"C:\roms\NES\winner-a.nes",
+            Hash: "hash-a",
+            Status: DatAuditStatus.HaveWrongName,
+            DatGameName: "Shared Game",
+            DatRomFileName: "shared-target.nes",
+            ConsoleKey: "NES",
+            Confidence: 99);
+
+        var lowConfidence = new DatAuditEntry(
+            FilePath: @"C:\roms\NES\winner-b.nes",
+            Hash: "hash-b",
+            Status: DatAuditStatus.HaveWrongName,
+            DatGameName: "Shared Game",
+            DatRomFileName: "shared-target.nes",
+            ConsoleKey: "NES",
+            Confidence: 10);
+
+        var fs = new TrackingFileSystem();
+        var audit = new TrackingAuditStore();
+        var context = CreateContext(options, fs, audit);
+
+        var result = new DatRenamePipelinePhase().Execute(
+            new DatRenameInput([highConfidence, lowConfidence], options),
+            context,
+            CancellationToken.None);
+
+        Assert.Equal(2, result.ProposedCount);
+        Assert.Equal(1, result.ExecutedCount);
+        Assert.Equal(1, result.SkippedCount);
+        Assert.Single(fs.RenameRequests);
+        Assert.Equal(highConfidence.FilePath, fs.RenameRequests[0].SourcePath);
     }
 
     private static PipelineContext CreateContext(RunOptions options, IFileSystem fs, IAuditStore audit)
@@ -210,6 +258,7 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
     private sealed class TrackingFileSystem : IFileSystem
     {
         public int RenameCalls { get; private set; }
+        public List<(string SourcePath, string NewFileName)> RenameRequests { get; } = [];
         public string? RenameResult { get; init; }
 
         public bool TestPath(string literalPath, string pathType = "Any") => true;
@@ -225,13 +274,19 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
         public string? RenameItemSafely(string sourcePath, string newFileName)
         {
             RenameCalls++;
-            return RenameResult;
+            RenameRequests.Add((sourcePath, newFileName));
+            if (!string.IsNullOrWhiteSpace(RenameResult))
+                return RenameResult;
+
+            var directory = Path.GetDirectoryName(sourcePath) ?? string.Empty;
+            return Path.Combine(directory, newFileName);
         }
     }
 
     private sealed class TrackingAuditStore : IAuditStore
     {
         public int AppendCalls { get; private set; }
+        public List<string> Actions { get; } = [];
         public string LastAction { get; private set; } = string.Empty;
 
         public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata) { }
@@ -243,6 +298,7 @@ public sealed class DatRenamePipelinePhaseIssue9RedTests
         public void AppendAuditRow(string auditCsvPath, string rootPath, string oldPath, string newPath, string action, string category = "", string hash = "", string reason = "")
         {
             AppendCalls++;
+            Actions.Add(action);
             LastAction = action;
         }
     }

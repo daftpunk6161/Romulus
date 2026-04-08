@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text;
 using RomCleanup.Infrastructure.Hashing;
 using RomCleanup.Infrastructure.Index;
 using Xunit;
@@ -248,6 +249,19 @@ public class FileHashServiceTests : IDisposable
         var newHash = second.GetHash(file, "SHA1");
 
         Assert.NotEqual(originalHash, newHash);
+    }
+
+    [Fact]
+    public void NormalizePathForCacheKey_NfdAndNfcProduceSameKeyPath()
+    {
+        var nfdPath = Path.Combine(_tempDir, "U\u0308bung.zip");
+        var nfcPath = Path.Combine(_tempDir, "\u00DCbung.zip");
+
+        var normalizedNfd = FileHashService.NormalizePathForCacheKey(nfdPath);
+        var normalizedNfc = FileHashService.NormalizePathForCacheKey(nfcPath);
+
+        Assert.Equal(normalizedNfc, normalizedNfd);
+        Assert.True(normalizedNfd.IsNormalized(NormalizationForm.FormC));
     }
 
     private string CreateTestFile(string name, byte[] data)

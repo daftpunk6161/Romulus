@@ -26,4 +26,10 @@ public sealed record ReviewApprovalEntry
 
     /// <summary>UTC approval timestamp.</summary>
     public DateTime ApprovedUtc { get; init; }
+
+    /// <summary>
+    /// Optional file timestamp captured at approval time.
+    /// When set, mismatches indicate stale approvals for changed file content.
+    /// </summary>
+    public long? FileLastWriteUtcTicks { get; init; }
 }

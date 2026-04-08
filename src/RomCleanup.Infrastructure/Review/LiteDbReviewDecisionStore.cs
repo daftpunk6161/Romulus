@@ -200,7 +200,8 @@ public sealed class LiteDbReviewDecisionStore : IReviewDecisionStore, IDisposabl
             MatchLevel = approval.MatchLevel,
             MatchReasoning = approval.MatchReasoning ?? string.Empty,
             Source = NormalizeSource(approval.Source),
-            ApprovedUtcTicks = NormalizeUtc(approval.ApprovedUtc).Ticks
+            ApprovedUtcTicks = NormalizeUtc(approval.ApprovedUtc).Ticks,
+            FileLastWriteUtcTicks = approval.FileLastWriteUtcTicks
         };
 
     private static ReviewApprovalEntry ToContract(ReviewApprovalDocument document)
@@ -212,7 +213,8 @@ public sealed class LiteDbReviewDecisionStore : IReviewDecisionStore, IDisposabl
             MatchLevel = document.MatchLevel,
             MatchReasoning = document.MatchReasoning,
             Source = document.Source,
-            ApprovedUtc = new DateTime(document.ApprovedUtcTicks, DateTimeKind.Utc)
+            ApprovedUtc = new DateTime(document.ApprovedUtcTicks, DateTimeKind.Utc),
+            FileLastWriteUtcTicks = document.FileLastWriteUtcTicks
         };
 
     private sealed class ReviewApprovalDocument
@@ -224,5 +226,6 @@ public sealed class LiteDbReviewDecisionStore : IReviewDecisionStore, IDisposabl
         public string MatchReasoning { get; set; } = string.Empty;
         public string Source { get; set; } = "manual";
         public long ApprovedUtcTicks { get; set; }
+        public long? FileLastWriteUtcTicks { get; set; }
     }
 }

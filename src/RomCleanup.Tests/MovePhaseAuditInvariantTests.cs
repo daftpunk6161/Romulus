@@ -72,6 +72,95 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
     }
 
     [Fact]
+    public void MovePhase_CrossVolumeInsufficientSpace_AbortsBeforeAnyMove()
+    {
+        var loser = new RomCandidate
+        {
+            MainPath = @"C:\roms\large.zip",
+            GameKey = "space",
+            Region = "US",
+            RegionScore = 1000,
+            FormatScore = 500,
+            VersionScore = 100,
+            SizeBytes = 500,
+            Extension = ".zip",
+            ConsoleKey = "GENERIC",
+            Category = FileCategory.Game
+        };
+
+        var options = new RunOptions
+        {
+            Roots = [@"C:\roms"],
+            Mode = "Move",
+            TrashRoot = @"D:\trash",
+            ConflictPolicy = "Rename"
+        };
+
+        var group = new DedupeGroup
+        {
+            GameKey = "space",
+            Winner = Candidate(@"C:\roms\winner.zip"),
+            Losers = [loser]
+        };
+
+        var fs = new LowSpaceFs(availableBytes: 100);
+        var audit = new InvariantAuditStore();
+
+        var result = new MovePipelinePhase().Execute(
+            new MovePhaseInput([group], options),
+            Context(options, fs, audit),
+            CancellationToken.None);
+
+        Assert.Equal(0, result.MoveCount);
+        Assert.Equal(1, result.FailCount);
+        Assert.Equal(0, fs.MoveCalls);
+    }
+
+    [Fact]
+    public void MovePhase_ConflictPolicyOverwrite_ForwardsOverwriteFlag()
+    {
+        var root = @"C:\roms-overwrite";
+        var loser = new RomCandidate
+        {
+            MainPath = Path.Combine(root, "loser.zip"),
+            GameKey = "overwrite",
+            Region = "US",
+            RegionScore = 1000,
+            FormatScore = 500,
+            VersionScore = 100,
+            SizeBytes = 10,
+            Extension = ".zip",
+            ConsoleKey = "GENERIC",
+            Category = FileCategory.Game
+        };
+
+        var group = new DedupeGroup
+        {
+            GameKey = "overwrite",
+            Winner = Candidate(Path.Combine(root, "winner.zip")),
+            Losers = [loser]
+        };
+
+        var options = new RunOptions
+        {
+            Roots = [root],
+            Mode = "Move",
+            ConflictPolicy = "Overwrite"
+        };
+
+        var fs = new OverwriteTrackingFs();
+        var audit = new InvariantAuditStore();
+
+        var result = new MovePipelinePhase().Execute(
+            new MovePhaseInput([group], options),
+            Context(options, fs, audit),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.MoveCount);
+        Assert.Contains(fs.OverwriteFlags, static value => value);
+    }
+
+    [Fact]
     public void MovePhase_FlushesAndWritesMetadata_EveryTenMoves()
     {
         var root = Path.Combine(_tempDir, "flush-root");
@@ -494,6 +583,82 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
 
         public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
             => Path.GetFullPath(Path.Combine(rootPath, relativePath));
+
+        public bool IsReparsePoint(string path) => false;
+
+        public void DeleteFile(string path)
+        {
+        }
+
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
+        {
+        }
+    }
+
+    private sealed class LowSpaceFs : IFileSystem
+    {
+        private readonly long _availableBytes;
+
+        public LowSpaceFs(long availableBytes)
+            => _availableBytes = availableBytes;
+
+        public int MoveCalls { get; private set; }
+
+        public bool TestPath(string literalPath, string pathType = "Any") => true;
+
+        public string EnsureDirectory(string path) => path;
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+            => Array.Empty<string>();
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath)
+        {
+            MoveCalls++;
+            return destinationPath;
+        }
+
+        public bool MoveDirectorySafely(string sourcePath, string destinationPath) => true;
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
+            => Path.Combine(rootPath, relativePath);
+
+        public bool IsReparsePoint(string path) => false;
+
+        public void DeleteFile(string path)
+        {
+        }
+
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
+        {
+        }
+
+        public long? GetAvailableFreeSpace(string path) => _availableBytes;
+    }
+
+    private sealed class OverwriteTrackingFs : IFileSystem
+    {
+        public List<bool> OverwriteFlags { get; } = [];
+
+        public bool TestPath(string literalPath, string pathType = "Any") => true;
+
+        public string EnsureDirectory(string path) => path;
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+            => Array.Empty<string>();
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath)
+            => MoveItemSafely(sourcePath, destinationPath, overwrite: false);
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath, bool overwrite)
+        {
+            OverwriteFlags.Add(overwrite);
+            return destinationPath;
+        }
+
+        public bool MoveDirectorySafely(string sourcePath, string destinationPath) => true;
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
+            => Path.Combine(rootPath, relativePath);
 
         public bool IsReparsePoint(string path) => false;
 

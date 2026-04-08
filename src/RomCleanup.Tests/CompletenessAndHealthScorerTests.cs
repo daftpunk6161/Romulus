@@ -113,11 +113,11 @@ public sealed class CompletenessAndHealthScorerTests : IDisposable
     }
 
     [Fact]
-    public void Health_GetHealthScore_JunkPenaltyIsCappedAt30()
+    public void Health_GetHealthScore_AllJunk_IsHeavilyPenalized()
     {
         var score = HealthScorer.GetHealthScore(100, dupes: 0, junk: 100, verified: 0);
 
-        Assert.Equal(70, score);
+        Assert.True(score <= 30);
     }
 
     [Fact]

@@ -10,7 +10,7 @@ namespace RomCleanup.Tests;
 /// <summary>
 /// Phase 5B invariant tests covering:
 /// - TASK-151: hasErrors formula includes DatRename + ConsoleSort failures
-/// - TASK-154: Non-cancel exceptions produce RunOutcome.Failed + ExitCode 4
+/// - TASK-154: Non-cancel exceptions produce RunOutcome.Failed + ExitCode 1
 /// - TASK-074/075: PhasePlanBuilder ordering and conditional phases
 /// - TASK-168: Set-member integrity (CUE→BIN co-move)
 /// - ActionPhaseStep generic delegate pattern
@@ -94,7 +94,7 @@ public class Phase5BPipelineInvariantTests
     // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void Execute_IOException_ReturnsFailed_ExitCode4()
+    public void Execute_IOException_ReturnsFailed_ExitCode1()
     {
         // ThrowingFileSystem passes Preflight (TestPath returns true)
         // but explodes on GetFilesSafe during scan phase
@@ -115,7 +115,7 @@ public class Phase5BPipelineInvariantTests
             var result = orch.Execute(options);
 
             Assert.Equal("failed", result.Status);
-            Assert.Equal(4, result.ExitCode);
+            Assert.Equal(1, result.ExitCode);
         }
         finally
         {
@@ -144,7 +144,7 @@ public class Phase5BPipelineInvariantTests
             var result = orch.Execute(options);
 
             Assert.Equal("failed", result.Status);
-            Assert.Equal(4, result.ExitCode);
+            Assert.Equal(1, result.ExitCode);
         }
         finally
         {

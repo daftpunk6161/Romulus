@@ -367,6 +367,24 @@ public class CoverageGapBatchTests
         }
     }
 
+    [Theory]
+    [InlineData(RunOutcome.Ok, 0)]
+    [InlineData(RunOutcome.Failed, 1)]
+    [InlineData(RunOutcome.Cancelled, 2)]
+    [InlineData(RunOutcome.Blocked, 3)]
+    [InlineData(RunOutcome.CompletedWithErrors, 4)]
+    public void ToExitCode_AllKnownOutcomes(RunOutcome outcome, int expected)
+    {
+        Assert.Equal(expected, outcome.ToExitCode());
+    }
+
+    [Fact]
+    public void ToExitCode_UndefinedValue_ReturnsFailedCode()
+    {
+        var bogus = (RunOutcome)999;
+        Assert.Equal(1, bogus.ToExitCode());
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  RomCleanupSettingsValidator
     // ═══════════════════════════════════════════════════════════════════

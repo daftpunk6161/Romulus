@@ -16,6 +16,8 @@ public static class HealthScorer
 
         var baseScore = 100.0 - dupePct;
         var junkPenalty = Math.Min(30.0, junkPct * 0.3);
+        if (junkPct >= 90.0)
+            junkPenalty = Math.Max(junkPenalty, 70.0);
         var verifiedBonus = Math.Min(10.0, verifiedPct * 0.15);
         var errorPenalty = Math.Min(20.0, errors * 2.0);
 

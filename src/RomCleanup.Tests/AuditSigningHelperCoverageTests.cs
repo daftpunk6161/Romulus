@@ -107,6 +107,13 @@ public sealed class AuditSigningHelperCoverageTests
         Assert.Equal("DAT_RENAME", result);
     }
 
+    [Fact]
+    public void NormalizeRollbackAction_DatRenamePending_ReturnsDatRename()
+    {
+        var result = AuditSigningService.NormalizeRollbackAction(RunConstants.AuditActions.DatRenamePending);
+        Assert.Equal("DAT_RENAME", result);
+    }
+
     [Theory]
     [InlineData("junk_remove", "JUNK_REMOVE")]
     [InlineData("console_sort", "CONSOLE_SORT")]
