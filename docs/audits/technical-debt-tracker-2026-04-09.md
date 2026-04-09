@@ -364,6 +364,48 @@ Method: ripgrep + focused code review
   Target: Log warning when defaults.json parsing fails.
   Acceptance Criteria: Malformed defaults.json produces visible warning.
 
+## P1 - High Risk (final hygiene scan round 4)
+
+- [ ] TD-055 - Diverging disc extension definitions between Core and Infrastructure
+  Problem: Two incompatible DiscExtensions HashSets define different format sets. Core (FormatScorer) has 26 extensions including Nintendo formats (.nsp, .xci, .nsz, .xcz, .wud, .wux) and playlist (.m3u). Infrastructure (ExecutionHelpers) has 18 extensions including archives (.zip, .7z) and .sub/.ecm. 13 formats differ between the sets. This means Core scores files that Infrastructure doesn't recognize as disc formats, and vice versa.
+  Evidence: src/RomCleanup.Core/Scoring/FormatScorer.cs:15-19 (26 extensions), src/RomCleanup.Infrastructure/Orchestration/ExecutionHelpers.cs:14-20 (18 extensions)
+  Target: Consolidate into one canonical disc extension set in Contracts; both Core and Infrastructure reference the same source.
+  Acceptance Criteria: Single disc extension definition; Core and Infrastructure agree on all disc formats.
+
+- [ ] TD-056 - Phase name magic strings not centralized (9 prefixes across 5+ files)
+  Problem: Pipeline phase prefixes ([Preflight], [Scan], [Filter], [Dedupe], [Junk], [Move], [Sort], [Convert], [Report], [Fertig]) are hardcoded as string literals across orchestration and WPF layers. PipelinePhaseWeights.cs defines tuples but values are not shared as reusable string constants. Changing a phase name requires edits in 5+ files.
+  Evidence: src/RomCleanup.UI.Wpf/ViewModels/MainViewModel.RunPipeline.WatchAndProgress.cs:440-461, src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.StandardPhaseSteps.cs:82-221, src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.ScanAndConvertSteps.cs:19-74, src/RomCleanup.Infrastructure/Orchestration/WinnerConversionPipelinePhase.cs:19-46, src/RomCleanup.Infrastructure/Orchestration/StreamingScanPipelinePhase.cs:34-65, src/RomCleanup.Contracts/PipelinePhaseWeights.cs:13-21
+  Target: Extract phase prefix constants to Contracts (e.g., RunConstants.Phases); all sites reference constants.
+  Acceptance Criteria: Zero hardcoded phase prefix literals in production code; all reference central constants.
+
+## P2 - Stability / Maintainability (final hygiene scan round 4)
+
+- [ ] TD-057 - Inline disc extension checks scattered across 11+ files (not using centralized set)
+  Problem: Hardcoded `is ".chd" or ".iso" or ...` patterns in 11+ production files, each checking a different subset of disc formats. None reference FormatScorer.IsDiscExtension() or ExecutionHelpers.GetDiscExtensions(). Each site independently decides which formats count as "disc" - a maintenance nightmare and inconsistency source.
+  Evidence: src/RomCleanup.UI.Wpf/ViewModels/MainViewModel.Productization.cs:607 (9 formats), src/RomCleanup.UI.Wpf/Services/FeatureCommandService.cs:654 (5 formats), src/RomCleanup.UI.Wpf/Services/FeatureCommandService.Conversion.cs:71 (3 formats), src/RomCleanup.Core/Classification/ConsoleDetector.cs:353,420,479 (4 formats x3), src/RomCleanup.Core/Classification/DiscHeaderDetector.cs:140 (4 formats), src/RomCleanup.Infrastructure/Dat/FamilyDatStrategyResolver.cs:88 (6 formats), src/RomCleanup.Infrastructure/Dat/DiscDatStrategy.cs:17 (7 formats), src/RomCleanup.Infrastructure/Conversion/FormatConverterAdapter.cs:553 (6 formats), src/RomCleanup.Infrastructure/Conversion/ChdmanToolConverter.cs:45 (3 formats), src/RomCleanup.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs:541 (6 formats)
+  Target: Replace inline checks with IsDiscExtension() or subset helper from canonical set. Document intentional subset restrictions where needed.
+  Acceptance Criteria: No inline disc extension patterns; all checks reference central method or documented subset.
+
+- [ ] TD-058 - Hardcoded German strings in Infrastructure orchestration/reporting bypass i18n (30+ instances)
+  Problem: 30+ German progress/log messages hardcoded inline across RunOrchestrator partials, pipeline phases, WatchFolderService, and ReportGenerator. These bypass RunProgressLocalization and the i18n system entirely. Examples: "Dateien sammeln", "Fortschritt", "Verschiebe", "Analyse übersprungen", "Duplikate", "Konvertierung", "abgeschlossen", "FileSystemWatcher-Fehler".
+  Evidence: src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.StandardPhaseSteps.cs:82-221, src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.ScanAndConvertSteps.cs:19-74, src/RomCleanup.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs:33-332, src/RomCleanup.Infrastructure/Orchestration/MovePipelinePhase.cs:34-331, src/RomCleanup.Infrastructure/Orchestration/StreamingScanPipelinePhase.cs:34-65, src/RomCleanup.Infrastructure/Orchestration/WinnerConversionPipelinePhase.cs:19-46, src/RomCleanup.Infrastructure/Watch/WatchFolderService.cs:96-169, src/RomCleanup.Infrastructure/Reporting/ReportGenerator.cs:300-350
+  Target: Route all user-/operator-visible messages through RunProgressLocalization or i18n keys.
+  Acceptance Criteria: Infrastructure progress messages localized; no hardcoded German in user-facing output.
+
+## P3 - Low Risk / Hygiene (final hygiene scan round 4)
+
+- [ ] TD-059 - FormatFixDatReport() in DatAnalysisService unused in production
+  Problem: Public method FormatFixDatReport(FixDatResult) exists in DatAnalysisService but is only called from test code, never from any production path (CLI, API, GUI).
+  Evidence: src/RomCleanup.Infrastructure/Analysis/DatAnalysisService.cs:161, src/RomCleanup.Tests/DatAnalysisServiceCoverageTests.cs:313 (only caller)
+  Target: Either integrate into a production report path or mark internal/remove.
+  Acceptance Criteria: Method is either production-integrated or removed.
+
+- [ ] TD-060 - German text in ReportGenerator HTML output hardcoded
+  Problem: HTML reports contain hardcoded German text ("Convert-Fehler", "Fehler", "Datei(en)", "UNKNOWN bedeutet...", "Mögliche Ursachen...") instead of localized strings.
+  Evidence: src/RomCleanup.Infrastructure/Reporting/ReportGenerator.cs:300,308,348-350
+  Target: Replace with locale-aware report strings from i18n data or a report localization provider.
+  Acceptance Criteria: HTML report text uses localized strings; no hardcoded German.
+
 ## Positive Findings (verified safe)
 
 - HTML reports: All user data properly escaped via WebUtility.HtmlEncode (ReportGenerator.cs)
@@ -400,6 +442,21 @@ Method: ripgrep + focused code review
 - [ ] Phase 14: TD-035 + TD-036 + TD-041 + TD-042 (dedup safety + WPF lifecycle)
 - [ ] Phase 15: TD-037 + TD-038 + TD-039 + TD-043 (config-driven scoring + schema validation)
 - [ ] Phase 16: TD-045 + TD-047 + TD-048-TD-054 (test quality + P3 hygiene round 3)
+- [ ] Phase 17: TD-055 + TD-057 (disc extension consolidation - single source of truth)
+- [ ] Phase 18: TD-056 (pipeline phase name constants)
+- [ ] Phase 19: TD-058 + TD-060 (Infrastructure/Report i18n remaining German strings)
+- [ ] Phase 20: TD-059 (dead production method cleanup)
+
+## Verified Clean Areas (round 4 hygiene scan)
+
+- DI registrations: all services in SharedServiceRegistration and App.xaml.cs are actively injected
+- Contracts interfaces: all defined interfaces in Contracts/Ports have implementations and callers
+- XAML resources: all x:Key styles and templates actively referenced via StaticResource/DynamicResource
+- data/defaults.json: all setting keys actively consumed by CLI, API, and WPF code paths
+- data/tool-hashes.json: actively used in ToolRunnerAdapter, RunEnvironmentBuilder, and tests (14 references)
+- WatchService.Dispose: properly implemented with event unsubscribe + inner disposal
+- ResolveCorsOrigin: actively used in both ProgramHelpers and HeadlessApiOptions (12 callers)
+- i18n keys: Tools.CountFormat present in all 3 language files (de, en, fr)
 
 ## Verification Checklist (per phase)
 

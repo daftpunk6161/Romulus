@@ -390,21 +390,28 @@ public class RunManagerTests
     [Fact]
     public async Task WaitForCompletion_CancellationToken_DoesNotCancelUnderlyingRun()
     {
+        // Use a gate to ensure the run stays in-progress until we've verified cancellation behavior.
+        // This eliminates the race condition where the run completes before WaitForCompletion checks the token.
+        using var runGate = new ManualResetEventSlim(false);
+
         var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, ct) =>
         {
-            Task.Delay(150, ct).GetAwaiter().GetResult();
+            runGate.Wait(ct);
             return new RunExecutionOutcome("completed", new ApiRunResult { OrchestratorStatus = "ok", ExitCode = 0 });
         });
 
         var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "idem-003").Run!;
 
-        using var cts = new CancellationTokenSource(20);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         var waitResult = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5), cancellationToken: cts.Token);
 
         Assert.Equal(RunWaitDisposition.ClientDisconnected, waitResult.Disposition);
         Assert.Equal("running", mgr.Get(run.RunId)!.Status);
 
-        var finalWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(2));
+        // Release the run so it can complete
+        runGate.Set();
+
+        var finalWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
         Assert.Equal(RunWaitDisposition.Completed, finalWait.Disposition);
         Assert.Equal("completed", mgr.Get(run.RunId)!.Status);
     }
