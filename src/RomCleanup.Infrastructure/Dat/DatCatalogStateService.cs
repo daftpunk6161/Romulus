@@ -110,16 +110,16 @@ public sealed class DatCatalogStateService
         var localFiles = new Dictionary<string, (string Path, DateTime LastWrite, long Size)>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(datRoot) && Directory.Exists(datRoot))
         {
-            foreach (var file in Directory.GetFiles(datRoot, "*.*", SearchOption.AllDirectories))
-            {
-                var ext = Path.GetExtension(file);
-                if (!ext.Equals(".dat", StringComparison.OrdinalIgnoreCase)
-                    && !ext.Equals(".xml", StringComparison.OrdinalIgnoreCase))
-                    continue;
+            var datFiles = Directory.EnumerateFiles(datRoot, "*.*", SearchOption.AllDirectories)
+                .Where(path => path.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
+                               || path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
 
+            foreach (var file in datFiles)
+            {
                 var stem = Path.GetFileNameWithoutExtension(file)!;
                 var info = new FileInfo(file);
-                // First match wins (deterministic: directory enumeration order)
+                // First match wins with deterministic path ordering.
                 localFiles.TryAdd(stem, (file, info.LastWriteTime, info.Length));
             }
         }
@@ -142,14 +142,14 @@ public sealed class DatCatalogStateService
                 // Match by System name prefix (e.g., entry.System = "Acorn - Archimedes")
                 if (!string.IsNullOrWhiteSpace(entry.System))
                 {
-                    foreach (var (stem, fileInfo) in localFiles)
-                    {
-                        if (stem.StartsWith(entry.System, StringComparison.OrdinalIgnoreCase))
-                        {
-                            localMatch = fileInfo;
-                            break;
-                        }
-                    }
+                    // Deterministic policy: choose the alphabetically first stem, then path.
+                    // This keeps repeated scans stable across runs and machines.
+                    localMatch = localFiles
+                        .Where(pair => pair.Key.StartsWith(entry.System, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(pair => pair.Value.Path, StringComparer.OrdinalIgnoreCase)
+                        .Select(pair => pair.Value)
+                        .FirstOrDefault();
                 }
             }
 

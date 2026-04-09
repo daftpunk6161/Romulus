@@ -232,6 +232,7 @@ public sealed class CliRedPhaseTests : IDisposable
         {
             Roots = [_tempDir],
             Mode = "Move",
+            Yes = true,
             PreferRegions = ["US"]
         };
 
@@ -265,6 +266,7 @@ public sealed class CliRedPhaseTests : IDisposable
         {
             Roots = [runRoot],
             Mode = "Move",
+            Yes = true,
             PreferRegions = ["US"],
             AuditPath = auditPath
         };

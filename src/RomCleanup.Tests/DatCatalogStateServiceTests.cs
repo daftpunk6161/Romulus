@@ -274,6 +274,60 @@ public class DatCatalogStateServiceTests : IDisposable
     }
 
     [Fact]
+    public void BuildCatalogStatus_DuplicateStem_PicksAlphabeticallyFirstPath()
+    {
+        var dirB = Path.Combine(_datRoot, "B");
+        var dirA = Path.Combine(_datRoot, "A");
+        Directory.CreateDirectory(dirB);
+        Directory.CreateDirectory(dirA);
+
+        var pathB = Path.Combine(dirB, "dup.dat");
+        var pathA = Path.Combine(dirA, "dup.dat");
+        File.WriteAllText(pathB, "b");
+        File.WriteAllText(pathA, "a");
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new() { Id = "dup", Group = "Test", System = "Duplicate Stem", ConsoleKey = "DUP", Format = "raw-dat", Url = "https://example.com" }
+        };
+
+        var state = new DatCatalogState();
+        var result = DatCatalogStateService.BuildCatalogStatus(catalog, _datRoot, state);
+
+        Assert.Single(result);
+        Assert.Equal(DatInstallStatus.Installed, result[0].Status);
+        Assert.Equal(pathA, result[0].LocalPath, ignoreCase: true);
+    }
+
+    [Fact]
+    public void BuildCatalogStatus_SystemPrefixMultiMatch_PicksAlphabeticallyFirstStem()
+    {
+        var newer = Path.Combine(_datRoot, "Nintendo - Switch (2026-12-31).dat");
+        var older = Path.Combine(_datRoot, "Nintendo - Switch (2025-01-01).dat");
+        File.WriteAllText(newer, "<xml>new</xml>");
+        File.WriteAllText(older, "<xml>old</xml>");
+
+        var catalog = new List<DatCatalogEntry>
+        {
+            new()
+            {
+                Id = "nointro-switch-pack",
+                Group = "No-Intro",
+                System = "Nintendo - Switch",
+                ConsoleKey = "NSW_PACK",
+                Format = "nointro-pack"
+            }
+        };
+
+        var state = new DatCatalogState();
+        var result = DatCatalogStateService.BuildCatalogStatus(catalog, _datRoot, state);
+
+        Assert.Single(result);
+        Assert.Equal(DatInstallStatus.Installed, result[0].Status);
+        Assert.Equal(older, result[0].LocalPath, ignoreCase: true);
+    }
+
+    [Fact]
     public void BuildCatalogStatus_NonExistentDatRoot_AllMissing()
     {
         var catalog = new List<DatCatalogEntry>

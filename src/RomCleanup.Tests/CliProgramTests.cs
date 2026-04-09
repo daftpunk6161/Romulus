@@ -893,6 +893,44 @@ public sealed class CliProgramTests : IDisposable
     }
 
     [Fact]
+    public void Main_MoveInteractive_WithoutYes_UserDeclines_ReturnsExitCode2()
+    {
+        lock (SharedTestLocks.ConsoleLock)
+        {
+            using var stdin = new StringReader("n" + Environment.NewLine);
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            var originalIn = Console.In;
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                Console.SetIn(stdin);
+                Console.SetOut(stdout);
+                Console.SetError(stderr);
+                CliProgram.SetNonInteractiveOverride(false);
+
+                var main = typeof(CliProgram).GetMethod("Main", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.NotNull(main);
+
+                var exitCode = (int)(main!.Invoke(null, new object[] { new[] { "--roots", _tempDir, "--mode", "Move" } }) ?? -1);
+
+                Assert.Equal(2, exitCode);
+                Assert.Contains("Execute mode will move files", stderr.ToString(), StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("Aborted by user", stderr.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                CliProgram.SetNonInteractiveOverride(null);
+                Console.SetIn(originalIn);
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+            }
+        }
+    }
+
+    [Fact]
     public void RunForTests_WithLogPath_CreatesJsonlLog()
     {
         File.WriteAllText(Path.Combine(_tempDir, "Game (USA).zip"), "data");

@@ -166,11 +166,26 @@ internal static class Program
         bool wireConsoleCancel)
     {
         if (string.Equals(cliOpts.Mode, RunConstants.ModeMove, StringComparison.OrdinalIgnoreCase)
-            && IsNonInteractiveExecution()
             && !cliOpts.Yes)
         {
-            SafeErrorWriteLine("[Error] Non-interactive Move requires --yes confirmation.");
-            return 3;
+            if (IsNonInteractiveExecution())
+            {
+                SafeErrorWriteLine("[Error] Non-interactive Move requires --yes confirmation.");
+                return 3;
+            }
+
+            // Interactive parity with GUI danger actions:
+            // require explicit confirmation before mutating runs.
+            if (!ConsoleOverrideEnabled.Value)
+            {
+                SafeErrorWriteLine("[Move] Execute mode will move files. Continue? (y/N)");
+                var response = Console.ReadLine();
+                if (!string.Equals(response?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+                {
+                    SafeErrorWriteLine("[Move] Aborted by user.");
+                    return 2;
+                }
+            }
         }
 
         using var runExecutionLease = TryAcquireRunExecutionLease(cliOpts);
