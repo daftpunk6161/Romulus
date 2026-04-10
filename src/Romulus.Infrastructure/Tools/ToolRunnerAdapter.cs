@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -17,6 +18,14 @@ public sealed class ToolRunnerAdapter : IToolRunner
     internal const string ConversionToolsRootOverrideEnvVar = "ROMULUS_CONVERSION_TOOLS_ROOT";
     internal const int MaxToolOutputBytes = 100 * 1024 * 1024;
     private const string DefaultConversionToolsRoot = @"C:\tools\conversion";
+
+    // Suppress Windows modal error dialogs (e.g. "Nicht unterstützte 16 Bit-Anwendung")
+    // when Process.Start encounters an invalid PE file.
+    private const uint SEM_FAILCRITICALERRORS = 0x0001;
+    private const uint SEM_NOGPFAULTERRORBOX = 0x0002;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetThreadErrorMode(uint dwNewMode, out uint lpOldMode);
 
     private readonly string? _toolHashesPath;
     private readonly bool _allowInsecureHashBypass;
@@ -324,7 +333,17 @@ public sealed class ToolRunnerAdapter : IToolRunner
             foreach (var arg in arguments)
                 psi.ArgumentList.Add(arg);
 
-            process = Process.Start(psi);
+            // Suppress Windows error dialogs for invalid executables (corrupt PE, 16-bit stubs).
+            // SetThreadErrorMode is per-thread and safe for concurrent use.
+            SetThreadErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX, out var previousErrorMode);
+            try
+            {
+                process = Process.Start(psi);
+            }
+            finally
+            {
+                SetThreadErrorMode(previousErrorMode, out _);
+            }
             if (process is null)
                 return new ToolResult(
                     -1,

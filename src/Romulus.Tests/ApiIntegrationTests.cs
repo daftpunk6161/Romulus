@@ -1266,8 +1266,8 @@ public sealed class ApiIntegrationTests
         var response = await client.PostAsync("/runs", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("RUN-INVALID-CONFIG", body, StringComparison.OrdinalIgnoreCase);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        AssertError(doc.RootElement, "SEC-DRIVE-ROOT-NOT-ALLOWED", ErrorKind.Critical, "drive root");
     }
 
     [Fact]
