@@ -85,6 +85,45 @@ public sealed class AutomationAndTrendServiceTests : IDisposable
     }
 
     [Fact]
+    public void WatchFolderService_CooldownPending_TriggersFollowupWithoutNewEvent()
+    {
+        var nowUtc = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc);
+        using var watchService = new WatchFolderService(() => nowUtc);
+        using var firstTriggered = new ManualResetEventSlim(false);
+        using var secondTriggered = new ManualResetEventSlim(false);
+        var triggerCount = 0;
+        var root = Path.Combine(_tempDir, "watch-cooldown-root");
+        Directory.CreateDirectory(root);
+
+        watchService.IsBusyCheck = () => false;
+        watchService.RunTriggered += () =>
+        {
+            var count = Interlocked.Increment(ref triggerCount);
+            if (count == 1)
+                firstTriggered.Set();
+            if (count >= 2)
+                secondTriggered.Set();
+        };
+
+        Assert.Equal(1, watchService.Start([root], debounceSeconds: 1, maxWaitSeconds: 1));
+
+        File.WriteAllText(Path.Combine(root, "first.bin"), "a");
+        Assert.True(firstTriggered.Wait(TimeSpan.FromSeconds(4)));
+
+        // Trigger another change inside cooldown so it must be queued and auto-fired later.
+        nowUtc = nowUtc.AddSeconds(29);
+        File.WriteAllText(Path.Combine(root, "second.bin"), "b");
+
+        Assert.True(SpinWait.SpinUntil(() => watchService.HasPending, TimeSpan.FromSeconds(4)));
+        Assert.Equal(1, Volatile.Read(ref triggerCount));
+
+        // No further file changes: follow-up should fire from cooldown scheduling only.
+        nowUtc = nowUtc.AddSeconds(2);
+        Assert.True(secondTriggered.Wait(TimeSpan.FromSeconds(4)));
+        Assert.True(Volatile.Read(ref triggerCount) >= 2);
+    }
+
+    [Fact]
     public async Task RunHistoryTrendService_UsesPersistedCollectionSizeBytes()
     {
         var snapshots = new[]

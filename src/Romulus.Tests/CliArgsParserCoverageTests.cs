@@ -436,6 +436,14 @@ public sealed class CliArgsParserCoverageTests : IDisposable
     }
 
     [Fact]
+    public void Watch_InvalidCronSemanticValue_ReturnsValidationError()
+    {
+        var result = CliArgsParser.Parse(["watch", "--roots", _tempDir, "--cron", "61 * * * *"]);
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains(result.Errors, e => e.Contains("minute", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Watch_Debounce_ParsesSeconds()
     {
         var result = CliArgsParser.Parse(["watch", "--roots", _tempDir, "--interval", "60", "--debounce", "15"]);

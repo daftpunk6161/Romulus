@@ -134,6 +134,39 @@ public sealed class ApiProductizationIntegrationTests
     }
 
     [Fact]
+    public async Task Runs_WithUppercaseModeProperty_PreservesExplicitOverrideAgainstWorkflowDefaults()
+    {
+        using var factory = ApiTestFactory.Create(new Dictionary<string, string?> { ["ApiKey"] = ApiKey });
+        using var client = CreateClientWithApiKey(factory);
+
+        var root = CreateTempRoot();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "Example (USA).zip"), "workflow");
+
+            var payload = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["roots"] = new[] { root },
+                ["workflowScenarioId"] = "full-audit",
+                ["Mode"] = "Move"
+            });
+
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync("/runs?wait=true", content);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var run = doc.RootElement.GetProperty("run");
+            Assert.Equal("full-audit", run.GetProperty("workflowScenarioId").GetString());
+            Assert.Equal("Move", run.GetProperty("mode").GetString());
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
+    [Fact]
     public async Task Runs_WithProfileId_MaterializesSharedProfileDefaults()
     {
         using var factory = ApiTestFactory.Create(new Dictionary<string, string?> { ["ApiKey"] = ApiKey });

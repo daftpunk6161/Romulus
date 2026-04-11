@@ -5,6 +5,7 @@ using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Workflow;
 using Romulus.Infrastructure.Safety;
+using Romulus.Infrastructure.Watch;
 
 namespace Romulus.CLI;
 
@@ -436,14 +437,14 @@ internal static partial class CliArgsParser
                 case "--cron":
                     if (!TryConsumeValue(args, ref i, "--cron", errors, out var cronRaw))
                         break;
-                    var cronFields = cronRaw.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (cronFields.Length != 5)
+                    var normalizedCron = cronRaw.Trim();
+                    if (!CronScheduleEvaluator.TryValidateCronExpression(normalizedCron, out var cronValidationError))
                     {
-                        errors.Add("[Error] cron must contain exactly five fields.");
+                        errors.Add($"[Error] {cronValidationError ?? "Invalid cron expression."}");
                         break;
                     }
 
-                    opts.WatchCronExpression = cronRaw;
+                    opts.WatchCronExpression = normalizedCron;
                     break;
 
                 case "--approve-reviews":

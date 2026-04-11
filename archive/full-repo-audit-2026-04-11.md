@@ -722,3 +722,272 @@ Die Code-Hygiene ist ueberdurchschnittlich: Legacy-Namespace vollstaendig migrie
 - **Ursache:** Historische Trennung zwischen "reiner Logik" (static) und "UI-Command" (instance)
 - **Fix:** FeatureService komplett in FeatureCommandService integrieren oder klar definierte Grenze: FeatureService = reine Berechnung, FeatureCommandService = UI-Interaktion + Delegation an Infrastructure Services
 - **Testabsicherung:** Tests, die pruefen, dass FeatureService und FeatureCommandService dieselben Ergebnisse fuer identische Inputs liefern
+
+---
+
+## 9. Verifizierter Delta-Nachtrag (Fortsetzung)
+
+**Hinweis zum Status:** Dieser Nachtrag ist der verifizierte Stand dieser Audit-Session und priorisiert nur aktuell belegte Risiken aus `src/`.
+
+### 9.1 Priorisierte offene Findings
+
+#### V-01: Conversion-Promotion kann gueltiges Zielartefakt mit aufraeumen
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P0 (**Data-Integrity Risk**)
+- **Impact:** Wenn beim Promoten des staged Outputs ein I/O-Fehler eintritt, werden sowohl staged als auch finaler Pfad aufgeraeumt. Existierte am finalen Pfad bereits ein valides Artefakt, kann es verloren gehen.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Conversion/ConversionExecutor.cs` (Zeilen 324-340)
+- **Beleg:** `PromoteFinalOutputIfNeeded` faengt `IOException/UnauthorizedAccessException` und ruft danach `CleanupPath(invocationOutputPath)` und `CleanupPath(finalOutputPath)` auf.
+- **Fix:** Promotion in transaktionalen Schritten mit Rollback sichern (z. B. finales Ziel nur ersetzen, wenn Move atomar vorbereitet wurde; bestehendes Ziel vorher in sicherem Backup halten).
+- **Testbedarf:** Negativtest fuer Promotion-Fehler bei bereits existierendem `finalOutputPath`.
+
+#### V-02: Cancellation wird in Orchestrierung bewusst umgangen
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P0 (**Parity/Responsiveness Risk**)
+- **Impact:** Nach Cancel kann weiterhin Arbeit laufen (Flush/Enrichment ohne Cancel-Token). Das erschwert deterministisches Verhalten bei Abbruch und kann Preview/Execute-Wahrnehmung verzerren.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs` (Zeilen 408, 504)
+- **Beleg:** `scanCompleted ? cancellationToken : CancellationToken.None` sowie Fallback `enrichmentPhase.Execute(..., CancellationToken.None)`.
+- **Fix:** Nur explizit idempotente Abschlussarbeit ohne schwere I/O nach Cancel erlauben; sonst strict cancel propagieren.
+- **Testbedarf:** Abbruch mitten im Scan/Enrichment mit Assertion auf keine weitere schwere Verarbeitung nach Cancel.
+
+#### V-03: Sync-over-async in hot paths (RunService + ScanPipeline)
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Reliability Risk**)
+- **Impact:** Blockierende Calls (`.Result`, `.Wait()`, `GetResult()`) koennen unter Last/SynchronizationContext zu Deadlocks, Thread-Starvation und schwerer diagnostizierbaren Fehlerbildern fuehren.
+- **Betroffene Datei(en):**
+  - `src/Romulus.UI.Wpf/Services/RunService.cs` (Zeilen 96, 273)
+  - `src/Romulus.Infrastructure/Orchestration/ScanPipelinePhase.cs` (Zeilen 20, 25)
+- **Fix:** End-to-end async; synchrone Bruecken nur an streng kontrollierten Boundaries.
+- **Testbedarf:** Last-/Cancel-Tests mit Parallelitaet und Timeout-Grenzen.
+
+#### V-04: Progress-Throttling vergleicht verschiedene Tick-Einheiten
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Correctness/Telemetry Risk**)
+- **Impact:** Das Throttling-Intervall kann effektiv falsch sein, weil `Stopwatch.GetTimestamp()`-Ticks mit `TimeSpan.TicksPerMillisecond` verglichen werden.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs` (Zeilen 909, 913, 916)
+- **Beleg:** `ThrottleIntervalTicks = 200 * TimeSpan.TicksPerMillisecond` bei gleichzeitiger Nutzung von `Stopwatch.GetTimestamp()`.
+- **Fix:** Intervall in Stopwatch-Frequenz umrechnen (`ThrottleIntervalStopwatchTicks = Stopwatch.Frequency / 5`).
+- **Testbedarf:** Deterministischer Unit-Test fuer Forwarding-Frequenz.
+
+#### V-05: DAT-Signaturpruefung ist bei Sidecar-Problemen fail-open
+- [ ] **Policy-Entscheidung offen**
+- **Schweregrad:** P1 (**Security/Integrity Policy Risk**)
+- **Impact:** Bei 404/500/malformed/network error der `.sha256`-Sidecar-Datei wird Download akzeptiert. Das ist bewusst implementiert, reduziert aber Supply-Chain-Haerte gegenueber fail-closed.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Dat/DatSourceService.cs` (Zeilen 333, 343, 352)
+  - `src/Romulus.Tests/DatSourceServiceTests.cs` (Zeilen 227, 241)
+- **Beleg:** Kommentare und Tests bestaetigen explizit `ReturnsTrue_HttpsIntegrity` bei Sidecar 404/500.
+- **Fix-Optionen:**
+  1. Strict-Modus (fail-closed ohne gueltige Sidecar/Hash) fuer High-Trust Umgebungen.
+  2. Default wie heute, aber explizit als Policy dokumentieren und im UI/CLI toggelbar machen.
+- **Testbedarf:** Matrix-Test fuer Strict/Default Policy.
+
+#### V-06: Backup/Restore bei DAT-Replacement ist nur teilweise abgesichert
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Rollback/Recovery Risk**)
+- **Impact:** Restore-Logik greift nur in einem Teilfall (`IOException` + Ziel fehlt). Andere Fehlermodi koennen `.bak` stehen lassen oder Ziel unvollstaendig hinterlassen.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Dat/DatSourceService.cs` (Zeilen 463-493)
+- **Fix:** Fehlerklassen erweitern, Restore-Pfade vereinheitlichen, Outcome eindeutig loggen.
+- **Testbedarf:** Fault-injection fuer `UnauthorizedAccessException`, partielle Kopie, lock races.
+
+#### V-07: CSV-Haertung ist funktional, aber uneinheitlich umgesetzt
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P2 (**Consistency/Hygiene Risk**)
+- **Impact:** Unterschiedliche Pfade nutzen unterschiedliche Vorhaertung (z. B. apostroph-prefix im Report-Generator), obwohl zentrale Sanitizer-Funktion existiert. Das erschwert Vorhersagbarkeit von Exporten.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Reporting/ReportGenerator.cs` (Zeilen 419-435)
+  - `src/Romulus.Infrastructure/Audit/AuditCsvParser.cs` (Zeilen 72-89)
+  - `src/Romulus.Infrastructure/Analysis/CollectionExportService.cs` (Zeilen 112-126)
+- **Fix:** Einheitliche CSV-Policy in einer zentralen API festschreiben und in allen Exportern identisch anwenden.
+- **Testbedarf:** Golden-File-Vergleich ueber alle CSV-Exporter fuer identische Problemwerte.
+
+### 9.2 Test-/QA-Luecken (verifiziert)
+
+- [ ] Kein gezielter Test auf Promotion-Fehlerfall mit bestehendem `finalOutputPath` sichtbar.
+- [ ] Kein gezielter Test auf Cancellation-Bypass-Pfade (`CancellationToken.None`) in den genannten Orchestrator-Stellen sichtbar.
+- [ ] Kein gezielter Test fuer Tick-Einheiten im Progress-Throttling sichtbar.
+
+### 9.3 Delta-Top-Massnahmen (naechste Iteration)
+
+1. [ ] Conversion-Promotion transaktional machen (V-01).
+2. [ ] Cancellation-Policy in Orchestrierung haerten und testen (V-02).
+3. [ ] Sync-over-async in `RunService`/`ScanPipelinePhase` abbauen (V-03).
+4. [ ] Throttle-Tick-Umrechnung auf `Stopwatch.Frequency` korrigieren (V-04).
+5. [ ] DAT-Signatur-Policy als konfigurierbaren Strict-Modus ergaenzen (V-05).
+6. [ ] DAT-Backup/Restore-Fehlerpfade aushaerten (V-06).
+7. [ ] CSV-Haertung vereinheitlichen und Golden-Tests einfuehren (V-07).
+
+---
+
+## 10. Deep Dives: Bisher unterauditierte Bereiche
+
+### 10.1 Profile API + Profile Store
+
+#### DDX-01: Path-Traversal-Risiko ueber Profile-ID bei GET/DELETE
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P0 (**Security Risk**)
+- **Impact:** Profile-ID wird im API-Route-Segment ohne Regex-Validierung in den Store durchgereicht; der Store kombiniert diese ID direkt in einen Dateipfad. Bei kodierten Backslashes/Traversal-Segmenten kann das zu Zugriffen ausserhalb des Profile-Ordners auf `*.json` fuehren (lesen/loeschen).
+- **Betroffene Datei(en):**
+  - `src/Romulus.Api/Program.ProfileWorkflowEndpoints.cs` (Zeilen 21, 23, 51, 55)
+  - `src/Romulus.Infrastructure/Profiles/RunProfileService.cs` (Zeilen 47, 57, 129, 134)
+  - `src/Romulus.Infrastructure/Profiles/JsonRunProfileStore.cs` (Zeilen 45, 77)
+- **Ursache:** Upsert-Validierung existiert (ueber Dokument-Validator), aber TryGet/Delete validieren `id` nicht.
+- **Fix:** Einheitliche ID-Validierung (`^[A-Za-z0-9._-]{1,64}$`) bereits an API-Grenze erzwingen und im Store defensiv wiederholen.
+- **Testbedarf:** Integrationstests mit traversal-kodierter ID (`..%5C..%5C...`) fuer GET/DELETE, erwartetes Verhalten: 400.
+
+#### DDX-02: Delete-Fehlerpfad liefert potentiell 500 statt kontrollierter API-Fehler
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Reliability / Error-Contract Risk**)
+- **Impact:** `DeleteAsync` kann `IOException`/`UnauthorizedAccessException` werfen; Endpoint faengt aktuell nur `InvalidOperationException`. Ergebnis: unkontrollierte 500 statt stabiler Fehlervertrag.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Profiles/JsonRunProfileStore.cs` (Zeilen 72, 81)
+  - `src/Romulus.Api/Program.ProfileWorkflowEndpoints.cs` (Zeile 60)
+- **Fix:** `IOException`/`UnauthorizedAccessException` auf definierte API-Fehlercodes mappen (z. B. 409/403).
+- **Testbedarf:** Integrationstest mit gelockter/nicht loeschbarer Profil-Datei.
+
+### 10.2 API Run-Configuration Mapping
+
+#### DDX-03: Explizitheitserkennung ist case-sensitive und kann Overrides still ignorieren
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Parity Risk**)
+- **Impact:** Request-Deserialisierung ist case-insensitive, Explizitheitserkennung aber nicht. Beispiel: `"Mode"` wird als Feldwert gelesen, gilt aber als „nicht explizit“ und kann durch Workflow/Profile-Defaults ueberschrieben werden.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Api/ApiRunConfigurationMapper.cs` (Zeilen 23, 48, 103, 105)
+- **Ursache:** `JsonElement.TryGetProperty(propertyName, out _)` wird mit exaktem Property-Namen verwendet.
+- **Fix:** Property-Namen einmal case-insensitive indizieren (HashSet OrdinalIgnoreCase) und darauf Explizitheit aufbauen.
+- **Testbedarf:** API-Tests mit gemischter Casing-Schreibweise (`Mode`, `PreferRegions`, `ProfileId`) und Erwartung identischer Materialisierung.
+
+### 10.3 Watch Automation
+
+#### DDX-04: Pending-Zustand kann nach Cooldown ohne Folgetrigger stehen bleiben
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P1 (**Automation Consistency Risk**)
+- **Impact:** Wenn innerhalb des 30s-Cooldowns erneut Aenderungen eintreffen, setzt der Watcher nur `HasPending=true`. Ohne weitere Events oder expliziten Flush kann kein automatischer Folgerun erfolgen.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Watch/WatchFolderService.cs` (Zeilen 11, 117, 189, 191)
+  - `src/Romulus.Api/ApiAutomationService.cs` (Zeilen 173, 174)
+- **Ursache:** Cooldown-Pfad markiert nur pending; Flush ist an Run-Abschluss gebunden.
+- **Fix:** Bei Cooldown-Pending einen verzögerten Selbst-Trigger nach Rest-Cooldown einplanen (statt nur Flag setzen).
+- **Testbedarf:** Clock-injizierter Test: Event waehrend Cooldown ohne weitere Dateiaenderung muss genau einen Nachlauf-Run erzeugen.
+
+### 10.4 Cron Validation
+
+#### DDX-05: API validiert Cron aktuell nur auf Feldanzahl
+- [ ] **Offene Massnahme**
+- **Schweregrad:** P2 (**Config Correctness Risk**)
+- **Impact:** Semantisch ungueltige Cron-Werte (z. B. ungueltige Bereichswerte) koennen akzeptiert werden und fuehren spaeter zu „silent no trigger“.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Api/Program.cs` (Zeilen 1207-1210)
+  - `src/Romulus.Infrastructure/Watch/CronScheduleEvaluator.cs` (Zeilen 15, 22, 25)
+- **Fix:** Strikte Cron-Validierung mit Feldgrenzen und klarer Fehlermeldung am Endpoint.
+- **Testbedarf:** Negative API-Tests fuer out-of-range Cron-Werte plus DOW-Kompatibilitaetstests.
+
+### 10.5 Deep-Dive Aktionsliste (unterauditierte Cluster)
+
+1. [ ] Profile-ID Regex-Validierung fuer GET/DELETE hart in API + Store durchziehen.
+2. [ ] Delete-Fehlerpfade (`IOException`, `UnauthorizedAccessException`) explizit auf API-Errorcodes mappen.
+3. [ ] `ApiRunConfigurationMapper` auf case-insensitive Explizitheitserkennung umstellen.
+4. [ ] Cooldown-Pending in Watch-Service als geplanten Nachlauf-Trigger implementieren.
+5. [ ] Cron-Parsing am API-Rand strikt validieren und semantische Fehler sofort ablehnen.
+6. [ ] Je Cluster mindestens ein Negativ-/Regressionstest ergaenzen.
+
+---
+
+## 11. Hardening-Loop Delta (2026-04-11, Runde 1)
+
+### 11.1 Geschlossene Findings (Red -> Green verifiziert)
+
+#### H-01: Profile-ID Traversal in Store/Service blockiert
+- [x] **Fix implementiert**
+- [x] **Red-Test zuerst, dann Green**
+- **Schweregrad:** P0 (**Security Risk**)
+- **Umgesetzte Aenderung:** Profile-ID wird jetzt zentral normalisiert/validiert (`RunProfileValidator.TryNormalizeProfileId`) und in Service + Store fuer `TryGet`/`Delete` hart erzwungen.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Profiles/RunProfileValidator.cs`
+  - `src/Romulus.Infrastructure/Profiles/RunProfileService.cs`
+  - `src/Romulus.Infrastructure/Profiles/JsonRunProfileStore.cs`
+- **Red-Tests (zuerst rot):**
+  - `RunProfileStoreSecurityTests.TryGetAsync_WithParentTraversalId_DoesNotReadOutsideProfileDirectory`
+  - `RunProfileStoreSecurityTests.DeleteAsync_WithParentTraversalId_DoesNotDeleteOutsideProfileDirectory`
+- **Green-Nachweis:** Beide Tests laufen nach Fix erfolgreich.
+
+#### H-02: API-Explicitness Case-Mismatch geschlossen
+- [x] **Fix implementiert**
+- [x] **Red-Test zuerst, dann Green**
+- **Schweregrad:** P0 (**Parity/Correctness Risk**)
+- **Umgesetzte Aenderung:** `ApiRunConfigurationMapper.HasProperty` arbeitet nun case-insensitive ueber alle JSON-Properties und ist damit konsistent zur case-insensitive Deserialisierung.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Api/ApiRunConfigurationMapper.cs`
+- **Red-Test (zuerst rot):**
+  - `ApiProductizationIntegrationTests.Runs_WithUppercaseModeProperty_PreservesExplicitOverrideAgainstWorkflowDefaults`
+- **Green-Nachweis:** Test laeuft nach Fix erfolgreich (`mode` bleibt `Move` trotz Workflow-Default `DryRun`).
+
+### 11.2 Verifizierte Testlaeufe
+
+- `dotnet test src/Romulus.Tests/Romulus.Tests.csproj --filter "FullyQualifiedName~RunProfileStoreSecurityTests|FullyQualifiedName~Runs_WithUppercaseModeProperty_PreservesExplicitOverrideAgainstWorkflowDefaults"`
+  - **Red-Phase:** 3/3 fehlgeschlagen (erwartet)
+  - **Green-Phase:** 3/3 erfolgreich
+- `dotnet test src/Romulus.Tests/Romulus.Tests.csproj --filter "FullyQualifiedName~RunConfigurationResolverRegressionTests|FullyQualifiedName~ApiProductizationIntegrationTests"`
+  - **Regression-Check:** 16/16 erfolgreich
+
+### 11.3 Rest-Risiken fuer naechste Runde
+
+1. [x] DDX-02 (Delete-Fehlervertrag auf API-Ebene robust mappen)
+2. [x] DDX-04 (Watch-Cooldown-Pending Nachlauf ohne neues Event absichern)
+3. [x] DDX-05 (strikte Cron-Semantik-Validierung am API-Rand)
+
+---
+
+## 12. Hardening-Loop Delta (2026-04-11, Runde 2)
+
+### 12.1 Geschlossene Findings (Red -> Green verifiziert)
+
+#### H-03: Profile-Delete Fehlervertrag liefert keine unkontrollierten 500 mehr
+- [x] **Fix implementiert**
+- [x] **Test ergaenzt und gruen**
+- **Schweregrad:** P1 (**Reliability / Error-Contract Risk**)
+- **Umgesetzte Aenderung:** Endpoint `/profiles/{id}` mappt jetzt `UnauthorizedAccessException` deterministisch auf 403 und `IOException` auf 409 (jeweils mit `PROFILE-DELETE-BLOCKED`) statt in 500 zu laufen.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Api/Program.ProfileWorkflowEndpoints.cs`
+- **Testnachweis:**
+  - `ApiValidationIntegrationTests.Profiles_Delete_AccessDenied_Returns403`
+
+#### H-04: Watch-Cooldown Pending bekommt automatischen Nachlauf-Trigger
+- [x] **Fix implementiert**
+- [x] **Test ergaenzt und gruen**
+- **Schweregrad:** P1 (**Automation Consistency Risk**)
+- **Umgesetzte Aenderung:** Wenn ein Event innerhalb des Cooldowns eintrifft, wird Pending nicht nur markiert, sondern ein Timer auf den Rest-Cooldown gesetzt, damit der Folgerun auch ohne weiteres Dateievent ausgelost wird.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Watch/WatchFolderService.cs`
+- **Testnachweis:**
+  - `AutomationAndTrendServiceTests.WatchFolderService_CooldownPending_TriggersFollowupWithoutNewEvent`
+
+#### H-05: Strikte Cron-Semantik-Validierung zentralisiert
+- [x] **Fix implementiert**
+- [x] **Tests ergaenzt und gruen**
+- **Schweregrad:** P2 (**Config Correctness Risk**)
+- **Umgesetzte Aenderung:** `CronScheduleEvaluator` bietet jetzt strikte Feld-/Range-/Step-Validierung. API (`/watch/start`) und CLI (`watch --cron`) nutzen denselben Validator und vermeiden damit Shadow-Validation.
+- **Betroffene Datei(en):**
+  - `src/Romulus.Infrastructure/Watch/CronScheduleEvaluator.cs`
+  - `src/Romulus.Api/Program.cs`
+  - `src/Romulus.CLI/CliArgsParser.Subcommands.cs`
+- **Testnachweis:**
+  - `ApiValidationIntegrationTests.Watch_Start_InvalidCronRange_Returns400`
+  - `CronAndMapperCoverageTests.TryValidateCronExpression_*`
+  - `CliArgsParserCoverageTests.Watch_InvalidCronSemanticValue_ReturnsValidationError`
+
+### 12.2 Verifizierte Testlaeufe
+
+- `dotnet test src/Romulus.Tests/Romulus.Tests.csproj --filter "FullyQualifiedName~AutomationAndTrendServiceTests|FullyQualifiedName~ApiValidationIntegrationTests|FullyQualifiedName~CronAndMapperCoverageTests|FullyQualifiedName~CliArgsParserCoverageTests"`
+  - **Ergebnis:** 186/186 erfolgreich
+- `dotnet test src/Romulus.Tests/Romulus.Tests.csproj --filter "FullyQualifiedName~ApiProductizationIntegrationTests|FullyQualifiedName~ApiIntegrationTests|FullyQualifiedName~RunProfileStoreSecurityTests|FullyQualifiedName~RunConfigurationResolverRegressionTests"`
+  - **Ergebnis:** 69/69 erfolgreich
+
+### 12.3 Status nach Runde 2
+
+1. [x] DDX-02 geschlossen
+2. [x] DDX-04 geschlossen
+3. [x] DDX-05 geschlossen

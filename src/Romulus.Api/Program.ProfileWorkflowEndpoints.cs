@@ -61,9 +61,19 @@ public partial class Program
             {
                 return ApiError(400, ApiErrorCodes.ProfileDeleteBlocked, ex.Message);
             }
+            catch (UnauthorizedAccessException)
+            {
+                return ApiError(403, ApiErrorCodes.ProfileDeleteBlocked, $"Profile '{id}' could not be deleted due to access restrictions.", ErrorKind.Critical);
+            }
+            catch (IOException ex)
+            {
+                return ApiError(409, ApiErrorCodes.ProfileDeleteBlocked, $"Profile '{id}' could not be deleted: {ex.Message}");
+            }
         })
             .WithSummary("Delete a user-defined run profile")
             .Produces<OperationErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<OperationErrorResponse>(StatusCodes.Status403Forbidden)
+            .Produces<OperationErrorResponse>(StatusCodes.Status409Conflict)
             .Produces<OperationErrorResponse>(StatusCodes.Status404NotFound);
 
         app.MapGet("/workflows", (string? id) =>

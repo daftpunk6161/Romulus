@@ -179,6 +179,34 @@ public sealed class CronAndMapperCoverageTests
         Assert.False(CronScheduleEvaluator.TestCronMatch("*/15 9-17 * * 1-5", sundayAt9));
     }
 
+    [Fact]
+    public void TryValidateCronExpression_InvalidMinuteRange_ReturnsFalse()
+    {
+        var valid = CronScheduleEvaluator.TryValidateCronExpression("61 * * * *", out var error);
+
+        Assert.False(valid);
+        Assert.Contains("minute", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("between 0 and 59", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TryValidateCronExpression_InvalidStep_ReturnsFalse()
+    {
+        var valid = CronScheduleEvaluator.TryValidateCronExpression("*/0 * * * *", out var error);
+
+        Assert.False(valid);
+        Assert.Contains("step", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TryValidateCronExpression_ValidExpression_ReturnsTrue()
+    {
+        var valid = CronScheduleEvaluator.TryValidateCronExpression("*/15 9-17 * * 1-5", out var error);
+
+        Assert.True(valid);
+        Assert.Null(error);
+    }
+
     // ═══ NormalizeHashType ═══════════════════════════════════════════
 
     [Fact]

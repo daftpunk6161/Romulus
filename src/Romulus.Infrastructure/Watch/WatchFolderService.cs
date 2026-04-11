@@ -70,6 +70,7 @@ public sealed class WatchFolderService : IDisposable
             _maxWait = TimeSpan.FromSeconds(Math.Max(1, maxWaitSeconds));
             _firstChangeUtc = DateTime.MaxValue;
             _pendingWhileBusy = false;
+            _lastTriggerUtc = DateTime.MinValue;
 
             foreach (var root in roots)
             {
@@ -178,6 +179,7 @@ public sealed class WatchFolderService : IDisposable
             if (_disposed || _watchers.Count == 0)
                 return;
 
+            var nowUtc = _utcNowProvider();
             _firstChangeUtc = DateTime.MaxValue;
             shouldTrigger = IsBusyCheck?.Invoke() != true;
             if (!shouldTrigger)
@@ -186,13 +188,17 @@ public sealed class WatchFolderService : IDisposable
                 return;
             }
 
-            if ((_utcNowProvider() - _lastTriggerUtc) < CooldownAfterTrigger)
+            var cooldownRemaining = CooldownAfterTrigger - (nowUtc - _lastTriggerUtc);
+            if (cooldownRemaining > TimeSpan.Zero)
             {
                 _pendingWhileBusy = true;
+                EnsureDebounceTimerLocked();
+                _debounceTimer!.Change(cooldownRemaining, Timeout.InfiniteTimeSpan);
                 return;
             }
 
-            _lastTriggerUtc = _utcNowProvider();
+            _pendingWhileBusy = false;
+            _lastTriggerUtc = nowUtc;
         }
 
         RunTriggered?.Invoke();
@@ -222,6 +228,7 @@ public sealed class WatchFolderService : IDisposable
         _watchers.Clear();
         _firstChangeUtc = DateTime.MaxValue;
         _pendingWhileBusy = false;
+        _lastTriggerUtc = DateTime.MinValue;
     }
 
     private void ThrowIfDisposed()

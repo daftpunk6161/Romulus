@@ -101,8 +101,18 @@ internal static class ApiRunConfigurationMapper
     }
 
     private static bool HasProperty(JsonElement rootElement, string propertyName)
-        => rootElement.ValueKind == JsonValueKind.Object
-           && rootElement.TryGetProperty(propertyName, out _);
+    {
+        if (rootElement.ValueKind != JsonValueKind.Object)
+            return false;
+
+        foreach (var property in rootElement.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
 }
 
 internal sealed record ApiResolvedRunConfiguration(

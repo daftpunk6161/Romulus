@@ -39,10 +39,10 @@ public sealed class JsonRunProfileStore : IRunProfileStore
 
     public async ValueTask<RunProfileDocument?> TryGetAsync(string id, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (!RunProfileValidator.TryNormalizeProfileId(id, out var normalizedId))
             return null;
 
-        var filePath = Path.Combine(_profileDirectory, id + ".json");
+        var filePath = Path.Combine(_profileDirectory, normalizedId + ".json");
         if (!File.Exists(filePath))
             return null;
 
@@ -71,10 +71,10 @@ public sealed class JsonRunProfileStore : IRunProfileStore
 
     public ValueTask<bool> DeleteAsync(string id, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (!RunProfileValidator.TryNormalizeProfileId(id, out var normalizedId))
             return ValueTask.FromResult(false);
 
-        var filePath = Path.Combine(_profileDirectory, id + ".json");
+        var filePath = Path.Combine(_profileDirectory, normalizedId + ".json");
         if (!File.Exists(filePath))
             return ValueTask.FromResult(false);
 

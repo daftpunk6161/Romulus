@@ -26,6 +26,20 @@ public static partial class RunProfileValidator
     [GeneratedRegex("^[A-Za-z0-9._-]{1,64}$", RegexOptions.CultureInvariant)]
     private static partial Regex ProfileIdRegex();
 
+    public static bool TryNormalizeProfileId(string? id, out string normalizedId)
+    {
+        normalizedId = string.Empty;
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+
+        var trimmed = id.Trim();
+        if (!ProfileIdRegex().IsMatch(trimmed))
+            return false;
+
+        normalizedId = trimmed;
+        return true;
+    }
+
     public static IReadOnlyList<string> ValidateDocument(RunProfileDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -35,7 +49,7 @@ public static partial class RunProfileValidator
         if (document.Version != 1)
             errors.Add($"Unsupported profile version '{document.Version}'.");
 
-        if (string.IsNullOrWhiteSpace(document.Id) || !ProfileIdRegex().IsMatch(document.Id))
+        if (!TryNormalizeProfileId(document.Id, out _))
             errors.Add("Profile id must be 1-64 chars from [A-Za-z0-9._-].");
 
         if (string.IsNullOrWhiteSpace(document.Name) || document.Name.Trim().Length > 120)

@@ -46,15 +46,15 @@ public sealed class RunProfileService
 
     public async ValueTask<RunProfileDocument?> TryGetAsync(string id, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (!RunProfileValidator.TryNormalizeProfileId(id, out var normalizedId))
             return null;
 
         var builtIns = await LoadBuiltInsAsync(ct).ConfigureAwait(false);
-        var builtIn = builtIns.FirstOrDefault(profile => string.Equals(profile.Id, id, StringComparison.OrdinalIgnoreCase));
+        var builtIn = builtIns.FirstOrDefault(profile => string.Equals(profile.Id, normalizedId, StringComparison.OrdinalIgnoreCase));
         if (builtIn is not null)
             return builtIn;
 
-        return await _store.TryGetAsync(id, ct).ConfigureAwait(false);
+        return await _store.TryGetAsync(normalizedId, ct).ConfigureAwait(false);
     }
 
     public async ValueTask<RunProfileDocument> ImportAsync(string sourcePath, CancellationToken ct = default)
@@ -68,10 +68,13 @@ public sealed class RunProfileService
     {
         ArgumentNullException.ThrowIfNull(profile);
 
+        if (!RunProfileValidator.TryNormalizeProfileId(profile.Id, out var normalizedId))
+            throw new InvalidOperationException("Profile id must be 1-64 chars from [A-Za-z0-9._-].");
+
         var normalized = profile with
         {
             BuiltIn = false,
-            Id = profile.Id.Trim(),
+            Id = normalizedId,
             Name = profile.Name.Trim(),
             Description = profile.Description?.Trim() ?? string.Empty
         };
@@ -128,10 +131,13 @@ public sealed class RunProfileService
 
     public async ValueTask<bool> DeleteAsync(string id, CancellationToken ct = default)
     {
-        if (await TryGetBuiltInAsync(id, ct).ConfigureAwait(false) is not null)
+        if (!RunProfileValidator.TryNormalizeProfileId(id, out var normalizedId))
+            return false;
+
+        if (await TryGetBuiltInAsync(normalizedId, ct).ConfigureAwait(false) is not null)
             throw new InvalidOperationException($"Built-in profile '{id}' cannot be deleted.");
 
-        return await _store.DeleteAsync(id, ct).ConfigureAwait(false);
+        return await _store.DeleteAsync(normalizedId, ct).ConfigureAwait(false);
     }
 
     private async ValueTask<RunProfileDocument?> TryGetBuiltInAsync(string id, CancellationToken ct)

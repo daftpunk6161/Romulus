@@ -6,15 +6,47 @@ namespace Romulus.Infrastructure.Watch;
 /// </summary>
 public static class CronScheduleEvaluator
 {
-    public static bool TestCronMatch(string cronExpression, DateTime dateTime)
+    public static bool TryValidateCronExpression(string cronExpression, out string? errorMessage)
     {
+        errorMessage = null;
+
         if (string.IsNullOrWhiteSpace(cronExpression))
+        {
+            errorMessage = "cron must not be empty.";
             return false;
+        }
 
         var fields = cronExpression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (fields.Length != 5)
+        {
+            errorMessage = "cron must contain exactly five fields.";
+            return false;
+        }
+
+        if (!TryValidateField(fields[0], minValue: 0, maxValue: 59, "minute", out errorMessage))
             return false;
 
+        if (!TryValidateField(fields[1], minValue: 0, maxValue: 23, "hour", out errorMessage))
+            return false;
+
+        if (!TryValidateField(fields[2], minValue: 1, maxValue: 31, "day-of-month", out errorMessage))
+            return false;
+
+        if (!TryValidateField(fields[3], minValue: 1, maxValue: 12, "month", out errorMessage))
+            return false;
+
+        if (!TryValidateField(fields[4], minValue: 0, maxValue: 6, "day-of-week", out errorMessage))
+            return false;
+
+        return true;
+    }
+
+    public static bool TestCronMatch(string cronExpression, DateTime dateTime)
+    {
+        if (!TryValidateCronExpression(cronExpression, out _))
+            return false;
+
+        var fields = cronExpression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return CronFieldMatch(fields[0], dateTime.Minute)
                && CronFieldMatch(fields[1], dateTime.Hour)
                && CronFieldMatch(fields[2], dateTime.Day)
@@ -84,5 +116,94 @@ public static class CronScheduleEvaluator
         }
 
         return false;
+    }
+
+    private static bool TryValidateField(string field, int minValue, int maxValue, string fieldName, out string? errorMessage)
+    {
+        errorMessage = null;
+
+        var parts = field.Split(',', StringSplitOptions.None);
+        foreach (var rawPart in parts)
+        {
+            var part = rawPart.Trim();
+            if (part.Length == 0)
+            {
+                errorMessage = $"cron {fieldName} field contains an empty segment.";
+                return false;
+            }
+
+            if (!TryValidateSegment(part, minValue, maxValue, fieldName, out errorMessage))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateSegment(string segment, int minValue, int maxValue, string fieldName, out string? errorMessage)
+    {
+        errorMessage = null;
+
+        string rangeToken = segment;
+        if (segment.Contains('/'))
+        {
+            var stepParts = segment.Split('/', StringSplitOptions.None);
+            if (stepParts.Length != 2 || string.IsNullOrWhiteSpace(stepParts[0]))
+            {
+                errorMessage = $"cron {fieldName} field has invalid step syntax '{segment}'.";
+                return false;
+            }
+
+            if (!int.TryParse(stepParts[1], out var step) || step <= 0)
+            {
+                errorMessage = $"cron {fieldName} field must use a positive step value in '{segment}'.";
+                return false;
+            }
+
+            rangeToken = stepParts[0];
+        }
+
+        if (rangeToken == "*")
+            return true;
+
+        if (rangeToken.Contains('-'))
+        {
+            var bounds = rangeToken.Split('-', StringSplitOptions.None);
+            if (bounds.Length != 2
+                || !TryParseCronNumber(bounds[0], minValue, maxValue, fieldName, out var start, out errorMessage)
+                || !TryParseCronNumber(bounds[1], minValue, maxValue, fieldName, out var end, out errorMessage))
+            {
+                return false;
+            }
+
+            if (start > end)
+            {
+                errorMessage = $"cron {fieldName} field range start must be <= end in '{segment}'.";
+                return false;
+            }
+
+            return true;
+        }
+
+        return TryParseCronNumber(rangeToken, minValue, maxValue, fieldName, out _, out errorMessage);
+    }
+
+    private static bool TryParseCronNumber(string token, int minValue, int maxValue, string fieldName, out int value, out string? errorMessage)
+    {
+        value = 0;
+        errorMessage = null;
+        var trimmed = token.Trim();
+        if (!int.TryParse(trimmed, out value))
+        {
+            errorMessage = $"cron {fieldName} field contains an invalid number '{trimmed}'.";
+            return false;
+        }
+
+        if (value < minValue || value > maxValue)
+        {
+            errorMessage = $"cron {fieldName} field value '{value}' must be between {minValue} and {maxValue}.";
+            return false;
+        }
+
+        return true;
     }
 }

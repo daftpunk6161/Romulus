@@ -1202,12 +1202,13 @@ app.MapPost("/watch/start", async (
     if (parsedIntervalMinutes is null && string.IsNullOrWhiteSpace(cron))
         return ApiError(400, ApiErrorCodes.WatchScheduleRequired, "Specify either intervalMinutes or cron.");
 
-    if (!string.IsNullOrWhiteSpace(cron) && !Romulus.Infrastructure.Watch.CronScheduleEvaluator.TestCronMatch(cron.Trim(), DateTime.Now.AddMinutes(1)))
+    if (!string.IsNullOrWhiteSpace(cron))
     {
-        // best-effort sanity gate: reject obviously invalid cron syntax without introducing parser shadow logic
-        var cronFields = cron.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (cronFields.Length != 5)
-            return ApiError(400, ApiErrorCodes.WatchInvalidCron, "cron must contain exactly five fields.");
+        var normalizedCron = cron.Trim();
+        if (!Romulus.Infrastructure.Watch.CronScheduleEvaluator.TryValidateCronExpression(normalizedCron, out var cronValidationError))
+            return ApiError(400, ApiErrorCodes.WatchInvalidCron, cronValidationError ?? "Invalid cron expression.");
+
+        cron = normalizedCron;
     }
 
     foreach (var root in request.Roots)

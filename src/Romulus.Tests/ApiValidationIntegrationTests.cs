@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Romulus.Api;
 using Xunit;
 using Romulus.Contracts.Errors;
 
@@ -32,6 +35,16 @@ public sealed class ApiValidationIntegrationTests
 
     private static Dictionary<string, string?> DefaultSettings() =>
         new() { ["ApiKey"] = ApiKey };
+
+    private static string GetFactoryProfileDirectory(WebApplicationFactory<Program> factory)
+    {
+        var profileField = factory.GetType().GetField("_profileDirectory", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(profileField);
+
+        var value = profileField!.GetValue(factory) as string;
+        Assert.False(string.IsNullOrWhiteSpace(value));
+        return value!;
+    }
 
     // ──────────────── /runs/list ────────────────
 
@@ -182,6 +195,81 @@ public sealed class ApiValidationIntegrationTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains(ApiErrorCodes.ProfileDeleteBlocked, body);
+    }
+
+    [Fact]
+    public async Task Profiles_Delete_AccessDenied_Returns403()
+    {
+        using var factory = ApiTestFactory.Create(DefaultSettings());
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+
+        var profileDirectory = GetFactoryProfileDirectory(factory);
+        var profilePath = Path.Combine(profileDirectory, "locked-profile.json");
+
+        var payload = new
+        {
+            version = 1,
+            name = "Locked Profile",
+            description = "delete access denied test",
+            settings = new
+            {
+                mode = "DryRun"
+            }
+        };
+
+        using var putContent = JsonBody(payload);
+        var putResponse = await client.PutAsync("/profiles/locked-profile", putContent);
+        Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+        Assert.True(File.Exists(profilePath));
+
+        var originalAttributes = File.GetAttributes(profilePath);
+        File.SetAttributes(profilePath, originalAttributes | FileAttributes.ReadOnly);
+
+        try
+        {
+            var response = await client.DeleteAsync("/profiles/locked-profile");
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains(ApiErrorCodes.ProfileDeleteBlocked, body);
+            Assert.Contains("access", body, StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(profilePath));
+        }
+        finally
+        {
+            if (File.Exists(profilePath))
+                File.SetAttributes(profilePath, originalAttributes);
+        }
+    }
+
+    [Fact]
+    public async Task Watch_Start_InvalidCronRange_Returns400()
+    {
+        using var factory = ApiTestFactory.Create(DefaultSettings());
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Api-Key", ApiKey);
+
+        var root = CreateTempRoot();
+        try
+        {
+            using var content = JsonBody(new
+            {
+                roots = new[] { root },
+                mode = "DryRun"
+            });
+
+            var cron = Uri.EscapeDataString("61 * * * *");
+            var response = await client.PostAsync($"/watch/start?cron={cron}", content);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains(ApiErrorCodes.WatchInvalidCron, body);
+            Assert.Contains("minute", body, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
     }
 
     // ──────────────── /workflows ────────────────
