@@ -7,18 +7,8 @@ namespace Romulus.UI.Wpf.Services;
 /// <summary>GUI-046: Abstracts RunService for DI injection and testability.</summary>
 public interface IRunService
 {
-    (RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)
-        BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null);
-
     Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
         BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null);
-
-    RunService.RunServiceResult ExecuteRun(
-        RunOrchestrator orchestrator,
-        RunOptions options,
-        string? auditPath,
-        string? reportPath,
-        CancellationToken ct);
 
     Task<RunService.RunServiceResult> ExecuteRunAsync(
         RunOrchestrator orchestrator,

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://romulus.local/schemas/ui-lookups.schema.json",
+  "type": "object",
+  "required": [
+    "compressionRatios",
+    "consoleFormatPriority",
+    "genreKeywords",
+    "coreMapping",
+    "sortTemplates",
+    "extensionTargetFormats"
+  ],
+  "properties": {
+    "compressionRatios": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "consoleFormatPriority": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "genreKeywords": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["keyword", "genre"],
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "minLength": 1
+          },
+          "genre": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "coreMapping": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "sortTemplates": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "extensionTargetFormats": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

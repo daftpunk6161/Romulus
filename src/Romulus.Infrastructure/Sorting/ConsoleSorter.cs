@@ -342,8 +342,15 @@ public sealed class ConsoleSorter
                     // Atomic set-move: primary + all members succeed, or all roll back
                     if (dryRun)
                     {
-                        moved++;
-                        setMembersMoved += members.Count;
+                        if (CanDryRunSetMove(root, filePath, members, expectedDir))
+                        {
+                            moved++;
+                            setMembersMoved += members.Count;
+                        }
+                        else
+                        {
+                            failed += members.Count + 1;
+                        }
                     }
                     else
                     {
@@ -385,6 +392,26 @@ public sealed class ConsoleSorter
         }
 
         return new ConsoleSortResult(total, moved, setMembersMoved, skipped, unknown, unknownReasons, failed, reviewed, blocked, pathMutations);
+    }
+
+    private bool CanDryRunSetMove(string root, string primaryPath, IReadOnlyList<string> members, string destDir)
+    {
+        if (!_fs.FileExists(primaryPath))
+            return false;
+
+        if (ResolveMoveDestination(root, primaryPath, destDir) is null)
+            return false;
+
+        foreach (var member in members)
+        {
+            if (!_fs.FileExists(member))
+                return false;
+
+            if (ResolveMoveDestination(root, member, destDir) is null)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

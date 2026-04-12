@@ -8,6 +8,8 @@ using Romulus.Contracts;
 using CommunityToolkit.Mvvm.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Safety;
@@ -32,14 +34,30 @@ public sealed partial class FeatureCommandService
     private readonly MainViewModel _vm;
     private readonly ISettingsService _settings;
     private readonly IDialogService _dialog;
-    private readonly IWindowHost? _windowHost;
+    private readonly IFileSystem _fileSystem;
+    private readonly IAuditStore _auditStore;
+    private IWindowHost? _windowHost;
     private volatile bool _datUpdateRunning;
 
-    public FeatureCommandService(MainViewModel vm, ISettingsService settings, IDialogService dialog, IWindowHost? windowHost = null)
+    public FeatureCommandService(
+        MainViewModel vm,
+        ISettingsService settings,
+        IDialogService dialog,
+        IFileSystem? fileSystem = null,
+        IAuditStore? auditStore = null)
     {
         _vm = vm;
         _settings = settings;
         _dialog = dialog;
+        _fileSystem = fileSystem ?? new FileSystemAdapter();
+        _auditStore = auditStore ?? new AuditCsvStore(
+            _fileSystem,
+            msg => _vm.AddLog(msg, "INFO"),
+            AuditSecurityPaths.GetDefaultSigningKeyPath());
+    }
+
+    public void AttachWindowHost(IWindowHost windowHost)
+    {
         _windowHost = windowHost;
     }
 

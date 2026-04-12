@@ -39,7 +39,13 @@ public sealed class RunManager
         _reviewDecisionService = reviewDecisionService;
         _collectionDatabasePath = collectionIndexPathOptions?.DatabasePath;
         _timeProvider = timeProvider ?? new SystemTimeProvider();
-        _lifecycle = new RunLifecycleManager(fs, audit, executor ?? ExecuteWithOrchestrator, _timeProvider);
+        Func<RunRecord, IFileSystem, IAuditStore, CancellationToken, Task<RunExecutionOutcome>> effectiveExecutor =
+            executor is null
+                ? ExecuteWithOrchestratorAsync
+                : (run, fileSystem, auditStore, cancellationToken) =>
+                    Task.FromResult(executor(run, fileSystem, auditStore, cancellationToken));
+
+        _lifecycle = new RunLifecycleManager(fs, audit, effectiveExecutor, _timeProvider);
     }
 
     internal RunLifecycleManager Lifecycle => _lifecycle;
@@ -75,7 +81,7 @@ public sealed class RunManager
     /// </summary>
     public Task ShutdownAsync() => _lifecycle.ShutdownAsync();
 
-    private RunExecutionOutcome ExecuteWithOrchestrator(
+    private async Task<RunExecutionOutcome> ExecuteWithOrchestratorAsync(
         RunRecord run,
         IFileSystem fs,
         IAuditStore audit,
@@ -117,7 +123,7 @@ public sealed class RunManager
                     run.ProgressPercent = ProgressEstimator.EstimateFromMessage(msg);
                 });
 
-            CollectionRunSnapshotWriter.TryPersistAsync(
+            await CollectionRunSnapshotWriter.TryPersistAsync(
                 collectionIndex,
                 options,
                 result,
@@ -128,9 +134,7 @@ public sealed class RunManager
                     run.ProgressMessage = msg;
                     run.ProgressPercent = ProgressEstimator.EstimateFromMessage(msg);
                 },
-                // SYNC-JUSTIFIED: Run execution callback is synchronous by contract in lifecycle manager.
-                // Persisting snapshot inline keeps run completion and persisted state deterministic.
-                CancellationToken.None).GetAwaiter().GetResult();
+                CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -407,9 +411,17 @@ public sealed class RunRecord
         lock (_lock)
         {
             if (_cancellationSourceDisposed)
-                return CancellationToken.None;
+                return _cancellationRequested ? new CancellationToken(canceled: true) : CancellationToken.None;
 
-            return CancellationSource.Token;
+            try
+            {
+                return CancellationSource.Token;
+            }
+            catch (ObjectDisposedException)
+            {
+                _cancellationSourceDisposed = true;
+                return _cancellationRequested ? new CancellationToken(canceled: true) : CancellationToken.None;
+            }
         }
     }
 

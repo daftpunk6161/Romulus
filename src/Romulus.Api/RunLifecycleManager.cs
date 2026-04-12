@@ -26,12 +26,12 @@ public sealed class RunLifecycleManager
     private readonly IFileSystem _fs;
     private readonly IAuditStore _audit;
     private readonly ITimeProvider _timeProvider;
-    private readonly Func<RunRecord, IFileSystem, IAuditStore, CancellationToken, RunExecutionOutcome> _executor;
+    private readonly Func<RunRecord, IFileSystem, IAuditStore, CancellationToken, Task<RunExecutionOutcome>> _executor;
 
     public RunLifecycleManager(
         IFileSystem fs,
         IAuditStore audit,
-        Func<RunRecord, IFileSystem, IAuditStore, CancellationToken, RunExecutionOutcome> executor,
+        Func<RunRecord, IFileSystem, IAuditStore, CancellationToken, Task<RunExecutionOutcome>> executor,
         ITimeProvider? timeProvider = null)
     {
         _fs = fs;
@@ -149,10 +149,11 @@ public sealed class RunLifecycleManager
             _activeRunId = runId;
 
             _activeTask = Task.Factory.StartNew(
-                () => ExecuteRun(record),
-                CancellationToken.None,
-                TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
-                TaskScheduler.Default);
+                    () => ExecuteRunAsync(record),
+                    CancellationToken.None,
+                    TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default)
+                .Unwrap();
 
             return new RunCreateResult(RunCreateDisposition.Created, record);
         }
@@ -283,14 +284,14 @@ public sealed class RunLifecycleManager
             Path.Combine(reportDir, $"report-{runId}.html"));
     }
 
-    private void ExecuteRun(RunRecord run)
+    private async Task ExecuteRunAsync(RunRecord run)
     {
         var (auditPath, reportPath) = GetArtifactPaths(run.RunId, run.Roots);
 
         try
         {
             var ct = run.GetCancellationToken();
-            var outcome = _executor(run, _fs, _audit, ct);
+            var outcome = await _executor(run, _fs, _audit, ct).ConfigureAwait(false);
             run.Status = outcome.Status;
             run.Result = outcome.Result;
             run.ProgressPercent = 100;

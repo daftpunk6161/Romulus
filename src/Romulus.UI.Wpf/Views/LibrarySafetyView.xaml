@@ -40,10 +40,12 @@
               <Border Width="10" Height="10" Background="{DynamicResource BrushDanger}" CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center"/>
               <TextBlock Text="Blockiert" FontWeight="SemiBold" FontSize="14"
                          Foreground="{DynamicResource BrushDanger}"/>
-              <TextBlock x:Name="BlockedCount" Margin="6,0,0,0" FontSize="12"
+              <TextBlock Text="{Binding SafetyBlockedCountText}" Margin="6,0,0,0" FontSize="12"
                          Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
             </StackPanel>
-            <ListBox x:Name="BlockedList" Grid.Row="1" BorderThickness="0"
+            <ListBox Grid.Row="1" BorderThickness="0"
+                     ItemsSource="{Binding SafetyBlockedItems}"
+                     Visibility="{Binding HasSafetyBlockedItems, Converter={StaticResource BoolToVis}}"
                      Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="Blockierte Dateien">
               <ListBox.ItemTemplate>
@@ -65,8 +67,9 @@
             <!-- Empty state -->
             <TextBlock Grid.Row="1" Text="Keine blockierten Dateien"
                        Foreground="{DynamicResource BrushTextMuted}" FontSize="12"
+                       Visibility="{Binding HasSafetyBlockedItems, Converter={StaticResource InverseBoolToVis}}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       x:Name="BlockedEmpty"/>
+                       />
           </Grid>
         </Border>
 
@@ -81,10 +84,12 @@
               <Border Width="10" Height="10" Background="{DynamicResource BrushWarning}" CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center"/>
               <TextBlock Text="Überprüfung" FontWeight="SemiBold" FontSize="14"
                          Foreground="{DynamicResource BrushWarning}"/>
-              <TextBlock x:Name="ReviewCount" Margin="6,0,0,0" FontSize="12"
+              <TextBlock Text="{Binding SafetyReviewCountText}" Margin="6,0,0,0" FontSize="12"
                          Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
             </StackPanel>
-            <ListBox x:Name="ReviewList" Grid.Row="1" BorderThickness="0"
+            <ListBox Grid.Row="1" BorderThickness="0"
+                     ItemsSource="{Binding SafetyReviewItems}"
+                     Visibility="{Binding HasSafetyReviewItems, Converter={StaticResource BoolToVis}}"
                      Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="Zur Überprüfung markierte Dateien">
               <ListBox.ItemTemplate>
@@ -106,8 +111,9 @@
             <!-- Empty state -->
             <TextBlock Grid.Row="1" Text="Keine Dateien zur Überprüfung"
                        Foreground="{DynamicResource BrushTextMuted}" FontSize="12"
+                       Visibility="{Binding HasSafetyReviewItems, Converter={StaticResource InverseBoolToVis}}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       x:Name="ReviewEmpty"/>
+                       />
           </Grid>
         </Border>
 
@@ -122,10 +128,12 @@
               <Border Width="10" Height="10" Background="{DynamicResource BrushTextMuted}" CornerRadius="2" Margin="0,0,8,0" VerticalAlignment="Center"/>
               <TextBlock Text="Unbekannt" FontWeight="SemiBold" FontSize="14"
                          Foreground="{DynamicResource BrushTextMuted}"/>
-              <TextBlock x:Name="UnknownCount" Margin="6,0,0,0" FontSize="12"
+              <TextBlock Text="{Binding SafetyUnknownCountText}" Margin="6,0,0,0" FontSize="12"
                          Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
             </StackPanel>
-            <ListBox x:Name="UnknownList" Grid.Row="1" BorderThickness="0"
+            <ListBox Grid.Row="1" BorderThickness="0"
+                     ItemsSource="{Binding SafetyUnknownItems}"
+                     Visibility="{Binding HasSafetyUnknownItems, Converter={StaticResource BoolToVis}}"
                      Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="Unbekannte Dateien">
               <ListBox.ItemTemplate>
@@ -147,8 +155,9 @@
             <!-- Empty state -->
             <TextBlock Grid.Row="1" Text="Keine unbekannten Dateien"
                        Foreground="{DynamicResource BrushTextMuted}" FontSize="12"
+                       Visibility="{Binding HasSafetyUnknownItems, Converter={StaticResource InverseBoolToVis}}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       x:Name="UnknownEmpty"/>
+                       />
           </Grid>
         </Border>
       </Grid>

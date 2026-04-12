@@ -8,8 +8,12 @@ public static class StartupDataSchemaValidator
     private static readonly (string DataFile, string SchemaFile)[] RequiredFiles =
     [
         ("consoles.json", "consoles.schema.json"),
+        ("console-maps.json", "console-maps.schema.json"),
         ("rules.json", "rules.schema.json"),
         ("defaults.json", "defaults.schema.json"),
+        ("format-scores.json", "format-scores.schema.json"),
+        ("tool-hashes.json", "tool-hashes.schema.json"),
+        ("ui-lookups.json", "ui-lookups.schema.json"),
         ("conversion-registry.json", "conversion-registry.schema.json"),
         ("dat-catalog.json", "dat-catalog.schema.json")
     ];

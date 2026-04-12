@@ -110,10 +110,25 @@ public sealed class ApiAutomationService : IDisposable
     }
 
     private void OnWatchTriggered()
-        => _ = TriggerRunAsync("watch");
+        => TriggerRunInBackground("watch");
 
     private void OnScheduleTriggered()
-        => _ = TriggerRunAsync("schedule");
+        => TriggerRunInBackground("schedule");
+
+    private void TriggerRunInBackground(string source)
+    {
+        var triggerTask = TriggerRunAsync(source);
+        _ = triggerTask.ContinueWith(task =>
+        {
+            lock (_sync)
+            {
+                _lastError = $"Automated run trigger failed ({source}): {task.Exception?.GetBaseException().GetType().Name ?? "Unknown"}";
+            }
+        },
+        CancellationToken.None,
+        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+        TaskScheduler.Default);
+    }
 
     private void OnWatcherError(string message)
     {

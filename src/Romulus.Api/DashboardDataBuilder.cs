@@ -127,67 +127,29 @@ internal static class DashboardDataBuilder
             });
         }
 
-        string[] datFiles;
         try
         {
-            datFiles = Directory.GetFiles(datRoot, "*.dat", SearchOption.AllDirectories)
-                .Concat(Directory.GetFiles(datRoot, "*.xml", SearchOption.AllDirectories))
-                .ToArray();
+            _ = Directory.EnumerateFileSystemEntries(datRoot).Take(1).ToArray();
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            // Graceful degradation: scan each top-level subdirectory individually
-            // so one inaccessible folder doesn't block the entire status.
-            var accessible = new List<string>();
-            try
+            return Task.FromResult(new DashboardDatStatusResponse
             {
-                foreach (var dir in Directory.GetDirectories(datRoot))
-                {
-                    try
-                    {
-                        accessible.AddRange(Directory.GetFiles(dir, "*.dat", SearchOption.AllDirectories));
-                        accessible.AddRange(Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories));
-                    }
-                    catch (Exception inner) when (inner is UnauthorizedAccessException or IOException)
-                    {
-                        // Skip inaccessible subdirectory
-                    }
-                }
-
-                // Also scan root-level files
-                foreach (var pattern in new[] { "*.dat", "*.xml" })
-                {
-                    try
-                    {
-                        accessible.AddRange(Directory.GetFiles(datRoot, pattern, SearchOption.TopDirectoryOnly));
-                    }
-                    catch (Exception inner) when (inner is UnauthorizedAccessException or IOException)
-                    {
-                        // Skip
-                    }
-                }
-            }
-            catch (Exception outerEx) when (outerEx is UnauthorizedAccessException or IOException)
-            {
-                // Entire root is inaccessible
-                return Task.FromResult(new DashboardDatStatusResponse
-                {
-                    Configured = true,
-                    DatRoot = datRoot,
-                    Message = $"Cannot access DAT root: {ex.GetType().Name}",
-                    TotalFiles = 0,
-                    Consoles = Array.Empty<DashboardDatConsoleStatus>(),
-                    WithinAllowedRoots = allowedRootPolicy.IsPathAllowed(datRoot)
-                });
-            }
-
-            datFiles = accessible.ToArray();
+                Configured = true,
+                DatRoot = datRoot,
+                Message = $"Cannot access DAT root: {ex.GetType().Name}",
+                TotalFiles = 0,
+                Consoles = Array.Empty<DashboardDatConsoleStatus>(),
+                WithinAllowedRoots = allowedRootPolicy.IsPathAllowed(datRoot)
+            });
         }
+
+        var datFiles = DatCatalogStateService.EnumerateLocalDatFilesSafe(datRoot);
 
         var consoleStats = datFiles
             .GroupBy(file =>
             {
-                var dir = Path.GetDirectoryName(file);
+                var dir = Path.GetDirectoryName(file.Path);
                 return dir is not null && !string.Equals(Path.GetFullPath(dir), Path.GetFullPath(datRoot), StringComparison.OrdinalIgnoreCase)
                     ? Path.GetFileName(dir)
                     : "root";
@@ -197,16 +159,9 @@ internal static class DashboardDataBuilder
                 DateTime newest = DateTime.MinValue, oldest = DateTime.MaxValue;
                 foreach (var file in group)
                 {
-                    try
-                    {
-                        var mtime = File.GetLastWriteTimeUtc(file);
-                        if (mtime > newest) newest = mtime;
-                        if (mtime < oldest) oldest = mtime;
-                    }
-                    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-                    {
-                        // Skip files with inaccessible metadata
-                    }
+                    var mtime = file.LastWriteUtc;
+                    if (mtime > newest) newest = mtime;
+                    if (mtime < oldest) oldest = mtime;
                 }
 
                 return new DashboardDatConsoleStatus
@@ -224,15 +179,8 @@ internal static class DashboardDataBuilder
         var staleThresholdDays = DatCatalogStateService.StaleThresholdDays;
         foreach (var file in datFiles)
         {
-            try
-            {
-                if ((DateTime.UtcNow - File.GetLastWriteTimeUtc(file)).TotalDays > staleThresholdDays)
-                    oldFileCount++;
-            }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-            {
-                // Skip inaccessible files
-            }
+            if ((DateTime.UtcNow - file.LastWriteUtc).TotalDays > staleThresholdDays)
+                oldFileCount++;
         }
 
         var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
@@ -253,7 +201,7 @@ internal static class DashboardDataBuilder
         {
             Configured = true,
             DatRoot = datRoot,
-            TotalFiles = datFiles.Length,
+            TotalFiles = datFiles.Count,
             Consoles = consoleStats,
             OldFileCount = oldFileCount,
             CatalogEntries = catalogEntries,

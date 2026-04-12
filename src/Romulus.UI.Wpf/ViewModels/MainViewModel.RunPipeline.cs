@@ -68,10 +68,33 @@ public sealed partial class MainViewModel
     public ObservableCollection<RomCandidate> LastCandidates
     {
         get => _lastCandidates;
-        set { _lastCandidates = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRunData)); Run.LastCandidates = value; }
+        set
+        {
+            _lastCandidates = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasRunData));
+            Run.LastCandidates = value;
+            RefreshSafetyListsFromCandidates();
+        }
     }
 
     public bool HasRunData => Run.HasRunData;
+
+    public ObservableCollection<SafetyListItem> SafetyBlockedItems { get; } = [];
+    public ObservableCollection<SafetyListItem> SafetyReviewItems { get; } = [];
+    public ObservableCollection<SafetyListItem> SafetyUnknownItems { get; } = [];
+
+    public int SafetyBlockedCount => SafetyBlockedItems.Count;
+    public int SafetyReviewCount => SafetyReviewItems.Count;
+    public int SafetyUnknownCount => SafetyUnknownItems.Count;
+
+    public string SafetyBlockedCountText => $"({SafetyBlockedCount})";
+    public string SafetyReviewCountText => $"({SafetyReviewCount})";
+    public string SafetyUnknownCountText => $"({SafetyUnknownCount})";
+
+    public bool HasSafetyBlockedItems => SafetyBlockedCount > 0;
+    public bool HasSafetyReviewItems => SafetyReviewCount > 0;
+    public bool HasSafetyUnknownItems => SafetyUnknownCount > 0;
 
     private ObservableCollection<DedupeGroup> _lastDedupeGroups = [];
     public ObservableCollection<DedupeGroup> LastDedupeGroups
@@ -219,6 +242,9 @@ public sealed partial class MainViewModel
     {
         if (e.PropertyName is null) return;
 
+        if (e.PropertyName is nameof(RunViewModel.LastCandidates) or nameof(RunViewModel.HasRunData))
+            RefreshSafetyListsFromCandidates();
+
         if (_forwardedRunProperties.Contains(e.PropertyName))
         {
             OnPropertyChanged(e.PropertyName);
@@ -247,6 +273,53 @@ public sealed partial class MainViewModel
             OnPropertyChanged(nameof(ShowResultMoveButton));
             OnPropertyChanged(nameof(ShowActionBarMoveButton));
         }
+    }
+
+    private void RefreshSafetyListsFromCandidates()
+    {
+        SafetyBlockedItems.Clear();
+        SafetyReviewItems.Clear();
+        SafetyUnknownItems.Clear();
+
+        foreach (var candidate in Run.LastCandidates)
+        {
+            var reason = !string.IsNullOrWhiteSpace(candidate.MatchEvidence.Reasoning)
+                ? candidate.MatchEvidence.Reasoning
+                : candidate.ClassificationReasonCode;
+
+            var item = new SafetyListItem(
+                Path.GetFileName(candidate.MainPath),
+                candidate.ConsoleKey,
+                candidate.MatchEvidence.Level.ToString(),
+                reason);
+
+            switch (candidate.SortDecision)
+            {
+                case SortDecision.Blocked:
+                case SortDecision.Unknown:
+                    SafetyBlockedItems.Add(item);
+                    break;
+                case SortDecision.Review:
+                    SafetyReviewItems.Add(item);
+                    break;
+            }
+
+            if (string.IsNullOrWhiteSpace(candidate.ConsoleKey)
+                || candidate.ConsoleKey.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase))
+            {
+                SafetyUnknownItems.Add(item);
+            }
+        }
+
+        OnPropertyChanged(nameof(SafetyBlockedCount));
+        OnPropertyChanged(nameof(SafetyReviewCount));
+        OnPropertyChanged(nameof(SafetyUnknownCount));
+        OnPropertyChanged(nameof(SafetyBlockedCountText));
+        OnPropertyChanged(nameof(SafetyReviewCountText));
+        OnPropertyChanged(nameof(SafetyUnknownCountText));
+        OnPropertyChanged(nameof(HasSafetyBlockedItems));
+        OnPropertyChanged(nameof(HasSafetyReviewItems));
+        OnPropertyChanged(nameof(HasSafetyUnknownItems));
     }
 
     /// <summary>GUI-065: True when no roots are configured (for StartView hero drop-zone).</summary>
@@ -871,6 +944,55 @@ public sealed partial class MainViewModel
         }
     }
 
+    public ReportPreviewResult BuildReportPreviewResult()
+    {
+        if (!TryNormalizeReportPath(LastReportPath, out var fullPath) || !File.Exists(fullPath))
+        {
+            if (Run.HasRunData)
+            {
+                PopulateErrorSummary();
+            }
+            else
+            {
+                ErrorSummaryItems.Clear();
+                ErrorSummaryItems.Add(new UiError("GUI-NOREPORT", "Kein Report vorhanden.", UiErrorSeverity.Info));
+                RaiseErrorSummaryChanged();
+            }
+
+            return ReportPreviewResult.FromInlineHtml(
+                "<html><body style='background:#1a1a2e;color:#888;font-family:Consolas;padding:16px'>" +
+                "<p>HTML-Report nur im Execute-Modus (Mode=Move) verfuegbar.</p>" +
+                "<p style='margin-top:8px;font-size:0.9em;color:#666'>Die Fehler-Zusammenfassung oben zeigt bereits die Ergebnisse der Vorschau.</p>" +
+                "</body></html>");
+        }
+
+        PopulateErrorSummary();
+        AddLog($"Report-Vorschau geladen: {Path.GetFileName(fullPath)}", "INFO");
+        return ReportPreviewResult.FromReportFile(fullPath);
+    }
+
+    internal static bool TryNormalizeReportPath(string? value, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        try
+        {
+            var trimmed = value.Trim();
+            var fullPath = Path.GetFullPath(trimmed);
+            if (string.IsNullOrWhiteSpace(fullPath))
+                return false;
+
+            normalizedPath = fullPath;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Complete a run (call from UI thread when orchestration finishes).</summary>
     public void CompleteRun(bool success, string? reportPath = null, bool cancelled = false, bool completedWithErrors = false)
     {
@@ -1256,6 +1378,11 @@ public sealed partial class MainViewModel
         foreach (var issue in projected)
             ErrorSummaryItems.Add(issue);
 
+        RaiseErrorSummaryChanged();
+    }
+
+    private void RaiseErrorSummaryChanged()
+    {
         OnPropertyChanged(nameof(HasActionableErrorSummary));
         OnPropertyChanged(nameof(ActionableErrorSummaryItems));
         OnPropertyChanged(nameof(ActionableErrorSummaryTitle));

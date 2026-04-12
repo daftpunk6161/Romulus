@@ -54,16 +54,6 @@ public sealed class RunService : IRunService
         public string? ReportPath { get; init; }
     }
 
-    /// <summary>
-    /// Build infrastructure and RunOptions from current ViewModel state.
-    /// Must be called on a background thread — performs file I/O.
-    /// </summary>
-    // SYNC-JUSTIFIED: Legacy sync wrapper kept only for backward-compat; all new call-sites must use BuildOrchestratorAsync.
-    [Obsolete("Use BuildOrchestratorAsync to avoid blocking calls.")]
-    public (RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)
-        BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null)
-        => BuildOrchestratorAsync(vm, onProgress).ConfigureAwait(false).GetAwaiter().GetResult();
-
     /// <inheritdoc/>
     public async Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
         BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null)
@@ -179,20 +169,6 @@ public sealed class RunService : IRunService
             orchestrator.Dispose();
         }
     }
-
-    /// <summary>
-    /// Execute the pipeline.
-    /// Must be called on a background thread.
-    /// </summary>
-    // SYNC-JUSTIFIED: Legacy sync wrapper kept only for backward-compat; all new call-sites must use ExecuteRunAsync.
-    [Obsolete("Use ExecuteRunAsync to avoid blocking calls.")]
-    public RunServiceResult ExecuteRun(
-        RunOrchestrator orchestrator,
-        RunOptions options,
-        string? auditPath,
-        string? reportPath,
-        CancellationToken ct)
-        => ExecuteRunAsync(orchestrator, options, auditPath, reportPath, ct).ConfigureAwait(false).GetAwaiter().GetResult();
 
     /// <summary>
     /// Get a directory at the same level as <paramref name="rootPath"/>.

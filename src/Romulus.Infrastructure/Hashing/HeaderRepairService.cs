@@ -49,12 +49,30 @@ public sealed class HeaderRepairService : IHeaderRepairService
             _fileSystem.CopyFile(path, path + ".bak", overwrite: true);
 
             var tmpPath = path + ".tmp";
-            var data = File.ReadAllBytes(path);
-            data[12] = 0x00;
-            data[13] = 0x00;
-            data[14] = 0x00;
-            data[15] = 0x00;
-            File.WriteAllBytes(tmpPath, data);
+            using (var source = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var target = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                var buffer = new byte[81920];
+                long absoluteOffset = 0;
+                int read;
+
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    var zeroStart = (int)Math.Max(0, 12 - absoluteOffset);
+                    var zeroEnd = (int)Math.Min(read - 1, 15 - absoluteOffset);
+                    if (zeroStart <= zeroEnd)
+                    {
+                        for (var i = zeroStart; i <= zeroEnd; i++)
+                            buffer[i] = 0x00;
+                    }
+
+                    target.Write(buffer, 0, read);
+                    absoluteOffset += read;
+                }
+
+                target.Flush();
+            }
+
             File.Move(tmpPath, path, overwrite: true);
             return true;
         }
@@ -77,13 +95,16 @@ public sealed class HeaderRepairService : IHeaderRepairService
 
             _fileSystem.CopyFile(path, path + ".bak", overwrite: true);
 
-            var data = File.ReadAllBytes(path);
-            var stripped = new byte[data.Length - 512];
-            Array.Copy(data, 512, stripped, 0, stripped.Length);
-
             // Crash-safe: write to .tmp, then rename
             var tmpPath = path + ".tmp";
-            File.WriteAllBytes(tmpPath, stripped);
+            using (var source = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var target = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                source.Seek(512, SeekOrigin.Begin);
+                source.CopyTo(target);
+                target.Flush();
+            }
+
             File.Move(tmpPath, path, overwrite: true);
             return true;
         }

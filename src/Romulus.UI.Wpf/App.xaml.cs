@@ -94,6 +94,7 @@ public partial class App : Application
 
         // Feature domain services
         services.AddSingleton<IRunService, RunService>();
+        services.AddSingleton<FeatureCommandService>();
 
         // Child ViewModels (TASK-050: DI composition)
         services.AddSingleton<ShellViewModel>(sp =>

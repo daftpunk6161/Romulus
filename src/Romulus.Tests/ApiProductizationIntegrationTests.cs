@@ -37,7 +37,7 @@ public sealed class ApiProductizationIntegrationTests
         var profile = new RunProfileDocument
         {
             Version = 1,
-            Id = "ignored-by-route",
+            Id = "custom-api-profile",
             Name = "Custom API Profile",
             Description = "Saved via API integration test.",
             Settings = new RunProfileSettings

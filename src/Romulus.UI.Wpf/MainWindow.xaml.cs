@@ -21,6 +21,7 @@ public partial class MainWindow : Window, IWindowHost
     private readonly MainViewModel _vm;
     private readonly ISettingsService _settings;
     private readonly IDialogService _dialog;
+    private readonly FeatureCommandService _featureCommands;
     private readonly System.Threading.Timer _settingsTimer;
     private Task? _activeRunTask;
     // System tray service
@@ -34,11 +35,12 @@ public partial class MainWindow : Window, IWindowHost
     // Explicit app-exit intent (e.g. tray 'Beenden') should bypass minimize-to-tray interception.
     private bool _forceExitRequested;
 
-    public MainWindow(MainViewModel vm, ISettingsService settings, IDialogService dialog)
+    public MainWindow(MainViewModel vm, ISettingsService settings, IDialogService dialog, FeatureCommandService featureCommands)
     {
         _vm = vm;
         _settings = settings;
         _dialog = dialog;
+        _featureCommands = featureCommands;
         DataContext = _vm;
 
         InitializeComponent();
@@ -63,14 +65,14 @@ public partial class MainWindow : Window, IWindowHost
         _vm.RunRequested += OnRunRequested;
 
         // Feature commands (registered into VM.FeatureCommands, bound in XAML)
-        var featureCommands = new FeatureCommandService(_vm, _settings, dialog, this);
-        featureCommands.RegisterCommands();
+        _featureCommands.AttachWindowHost(this);
+        _featureCommands.RegisterCommands();
         _vm.WireToolItemCommands();
         _vm.Tools.LoadConversionRegistry();
         _vm.NotifyFeatureCommandsReady();
 
         // Wire Command Palette execute callback to FeatureCommandService
-        _vm.CommandPalette.SetExecuteCallback(featureCommands.ExecuteCommand);
+        _vm.CommandPalette.SetExecuteCallback(_featureCommands.ExecuteCommand);
     }
 
     // ═══ LIFECYCLE ══════════════════════════════════════════════════════

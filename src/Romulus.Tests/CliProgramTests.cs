@@ -259,7 +259,7 @@ public sealed class CliProgramTests : IDisposable
     }
 
     [Fact]
-    public void HistoryForTests_WritesPagedSnapshotJson_ToStdout()
+    public async Task HistoryForTests_WritesPagedSnapshotJson_ToStdout()
     {
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
@@ -315,7 +315,7 @@ public sealed class CliProgramTests : IDisposable
         {
             CliProgram.SetConsoleOverrides(stdout, stderr);
 
-            var exitCode = CliProgram.HistoryForTests(new CliRunOptions
+            var exitCode = await CliProgram.HistoryForTests(new CliRunOptions
             {
                 HistoryOffset = 0,
                 HistoryLimit = 1

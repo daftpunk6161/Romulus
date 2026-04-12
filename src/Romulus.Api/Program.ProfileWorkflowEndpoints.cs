@@ -30,6 +30,12 @@ public partial class Program
 
         app.MapPut("/profiles/{id}", async (string id, RunProfileDocument profile, RunProfileService profileService, CancellationToken ct) =>
         {
+            if (!string.IsNullOrWhiteSpace(profile.Id)
+                && !string.Equals(profile.Id, id, StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiError(400, ApiErrorCodes.ProfileInvalid, "Route profile id does not match body profile id.");
+            }
+
             try
             {
                 var normalized = profile with
@@ -42,7 +48,8 @@ public partial class Program
             }
             catch (InvalidOperationException ex)
             {
-                return ApiError(400, ApiErrorCodes.ProfileInvalid, ex.Message);
+                SafeConsoleWriteLine($"[API-WARN] Profile upsert validation failed for '{id}': {ex.GetType().Name}");
+                return ApiError(400, ApiErrorCodes.ProfileInvalid, "Profile payload is invalid.");
             }
         })
             .WithSummary("Create or update a user-defined run profile")
@@ -59,7 +66,8 @@ public partial class Program
             }
             catch (InvalidOperationException ex)
             {
-                return ApiError(400, ApiErrorCodes.ProfileDeleteBlocked, ex.Message);
+                SafeConsoleWriteLine($"[API-WARN] Profile delete blocked for '{id}': {ex.GetType().Name}");
+                return ApiError(400, ApiErrorCodes.ProfileDeleteBlocked, "Profile deletion is blocked by policy.");
             }
             catch (UnauthorizedAccessException)
             {
@@ -67,7 +75,8 @@ public partial class Program
             }
             catch (IOException ex)
             {
-                return ApiError(409, ApiErrorCodes.ProfileDeleteBlocked, $"Profile '{id}' could not be deleted: {ex.Message}");
+                SafeConsoleWriteLine($"[API-WARN] Profile delete I/O conflict for '{id}': {ex.GetType().Name}");
+                return ApiError(409, ApiErrorCodes.ProfileDeleteBlocked, $"Profile '{id}' could not be deleted due to an I/O conflict.");
             }
         })
             .WithSummary("Delete a user-defined run profile")

@@ -115,6 +115,14 @@ public static partial class FeatureService
         return d[n, m];
     }
 
+    internal static bool ResolveStrictDatSidecarValidation()
+    {
+        var dataDir = ResolveDataDirectory()
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        return settings.Dat.StrictSidecarValidation;
+    }
+
 
     // ═══ HELPER ═════════════════════════════════════════════════════════
 

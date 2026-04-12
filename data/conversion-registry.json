@@ -100,20 +100,6 @@
       "condition": "None"
     },
     {
-      "sourceExtension": ".ecm",
-      "targetExtension": ".bin",
-      "tool": { "toolName": "unecm" },
-      "command": "decompress",
-      "applicableConsoles": ["PS1", "SAT", "SCD", "PCECD", "NEOCD", "3DO", "JAGCD", "PCFX", "CD32", "CDI", "FMTOWNS"],
-      "requiredSourceIntegrity": null,
-      "resultIntegrity": "Lossless",
-      "lossless": true,
-      "cost": 5,
-      "verification": "FileExistenceCheck",
-      "description": "ECM decompression to BIN",
-      "condition": "None"
-    },
-    {
       "sourceExtension": ".cso",
       "targetExtension": ".iso",
       "tool": { "toolName": "ciso" },
@@ -284,7 +270,6 @@
     "nkit_rvz": 0.50,
     "nkit_iso_iso": 1.00,
     "nkit_gcz_iso": 1.00,
-    "ecm_bin": 1.00,
     "gdi_chd": 0.50,
     "img_chd": 0.55
   }

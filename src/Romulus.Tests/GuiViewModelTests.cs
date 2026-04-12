@@ -2788,8 +2788,8 @@ public class GuiViewModelTests
 
         public int ExecuteRunCallCount { get; private set; }
 
-        public (RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)
-            BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null)
+        public Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
+            BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null)
         {
             onProgress?.Invoke("[Init] RecordingRunService bereit");
             var fs = new Romulus.Infrastructure.FileSystem.FileSystemAdapter();
@@ -2804,27 +2804,7 @@ public class GuiViewModelTests
                 EnableDatAudit = vm.UseDat,
                 EnableDatRename = vm.UseDat && vm.EnableDatRename
             };
-            return (orchestrator, options, _auditPath, _reportPath);
-        }
-
-        public Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
-            BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null)
-            => Task.FromResult(BuildOrchestrator(vm, onProgress));
-
-        public RunService.RunServiceResult ExecuteRun(
-            RunOrchestrator orchestrator,
-            RunOptions options,
-            string? auditPath,
-            string? reportPath,
-            CancellationToken ct)
-        {
-            ExecuteRunCallCount++;
-            return new RunService.RunServiceResult
-            {
-                Result = _result,
-                AuditPath = auditPath,
-                ReportPath = reportPath
-            };
+            return Task.FromResult((orchestrator, options, _auditPath, _reportPath));
         }
 
         public Task<RunService.RunServiceResult> ExecuteRunAsync(
@@ -2833,7 +2813,15 @@ public class GuiViewModelTests
             string? auditPath,
             string? reportPath,
             CancellationToken ct)
-            => Task.FromResult(ExecuteRun(orchestrator, options, auditPath, reportPath, ct));
+        {
+            ExecuteRunCallCount++;
+            return Task.FromResult(new RunService.RunServiceResult
+            {
+                Result = _result,
+                AuditPath = auditPath,
+                ReportPath = reportPath
+            });
+        }
 
         public string GetSiblingDirectory(string rootPath, string siblingName)
             => Path.Combine(Path.GetDirectoryName(rootPath) ?? rootPath, siblingName);
@@ -2850,8 +2838,8 @@ public class GuiViewModelTests
             _result = result;
         }
 
-        public (RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)
-            BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null)
+        public Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
+            BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null)
         {
             onProgress?.Invoke("[Init] FakeRunService bereit");
             var fs = new Romulus.Infrastructure.FileSystem.FileSystemAdapter();
@@ -2863,26 +2851,7 @@ public class GuiViewModelTests
                 Mode = vm.DryRun ? "DryRun" : "Move",
                 Extensions = new[] { ".zip" }
             };
-            return (orchestrator, options, null, null);
-        }
-
-        public Task<(RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)>
-            BuildOrchestratorAsync(MainViewModel vm, Action<string>? onProgress = null)
-            => Task.FromResult(BuildOrchestrator(vm, onProgress));
-
-        public RunService.RunServiceResult ExecuteRun(
-            RunOrchestrator orchestrator,
-            RunOptions options,
-            string? auditPath,
-            string? reportPath,
-            CancellationToken ct)
-        {
-            return new RunService.RunServiceResult
-            {
-                Result = _result,
-                AuditPath = auditPath,
-                ReportPath = reportPath
-            };
+            return Task.FromResult((orchestrator, options, (string?)null, (string?)null));
         }
 
         public Task<RunService.RunServiceResult> ExecuteRunAsync(
@@ -2891,7 +2860,14 @@ public class GuiViewModelTests
             string? auditPath,
             string? reportPath,
             CancellationToken ct)
-            => Task.FromResult(ExecuteRun(orchestrator, options, auditPath, reportPath, ct));
+        {
+            return Task.FromResult(new RunService.RunServiceResult
+            {
+                Result = _result,
+                AuditPath = auditPath,
+                ReportPath = reportPath
+            });
+        }
 
         public string GetSiblingDirectory(string rootPath, string siblingName)
             => Path.Combine(Path.GetDirectoryName(rootPath) ?? rootPath, siblingName);
@@ -4006,12 +3982,12 @@ public class GuiViewModelTests
     }
 
     [Fact]
-    public void SortDecision_CodeBehind_HandlesBlockedAndReview()
+    public void SortDecision_LibrarySafetyView_CodeBehind_IsPresentationOnly()
     {
-        // Architectural guard: LibrarySafetyView.xaml.cs switches on SortDecision
+        // Architectural guard: sort-decision grouping belongs to ViewModel projection, not code-behind.
         var code = File.ReadAllText(FindUiFile("Views", "LibrarySafetyView.xaml.cs"));
-        Assert.Contains("SortDecision.Blocked", code);
-        Assert.Contains("SortDecision.Review", code);
+        Assert.DoesNotContain("SortDecision.", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshLists(", code, StringComparison.Ordinal);
     }
 
     [Fact]

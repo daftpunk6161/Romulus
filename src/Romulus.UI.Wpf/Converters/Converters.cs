@@ -4,6 +4,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using Romulus.Contracts.Models;
 using Romulus.UI.Wpf.Models;
+using Romulus.UI.Wpf.Services;
 using Color = System.Windows.Media.Color;
 
 namespace Romulus.UI.Wpf.Converters;
@@ -182,24 +183,34 @@ public sealed class StringEqualsToBoolConverter : IValueConverter
 /// <summary>RD-004: Converts RunState to a phase detail tooltip string via ConverterParameter (phase 1–7).</summary>
 public sealed class PhaseDetailConverter : IValueConverter
 {
-    private static readonly string[] Descriptions =
-    [
-        "",
-        "Preflight: Konfiguration und Pfade prüfen",
-        "Scan: ROM-Verzeichnisse durchsuchen",
-        "Dedupe: Duplikate erkennen und beste Version wählen",
-        "Move: Duplikate und Junk sicher verschieben",
-        "Sort: Dateien nach Konsole gruppieren",
-        "Convert: Formate optimieren (CHD/RVZ/ZIP)",
-        "Fertig: Ergebnis und Report"
-    ];
+    private static string ResolvePhaseDetail(int phase)
+    {
+        var fallback = phase switch
+        {
+            1 => "Preflight: Validate configuration and paths",
+            2 => "Scan: Crawl ROM directories",
+            3 => "Dedupe: Detect duplicates and pick best version",
+            4 => "Move: Move duplicates and junk safely",
+            5 => "Sort: Group files by console",
+            6 => "Convert: Optimize formats (CHD/RVZ/ZIP)",
+            7 => "Done: Result and report",
+            _ => string.Empty
+        };
+
+        return FeatureService.GetLocalizedString($"Run.PhaseDetail.{phase}", fallback);
+    }
+
+    private static string ResolvePhaseStatus(string key, string fallback)
+        => FeatureService.GetLocalizedString(key, fallback);
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (parameter is not string s || !int.TryParse(s, out var phase) || phase < 1 || phase > 7)
             return "";
 
-        if (value is not RunState state) return Descriptions[phase];
+        var description = ResolvePhaseDetail(phase);
+        if (value is not RunState state)
+            return description;
 
         int current = state switch
         {
@@ -213,12 +224,15 @@ public sealed class PhaseDetailConverter : IValueConverter
             _ => 0
         };
 
-        string status = current == 0 ? "⏳ Ausstehend"
-            : phase < current ? "✓ Abgeschlossen"
-            : phase == current ? "▶ Aktiv"
-            : "⏳ Ausstehend";
+        var status = current == 0
+            ? $"⏳ {ResolvePhaseStatus("Run.PhaseStatus.Pending", "Pending")}"
+            : phase < current
+                ? $"✓ {ResolvePhaseStatus("Run.PhaseStatus.Completed", "Completed")}"
+                : phase == current
+                    ? $"▶ {ResolvePhaseStatus("Run.PhaseStatus.Active", "Active")}"
+                    : $"⏳ {ResolvePhaseStatus("Run.PhaseStatus.Pending", "Pending")}";
 
-        return $"{Descriptions[phase]}\n{status}";
+        return $"{description}\n{status}";
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -96,6 +96,71 @@ public sealed class DatCatalogStateService
     }
 
     /// <summary>
+    /// Enumerate local DAT/XML files under the configured DAT root in a fault-tolerant and deterministic way.
+    /// Inaccessible subdirectories are skipped so one ACL issue does not block the full scan.
+    /// </summary>
+    public static IReadOnlyList<(string Path, DateTime LastWriteUtc, long SizeBytes)> EnumerateLocalDatFilesSafe(string? datRoot)
+    {
+        if (string.IsNullOrWhiteSpace(datRoot) || !Directory.Exists(datRoot))
+            return Array.Empty<(string Path, DateTime LastWriteUtc, long SizeBytes)>();
+
+        var collectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        static void AddPattern(HashSet<string> target, string root, string pattern, SearchOption searchOption)
+        {
+            foreach (var file in Directory.GetFiles(root, pattern, searchOption))
+                target.Add(file);
+        }
+
+        try
+        {
+            AddPattern(collectedPaths, datRoot, "*.dat", SearchOption.AllDirectories);
+            AddPattern(collectedPaths, datRoot, "*.xml", SearchOption.AllDirectories);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            try
+            {
+                foreach (var dir in Directory.GetDirectories(datRoot))
+                {
+                    try
+                    {
+                        AddPattern(collectedPaths, dir, "*.dat", SearchOption.AllDirectories);
+                        AddPattern(collectedPaths, dir, "*.xml", SearchOption.AllDirectories);
+                    }
+                    catch (Exception inner) when (inner is UnauthorizedAccessException or IOException)
+                    {
+                        // Skip inaccessible subdirectory and continue.
+                    }
+                }
+
+                AddPattern(collectedPaths, datRoot, "*.dat", SearchOption.TopDirectoryOnly);
+                AddPattern(collectedPaths, datRoot, "*.xml", SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception outer) when (outer is UnauthorizedAccessException or IOException)
+            {
+                return Array.Empty<(string Path, DateTime LastWriteUtc, long SizeBytes)>();
+            }
+        }
+
+        var entries = new List<(string Path, DateTime LastWriteUtc, long SizeBytes)>(collectedPaths.Count);
+        foreach (var path in collectedPaths.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                entries.Add((path, info.LastWriteTimeUtc, info.Length));
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // Skip files where metadata cannot be read.
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
     /// Build the full catalog status by merging catalog entries with file system state.
     /// </summary>
     public static List<DatCatalogStatusEntry> BuildCatalogStatus(
@@ -107,21 +172,12 @@ public sealed class DatCatalogStateService
         ArgumentNullException.ThrowIfNull(state);
 
         // Build lookup of local DAT files by filename stem
-        var localFiles = new Dictionary<string, (string Path, DateTime LastWrite, long Size)>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(datRoot) && Directory.Exists(datRoot))
+        var localFiles = new Dictionary<string, (string Path, DateTime LastWriteUtc, long SizeBytes)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in EnumerateLocalDatFilesSafe(datRoot))
         {
-            var datFiles = Directory.EnumerateFiles(datRoot, "*.*", SearchOption.AllDirectories)
-                .Where(path => path.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                               || path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var file in datFiles)
-            {
-                var stem = Path.GetFileNameWithoutExtension(file)!;
-                var info = new FileInfo(file);
-                // First match wins with deterministic path ordering.
-                localFiles.TryAdd(stem, (file, info.LastWriteTime, info.Length));
-            }
+            var stem = Path.GetFileNameWithoutExtension(file.Path)!;
+            // First match wins with deterministic path ordering.
+            localFiles.TryAdd(stem, (file.Path, file.LastWriteUtc, file.SizeBytes));
         }
 
         var result = new List<DatCatalogStatusEntry>(catalog.Count);
@@ -131,7 +187,7 @@ public sealed class DatCatalogStateService
             var strategy = DetermineDownloadStrategy(entry);
 
             // Try to find matching local file: by Id, by ConsoleKey, by System prefix
-            (string Path, DateTime LastWrite, long Size)? localMatch = null;
+            (string Path, DateTime LastWriteUtc, long SizeBytes)? localMatch = null;
             if (localFiles.TryGetValue(entry.Id, out var byId))
                 localMatch = byId;
             else if (localFiles.TryGetValue(entry.ConsoleKey, out var byKey))
@@ -168,10 +224,10 @@ public sealed class DatCatalogStateService
             if (localMatch is not null)
             {
                 localPath = localMatch.Value.Path;
-                fileSizeBytes = localMatch.Value.Size;
-                installedDate = trackedInfo?.InstalledDate ?? localMatch.Value.LastWrite;
+                fileSizeBytes = localMatch.Value.SizeBytes;
+                installedDate = trackedInfo?.InstalledDate ?? localMatch.Value.LastWriteUtc;
 
-                var daysSinceWrite = (DateTime.Now - localMatch.Value.LastWrite).TotalDays;
+                var daysSinceWrite = (DateTime.UtcNow - localMatch.Value.LastWriteUtc).TotalDays;
                 status = daysSinceWrite > StaleThresholdDays
                     ? DatInstallStatus.Stale
                     : DatInstallStatus.Installed;
@@ -184,7 +240,7 @@ public sealed class DatCatalogStateService
                 fileSizeBytes = trackedInfo.FileSizeBytes;
                 installedDate = trackedInfo.InstalledDate;
 
-                var daysSinceInstall = (DateTime.Now - trackedInfo.InstalledDate).TotalDays;
+                var daysSinceInstall = (DateTime.UtcNow - trackedInfo.InstalledDate).TotalDays;
                 status = daysSinceInstall > StaleThresholdDays
                     ? DatInstallStatus.Stale
                     : DatInstallStatus.Installed;

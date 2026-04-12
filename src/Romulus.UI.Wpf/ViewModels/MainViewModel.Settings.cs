@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Threading;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,7 +14,32 @@ namespace Romulus.UI.Wpf.ViewModels;
 
 public sealed partial class MainViewModel
 {
-    private bool _syncingSetupSettings;
+    private int _setupSyncDepth;
+
+    private bool IsSetupSyncInProgress => _setupSyncDepth > 0;
+
+    private IDisposable EnterSetupSyncScope()
+    {
+        Interlocked.Increment(ref _setupSyncDepth);
+        return new SetupSyncScope(this);
+    }
+
+    private sealed class SetupSyncScope : IDisposable
+    {
+        private MainViewModel? _owner;
+
+        public SetupSyncScope(MainViewModel owner)
+        {
+            _owner = owner;
+        }
+
+        public void Dispose()
+        {
+            var owner = Interlocked.Exchange(ref _owner, null);
+            if (owner is not null)
+                Interlocked.Decrement(ref owner._setupSyncDepth);
+        }
+    }
 
     // ═══ AUTO-SAVE (debounced 2s after last persisted property change) ═══
     private System.Threading.Timer? _autoSaveTimer;
@@ -201,103 +227,89 @@ public sealed partial class MainViewModel
 
     private void SyncSetupProperty(string propertyName, string value)
     {
-        if (_syncingSetupSettings)
+        if (IsSetupSyncInProgress)
             return;
 
         if (Setup is null)
             return;
 
-        _syncingSetupSettings = true;
-        try
+        using var _ = EnterSetupSyncScope();
+        switch (propertyName)
         {
-            switch (propertyName)
-            {
-                case nameof(SetupViewModel.TrashRoot):
-                    if (!string.Equals(Setup.TrashRoot, value, StringComparison.Ordinal))
-                        Setup.TrashRoot = value;
-                    break;
-                case nameof(SetupViewModel.DatRoot):
-                    if (!string.Equals(Setup.DatRoot, value, StringComparison.Ordinal))
-                        Setup.DatRoot = value;
-                    break;
-                case nameof(SetupViewModel.AuditRoot):
-                    if (!string.Equals(Setup.AuditRoot, value, StringComparison.Ordinal))
-                        Setup.AuditRoot = value;
-                    break;
-                case nameof(SetupViewModel.Ps3DupesRoot):
-                    if (!string.Equals(Setup.Ps3DupesRoot, value, StringComparison.Ordinal))
-                        Setup.Ps3DupesRoot = value;
-                    break;
-                case nameof(SetupViewModel.ToolChdman):
-                    if (!string.Equals(Setup.ToolChdman, value, StringComparison.Ordinal))
-                        Setup.ToolChdman = value;
-                    break;
-                case nameof(SetupViewModel.ToolDolphin):
-                    if (!string.Equals(Setup.ToolDolphin, value, StringComparison.Ordinal))
-                        Setup.ToolDolphin = value;
-                    break;
-                case nameof(SetupViewModel.Tool7z):
-                    if (!string.Equals(Setup.Tool7z, value, StringComparison.Ordinal))
-                        Setup.Tool7z = value;
-                    break;
-                case nameof(SetupViewModel.ToolPsxtract):
-                    if (!string.Equals(Setup.ToolPsxtract, value, StringComparison.Ordinal))
-                        Setup.ToolPsxtract = value;
-                    break;
-                case nameof(SetupViewModel.ToolCiso):
-                    if (!string.Equals(Setup.ToolCiso, value, StringComparison.Ordinal))
-                        Setup.ToolCiso = value;
-                    break;
-            }
-        }
-        finally
-        {
-            _syncingSetupSettings = false;
+            case nameof(SetupViewModel.TrashRoot):
+                if (!string.Equals(Setup.TrashRoot, value, StringComparison.Ordinal))
+                    Setup.TrashRoot = value;
+                break;
+            case nameof(SetupViewModel.DatRoot):
+                if (!string.Equals(Setup.DatRoot, value, StringComparison.Ordinal))
+                    Setup.DatRoot = value;
+                break;
+            case nameof(SetupViewModel.AuditRoot):
+                if (!string.Equals(Setup.AuditRoot, value, StringComparison.Ordinal))
+                    Setup.AuditRoot = value;
+                break;
+            case nameof(SetupViewModel.Ps3DupesRoot):
+                if (!string.Equals(Setup.Ps3DupesRoot, value, StringComparison.Ordinal))
+                    Setup.Ps3DupesRoot = value;
+                break;
+            case nameof(SetupViewModel.ToolChdman):
+                if (!string.Equals(Setup.ToolChdman, value, StringComparison.Ordinal))
+                    Setup.ToolChdman = value;
+                break;
+            case nameof(SetupViewModel.ToolDolphin):
+                if (!string.Equals(Setup.ToolDolphin, value, StringComparison.Ordinal))
+                    Setup.ToolDolphin = value;
+                break;
+            case nameof(SetupViewModel.Tool7z):
+                if (!string.Equals(Setup.Tool7z, value, StringComparison.Ordinal))
+                    Setup.Tool7z = value;
+                break;
+            case nameof(SetupViewModel.ToolPsxtract):
+                if (!string.Equals(Setup.ToolPsxtract, value, StringComparison.Ordinal))
+                    Setup.ToolPsxtract = value;
+                break;
+            case nameof(SetupViewModel.ToolCiso):
+                if (!string.Equals(Setup.ToolCiso, value, StringComparison.Ordinal))
+                    Setup.ToolCiso = value;
+                break;
         }
     }
 
     private void OnSetupSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_syncingSetupSettings || Setup is null || string.IsNullOrEmpty(e.PropertyName))
+        if (IsSetupSyncInProgress || Setup is null || string.IsNullOrEmpty(e.PropertyName))
             return;
 
-        _syncingSetupSettings = true;
-        try
+        using var _ = EnterSetupSyncScope();
+        switch (e.PropertyName)
         {
-            switch (e.PropertyName)
-            {
-                case nameof(SetupViewModel.TrashRoot):
-                    TrashRoot = Setup.TrashRoot;
-                    break;
-                case nameof(SetupViewModel.DatRoot):
-                    DatRoot = Setup.DatRoot;
-                    break;
-                case nameof(SetupViewModel.AuditRoot):
-                    AuditRoot = Setup.AuditRoot;
-                    break;
-                case nameof(SetupViewModel.Ps3DupesRoot):
-                    Ps3DupesRoot = Setup.Ps3DupesRoot;
-                    break;
-                case nameof(SetupViewModel.ToolChdman):
-                    ToolChdman = Setup.ToolChdman;
-                    break;
-                case nameof(SetupViewModel.ToolDolphin):
-                    ToolDolphin = Setup.ToolDolphin;
-                    break;
-                case nameof(SetupViewModel.Tool7z):
-                    Tool7z = Setup.Tool7z;
-                    break;
-                case nameof(SetupViewModel.ToolPsxtract):
-                    ToolPsxtract = Setup.ToolPsxtract;
-                    break;
-                case nameof(SetupViewModel.ToolCiso):
-                    ToolCiso = Setup.ToolCiso;
-                    break;
-            }
-        }
-        finally
-        {
-            _syncingSetupSettings = false;
+            case nameof(SetupViewModel.TrashRoot):
+                TrashRoot = Setup.TrashRoot;
+                break;
+            case nameof(SetupViewModel.DatRoot):
+                DatRoot = Setup.DatRoot;
+                break;
+            case nameof(SetupViewModel.AuditRoot):
+                AuditRoot = Setup.AuditRoot;
+                break;
+            case nameof(SetupViewModel.Ps3DupesRoot):
+                Ps3DupesRoot = Setup.Ps3DupesRoot;
+                break;
+            case nameof(SetupViewModel.ToolChdman):
+                ToolChdman = Setup.ToolChdman;
+                break;
+            case nameof(SetupViewModel.ToolDolphin):
+                ToolDolphin = Setup.ToolDolphin;
+                break;
+            case nameof(SetupViewModel.Tool7z):
+                Tool7z = Setup.Tool7z;
+                break;
+            case nameof(SetupViewModel.ToolPsxtract):
+                ToolPsxtract = Setup.ToolPsxtract;
+                break;
+            case nameof(SetupViewModel.ToolCiso):
+                ToolCiso = Setup.ToolCiso;
+                break;
         }
     }
 
@@ -314,24 +326,17 @@ public sealed partial class MainViewModel
     /// <summary>D-01: Sync MainViewModel.Prefer* booleans → SetupViewModel.RegionItems.IsActive.</summary>
     private void OnRegionPreferencePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_syncingSetupSettings || Setup is null || e.PropertyName is null)
+        if (IsSetupSyncInProgress || Setup is null || e.PropertyName is null)
             return;
 
         if (!PreferPropertyToRegionCode.TryGetValue(e.PropertyName, out var code))
             return;
 
         var value = GetRegionBool(code);
-        _syncingSetupSettings = true;
-        try
-        {
-            var item = Setup.RegionItems.FirstOrDefault(r => string.Equals(r.Code, code, StringComparison.Ordinal));
-            if (item is not null && item.IsActive != value)
-                item.IsActive = value;
-        }
-        finally
-        {
-            _syncingSetupSettings = false;
-        }
+        using var _ = EnterSetupSyncScope();
+        var item = Setup.RegionItems.FirstOrDefault(r => string.Equals(r.Code, code, StringComparison.Ordinal));
+        if (item is not null && item.IsActive != value)
+            item.IsActive = value;
     }
 
     /// <summary>D-01: Subscribe to each SetupViewModel.RegionItem.PropertyChanged for reverse sync.</summary>
@@ -344,18 +349,11 @@ public sealed partial class MainViewModel
 
     private void OnSetupRegionItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_syncingSetupSettings || sender is not RegionItem item || e.PropertyName != nameof(RegionItem.IsActive))
+        if (IsSetupSyncInProgress || sender is not RegionItem item || e.PropertyName != nameof(RegionItem.IsActive))
             return;
 
-        _syncingSetupSettings = true;
-        try
-        {
-            SetRegionBool(item.Code, item.IsActive);
-        }
-        finally
-        {
-            _syncingSetupSettings = false;
-        }
+        using var _ = EnterSetupSyncScope();
+        SetRegionBool(item.Code, item.IsActive);
     }
 
     // ═══ BOOLEAN FLAGS (persisted) ══════════════════════════════════════

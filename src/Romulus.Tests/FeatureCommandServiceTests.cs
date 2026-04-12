@@ -33,7 +33,8 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _settings = new StubSettingsService();
         _windowHost = new StubWindowHost();
         _vm = new MainViewModel(new StubThemeService(), _dialog, _settings);
-        _sut = new FeatureCommandService(_vm, _settings, _dialog, _windowHost);
+        _sut = new FeatureCommandService(_vm, _settings, _dialog);
+        _sut.AttachWindowHost(_windowHost);
     }
 
     public void Dispose()

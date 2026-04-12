@@ -93,7 +93,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
     }
 
     [Fact]
-    public void DiffForTests_WritesCollectionCompareJson_ToStdout()
+    public async Task DiffForTests_WritesCollectionCompareJson_ToStdout()
     {
         var leftRoot = CreateRoot("left");
         var rightRoot = CreateRoot("right");
@@ -112,7 +112,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
         {
             CliProgram.SetConsoleOverrides(stdout, stderr);
 
-            var exitCode = CliProgram.DiffForTests(
+            var exitCode = await CliProgram.DiffForTests(
                 new CliRunOptions
                 {
                     LeftRoots = [leftRoot],
@@ -140,7 +140,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
     }
 
     [Fact]
-    public void MergeForTests_Plan_WritesCollectionMergePlanJson_ToStdout()
+    public async Task MergeForTests_Plan_WritesCollectionMergePlanJson_ToStdout()
     {
         var leftRoot = CreateRoot("left");
         var rightRoot = CreateRoot("right");
@@ -158,7 +158,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
         {
             CliProgram.SetConsoleOverrides(stdout, stderr);
 
-            var exitCode = CliProgram.MergeForTests(
+            var exitCode = await CliProgram.MergeForTests(
                 new CliRunOptions
                 {
                     LeftRoots = [leftRoot],
@@ -186,7 +186,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
     }
 
     [Fact]
-    public void MergeForTests_Apply_WritesCollectionMergeResultJson_AndAudit()
+    public async Task MergeForTests_Apply_WritesCollectionMergeResultJson_AndAudit()
     {
         var leftRoot = CreateRoot("left");
         var rightRoot = CreateRoot("right");
@@ -205,7 +205,7 @@ public sealed class CliCollectionDiffMergeTests : IDisposable
         {
             CliProgram.SetConsoleOverrides(stdout, stderr);
 
-            var exitCode = CliProgram.MergeForTests(
+            var exitCode = await CliProgram.MergeForTests(
                 new CliRunOptions
                 {
                     LeftRoots = [leftRoot],

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Net;
 using Romulus.Contracts;
 using Romulus.Contracts.Errors;
 using Romulus.Contracts.Models;
@@ -123,6 +124,19 @@ public partial class Program
             "custom" => IsValidCorsOrigin(customOrigin) ? customOrigin : "http://127.0.0.1",
             _ => "http://127.0.0.1"
         };
+    }
+
+    internal static bool IsLoopbackBindAddress(string? bindAddress)
+    {
+        if (string.IsNullOrWhiteSpace(bindAddress))
+            return false;
+
+        var normalized = bindAddress.Trim();
+        if (string.Equals(normalized, "localhost", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return IPAddress.TryParse(normalized, out var parsed)
+            && IPAddress.IsLoopback(parsed);
     }
 
     internal static bool IsValidCorsOrigin(string origin)
@@ -387,8 +401,15 @@ public partial class Program
         if (string.IsNullOrWhiteSpace(path)) return null;
 
         string full;
-        try { full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar); }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.Security.SecurityException) { return ApiError(400, SecurityErrorCodes.InvalidPath, $"Invalid path for {fieldName}.", ErrorKind.Critical); }
+        try
+        {
+            full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            SafeConsoleWriteLine($"[API-WARN] Invalid path for {fieldName}: {ex.GetType().Name}");
+            return ApiError(400, SecurityErrorCodes.InvalidPath, "Invalid path.", ErrorKind.Critical);
+        }
 
         // Block reparse points
         try
@@ -600,7 +621,8 @@ public partial class Program
         }
         catch (InvalidOperationException ex)
         {
-            return ApiError(400, SecurityErrorCodes.InvalidPath, $"Invalid outputPath: {ex.Message}", ErrorKind.Critical, runId: runId);
+            SafeConsoleWriteLine($"[API-WARN] Invalid outputPath for run '{runId}': {ex.Message}");
+            return ApiError(400, SecurityErrorCodes.InvalidPath, "Invalid outputPath.", ErrorKind.Critical, runId: runId);
         }
 
         var directory = Path.GetDirectoryName(safeOutputPath);

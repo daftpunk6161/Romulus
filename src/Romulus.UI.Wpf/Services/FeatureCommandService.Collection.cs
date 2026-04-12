@@ -7,8 +7,6 @@ using System.Windows.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Analysis;
-using Romulus.Infrastructure.Audit;
-using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
@@ -75,8 +73,7 @@ public sealed partial class FeatureCommandService
         };
 
         using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), msg => _vm.AddLog(msg, "INFO"));
-        var fileSystem = new FileSystemAdapter();
-        var build = await CollectionMergeService.BuildPlanAsync(collectionIndex, fileSystem, mergeRequest);
+        var build = await CollectionMergeService.BuildPlanAsync(collectionIndex, _fileSystem, mergeRequest);
         if (!build.CanUse || build.Plan is null)
         {
             _vm.AddLog($"[CollectionMerge] Nicht verfuegbar: {build.Reason}", "WARN");
@@ -96,11 +93,10 @@ public sealed partial class FeatureCommandService
             return;
         }
 
-        var auditStore = new AuditCsvStore(fileSystem, msg => _vm.AddLog(msg, "INFO"));
         var applyResult = await CollectionMergeService.ApplyAsync(
             collectionIndex,
-            fileSystem,
-            auditStore,
+            _fileSystem,
+            _auditStore,
             new CollectionMergeApplyRequest
             {
                 MergeRequest = mergeRequest,

@@ -64,7 +64,7 @@ internal static partial class Program
                     return result.ExitCode;
 
                 case CliCommand.Run:
-                    return Run(result.Options!);
+                    return await RunAsync(result.Options!).ConfigureAwait(false);
 
                 case CliCommand.Rollback:
                     return Rollback(result.Options!);
@@ -156,13 +156,19 @@ internal static partial class Program
         }
     }
 
+    private static Task<int> RunAsync(CliRunOptions cliOpts)
+        => ExecuteRunCoreAsync(cliOpts, CancellationToken.None, wireConsoleCancel: true);
+
     private static int Run(CliRunOptions cliOpts)
-        => ExecuteRunCore(cliOpts, CancellationToken.None, wireConsoleCancel: true);
+    {
+        var awaiter = RunAsync(cliOpts).ConfigureAwait(false).GetAwaiter();
+        return awaiter.GetResult();
+    }
 
     private static PersistedReviewDecisionService? CreateReviewDecisionService(Action<string>? onWarning)
         => ReviewDecisionServiceFactory.TryCreate(onWarning);
 
-    private static int ExecuteRunCore(
+    private static async Task<int> ExecuteRunCoreAsync(
         CliRunOptions cliOpts,
         CancellationToken externalCancellationToken,
         bool wireConsoleCancel)
@@ -270,7 +276,7 @@ internal static partial class Program
             try
             {
                 using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
-                CollectionRunSnapshotWriter.TryPersistAsync(
+                await CollectionRunSnapshotWriter.TryPersistAsync(
                     collectionIndex,
                     runOptions,
                     result,
@@ -278,7 +284,7 @@ internal static partial class Program
                     runCompletedUtc,
                     // SYNC-JUSTIFIED: CLI run pipeline is synchronous here; snapshot write must complete
                     // before process exit to preserve deterministic history artifacts.
-                    SafeErrorWriteLine).GetAwaiter().GetResult();
+                    SafeErrorWriteLine).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
@@ -569,9 +575,8 @@ internal static partial class Program
         return await WriteHistoryAsync(collectionIndex, opts).ConfigureAwait(false);
     }
 
-    internal static int HistoryForTests(CliRunOptions opts, ICollectionIndex collectionIndex)
-        // SYNC-JUSTIFIED: test-only compatibility wrapper for existing sync test call sites.
-        => WriteHistoryAsync(collectionIndex, opts).GetAwaiter().GetResult();
+    internal static Task<int> HistoryForTests(CliRunOptions opts, ICollectionIndex collectionIndex)
+        => WriteHistoryAsync(collectionIndex, opts);
 
     private static async Task<int> WriteHistoryAsync(ICollectionIndex collectionIndex, CliRunOptions opts)
     {
@@ -678,9 +683,8 @@ internal static partial class Program
         return await WriteCollectionDiffAsync(opts, collectionIndex, new FileSystemAdapter()).ConfigureAwait(false);
     }
 
-    internal static int DiffForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem)
-        // SYNC-JUSTIFIED: test-only compatibility wrapper for existing sync test call sites.
-        => WriteCollectionDiffAsync(opts, collectionIndex, fileSystem).GetAwaiter().GetResult();
+    internal static Task<int> DiffForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem)
+        => WriteCollectionDiffAsync(opts, collectionIndex, fileSystem);
 
     private static async Task<int> WriteCollectionDiffAsync(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem)
     {
@@ -724,9 +728,8 @@ internal static partial class Program
         return await WriteCollectionMergeAsync(opts, collectionIndex, fileSystem, auditStore).ConfigureAwait(false);
     }
 
-    internal static int MergeForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem, IAuditStore auditStore)
-        // SYNC-JUSTIFIED: test-only compatibility wrapper for existing sync test call sites.
-        => WriteCollectionMergeAsync(opts, collectionIndex, fileSystem, auditStore).GetAwaiter().GetResult();
+    internal static Task<int> MergeForTests(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem, IAuditStore auditStore)
+        => WriteCollectionMergeAsync(opts, collectionIndex, fileSystem, auditStore);
 
     private static async Task<int> WriteCollectionMergeAsync(CliRunOptions opts, ICollectionIndex collectionIndex, IFileSystem fileSystem, IAuditStore auditStore)
     {
@@ -868,12 +871,12 @@ internal static partial class Program
                 return;
             }
 
-            activeRunTask = Task.Run(() =>
+            activeRunTask = Task.Run(async () =>
             {
                 try
                 {
                     SafeErrorWriteLine($"[Watch] Triggered {source} run.");
-                    lastExitCode = ExecuteRunCore(opts, daemonCts.Token, wireConsoleCancel: false);
+                    lastExitCode = await ExecuteRunCoreAsync(opts, daemonCts.Token, wireConsoleCancel: false).ConfigureAwait(false);
                     if (lastExitCode is not 0 and not 2)
                         SafeErrorWriteLine($"[Watch] Triggered run finished with exit code {lastExitCode}.");
                 }

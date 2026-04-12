@@ -187,7 +187,7 @@ public sealed partial class DatCatalogViewModel : ObservableObject
         try
         {
             using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
-            var strictSidecarValidation = ResolveStrictDatSidecarValidation();
+            var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
             using var datService = new DatSourceService(datRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
             for (int i = 0; i < autoEntries.Count; i++)
             {
@@ -346,7 +346,7 @@ public sealed partial class DatCatalogViewModel : ObservableObject
         try
         {
             using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
-            var strictSidecarValidation = ResolveStrictDatSidecarValidation();
+            var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
             using var datService = new DatSourceService(datRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
             for (int i = 0; i < selected.Count; i++)
             {
@@ -407,7 +407,7 @@ public sealed partial class DatCatalogViewModel : ObservableObject
             await Task.Run(() =>
             {
                 using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
-                var strictSidecarValidation = ResolveStrictDatSidecarValidation();
+                var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
                 using var datService = new DatSourceService(datRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
 
                 // Filter catalog entries by group/format if requested
@@ -494,14 +494,6 @@ public sealed partial class DatCatalogViewModel : ObservableObject
         StaleCount = Entries.Count(e => e.Status == DatInstallStatus.Stale);
         AutoCount = Entries.Count(e => e.DownloadStrategy == DatDownloadStrategy.Auto);
         OnPropertyChanged(nameof(HasData));
-    }
-
-    private static bool ResolveStrictDatSidecarValidation()
-    {
-        var dataDir = FeatureService.ResolveDataDirectory()
-            ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-        return settings.Dat.StrictSidecarValidation;
     }
 
     private bool ApplyFilter(object obj)

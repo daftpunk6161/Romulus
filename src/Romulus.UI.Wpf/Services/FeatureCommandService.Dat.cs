@@ -154,7 +154,9 @@ public sealed partial class FeatureCommandService
             if (toDownload.Count > 0)
             {
                 _vm.AddLog(_vm.Loc.Format("Cmd.DatAutoUpdate.DownloadStart", toDownload.Count), "INFO");
-                using var datService = new Infrastructure.Dat.DatSourceService(_vm.DatRoot);
+                using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
+                var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
+                using var datService = new DatSourceService(_vm.DatRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
                 int success = 0, failed = 0;
                 var failedIds = new List<string>();
 
@@ -207,7 +209,9 @@ public sealed partial class FeatureCommandService
                 var packDir = _dialog.BrowseFolder(_vm.Loc["Cmd.DatAutoUpdate.NoIntroBrowseTitle"]);
                 if (!string.IsNullOrWhiteSpace(packDir) && Directory.Exists(packDir))
                 {
-                    using var datService = new Infrastructure.Dat.DatSourceService(_vm.DatRoot);
+                    using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
+                    var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
+                    using var datService = new DatSourceService(_vm.DatRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
                     var imported = datService.ImportLocalDatPacks(packDir, catalog);
                     _vm.AddLog(_vm.Loc.Format("Cmd.DatAutoUpdate.NoIntroImportResult", imported, packDir), imported > 0 ? "INFO" : "WARN");
                 }
@@ -219,7 +223,9 @@ public sealed partial class FeatureCommandService
                 var redumpDir = _dialog.BrowseFolder(_vm.Loc["Cmd.DatAutoUpdate.RedumpBrowseTitle"]);
                 if (!string.IsNullOrWhiteSpace(redumpDir) && Directory.Exists(redumpDir))
                 {
-                    using var datService = new Infrastructure.Dat.DatSourceService(_vm.DatRoot);
+                    using var datHttpClient = DatSourceService.CreateConfiguredHttpClient();
+                    var strictSidecarValidation = FeatureService.ResolveStrictDatSidecarValidation();
+                    using var datService = new DatSourceService(_vm.DatRoot, datHttpClient, strictSidecarValidation: strictSidecarValidation);
                     var imported = datService.ImportLocalDatPacks(redumpDir, catalog);
                     _vm.AddLog(_vm.Loc.Format("Cmd.DatAutoUpdate.RedumpImportResult", imported, redumpDir), imported > 0 ? "INFO" : "WARN");
                 }

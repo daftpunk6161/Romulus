@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://romulus.local/schemas/format-scores.schema.json",
+  "type": "object",
+  "required": ["setTypeScores", "formatScores", "discExtensions"],
+  "properties": {
+    "setTypeScores": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "formatScores": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "discExtensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
+}
