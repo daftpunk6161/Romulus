@@ -18,7 +18,10 @@ public sealed class ArchiveHashService
         RegexOptions.Compiled | RegexOptions.Multiline,
         TimeSpan.FromMilliseconds(500));
 
-    private readonly LruCache<string, string[]> _cache;
+    /// <summary>Cache entry that tracks file metadata for staleness detection.</summary>
+    private sealed record ArchiveCacheEntry(string[] Hashes, long FileSize, DateTime LastWriteUtc);
+
+    private readonly LruCache<string, ArchiveCacheEntry> _cache;
     private readonly IToolRunner? _toolRunner;
     private readonly long _maxArchiveSizeBytes;
 
@@ -32,7 +35,7 @@ public sealed class ArchiveHashService
     {
         _toolRunner = toolRunner;
         _maxArchiveSizeBytes = maxArchiveSizeBytes;
-        _cache = new LruCache<string, string[]>(maxEntries, StringComparer.OrdinalIgnoreCase);
+        _cache = new LruCache<string, ArchiveCacheEntry>(maxEntries, StringComparer.OrdinalIgnoreCase);
         CleanupStaleTempDirs();
     }
 
@@ -79,15 +82,31 @@ public sealed class ArchiveHashService
 
         var cacheKey = $"ARCHIVE|{hashType}|{archivePath}";
         if (_cache.TryGet(cacheKey, out var cached))
-            return cached;
+        {
+            // R6-07: validate that the cache entry is still fresh before using it.
+            // If the file has been modified (different size or mtime), recompute.
+            try
+            {
+                var fi = new FileInfo(archivePath);
+                if (fi.LastWriteTimeUtc == cached.LastWriteUtc && fi.Length == cached.FileSize)
+                    return cached.Hashes;
+                // File changed – fall through to recompute; new entry will overwrite this one.
+            }
+            catch (IOException) { return cached.Hashes; }
+            catch (UnauthorizedAccessException) { return cached.Hashes; }
+        }
 
-        // Size check
+        // Capture file metadata for cache entry and size-limit check
+        long fileSize = 0;
+        DateTime lastWrite = DateTime.MinValue;
         try
         {
             var fi = new FileInfo(archivePath);
+            fileSize = fi.Length;
+            lastWrite = fi.LastWriteTimeUtc;
             if (fi.Length > _maxArchiveSizeBytes)
             {
-                _cache.Set(cacheKey, Array.Empty<string>());
+                _cache.Set(cacheKey, new ArchiveCacheEntry(Array.Empty<string>(), fileSize, lastWrite));
                 return Array.Empty<string>();
             }
         }
@@ -109,7 +128,7 @@ public sealed class ArchiveHashService
         catch (InvalidDataException) { hashes = Array.Empty<string>(); }
         catch (UnauthorizedAccessException) { hashes = Array.Empty<string>(); }
 
-        _cache.Set(cacheKey, hashes);
+        _cache.Set(cacheKey, new ArchiveCacheEntry(hashes, fileSize, lastWrite));
         return hashes;
     }
 

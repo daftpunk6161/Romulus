@@ -41,7 +41,7 @@ public sealed class RunService : IRunService
         var dataDir = FeatureService.ResolveDataDirectory()
                       ?? RunEnvironmentBuilder.ResolveDataDir();
         var optionsFactory = runOptionsFactory ?? new RunOptionsFactory();
-        var profileService = runProfileService ?? new RunProfileService(new JsonRunProfileStore(), dataDir);
+        var profileService = runProfileService ?? new RunProfileService(new JsonRunProfileStore(), dataDir); // DI-BYPASS-JUSTIFIED: required for unit-test construction; DI always injects RunProfileService in production (App.xaml.cs: services.AddSingleton<RunProfileService>())
         _runConfigurationMaterializer = runConfigurationMaterializer
             ?? new RunConfigurationMaterializer(new RunConfigurationResolver(profileService), optionsFactory);
     }
@@ -58,6 +58,7 @@ public sealed class RunService : IRunService
     /// Build infrastructure and RunOptions from current ViewModel state.
     /// Must be called on a background thread — performs file I/O.
     /// </summary>
+    // SYNC-JUSTIFIED: Legacy sync wrapper kept only for backward-compat; all new call-sites must use BuildOrchestratorAsync.
     [Obsolete("Use BuildOrchestratorAsync to avoid blocking calls.")]
     public (RunOrchestrator Orchestrator, RunOptions Options, string? AuditPath, string? ReportPath)
         BuildOrchestrator(MainViewModel vm, Action<string>? onProgress = null)
@@ -183,6 +184,7 @@ public sealed class RunService : IRunService
     /// Execute the pipeline.
     /// Must be called on a background thread.
     /// </summary>
+    // SYNC-JUSTIFIED: Legacy sync wrapper kept only for backward-compat; all new call-sites must use ExecuteRunAsync.
     [Obsolete("Use ExecuteRunAsync to avoid blocking calls.")]
     public RunServiceResult ExecuteRun(
         RunOrchestrator orchestrator,

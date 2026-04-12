@@ -116,6 +116,43 @@ public sealed class Block1_ReleaseBlockerTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // R6-01: Sync wrappers in RunService must have SYNC-JUSTIFIED comments
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void R6_01_RunService_SyncWrappers_MustHaveSyncJustifiedComment()
+    {
+        var sourceFile = FindSourceFile("Services", "RunService.cs");
+        Assert.True(File.Exists(sourceFile), $"Source file not found: {sourceFile}");
+
+        var lines = File.ReadAllLines(sourceFile);
+        var violations = new List<string>();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (!lines[i].Contains(".GetAwaiter().GetResult()"))
+                continue;
+
+            // Check that a SYNC-JUSTIFIED comment exists in the nearby preamble.
+            // Method signatures and attributes often span multiple lines.
+            bool justified = false;
+            for (int j = Math.Max(0, i - 10); j <= i; j++)
+            {
+                if (lines[j].Contains("SYNC-JUSTIFIED"))
+                {
+                    justified = true;
+                    break;
+                }
+            }
+
+            if (!justified)
+                violations.Add($"Line {i + 1}: {lines[i].Trim()}");
+        }
+
+        Assert.True(violations.Count == 0,
+            $"RunService.cs has .GetAwaiter().GetResult() without SYNC-JUSTIFIED comment:\n{string.Join("\n", violations)}");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // R6-08: API Global Exception Handler
     // ═══════════════════════════════════════════════════════════════════
 

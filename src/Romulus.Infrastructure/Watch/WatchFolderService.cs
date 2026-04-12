@@ -83,6 +83,8 @@ public sealed class WatchFolderService : IDisposable
                     {
                         IncludeSubdirectories = true,
                         NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                        // R7-03: Default 8KB buffer is too small for deep ROM trees; 64KB prevents missed events
+                        InternalBufferSize = 65536,
                         EnableRaisingEvents = true
                     };
 

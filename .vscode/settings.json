@@ -43,7 +43,7 @@
         "c#": true
     },
     "chat.agentSessionProjection.enabled": true,
-    "chat.requestQueuing.defaultAction": "queue",
+    "chat.requestQueuing.defaultAction": "steer",
     "chat.tips.enabled": true,
     "chat.useClaudeHooks": true,
     "chat.viewProgressBadge.enabled": true,
@@ -51,5 +51,15 @@
     "codium.codeCompletion.enable": true,
     "github-actions.workflows.pinned.workflows": [
         "dynamic/copilot-pull-request-reviewer/copilot-pull-request-reviewer"
-    ]
+    ],
+    "chat.planAgent.defaultModel": "Claude Sonnet 4.6 (copilot)",
+    "chat.agent.thinkingStyle": "collapsedPreview",
+    "chat.viewSessions.orientation": "sideBySide",
+    "chat.mcp.discovery.enabled": {
+        "claude-desktop": true
+    },
+    "chat.mcp.gallery.enabled": true,
+    "chat.mcp.assisted.nuget.enabled": true,
+    "chat.includeReferencedInstructions": true,
+    "chat.useNestedAgentsMdFiles": true
 }

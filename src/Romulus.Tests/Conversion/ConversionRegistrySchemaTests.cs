@@ -245,7 +245,7 @@ public sealed class ConversionRegistrySchemaTests
     }
 
     [Fact]
-    public void EcmCapability_RemainsFailClosedWhileToolHashPlaceholderIsConfigured()
+    public void EcmCapability_RemainsFailClosedWhileToolHashPendingMarkerIsConfigured()
     {
         using var registry = OpenJson("conversion-registry.json");
         using var toolHashes = OpenJson("tool-hashes.json");
@@ -261,7 +261,7 @@ public sealed class ConversionRegistrySchemaTests
         Assert.Equal("unecm", tool.GetProperty("toolName").GetString());
         Assert.False(tool.TryGetProperty("expectedHash", out _));
         var configuredHash = toolHashes.RootElement.GetProperty("Tools").GetProperty("unecm.exe").GetString();
-        Assert.StartsWith("PLACEHOLDER", configuredHash, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith("PENDING-VERIFY", configuredHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int GetPolicyCount(IReadOnlyDictionary<string, int> policyCounts, string key)

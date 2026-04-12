@@ -73,7 +73,10 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void SearchCommands_FuzzyMatch_ReturnsResults()
     {
         var result = FeatureService.SearchCommands("dryrn"); // close to dryrun
-        Assert.True(result.Count > 0);
+        // TASK-028: upgraded — fuzzy match must find dryrun and return valid entries
+        Assert.NotEmpty(result);
+        Assert.Contains(result, r => r.key == "dryrun");
+        Assert.All(result, r => Assert.NotEmpty(r.key));
     }
 
     [Fact]
@@ -241,7 +244,15 @@ public sealed class WpfCoverageBoostTests : IDisposable
             }
         };
         var result = FeatureService.GetDuplicateHeatmap(groups);
-        Assert.True(result.Count > 0);
+        // TASK-028: upgraded from no-crash-only to structural assertions
+        Assert.Equal(2, result.Count); // one entry per console
+        var snes = result.First(e => e.Console == "SNES");
+        Assert.Equal(2, snes.Total);      // winner + 1 loser
+        Assert.Equal(1, snes.Duplicates);
+        Assert.InRange(snes.DuplicatePercent, 49.9, 50.1); // 50%
+        var nes = result.First(e => e.Console == "NES");
+        Assert.Equal(1, nes.Total);       // winner only
+        Assert.Equal(0, nes.Duplicates);
     }
 
     // ═══ ANALYSIS: SearchRomCollection ══════════════════════════════════
@@ -291,7 +302,11 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var saved = new Dictionary<string, string> { ["key1"] = "a", ["key2"] = "x", ["key4"] = "d" };
 
         var diff = FeatureService.GetConfigDiff(current, saved);
-        Assert.True(diff.Count > 0);
+        // TASK-028: upgraded — key2 changed, key3 only-in-current, key4 only-in-saved
+        Assert.Equal(3, diff.Count);
+        Assert.Contains(diff, d => d.Key == "key2"); // value changed
+        Assert.Contains(diff, d => d.Key == "key3"); // present in current only
+        Assert.Contains(diff, d => d.Key == "key4"); // present in saved only
     }
 
     [Fact]
@@ -349,7 +364,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
         File.WriteAllText(pathB, "<datafile><game name=\"G2\"><rom name=\"r2.bin\" crc=\"CC\" sha1=\"DD\" /></game></datafile>");
 
         var result = FeatureService.CompareDatFiles(pathA, pathB);
-        Assert.True(result.Added.Count > 0 || result.Removed.Count > 0);
+        // TASK-028: upgraded — G1 was in A (now removed), G2 is in B (newly added)
+        Assert.Contains("G1", result.Removed);
+        Assert.Contains("G2", result.Added);
     }
 
     // ═══ DAT: LoadDatGameNames ══════════════════════════════════════════
@@ -382,7 +399,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var doc = XDocument.Parse("<datafile><game name=\"TestGame\"><rom name=\"test.bin\" crc=\"AABB\" sha1=\"112233\" size=\"1024\" /></game></datafile>");
         var map = DatAnalysisService.BuildGameElementMap(doc);
-        Assert.True(map.Count > 0);
+        // TASK-028: upgraded — verify the specific game key exists
+        Assert.True(map.ContainsKey("TestGame"), "Map must contain entry for 'TestGame'");
+        Assert.NotNull(map["TestGame"]);
     }
 
     // ═══ DAT: AppendCustomDatEntry ══════════════════════════════════════
@@ -539,7 +558,10 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void GetSortTemplates_ReturnsNonEmptyDictionary()
     {
         var templates = FeatureService.GetSortTemplates();
-        Assert.True(templates.Count > 0);
+        // TASK-028: upgraded — verify known templates are present
+        Assert.True(templates.ContainsKey("RetroArch"), "Must contain RetroArch template");
+        Assert.True(templates.ContainsKey("EmulationStation"), "Must contain EmulationStation template");
+        Assert.True(templates.ContainsKey("LaunchBox"), "Must contain LaunchBox template");
     }
 
     // ═══ WORKFLOW: TestCronMatch ═════════════════════════════════════════
@@ -675,7 +697,7 @@ public sealed class WpfCoverageBoostTests : IDisposable
         // Normalize expected for platform differences
         var result = FeatureService.DetectConsoleFromPath(path);
         if (expected == "Unknown")
-            Assert.True(result.Length > 0); // might return parent folder name
+            Assert.NotEmpty(result); // TASK-028: upgraded from Assert.True(length>0) — must return non-empty string
         else
             Assert.Equal(expected, result);
     }
@@ -776,7 +798,10 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void VerifyConversions_NonexistentPaths_CountsMissing()
     {
         var result = FeatureService.VerifyConversions([Path.Combine(_tempDir, "nonexistent.chd")]);
-        Assert.True(result.missing > 0);
+        // TASK-028: upgraded — exactly 1 missing, 0 passed/failed
+        Assert.Equal(1, result.missing);
+        Assert.Equal(0, result.passed);
+        Assert.Equal(0, result.failed);
     }
 
     [Fact]
@@ -785,7 +810,10 @@ public sealed class WpfCoverageBoostTests : IDisposable
         var f = Path.Combine(_tempDir, "test.chd");
         File.WriteAllBytes(f, new byte[100]);
         var result = FeatureService.VerifyConversions([f]);
-        Assert.True(result.passed > 0);
+        // TASK-028: upgraded — exactly 1 passed, 0 missing/failed
+        Assert.Equal(1, result.passed);
+        Assert.Equal(0, result.missing);
+        Assert.Equal(0, result.failed);
     }
 
     // ═══ FeatureService: GetTargetFormat ════════════════════════════════
@@ -841,9 +869,8 @@ public sealed class WpfCoverageBoostTests : IDisposable
     {
         var paths = new[] { @"C:\Games\a.sfc", @"D:\Roms\b.sfc" };
         var root = FeatureService.FindCommonRoot(paths);
-        // May return null or a very short common prefix
-        // Just verify no exception
-        Assert.True(root is null || root.Length >= 0);
+        // TASK-028: upgraded — different drives have no common root → must return null
+        Assert.Null(root);
     }
 
     // ═══ FeatureService: BuildCustomDatXmlEntry ═════════════════════════

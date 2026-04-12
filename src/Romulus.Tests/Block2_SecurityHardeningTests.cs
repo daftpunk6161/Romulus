@@ -61,6 +61,44 @@ public sealed class Block2_SecurityHardeningTests : IDisposable
     }
 
     [Fact]
+    public void R6_05_ChdmanToolConverter_AllInvokeProcessCalls_MustUseRequirementOverload()
+    {
+        // Ensure no InvokeProcess call in ChdmanToolConverter uses the 3-arg overload (no ToolRequirement).
+        // Every call must go through the 6-arg overload with ChdmanRequirement or SevenZipRequirement.
+        var sourcePath = FindRepoFile("src", "Romulus.Infrastructure", "Conversion", "ChdmanToolConverter.cs");
+        var source = File.ReadAllText(sourcePath);
+        var lines = File.ReadAllLines(sourcePath);
+
+        var violations = new List<string>();
+        var searchIndex = 0;
+        while (true)
+        {
+            var invokeIndex = source.IndexOf("InvokeProcess(", searchIndex, StringComparison.Ordinal);
+            if (invokeIndex < 0)
+                break;
+
+            var closeIndex = source.IndexOf(");", invokeIndex, StringComparison.Ordinal);
+            if (closeIndex < 0)
+                closeIndex = Math.Min(source.Length - 1, invokeIndex + 400);
+
+            var callBlock = source.Substring(invokeIndex, closeIndex - invokeIndex + 1);
+
+            // Every InvokeProcess call in this converter must reference a concrete ToolRequirement marker.
+            if (!callBlock.Contains("Requirement", StringComparison.Ordinal))
+            {
+                var lineNo = 1 + source[..invokeIndex].Count(ch => ch == '\n');
+                var lineText = lines[Math.Max(0, lineNo - 1)].Trim();
+                violations.Add($"Line {lineNo}: {lineText}");
+            }
+
+            searchIndex = invokeIndex + "InvokeProcess(".Length;
+        }
+
+        Assert.True(violations.Count == 0,
+            $"ChdmanToolConverter has InvokeProcess call(s) without ToolRequirement:\n{string.Join("\n", violations)}");
+    }
+
+    [Fact]
     public void R6_06_ToolHashes_MustContain_AllReferencedConversionTools()
     {
         var hashesPath = FindRepoFile("data", "tool-hashes.json");

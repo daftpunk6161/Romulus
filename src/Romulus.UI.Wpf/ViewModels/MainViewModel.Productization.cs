@@ -111,7 +111,7 @@ public sealed partial class MainViewModel
                       ?? RunEnvironmentBuilder.ResolveDataDir();
 
         _runProfileService = runProfileService
-            ?? new RunProfileService(new JsonRunProfileStore(), dataDir);
+            ?? new RunProfileService(new JsonRunProfileStore(), dataDir); // DI-BYPASS-JUSTIFIED: required for unit-test construction; DI always injects RunProfileService in production (App.xaml.cs: services.AddSingleton<RunProfileService>())
         _runConfigurationMaterializer = runConfigurationMaterializer
             ?? new RunConfigurationMaterializer(
                 new RunConfigurationResolver(_runProfileService),

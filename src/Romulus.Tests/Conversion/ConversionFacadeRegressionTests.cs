@@ -351,6 +351,18 @@ public sealed class ConversionFacadeRegressionTests : IDisposable
         public string? FindTool(string toolName) => $@"C:\mock\{toolName}.exe";
 
         public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null)
+            => InvokeProcessCore(arguments);
+
+        public ToolResult InvokeProcess(
+            string filePath,
+            string[] arguments,
+            Romulus.Contracts.Models.ToolRequirement? requirement,
+            string? errorLabel,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+            => InvokeProcessCore(arguments);
+
+        private ToolResult InvokeProcessCore(string[] arguments)
         {
             // Create output file for converters that check output existence
             var outputIndex = Array.IndexOf(arguments, "-o");

@@ -465,6 +465,19 @@ public sealed class ChdmanToolConverterCoverageTests : IDisposable
             return NextResult;
         }
 
+        public ToolResult InvokeProcess(
+            string filePath,
+            string[] arguments,
+            Romulus.Contracts.Models.ToolRequirement? requirement,
+            string? errorLabel,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+        {
+            LastFilePath = filePath;
+            LastArgs = arguments;
+            return NextResult;
+        }
+
         public ToolResult Invoke7z(string sevenZipPath, string[] arguments) => NextResult;
     }
 

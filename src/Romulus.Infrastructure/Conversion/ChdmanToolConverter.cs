@@ -13,6 +13,7 @@ internal sealed class ChdmanToolConverter
 {
     private readonly IToolRunner _tools;
     private static readonly ToolRequirement ChdmanRequirement = new() { ToolName = "chdman" };
+    private static readonly ToolRequirement SevenZipRequirement = new() { ToolName = "7z" };
 
     /// <summary>Maximum number of entries allowed in a ZIP archive during conversion extraction.</summary>
     internal const int MaxZipEntryCount = 10_000;
@@ -118,7 +119,7 @@ internal sealed class ChdmanToolConverter
 
                 Directory.CreateDirectory(extractDir);
                 var extractResult = _tools.InvokeProcess(sevenZipPath,
-                    new[] { "x", "-y", $"-o{extractDir}", sourcePath }, "7z extract");
+                    new[] { "x", "-y", $"-o{extractDir}", sourcePath }, SevenZipRequirement, "7z extract", null, CancellationToken.None);
                 if (!extractResult.Success)
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "7z-extract-failed");
 

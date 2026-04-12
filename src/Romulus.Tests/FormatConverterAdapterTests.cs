@@ -387,6 +387,18 @@ public class FormatConverterAdapterTests
         }
 
         public ToolResult InvokeProcess(string filePath, string[] arguments, string? errorLabel = null)
+            => InvokeProcessCore(filePath, arguments);
+
+        public ToolResult InvokeProcess(
+            string filePath,
+            string[] arguments,
+            Romulus.Contracts.Models.ToolRequirement? requirement,
+            string? errorLabel,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+            => InvokeProcessCore(filePath, arguments);
+
+        private ToolResult InvokeProcessCore(string filePath, string[] arguments)
         {
             // Simulate success
             LastArgs = arguments;

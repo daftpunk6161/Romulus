@@ -660,10 +660,11 @@ public sealed class ToolRunnerAdapter : IToolRunner
             return false;
         }
 
-        // Issue #11: Reject PLACEHOLDER hashes — these are not real SHA256 checksums
-        if (expectedHash.StartsWith("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
+        // Issue #11: Reject marker hashes — these are not real SHA256 checksums.
+        if (expectedHash.StartsWith("PLACEHOLDER", StringComparison.OrdinalIgnoreCase)
+            || expectedHash.StartsWith("PENDING-VERIFY", StringComparison.OrdinalIgnoreCase))
         {
-            _log?.Invoke($"[SECURITY] PLACEHOLDER-Hash fuer {fileName} — ersetze durch echten SHA256-Hash in data/tool-hashes.json");
+            _log?.Invoke($"[SECURITY] Marker-Hash fuer {fileName} ({expectedHash}) — ersetze durch echten SHA256-Hash in data/tool-hashes.json");
             return false;
         }
 

@@ -98,12 +98,12 @@ Dieser Plan konsolidiert alle **offenen Findings** aus dem 8-Runden-Audit (120 F
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-022 | **C-01 – MainViewModel Aufspaltung (Analyse)**: Identifiziere die 3-4 fachlichen Domänen in MainViewModel (Configuration, RunState, Dashboard/KPI, AuditLog). Erstelle eine Mapping-Tabelle: Property/Method → Ziel-ViewModel. Schätze Aufwand und Risiko. **Nur Analyse, kein Code.** | | |
-| TASK-023 | **C-01 – MainViewModel Phase 1 (ConfigViewModel)**: Extrahiere Configuration-Properties (Pfade, Regions, Extensions, Expert-Mode) in ein `ConfigurationViewModel`. MainViewModel delegiert an ConfigViewModel. Bestehende Bindings über Property-Forwarding oder DataContext-Wechsel in XAML erhalten. | | |
-| TASK-024 | **C-01 – MainViewModel Phase 2 (DashboardViewModel)**: Extrahiere KPI-/Dashboard-Projektionsproperties in `DashboardViewModel`. RunResult-Subscription und Projection-Updates wandern mit. | | |
-| TASK-025 | **C-02 – Orchestration Sub-Namespaces**: Erstelle Ordner `Orchestration/Phases/`, `Orchestration/Profiles/`, `Orchestration/Projections/`. Verschiebe Pipeline-Phase-Dateien, Profil-Dateien und Projection-Dateien. Namespaces anpassen. Keine funktionale Änderung. | | |
-| TASK-026 | **C-03 – FeatureCommandService Domain-Handler**: Extrahiere `FeatureCommandService.Conversion.cs` in einen eigenständigen `ConversionCommandHandler`. Extrahiere `FeatureCommandService.Dat.cs` in `DatCommandHandler`. FeatureCommandService delegiert an Handler. Schrittweise, ein Handler pro Iteration. | | |
-| TASK-027 | **Tests Phase 5**: Bestehende Tests müssen nach jedem Refactor-Schritt grün bleiben. Keine neuen Tests nötig wenn keine funktionale Änderung. Bei ViewModel-Split: bestehende GuiViewModelTests auf neues ViewModel umleiten. | | |
+| TASK-022 | **C-01 – MainViewModel Aufspaltung (Analyse)**: Identifiziere die 3-4 fachlichen Domänen in MainViewModel (Configuration, RunState, Dashboard/KPI, AuditLog). Erstelle eine Mapping-Tabelle: Property/Method → Ziel-ViewModel. Schätze Aufwand und Risiko. **Nur Analyse, kein Code.** | ✅ | 2026-04-13 |
+| TASK-023 | **C-01 – MainViewModel Phase 1 (ConfigViewModel)**: Extrahiere Configuration-Properties (Pfade, Regions, Extensions, Expert-Mode) in ein `ConfigurationViewModel`. MainViewModel delegiert an ConfigViewModel. Bestehende Bindings über Property-Forwarding oder DataContext-Wechsel in XAML erhalten. | ✅ | 2026-04-13 |
+| TASK-024 | **C-01 – MainViewModel Phase 2 (DashboardViewModel)**: Extrahiere KPI-/Dashboard-Projektionsproperties in `DashboardViewModel`. RunResult-Subscription und Projection-Updates wandern mit. | ✅ | 2026-04-13 |
+| TASK-025 | **C-02 – Orchestration Sub-Namespaces**: Erstelle Ordner `Orchestration/Phases/`, `Orchestration/Profiles/`, `Orchestration/Projections/`. Verschiebe Pipeline-Phase-Dateien, Profil-Dateien und Projection-Dateien. Namespaces anpassen. Keine funktionale Änderung. | DEFERRED | 2026-04-13 |
+| TASK-026 | **C-03 – FeatureCommandService Domain-Handler**: Extrahiere `FeatureCommandService.Conversion.cs` in einen eigenständigen `ConversionCommandHandler`. Extrahiere `FeatureCommandService.Dat.cs` in `DatCommandHandler`. FeatureCommandService delegiert an Handler. Schrittweise, ein Handler pro Iteration. | ✅ | 2026-04-13 |
+| TASK-027 | **Tests Phase 5**: Bestehende Tests müssen nach jedem Refactor-Schritt grün bleiben. Keine neuen Tests nötig wenn keine funktionale Änderung. Bei ViewModel-Split: bestehende GuiViewModelTests auf neues ViewModel umleiten. | ✅ | 2026-04-13 |
 
 ### Phase 6 – Test-Qualität + Restliche Hygiene
 
@@ -111,10 +111,10 @@ Dieser Plan konsolidiert alle **offenen Findings** aus dem 8-Runden-Audit (120 F
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-028 | **F-05 (Full-Repo-Audit) – No-Crash-Only Tests verbessern**: In `src/Romulus.Tests/WpfCoverageBoostTests.cs` und weiteren Coverage-Boost-Dateien: Alle `Assert.True(result.Count > 0)` durch fachliche Assertions ersetzen (Struktur, Werte, Ordering). Priorität: Tests die Core-Logik berühren (GetDuplicateHeatmap, GetHealthScoreBreakdown, GetRegionDistribution). Mindestens 10 Tests upgraden. | | |
-| TASK-029 | **R7-02 bis R7-06 (Medium aus Runde 7)**: Verbleibende Medium-Findings: (a) `RunManager` async void Event-Handler ohne try/catch → try/catch ergänzen, (b) `WatchFolderService` FileSystemWatcher.InternalBufferSize nicht konfiguriert → auf 64KB setzen und Settings-basiert konfigurierbar machen, (c) `ApiRunConfigurationMapper` Case-Sensitivity-Lücke (bereits in Repo-Memory dokumentiert) → berücksichtigen ob gefixt. | | |
-| TASK-030 | **R7-07 bis R7-14 (Low aus Runde 7)**: (a) API OpenAPI-Docs: Fehlende Response-Codes dokumentieren (400, 401, 404, 409, 500), (b) CLI --version Flag hinzufügen wenn fehlend, (c) Stale TODO-Kommentare entfernen oder in Tracker überführen. Aggregiert abarbeiten. | | |
-| TASK-031 | **Verification Phase 6**: Build + Tests grün. `grep -rn 'Assert.True(.*Count > 0)' src/Romulus.Tests/WpfCoverageBoostTests.cs` → Zero generische Count-Assertions in überarbeiteten Tests. | | |
+| TASK-028 | **F-05 (Full-Repo-Audit) – No-Crash-Only Tests verbessern**: In `src/Romulus.Tests/WpfCoverageBoostTests.cs` und weiteren Coverage-Boost-Dateien: Alle `Assert.True(result.Count > 0)` durch fachliche Assertions ersetzen (Struktur, Werte, Ordering). Priorität: Tests die Core-Logik berühren (GetDuplicateHeatmap, GetHealthScoreBreakdown, GetRegionDistribution). Mindestens 10 Tests upgraden. | ✅ | 2026-04-13 |
+| TASK-029 | **R7-02 bis R7-06 (Medium aus Runde 7)**: Verbleibende Medium-Findings: (a) `RunManager` async void Event-Handler ohne try/catch → try/catch ergänzen, (b) `WatchFolderService` FileSystemWatcher.InternalBufferSize nicht konfiguriert → auf 64KB setzen und Settings-basiert konfigurierbar machen, (c) `ApiRunConfigurationMapper` Case-Sensitivity-Lücke (bereits in Repo-Memory dokumentiert) → berücksichtigen ob gefixt. | ✅ | 2026-04-13 |
+| TASK-030 | **R7-07 bis R7-14 (Low aus Runde 7)**: (a) API OpenAPI-Docs: Fehlende Response-Codes dokumentieren (400, 401, 404, 409, 500), (b) CLI --version Flag hinzufügen wenn fehlend, (c) Stale TODO-Kommentare entfernen oder in Tracker überführen. Aggregiert abarbeiten. | ✅ | 2026-04-13 |
+| TASK-031 | **Verification Phase 6**: Build + Tests grün. `grep -rn 'Assert.True(.*Count > 0)' src/Romulus.Tests/WpfCoverageBoostTests.cs` → Zero generische Count-Assertions in überarbeiteten Tests. | ✅ | 2026-04-13 |
 
 ## 3. Alternatives
 
