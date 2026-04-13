@@ -183,6 +183,25 @@ public sealed class AuditComplianceTests : IDisposable
         Assert.Contains("coverage", content, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Audit1_Test005b_ReleaseSmoke_CoverageGate_MustUseExplicitConfiguration()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", ".."));
+
+        var releaseSmokePath = Path.Combine(repoRoot, "deploy", "smoke", "Invoke-ReleaseSmoke.ps1");
+        var coverageGatePath = Path.Combine(repoRoot, "benchmark", "tools", "Invoke-CoverageGate.ps1");
+
+        Assert.True(File.Exists(releaseSmokePath), $"Expected release smoke script at {releaseSmokePath}");
+        Assert.True(File.Exists(coverageGatePath), $"Expected coverage gate script at {coverageGatePath}");
+
+        var releaseSmoke = File.ReadAllText(releaseSmokePath);
+        Assert.Contains("-Configuration', $Configuration", releaseSmoke, StringComparison.Ordinal);
+
+        var coverageGate = File.ReadAllText(coverageGatePath);
+        Assert.Contains("'--configuration', $Configuration", coverageGate, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// AUDIT1-TEST-006: GetFolderBaseKey Edge Cases — covered in FolderDeduplicatorTests.
     /// </summary>

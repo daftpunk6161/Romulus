@@ -100,6 +100,7 @@ if (-not $SkipCoverageGate) {
     Invoke-CommandStep -Name 'Benchmark coverage gate' -FilePath 'pwsh' -Arguments @(
         '-NoProfile',
         '-File', $coverageGateScript,
+        '-Configuration', $Configuration,
         '-NoBuild'
     )
 }

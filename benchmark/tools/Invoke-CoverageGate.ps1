@@ -16,11 +16,16 @@
 
 .PARAMETER NoBuild
     Skip build before running tests.
+
+.PARAMETER Configuration
+    Build configuration used for test discovery/execution.
 #>
 [CmdletBinding()]
 param(
     [string]$Filter,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Release'
 )
 
 Set-StrictMode -Version Latest
@@ -41,6 +46,7 @@ if ($Filter) {
 
 $dotnetArgs = @(
     'test', $testProj,
+    '--configuration', $Configuration,
     '--filter', $filterExpr,
     '--nologo',
     '--verbosity', 'normal'

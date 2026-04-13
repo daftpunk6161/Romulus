@@ -127,65 +127,65 @@
 
 ## C. Technische Schulden
 
-- [ ] **C-1 (P1): MainViewModel God-Klasse (~3600+ Zeilen)**
+- [x] **C-1 (P1): MainViewModel God-Klasse (~3600+ Zeilen)**
   - **Impact:** 50+ Properties, 30+ Commands, 20+ injizierte Services, 3 verschiedene Locking-Strategien. Schwer testbar, schwer wartbar, hohe Regressionsgefahr.
   - **Dateien:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs`, `MainViewModel.RunPipeline.cs`, `MainViewModel.Settings.cs`, `MainViewModel.Productization.cs`
   - **Fix:** Schrittweise extrahieren: `SettingsViewModel`, `RunPipelineViewModel`, `ProfileViewModel` als eigenständige Sub-ViewModels.
   - **Label:** `Architecture Debt Hotspot`
 
-- [ ] **C-2 (P1): BuildCurrentRunConfigurationDraft + BuildRunConfigurationMap — doppelte Wahrheit**
+- [x] **C-2 (P1): BuildCurrentRunConfigurationDraft + BuildRunConfigurationMap — doppelte Wahrheit**
   - **Impact:** Wenn ein neues Feld in `Draft` ergänzt wird, kann `Map` vergessen werden. Beide bauen dieselbe Datenstruktur auf unterschiedlichen Wegen.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs`
   - **Fix:** `BuildRunConfigurationMap()` aus `BuildCurrentRunConfigurationDraft()` ableiten statt parallel aufbauen.
   - **Test:** Invariantentest: `Draft`-Keys müssen Obermenge von `Map`-Keys sein.
   - **Label:** `Parity Risk`
 
-- [ ] **C-3 (P2): Settings bidirektionale Sync MainVM ↔ SetupVM**
+- [x] **C-3 (P2): Settings bidirektionale Sync MainVM ↔ SetupVM**
   - **Impact:** `_setupSyncDepth` Lock + `EnterSetupSyncScope` + `OnRegionPreferencePropertyChanged` = zirkulärer Update-Pfad. Race-Risiko bei schnellen Property-Änderungen.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Settings.cs` (Zeilen 110-200)
   - **Fix:** Shared `SettingsModel` als Single Source of Truth; beide VMs beobachten dasselbe Modell.
 
-- [ ] **C-4 (P2): RunPipeline Dialog-Flow — 3+ Decline-Szenarien copy-paste**
+- [x] **C-4 (P2): RunPipeline Dialog-Flow — 3+ Decline-Szenarien copy-paste**
   - **Impact:** `ConvertOnly = false; BusyHint = ""; CurrentRunState = RunState.Idle;` wird an 3+ Stellen wiederholt. DRY-Verletzung, Regressionsgefahr.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.RunPipeline.cs` (Zeilen 1115-1190)
   - **Fix:** Gemeinsame `ResetDialogState()`-Methode extrahieren.
 
-- [ ] **C-5 (P2): Hardcoded FormatScores in FormatScorer (70+ Einträge)**
+- [x] **C-5 (P2): Hardcoded FormatScores in FormatScorer (70+ Einträge)**
   - **Impact:** Neue Formate erfordern Code-Änderung + Recompile. Sollte datengetrieben sein.
   - **Datei:** `src/Romulus.Core/Scoring/FormatScorer.cs` (Zeilen 44-124)
   - **Fix:** Scores aus `data/format-scores.json` laden (Datei existiert bereits).
 
-- [ ] **C-6 (P2): RunOrchestrator Komplexität (~2500+ Zeilen über 5 Partial-Klassen)**
+- [x] **C-6 (P2): RunOrchestrator Komplexität (~2500+ Zeilen über 5 Partial-Klassen)**
   - **Impact:** Fehlerbehandlung verstreut. Cancel/Rollback-Logik nicht einheitlich. Phase-Steuerung manuell.
   - **Dateien:** `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.cs`, `*.PreviewAndPipelineHelpers.cs`, `*.ReviewApprovals.cs`, `*.ScanAndConvertSteps.cs`, `*.StandardPhaseSteps.cs`
   - **Fix:** Phase-Steps als eigenständige Klassen mit einheitlichem Error-Handling Pattern.
 
-- [ ] **C-7 (P2): _suppressRunConfigurationSelectionApply Flag in Productization**
+- [x] **C-7 (P2): _suppressRunConfigurationSelectionApply Flag in Productization**
   - **Impact:** Manual suppress-flag statt Event-Deregistration. Bei Exception zwischen suppress/unsuppress bleibt suppress=true.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs` (Zeile 75)
   - **Fix:** try/finally oder `IDisposable` Scoped-Suppression.
 
-- [ ] **C-8 (P2): ApplyMaterializedRunConfiguration — keine atomare Zuweisung**
+- [x] **C-8 (P2): ApplyMaterializedRunConfiguration — keine atomare Zuweisung**
   - **Impact:** Setzt 20+ Properties basierend auf `materialized`. Exception midway → VM in inkonsistentem State.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs` (Zeilen 242-280)
   - **Fix:** Alle Properties sammeln, dann batch-apply oder rollback-fähig machen.
 
-- [ ] **C-9 (P2): WatchService + ScheduleService Lifecycle in MainVM**
+- [x] **C-9 (P2): WatchService + ScheduleService Lifecycle in MainVM**
   - **Impact:** Im ctor erzeugt, keine PropertyChanged-Unsubscription bei VM Disposal erkennbar.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs` (Zeilen 79-80)
   - **Fix:** Sicherstellen dass Dispose() sauber aufräumt.
 
-- [ ] **C-10 (P2): Auto-Save Debounce-Timer Race in Settings**
+- [x] **C-10 (P2): Auto-Save Debounce-Timer Race in Settings**
   - **Impact:** `_autoSaveTimer?.Dispose();` dann neuer Timer — Race bei schnellem Property-Change. Timer auf ThreadPool, Dispatch auf UI.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Settings.cs` (Zeilen 47-68)
   - **Fix:** Timer-Erstellung atomar machen oder einzelnen Timer mit Reset.
 
-- [ ] **C-11 (P2): ConversionGraph Depth-Limit 5 hardcoded**
+- [x] **C-11 (P2): ConversionGraph Depth-Limit 5 hardcoded**
   - **Impact:** Valide Conversion-Pfade mit 6+ Steps werden still verworfen. Kein Logging.
   - **Datei:** `src/Romulus.Core/Conversion/ConversionGraph.cs` (Zeile 40)
   - **Fix:** Konfigurierbar machen oder auf 7-8 erhöhen. Warning loggen bei Limit-Hit.
 
-- [ ] **C-12 (P2): GameKeyNormalizer Registration-Präzedenz unklar**
+- [x] **C-12 (P2): GameKeyNormalizer Registration-Präzedenz unklar**
   - **Impact:** Zwei Registrierungspfade (direkt + factory) ohne expliziten Contract. Factory nach direkter Registrierung ignoriert — kein Fehler, kein Log.
   - **Datei:** `src/Romulus.Core/GameKeys/GameKeyNormalizer.cs` (Zeilen 56-75)
   - **Fix:** Expliziten Guard oder Dokumentation der Präzedenz.
@@ -210,7 +210,32 @@
   - **Datei:** `src/Romulus.Infrastructure/Sorting/ConsoleSorter.cs`
   - **Fix:** Robusteren Playlist-Parser mit defensivem Fallback.
 
-### Verifikation C (2026-04-13, Ergänzung C-13/C-14)
+### Verifikation C (2026-04-13)
+
+- [x] **C-1** umgesetzt durch Extraktion zentraler Child-ViewModels (`Shell`, `Setup`, `Run`, `Tools`, `CommandPalette`) via Factory-Pfade.
+  - **Verifiziert durch:** `AuditCDRedTests.C01_MainViewModel_UsesChildViewModels_ForMajorDomains`
+- [x] **C-2** umgesetzt durch map-Build aus `RunConfigurationDraft`-Reflection statt harter Key-Matrix.
+  - **Verifiziert durch:** `AuditCDRedTests.C02_RunConfigurationMap_MustAvoidHardcodedKeyMatrix`
+- [x] **C-3** umgesetzt via `SetupSyncMirrorState` als gemeinsamer Synchronisationszustand.
+  - **Verifiziert durch:** `AuditCDRedTests.C03_SettingsSync_UsesSharedMirrorStateModel`
+- [x] **C-4** umgesetzt via shared decline-reset helper.
+  - **Verifiziert durch:** `AuditCDRedTests.C04_RunPipeline_DeclinePaths_UseSharedResetHelper`
+- [x] **C-5** umgesetzt datengetrieben über `FormatScoringProfile` + `format-scores.json`.
+  - **Verifiziert durch:** `AuditCDRedTests.C05_FormatScorer_IsDataDrivenViaProfileFactory`
+- [x] **C-6** umgesetzt durch Extraktion `IPhasePlanExecutor`/`PhasePlanExecutor` aus `RunOrchestrator`.
+  - **Verifiziert durch:** `AuditCDRedTests.C06_RunOrchestrator_UsesDedicatedPhasePlanExecutor`
+- [x] **C-7** umgesetzt mit scoped suppression (`EnterRunConfigurationSelectionSuppressionScope`).
+  - **Verifiziert durch:** `AuditCDRedTests.C07_RunConfigurationSelectionSuppression_UsesScopeHelper`
+- [x] **C-8** umgesetzt mit Snapshot+Rollback bei Fehlern in `ApplyMaterializedRunConfiguration`.
+  - **Verifiziert durch:** `AuditCDRedTests.C08_ApplyMaterializedRunConfiguration_InvalidConflictPolicy_RollsBackState`
+- [x] **C-9** umgesetzt durch `IDisposable`-Lifecycle und VM-Dispose im Window-Cleanup.
+  - **Verifiziert durch:** `AuditCDRedTests.C09_MainWindow_Cleanup_DisposesMainViewModel`
+- [x] **C-10** umgesetzt mit wiederverwendetem Debounce-Timer (`??=` + `Change`).
+  - **Verifiziert durch:** `AuditCDRedTests.C10_ScheduleAutoSave_ReusesSingleTimerInstance`
+- [x] **C-11** umgesetzt mit konfigurierbarem Depth-Limit und Warning-Trace bei Pruning.
+  - **Verifiziert durch:** `AuditCDRedTests.C11_ConversionGraph_DepthLimit_IsConfigurableAndWarned`, `ConversionGraphTests`
+- [x] **C-12** umgesetzt mit explizitem Registration-Precedence-Guard + Warning-Trace.
+  - **Verifiziert durch:** `AuditCDRedTests.C12_GameKeyNormalizer_RegistrationPrecedence_IsGuarded`, `GameKeyNormalizerCoverageTests`
 
 - [x] **C-13** umgesetzt in `MainViewModel.Settings`: region-code Zugriff läuft über `RegionPreferenceReaders`/`RegionPreferenceWriters` statt 16x `switch`.
   - **Verifiziert durch:** `AuditCDRedTests.C13_RegionPreferenceAccess_MustUseDictionaryMapping`
