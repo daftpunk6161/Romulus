@@ -791,7 +791,32 @@ public partial class Program
             _ => $"{normalizedPrefix}-INVALID-CONFIG"
         };
 
-        return (code, ex.Message);
+        var message = ex.Code switch
+        {
+            ConfigurationErrorCode.ProtectedSystemPath => "The specified path is a protected system directory.",
+            ConfigurationErrorCode.DriveRoot => "Drive root paths are not allowed.",
+            ConfigurationErrorCode.UncPath => "UNC paths are not allowed.",
+            ConfigurationErrorCode.InvalidPath => "The specified path is invalid.",
+            ConfigurationErrorCode.PathTraversal => "Path traversal is not allowed.",
+            ConfigurationErrorCode.ReparsePoint => "The path contains a reparse point.",
+            ConfigurationErrorCode.AccessDenied => "Access to the specified path is denied.",
+            ConfigurationErrorCode.InvalidRegion => "The specified region is invalid.",
+            ConfigurationErrorCode.InvalidExtension => "The specified file extension is invalid.",
+            ConfigurationErrorCode.InvalidHashType => "The specified hash type is invalid.",
+            ConfigurationErrorCode.InvalidConvertFormat => "The specified conversion format is invalid.",
+            ConfigurationErrorCode.InvalidConflictPolicy => "The specified conflict policy is invalid.",
+            ConfigurationErrorCode.InvalidMode => "The specified mode is invalid.",
+            ConfigurationErrorCode.InvalidConsole => "The specified console is invalid.",
+            ConfigurationErrorCode.MissingDatRoot => "The DAT root path is required.",
+            ConfigurationErrorCode.MissingTrashRoot => "The trash root path is required.",
+            ConfigurationErrorCode.WorkflowNotFound => "The specified workflow was not found.",
+            ConfigurationErrorCode.ProfileNotFound => "The specified profile was not found.",
+            _ => "Configuration validation failed."
+        };
+
+        SafeConsoleWriteLine($"[API-WARN] Configuration error ({ex.Code}): {ex.Message}");
+
+        return (code, message);
     }
 }
 

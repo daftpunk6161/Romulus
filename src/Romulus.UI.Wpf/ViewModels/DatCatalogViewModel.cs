@@ -373,7 +373,7 @@ public sealed partial class DatCatalogViewModel : ObservableObject
                     }
                     else { failed++; }
                 }
-                catch { failed++; }
+                catch (Exception ex) { _addLog($"DAT download failed for {entry.Id}: {ex.GetType().Name}", "ERROR"); failed++; }
             }
 
             await Task.Run(() => DatCatalogStateService.SaveState(_statePath, _state));

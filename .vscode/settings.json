@@ -54,7 +54,7 @@
     ],
     "chat.planAgent.defaultModel": "Claude Sonnet 4.6 (copilot)",
     "chat.agent.thinkingStyle": "collapsedPreview",
-    "chat.viewSessions.orientation": "sideBySide",
+    "chat.viewSessions.orientation": "stacked",
     "chat.mcp.discovery.enabled": {
         "claude-desktop": true
     },

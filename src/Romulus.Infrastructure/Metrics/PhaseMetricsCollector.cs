@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
+using Romulus.Contracts.Ports;
 
 namespace Romulus.Infrastructure.Metrics;
 
@@ -12,11 +13,17 @@ namespace Romulus.Infrastructure.Metrics;
 public sealed class PhaseMetricsCollector
 {
     private readonly object _lock = new();
+    private readonly IFileSystem? _fs;
     private string _runId = "";
     private DateTime _startedAt;
     private readonly List<PhaseMetricEntry> _phases = new();
     private Stopwatch? _activeStopwatch;
     private PhaseMetricEntry? _activePhase;
+
+    public PhaseMetricsCollector(IFileSystem? fs = null)
+    {
+        _fs = fs;
+    }
 
     /// <summary>
     /// Initializes metrics for a new run.
@@ -159,8 +166,9 @@ public sealed class PhaseMetricsCollector
     /// <summary>
     /// Exports metrics to a JSON file (+ "-latest" copy).
     /// </summary>
-    public void Export(string directory)
+    public void Export(string directory, IFileSystem? fs = null)
     {
+        var effectiveFs = fs ?? _fs;
         var metrics = GetMetrics();
         var dir = Path.GetFullPath(directory);
         if (!Directory.Exists(dir))
@@ -188,11 +196,21 @@ public sealed class PhaseMetricsCollector
             })
         }, new JsonSerializerOptions { WriteIndented = true });
 
-        File.WriteAllText(filePath, json, System.Text.Encoding.UTF8);
-
-        // Atomic update for -latest: write to temp, then move
-        var tempLatest = latestPath + ".tmp";
-        File.WriteAllText(tempLatest, json, System.Text.Encoding.UTF8);
-        File.Move(tempLatest, latestPath, overwrite: true);
+        WriteContent(effectiveFs, filePath, json);
+        WriteContent(effectiveFs, latestPath, json);
     }
+
+    private static void WriteContent(IFileSystem? fs, string path, string content)
+    {
+        if (fs is not null)
+            fs.WriteAllText(path, content);
+        else
+            MetricsFileWriter.Write(path, content);
+    }
+}
+
+internal static class MetricsFileWriter
+{
+    internal static void Write(string path, string content)
+        => System.IO.File.WriteAllText(path, content, System.Text.Encoding.UTF8);
 }

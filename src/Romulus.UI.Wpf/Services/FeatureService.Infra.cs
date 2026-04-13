@@ -122,7 +122,7 @@ public static partial class FeatureService
             var flags = key?.GetValue("Flags") as string;
             return flags is not null && int.TryParse(flags, out var f) && (f & 1) != 0;
         }
-        catch { return false; }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"High-contrast detection failed: {ex.GetType().Name}"); return false; }
     }
 
 
