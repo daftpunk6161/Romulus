@@ -564,7 +564,7 @@ public sealed class ConversionExecutorHardeningTests
     private static string CreateTempFile(string extension)
     {
         var path = Path.Combine(Path.GetTempPath(), $"conv_exec_hardening_{Guid.NewGuid():N}{extension}");
-        File.WriteAllBytes(path, [1, 2, 3, 4]);
+        File.WriteAllBytes(path, Enumerable.Repeat((byte)0x2A, 256).ToArray());
         return path;
     }
 
