@@ -185,7 +185,63 @@ public sealed class RunService : IRunService
         return ArtifactPathResolver.GetSiblingDirectory(fullRoot, siblingName);
     }
 
+    public IReadOnlyList<ConversionReviewEntry> BuildConversionReviewEntries(
+        RunOptions runOptions,
+        IReadOnlyList<DedupeGroup> dedupeGroups,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(runOptions);
+        ArgumentNullException.ThrowIfNull(dedupeGroups);
+
+        if (dedupeGroups.Count == 0)
+            return Array.Empty<ConversionReviewEntry>();
+
+        using var env = _runEnvironmentFactory.Create(runOptions);
+        if (env.Converter is not FormatConverterAdapter converter)
+            return Array.Empty<ConversionReviewEntry>();
+
+        var entries = new List<ConversionReviewEntry>();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in dedupeGroups)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var winner = group.Winner;
+            if (winner is null || string.IsNullOrWhiteSpace(winner.MainPath))
+                continue;
+
+            if (!seenPaths.Add(winner.MainPath))
+                continue;
+
+            if (!File.Exists(winner.MainPath))
+                continue;
+
+            var plan = converter.PlanForConsole(winner.MainPath, winner.ConsoleKey ?? string.Empty);
+            if (plan is null || !plan.RequiresReview)
+                continue;
+
+            entries.Add(new ConversionReviewEntry(
+                winner.MainPath,
+                plan.FinalTargetExtension,
+                BuildConversionSafetyReason(plan)));
+        }
+
+        return entries;
+    }
+
     public bool HasVerifiedRollback(string? auditPath)
         => AuditRecoveryStateResolver.HasVerifiedRollback(_recoveryAuditStore, auditPath);
+
+    private static string BuildConversionSafetyReason(ConversionPlan plan)
+    {
+        if (plan.Policy == ConversionPolicy.ManualOnly)
+            return "Policy=ManualOnly";
+        if (plan.Safety == ConversionSafety.Risky)
+            return "Safety=Risky";
+        if (plan.SourceIntegrity == SourceIntegrity.Lossy)
+            return "SourceIntegrity=Lossy";
+        return "review-required";
+    }
 
 }

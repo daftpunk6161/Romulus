@@ -17,6 +17,11 @@ public interface IRunService
         string? reportPath,
         CancellationToken ct);
 
+    IReadOnlyList<ConversionReviewEntry> BuildConversionReviewEntries(
+        RunOptions runOptions,
+        IReadOnlyList<DedupeGroup> dedupeGroups,
+        CancellationToken cancellationToken = default);
+
     string GetSiblingDirectory(string rootPath, string siblingName);
 
     bool HasVerifiedRollback(string? auditPath) => false;

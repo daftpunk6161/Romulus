@@ -225,6 +225,7 @@ public partial class MainWindow : Window, IWindowHost
 
         // GUI-115: Dispose file watchers (owned by VM) — includes WatchService event unsubscription
         _vm.CleanupWatchers();
+        _vm.Dispose();
 
         // Force application exit so no zombie .NET Host processes remain
         Application.Current?.Shutdown();

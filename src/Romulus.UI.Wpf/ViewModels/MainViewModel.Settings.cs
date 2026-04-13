@@ -1039,7 +1039,7 @@ public sealed partial class MainViewModel
 
         // Subscribe to property changes for auto-save
         PropertyChanged += OnAutoSavePropertyChanged;
-        Roots.CollectionChanged += (_, _) => ScheduleAutoSave();
+        Roots.CollectionChanged += OnRootsCollectionChangedForAutoSave;
 
         // Optionally activate watch mode right after settings have been loaded.
         if (WatchAutoStart && Roots.Count > 0 && !IsWatchModeActive)
@@ -1054,6 +1054,40 @@ public sealed partial class MainViewModel
     {
         if (e.PropertyName is not null && AutoSavePropertyNames.Contains(e.PropertyName))
             ScheduleAutoSave();
+    }
+
+    private void OnRootsCollectionChangedForAutoSave(object? sender, NotifyCollectionChangedEventArgs e)
+        => ScheduleAutoSave();
+
+    public void Dispose()
+    {
+        if (_mainViewModelDisposed)
+            return;
+
+        _mainViewModelDisposed = true;
+
+        PropertyChanged -= OnAutoSavePropertyChanged;
+        PropertyChanged -= OnRegionPreferencePropertyChanged;
+        Roots.CollectionChanged -= OnRootsCollectionChangedForAutoSave;
+        Setup.PropertyChanged -= OnSetupSettingsPropertyChanged;
+        Shell.PropertyChanged -= OnShellStatePropertyChanged;
+        Run.PropertyChanged -= OnRunPropertyChanged;
+        Roots.CollectionChanged -= OnRootsChanged;
+        PropertyChanged -= OnConfigurationPropertyChanged;
+        _watchService.RunTriggered -= OnWatchRunTriggered;
+        _watchService.WatcherError -= OnWatcherError;
+        _scheduleService.Triggered -= OnScheduledRunTriggered;
+
+        foreach (var regionItem in Setup.RegionItems)
+            regionItem.PropertyChanged -= OnSetupRegionItemPropertyChanged;
+
+        CleanupWatchers();
+
+        lock (_settingsSaveLock)
+        {
+            _autoSaveTimer?.Dispose();
+            _autoSaveTimer = null;
+        }
     }
 
     /// <summary>Save settings (called from code-behind on close / timer). Thread-safe.</summary>

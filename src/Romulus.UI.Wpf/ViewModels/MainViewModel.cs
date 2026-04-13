@@ -29,7 +29,7 @@ namespace Romulus.UI.Wpf.ViewModels;
 /// No direct UI element access. All data flows through bindings.
 /// Partial class: core + Settings + Filters + RunPipeline.
 /// </summary>
-public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorInfo
+public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorInfo, IDisposable
 {
     private readonly IThemeService _theme;
     private readonly IDialogService _dialog;
