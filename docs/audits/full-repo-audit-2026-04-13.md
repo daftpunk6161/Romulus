@@ -294,7 +294,7 @@
 
 ## E. Repo-Hygiene
 
-- [ ] **E-1 (P3): Hardcoded CLI-Phase-Strings**
+- [x] **E-1 (P3): Hardcoded CLI-Phase-Strings**
   - **Impact:** `"[Done]"`, `"Convert"` statt `RunConstants.Phases.*`.
   - **Datei:** `src/Romulus.CLI/CliOutputWriter.cs` (Zeilen 48-49, 152)
   - **Fix:** Auf Constants umstellen.
@@ -304,22 +304,22 @@
   - **Datei:** `src/Romulus.Infrastructure/Reporting/ReportGenerator.cs` (Zeilen 410-470)
   - **Fix:** In `data/i18n/` auslagern.
 
-- [ ] **E-3 (P3): WizardScan 25.000-Candidate-Limit ohne Warnung**
+- [x] **E-3 (P3): WizardScan 25.000-Candidate-Limit ohne Warnung**
   - **Impact:** Silent truncation. User sieht unvollständige Analyse im Wizard.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs`
   - **Fix:** Warnung anzeigen wenn Limit erreicht.
 
-- [ ] **E-4 (P3): CrossRoot-Preview sampelt nur 400 Dateien**
+- [x] **E-4 (P3): CrossRoot-Preview sampelt nur 400 Dateien**
   - **Impact:** Hardcoded `.Take(400)` ohne Logging. Bei 10K+ Collections kein Insight.
   - **Datei:** `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs` (Zeile 347)
   - **Fix:** Logging + konfigurierbare Sample-Größe.
 
-- [ ] **E-5 (P3): Quarantine-Preview sampelt nur 2000 Dateien**
+- [x] **E-5 (P3): Quarantine-Preview sampelt nur 2000 Dateien**
   - **Impact:** Hardcoded `.Take(2000)` ohne Logging.
   - **Datei:** `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs` (Zeile 360)
   - **Fix:** Logging der Sample-Größe vs. Gesamtanzahl.
 
-- [ ] **E-6 (P3): TryLoadWizardConsoleDetector — JsonException nur null-Return ohne Log**
+- [x] **E-6 (P3): TryLoadWizardConsoleDetector — JsonException nur null-Return ohne Log**
   - **Impact:** Stille Fehler bei korrupter consoles.json. Wizard-Detect schlägt fehl ohne Erklärung.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs` (Zeilen 706-725)
   - **Fix:** Warning loggen.
@@ -334,7 +334,7 @@
   - **Datei:** `src/Romulus.Infrastructure/Reporting/ReportGenerator.cs` (Zeilen 266-274)
   - **Fix:** Verifizieren dass SanitizeSpreadsheetCsvField und CsvSafe nicht doppelt quoten.
 
-- [ ] **E-9 (P3): Index Upsert vor Stale-Removal**
+- [x] **E-9 (P3): Index Upsert vor Stale-Removal**
   - **Impact:** `RemoveStaleCollectionIndexEntriesAsync()` läuft NACH `UpsertEntriesAsync()`. Wenn Removal scheitert, bleiben stale Entries.
   - **Datei:** `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs` (Zeilen 356-368)
   - **Fix:** Stale zuerst entfernen, dann upsert.
@@ -400,13 +400,30 @@
   - **Impact:** 100GB Request Body oder Billion-Laughs JSON-Nesting-Attack ungetestet.
   - **Fehlender Test:** Oversized Body → 413. Deep nesting → 400.
 
-- [ ] **F-15 (P3): Keine CLI repeated-flags Tests**
+- [x] **F-15 (P3): Keine CLI repeated-flags Tests**
   - **Impact:** `--roots X --roots Y` Verhalten ungetestet.
   - **Fehlender Test:** Wiederholte Flags → korrektes Parsing oder Fehlermeldung.
 
 - [ ] **F-16 (P3): Keine ReportGenerator SVG/XML Injection Tests**
   - **Impact:** SVG-Tags oder XML-Injection in Reports ungetestet.
   - **Fehlender Test:** `<svg onload=alert()>` in Dateiname → korrekt escaped.
+
+### Verifikation E/F (2026-04-13)
+
+- [x] **E-1** umgesetzt in `CliOutputWriter.WriteMoveSummary` via `RunConstants.Phases.Done` statt Literal.
+  - **Verifiziert durch:** `AuditCDRedTests.E01_CliMoveSummary_UsesRunConstantsDoneToken`
+- [x] **E-3** umgesetzt in `MainViewModel.Productization`: Wizard-Candidate-Limit aus `RunConstants` + Warnpfad bei Trunkierung.
+  - **Verifiziert durch:** `AuditCDRedTests.E03_WizardScanLimit_UsesRunConstantsAndEmitsWarningPath`, `WpfProductizationTests`
+- [x] **E-4** umgesetzt in `RunOrchestrator.PreviewAndPipelineHelpers`: CrossRoot-Sample nutzt `RunConstants.CrossRootPreviewSampleSize`.
+  - **Verifiziert durch:** `AuditCDRedTests.E04E05_PreviewSampling_UsesSharedLimitsAndSamplingLogs`, `RunOrchestratorTests`
+- [x] **E-5** umgesetzt in `RunOrchestrator.PreviewAndPipelineHelpers`: Quarantine-Sample nutzt `RunConstants.QuarantinePreviewSampleSize` + Sampling-Progress.
+  - **Verifiziert durch:** `AuditCDRedTests.E04E05_PreviewSampling_UsesSharedLimitsAndSamplingLogs`, `RunOrchestratorTests`
+- [x] **E-6** umgesetzt in `MainViewModel.Productization`: `consoles.json`-JsonException liefert WARN-Logpfad statt stillem Null-Return.
+  - **Verifiziert durch:** `AuditCDRedTests.E06_WizardConsoleDetectorJsonFailure_HasWarningMessagePath`, `WpfProductizationTests`
+- [x] **E-9** umgesetzt in `RunOrchestrator.PreviewAndPipelineHelpers`: stale removal vor `UpsertEntriesAsync`.
+  - **Verifiziert durch:** `AuditCDRedTests.E09_CollectionIndex_MustRemoveStaleBeforeUpsert`, `RunOrchestratorTests`
+- [x] **F-15** umgesetzt durch dedizierten Repeated-Flag-Test und Parser-Validation bei doppeltem `--roots`.
+  - **Verifiziert durch:** `AuditCDRedTests.F15_CliParser_RepeatedRootsFlag_ReturnsValidationError`, `CliProgramTests`, `CliArgsParser*`
 
 ---
 

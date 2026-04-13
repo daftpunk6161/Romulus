@@ -30,6 +30,15 @@ public static class RunConstants
     /// <summary>Default hash type.</summary>
     public const string DefaultHashType = "SHA1";
 
+    /// <summary>Maximum number of candidates scanned in wizard analysis.</summary>
+    public const int WizardCandidateScanLimit = 25000;
+
+    /// <summary>Maximum candidate sample size for cross-root preview analysis.</summary>
+    public const int CrossRootPreviewSampleSize = 400;
+
+    /// <summary>Maximum candidate sample size for quarantine preview analysis.</summary>
+    public const int QuarantinePreviewSampleSize = 2000;
+
     // ── Convert format constants ────────────────────────────────────
 
     public const string ConvertFormatAuto = "auto";

@@ -115,7 +115,7 @@ internal static class CliOutputWriter
     internal static void WriteMoveSummary(TextWriter stderr, RunProjection projection,
         string? auditPath, string? reportPath, int convertedCount)
     {
-        stderr.WriteLine($"[Done] Moved {projection.MoveCount} files ({projection.SavedBytes:N0} bytes saved), {projection.FailCount} failed");
+        stderr.WriteLine($"{RunConstants.Phases.Done} Moved {projection.MoveCount} files ({projection.SavedBytes:N0} bytes saved), {projection.FailCount} failed");
 
         if (convertedCount > 0)
             stderr.WriteLine($"{RunConstants.Phases.Convert} {convertedCount} files converted");

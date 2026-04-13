@@ -274,10 +274,18 @@ public sealed partial class RunOrchestrator
         if (_hashService is null || options.Roots.Count < 2)
             return;
 
+        var sampleCount = Math.Min(candidates.Count, RunConstants.CrossRootPreviewSampleSize);
+        _onProgress?.Invoke(RunProgressLocalization.Format(
+            "Preview.CrossRootSampling",
+            "[CrossRoot] Preview-Sampling: {0}/{1} Kandidaten (Limit={2})",
+            sampleCount,
+            candidates.Count,
+            RunConstants.CrossRootPreviewSampleSize));
+
         var sample = candidates
             .Where(c => !string.IsNullOrWhiteSpace(c.MainPath) && File.Exists(c.MainPath))
             .OrderBy(c => c.MainPath, StringComparer.Ordinal)
-            .Take(400)
+            .Take(RunConstants.CrossRootPreviewSampleSize)
             .Select(c =>
             {
                 var root = PipelinePhaseHelpers.FindRootForPath(c.MainPath, options.Roots) ?? string.Empty;
@@ -319,7 +327,15 @@ public sealed partial class RunOrchestrator
             return;
 
         var service = new QuarantineService(_fs);
-        var sample = candidates.Take(2000);
+        var sampleCount = Math.Min(candidates.Count, RunConstants.QuarantinePreviewSampleSize);
+        _onProgress?.Invoke(RunProgressLocalization.Format(
+            "Preview.QuarantineSampling",
+            "[Quarantine] Preview-Sampling: {0}/{1} Kandidaten (Limit={2})",
+            sampleCount,
+            candidates.Count,
+            RunConstants.QuarantinePreviewSampleSize));
+
+        var sample = candidates.Take(RunConstants.QuarantinePreviewSampleSize);
         var quarantineCandidates = 0;
 
         foreach (var candidate in sample)
@@ -511,10 +527,10 @@ public sealed partial class RunOrchestrator
                     lastScannedUtc));
             }
 
+            await RemoveStaleCollectionIndexEntriesAsync(scannedFilesByPath, options, cancellationToken);
+
             if (entries.Count > 0)
                 await _collectionIndex.UpsertEntriesAsync(entries, cancellationToken);
-
-            await RemoveStaleCollectionIndexEntriesAsync(scannedFilesByPath, options, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {

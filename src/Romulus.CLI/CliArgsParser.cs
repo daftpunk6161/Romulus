@@ -49,6 +49,15 @@ internal static partial class CliArgsParser
             switch (arg.ToLowerInvariant())
             {
                 case "-roots" or "--roots":
+                    if (rootsSpecified)
+                    {
+                        if (TryConsumeValue(args, ref i, "--roots", errors, out _))
+                        {
+                            errors.Add("[Error] Duplicate --roots is not allowed. Provide all roots in a single --roots value separated by ';'.");
+                        }
+                        break;
+                    }
+
                     rootsSpecified = true;
                     if (!TryConsumeValue(args, ref i, "--roots", errors, out var rootsRaw))
                         break;

@@ -324,6 +324,94 @@ public sealed class AuditCDRedTests
         Assert.DoesNotContain("Trace.WriteLine($\"[GameKeyNormalizer] DOS metadata strip hit iteration cap", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void E01_CliMoveSummary_UsesRunConstantsDoneToken()
+    {
+        var source = ReadSource("src/Romulus.CLI/CliOutputWriter.cs");
+
+        Assert.Contains("RunConstants.Phases.Done", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"[Done] Moved", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void E09_CollectionIndex_MustRemoveStaleBeforeUpsert()
+    {
+        var source = ReadSource("src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs");
+        var staleIndex = source.IndexOf("RemoveStaleCollectionIndexEntriesAsync", StringComparison.Ordinal);
+        var upsertIndex = source.IndexOf("UpsertEntriesAsync", StringComparison.Ordinal);
+
+        Assert.True(staleIndex >= 0, "Expected stale-removal call not found.");
+        Assert.True(upsertIndex >= 0, "Expected upsert call not found.");
+        Assert.True(staleIndex < upsertIndex,
+            "Stale collection index entries must be removed before upsert to avoid stale carry-over on partial failures.");
+    }
+
+    [Fact]
+    public void F15_CliParser_RepeatedRootsFlag_ReturnsValidationError()
+    {
+        var rootA = Path.Combine(Path.GetTempPath(), "Romulus_F15_A_" + Guid.NewGuid().ToString("N"));
+        var rootB = Path.Combine(Path.GetTempPath(), "Romulus_F15_B_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(rootA);
+        Directory.CreateDirectory(rootB);
+
+        try
+        {
+            var result = Romulus.CLI.CliArgsParser.Parse([
+                "--roots", rootA,
+                "--roots", rootB
+            ]);
+
+            Assert.Equal(3, result.ExitCode);
+            Assert.Contains(result.Errors, e => e.Contains("--roots", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(rootA))
+                    Directory.Delete(rootA, recursive: true);
+                if (Directory.Exists(rootB))
+                    Directory.Delete(rootB, recursive: true);
+            }
+            catch
+            {
+                // best effort cleanup
+            }
+        }
+    }
+
+    [Fact]
+    public void E03_WizardScanLimit_UsesRunConstantsAndEmitsWarningPath()
+    {
+        var source = ReadSource("src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs");
+
+        Assert.Contains("RunConstants.WizardCandidateScanLimit", source, StringComparison.Ordinal);
+        Assert.Contains("CandidateLimitReached", source, StringComparison.Ordinal);
+        Assert.Contains("[Wizard] Analyse auf", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void E04E05_PreviewSampling_UsesSharedLimitsAndSamplingLogs()
+    {
+        var source = ReadSource("src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs");
+
+        Assert.DoesNotContain("Take(400)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Take(2000)", source, StringComparison.Ordinal);
+        Assert.Contains("RunConstants.CrossRootPreviewSampleSize", source, StringComparison.Ordinal);
+        Assert.Contains("RunConstants.QuarantinePreviewSampleSize", source, StringComparison.Ordinal);
+        Assert.Contains("Preview.CrossRootSampling", source, StringComparison.Ordinal);
+        Assert.Contains("Preview.QuarantineSampling", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void E06_WizardConsoleDetectorJsonFailure_HasWarningMessagePath()
+    {
+        var source = ReadSource("src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs");
+
+        Assert.Contains("consoles.json ist ungueltig", source, StringComparison.Ordinal);
+        Assert.Contains("AddLog(detectorLoadWarning, \"WARN\")", source, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath)
     {
         var root = FindRepositoryRoot();

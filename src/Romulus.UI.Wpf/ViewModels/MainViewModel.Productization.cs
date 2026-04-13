@@ -623,8 +623,12 @@ public sealed partial class MainViewModel
                 .Where(static ext => !string.IsNullOrWhiteSpace(ext))
                 .Select(static ext => ext.StartsWith('.') ? ext : "." + ext), StringComparer.OrdinalIgnoreCase);
 
+            var detector = TryLoadWizardConsoleDetector(out var detectorLoadWarning);
+            if (!string.IsNullOrWhiteSpace(detectorLoadWarning))
+                AddLog(detectorLoadWarning, "WARN");
+
             var analysis = await Task.Run(
-                () => BuildWizardScanData(roots, extensionSet, AggressiveJunk, cancellationToken),
+                () => BuildWizardScanData(roots, extensionSet, AggressiveJunk, detector, cancellationToken),
                 cancellationToken).ConfigureAwait(true);
 
             if (cancellationToken.IsCancellationRequested)
@@ -657,6 +661,12 @@ public sealed partial class MainViewModel
 
             WizardRecommendationSummary =
                 $"Empfohlen: {(workflow?.Name ?? recommendedWorkflowId)} | Top-Systeme: {(topConsoles.Length > 0 ? string.Join(", ", topConsoles) : "keine")}";
+
+            if (analysis.CandidateLimitReached)
+            {
+                AddLog($"[Wizard] Analyse auf {RunConstants.WizardCandidateScanLimit} Kandidaten begrenzt.", "WARN");
+                WizardRecommendationSummary += " | Hinweis: Kandidatenlimit erreicht, Analyse ist ggf. unvollstaendig.";
+            }
 
             _wizardAnalysisDirty = false;
             OnPropertyChanged(nameof(WizardHasAnalysis));
@@ -697,9 +707,9 @@ public sealed partial class MainViewModel
         IReadOnlyList<string> roots,
         HashSet<string> extensionSet,
         bool aggressiveJunk,
+        ConsoleDetector? detector,
         CancellationToken cancellationToken)
     {
-        var detector = TryLoadWizardConsoleDetector();
         var consoleCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var candidates = new List<RomCandidate>();
         var totalFiles = 0;
@@ -773,16 +783,17 @@ public sealed partial class MainViewModel
                     Category = FileCategory.Game
                 });
 
-                if (candidates.Count >= 25000)
-                    return new WizardScanData(totalFiles, junkFiles, hasDiscLikeFormats, hasCartridgeFormats, consoleCounts, candidates);
+                if (candidates.Count >= RunConstants.WizardCandidateScanLimit)
+                    return new WizardScanData(totalFiles, junkFiles, hasDiscLikeFormats, hasCartridgeFormats, consoleCounts, candidates, CandidateLimitReached: true);
             }
         }
 
-        return new WizardScanData(totalFiles, junkFiles, hasDiscLikeFormats, hasCartridgeFormats, consoleCounts, candidates);
+        return new WizardScanData(totalFiles, junkFiles, hasDiscLikeFormats, hasCartridgeFormats, consoleCounts, candidates, CandidateLimitReached: false);
     }
 
-    private static ConsoleDetector? TryLoadWizardConsoleDetector()
+    private static ConsoleDetector? TryLoadWizardConsoleDetector(out string? warning)
     {
+        warning = null;
         var dataDir = RunEnvironmentBuilder.ResolveDataDir();
         var consolesPath = Path.Combine(dataDir, "consoles.json");
         if (!File.Exists(consolesPath))
@@ -799,6 +810,7 @@ public sealed partial class MainViewModel
         }
         catch (JsonException)
         {
+            warning = "[Wizard] consoles.json ist ungueltig und konnte nicht geladen werden.";
             return null;
         }
     }
@@ -809,7 +821,8 @@ public sealed partial class MainViewModel
         bool HasDiscLikeFormats,
         bool HasCartridgeFormats,
         IReadOnlyDictionary<string, int> ConsoleCounts,
-        IReadOnlyList<RomCandidate> Candidates);
+        IReadOnlyList<RomCandidate> Candidates,
+        bool CandidateLimitReached);
 
     private void SetRunConfigurationSelectionInternal(string? workflowScenarioId, string? profileId)
     {
