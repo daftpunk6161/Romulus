@@ -5,9 +5,9 @@
 .DESCRIPTION
     Starts the built Romulus.Api assembly with remote/headless safeguards enabled
     and verifies the documented release-critical flows:
-      - anonymous health and dashboard bootstrap
-      - authenticated dashboard summary
-      - dashboard shell delivery
+    - anonymous health and dashboard bootstrap
+    - authenticated dashboard summary
+    - dashboard shell access protection
       - AllowedRoots enforcement for /runs and /convert
 
     The smoke keeps APPDATA/LOCALAPPDATA isolated in a temp directory so it does
@@ -75,6 +75,23 @@ function Assert-StatusCode {
     if ([int]$Response.StatusCode -ne $Expected) {
         throw "$Step returned HTTP $($Response.StatusCode), expected $Expected.`n$($Response.Content)"
     }
+}
+
+function Get-ResponseText {
+    param(
+        [Parameter(Mandatory = $true)] $Response
+    )
+
+    $content = $Response.Content
+    if ($null -eq $content) {
+        return ''
+    }
+
+    if ($content -is [byte[]]) {
+        return [System.Text.Encoding]::UTF8.GetString($content)
+    }
+
+    return [string]$content
 }
 
 function Wait-ForHealth {
@@ -187,9 +204,10 @@ try {
     }
 
     $dashboard = Invoke-WebRequest -Uri "$baseUri/dashboard/" -Method Get -SkipHttpErrorCheck
-    Assert-StatusCode -Response $dashboard -Expected 200 -Step 'GET /dashboard/'
-    if ($dashboard.Content -notmatch 'Headless Control Surface') {
-        throw "Dashboard shell did not contain the expected marker text."
+    Assert-StatusCode -Response $dashboard -Expected 401 -Step 'GET /dashboard/'
+    $dashboardBody = Get-ResponseText -Response $dashboard
+    if ($dashboardBody -notmatch 'AUTH-UNAUTHORIZED') {
+        throw "Dashboard shell anonymous access did not return AUTH-UNAUTHORIZED payload.`n$dashboardBody"
     }
 
     Write-Host "=== Verifying authenticated dashboard summary ===" -ForegroundColor Cyan
@@ -216,8 +234,9 @@ try {
             mode = 'DryRun'
         }
     Assert-StatusCode -Response $runResponse -Expected 400 -Step 'POST /runs outside AllowedRoots'
-    if ($runResponse.Content -notmatch 'SEC-OUTSIDE-ALLOWED-ROOTS') {
-        throw "POST /runs outside AllowedRoots did not return SEC-OUTSIDE-ALLOWED-ROOTS.`n$($runResponse.Content)"
+    $runBody = Get-ResponseText -Response $runResponse
+    if ($runBody -notmatch 'SEC-OUTSIDE-ALLOWED-ROOTS') {
+        throw "POST /runs outside AllowedRoots did not return SEC-OUTSIDE-ALLOWED-ROOTS.`n$runBody"
     }
 
     $convertResponse = Invoke-JsonRequest `
@@ -228,8 +247,9 @@ try {
             input = $blockedInput
         }
     Assert-StatusCode -Response $convertResponse -Expected 400 -Step 'POST /convert outside AllowedRoots'
-    if ($convertResponse.Content -notmatch 'SEC-OUTSIDE-ALLOWED-ROOTS') {
-        throw "POST /convert outside AllowedRoots did not return SEC-OUTSIDE-ALLOWED-ROOTS.`n$($convertResponse.Content)"
+    $convertBody = Get-ResponseText -Response $convertResponse
+    if ($convertBody -notmatch 'SEC-OUTSIDE-ALLOWED-ROOTS') {
+        throw "POST /convert outside AllowedRoots did not return SEC-OUTSIDE-ALLOWED-ROOTS.`n$convertBody"
     }
 
     Write-Host "=== HEADLESS SMOKE PASSED ===" -ForegroundColor Green
