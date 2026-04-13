@@ -575,7 +575,7 @@ public sealed class ConsoleSorter
             .ToList();
     }
 
-    private static void BuildSetMemberships(
+    private void BuildSetMemberships(
         List<string> files,
         HashSet<string> setDependents,
         Dictionary<string, List<string>> setPrimaryToMembers)
@@ -604,7 +604,7 @@ public sealed class ConsoleSorter
                 if (string.Equals(member, file, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                if (!File.Exists(member))
+                if (!_fs.FileExists(member))
                     continue;
 
                 if (!claimedMembers.Add(member))
@@ -622,7 +622,7 @@ public sealed class ConsoleSorter
         }
     }
 
-    private static void RewriteMovedM3uPlaylistIfNeeded(
+    private void RewriteMovedM3uPlaylistIfNeeded(
         string sourcePlaylistPath,
         string movedPlaylistPath,
         IReadOnlyList<(string Source, string Dest)> completedMoves)
@@ -630,7 +630,7 @@ public sealed class ConsoleSorter
         if (!string.Equals(Path.GetExtension(sourcePlaylistPath), ".m3u", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (!File.Exists(movedPlaylistPath))
+        if (!_fs.FileExists(movedPlaylistPath))
             return;
 
         var sourceDirectory = Path.GetDirectoryName(sourcePlaylistPath) ?? string.Empty;
@@ -671,9 +671,9 @@ public sealed class ConsoleSorter
         string[] lines;
         try
         {
-            lines = File.ReadAllLines(movedPlaylistPath);
+            lines = _fs.ReadAllLines(movedPlaylistPath);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             return;
         }
@@ -710,9 +710,9 @@ public sealed class ConsoleSorter
 
         try
         {
-            File.WriteAllLines(movedPlaylistPath, lines);
+            _fs.WriteAllText(movedPlaylistPath, string.Join(Environment.NewLine, lines));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             // Keep the original playlist content when rewrite is not possible.
         }

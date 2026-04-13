@@ -750,6 +750,15 @@ public sealed class FileSystemAdapter : IFileSystem
         File.WriteAllText(fullPath, content, System.Text.Encoding.UTF8);
     }
 
+    public string[] ReadAllLines(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path must not be empty.", nameof(path));
+
+        var fullPath = NormalizePathNfc(path);
+        return File.ReadAllLines(fullPath);
+    }
+
     public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
     {
         if (string.IsNullOrWhiteSpace(sourcePath))

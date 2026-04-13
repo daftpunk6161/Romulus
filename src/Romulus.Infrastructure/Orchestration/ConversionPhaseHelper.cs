@@ -285,7 +285,11 @@ internal static class ConversionPhaseHelper
             }
             else
             {
-                convResult = convResult with { Outcome = ConversionOutcome.Error };
+                convResult = convResult with
+                {
+                    Outcome = ConversionOutcome.Error,
+                    VerificationResult = VerificationStatus.VerifyFailed
+                };
                 counters.Errors++;
                 if (convResult.TargetPath is not null)
                 {

@@ -91,6 +91,66 @@ public sealed class UiProjectionTests
     }
 
     [Fact]
+    public void DashboardProjection_ConvertOnly_UsesConversionReportSourcesForConsoleDistribution()
+    {
+        var result = new RunResult
+        {
+            TotalFilesScanned = 3,
+            DurationMs = 1000,
+            AllCandidates = new[]
+            {
+                new RomCandidate { MainPath = "a.iso", Category = FileCategory.Game, ConsoleKey = "PS2" },
+                new RomCandidate { MainPath = "b.iso", Category = FileCategory.Game, ConsoleKey = "UNKNOWN" },
+                new RomCandidate { MainPath = "c.iso", Category = FileCategory.Game, ConsoleKey = "UNKNOWN" }
+            },
+            ConversionReport = new ConversionReport
+            {
+                TotalPlanned = 2,
+                Converted = 1,
+                Skipped = 0,
+                Errors = 0,
+                Blocked = 1,
+                RequiresReview = 0,
+                TotalSavedBytes = 0,
+                Results = new[]
+                {
+                    new ConversionResult("a.iso", "a.chd", ConversionOutcome.Success),
+                    new ConversionResult("b.iso", null, ConversionOutcome.Blocked, "unknown-console")
+                }
+            }
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: true);
+
+        Assert.Equal(2, dashboard.ConsoleDistribution.Sum(item => item.FileCount));
+        var unknown = Assert.Single(dashboard.ConsoleDistribution, item => item.ConsoleKey == "UNKNOWN");
+        Assert.Equal(1, unknown.FileCount);
+    }
+
+    [Fact]
+    public void DashboardProjection_ConvertOnly_WithoutConversionReport_FallsBackToAllCandidates()
+    {
+        var result = new RunResult
+        {
+            TotalFilesScanned = 2,
+            DurationMs = 1000,
+            AllCandidates = new[]
+            {
+                new RomCandidate { MainPath = "a.iso", Category = FileCategory.Game, ConsoleKey = "PS2" },
+                new RomCandidate { MainPath = "b.iso", Category = FileCategory.Game, ConsoleKey = "UNKNOWN" }
+            }
+        };
+
+        var projection = RunProjectionFactory.Create(result);
+        var dashboard = DashboardProjection.From(projection, result, isConvertOnlyRun: true);
+
+        Assert.Equal(2, dashboard.ConsoleDistribution.Sum(item => item.FileCount));
+        Assert.Contains(dashboard.ConsoleDistribution, item => item.ConsoleKey == "PS2");
+        Assert.Contains(dashboard.ConsoleDistribution, item => item.ConsoleKey == "UNKNOWN");
+    }
+
+    [Fact]
     public void DashboardProjection_ShouldExposeDatAuditDisplays_WhenDatAuditCountersPresent_Issue9()
     {
         var result = new RunResult

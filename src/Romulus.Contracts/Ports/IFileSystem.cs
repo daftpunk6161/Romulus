@@ -141,4 +141,9 @@ public interface IFileSystem
     {
         throw new NotSupportedException("WriteAllText is not supported by this file system implementation.");
     }
+
+    string[] ReadAllLines(string path)
+    {
+        throw new NotSupportedException("ReadAllLines is not supported by this file system implementation.");
+    }
 }

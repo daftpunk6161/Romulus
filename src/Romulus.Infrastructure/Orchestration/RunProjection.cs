@@ -84,20 +84,13 @@ public static class RunProjectionFactory
         var unknown = result.UnknownCount;
         var datMatches = candidates.Count(c => c.DatMatch);
         var filteredNonGameCount = result.FilteredNonGameCount;
-        var verificationFailDeltaRaw = result.ConvertVerifyFailedCount - result.ConvertErrorCount;
-        if (verificationFailDeltaRaw < 0)
-        {
-            Trace.TraceWarning(
-                "negative-verify-delta: ConvertVerifyFailedCount ({0}) is lower than ConvertErrorCount ({1}); clamping additional fail delta to zero.",
-                result.ConvertVerifyFailedCount,
-                result.ConvertErrorCount);
-        }
 
-        var verificationFailDelta = Math.Max(0, verificationFailDeltaRaw);
+        // FailCount: direct event-based calculation.
+        // ConvertErrorCount already includes verify-fails (since verify-fail sets Outcome=Error).
+        // No delta heuristic needed — each error source contributes exactly once.
         var failCount = (result.MoveResult?.FailCount ?? 0)
                       + (result.JunkMoveResult?.FailCount ?? 0)
                       + result.ConvertErrorCount
-                  + verificationFailDelta
                       + result.DatRenameFailedCount
                       + (result.ConsoleSortResult?.Failed ?? 0);
         var savedBytes = result.MoveResult?.SavedBytes ?? 0;

@@ -90,7 +90,8 @@ public sealed record DashboardProjection(
                 ? "–"
             : MarkDisplayValue($"{100.0 * projection.Dupes / dedupeDenominator:F0}%", isPartialCancelledOrFailed, isDryRun);
 
-        var consoleDistribution = BuildConsoleDistribution(projectedArtifacts.AllCandidates);
+        var consoleDistributionCandidates = ResolveConsoleDistributionCandidates(result, projectedArtifacts.AllCandidates, isConvertOnlyRun);
+        var consoleDistribution = BuildConsoleDistribution(consoleDistributionCandidates);
         var dedupeGroups = BuildDedupeGroupItems(projectedArtifacts.DedupeGroups);
 
         var totalMove = projection.MoveCount + projection.JunkRemovedCount;
@@ -197,6 +198,35 @@ public sealed record DashboardProjection(
             FileCount = x.Count,
             Fraction = (double)x.Count / maxCount
         }).ToList();
+    }
+
+    private static IReadOnlyList<Romulus.Contracts.Models.RomCandidate> ResolveConsoleDistributionCandidates(
+        RunResult result,
+        IReadOnlyList<Romulus.Contracts.Models.RomCandidate> projectedCandidates,
+        bool isConvertOnlyRun)
+    {
+        if (!isConvertOnlyRun)
+            return projectedCandidates;
+
+        var conversionResults = result.ConversionReport?.Results;
+        if (conversionResults is not { Count: > 0 })
+            return projectedCandidates;
+
+        var sourcePaths = conversionResults
+            .Select(r => r.SourcePath)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (sourcePaths.Count == 0)
+            return projectedCandidates;
+
+        var conversionCandidates = result.AllCandidates
+            .Where(candidate => sourcePaths.Contains(candidate.MainPath))
+            .ToArray();
+
+        return conversionCandidates.Length > 0
+            ? conversionCandidates
+            : projectedCandidates;
     }
 
     private static IReadOnlyList<DedupeGroupItem> BuildDedupeGroupItems(IReadOnlyList<Romulus.Contracts.Models.DedupeGroup> groups)
