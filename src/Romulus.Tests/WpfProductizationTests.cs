@@ -3,7 +3,9 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.Audit;
 using Romulus.Infrastructure.Dat;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Profiles;
 using Romulus.Tests.TestFixtures;
@@ -136,7 +138,9 @@ public sealed class WpfProductizationTests : IDisposable
         vm.EnableDatAudit = true;
         vm.RemoveJunk = true;
 
-        var sut = new FeatureCommandService(vm, new StubSettingsService(), dialog);
+        var fileSystem = new FileSystemAdapter();
+        var auditStore = new AuditCsvStore(fileSystem, _ => { }, Path.Combine(_tempRoot, "audit-signing.key"));
+        var sut = new FeatureCommandService(vm, new StubSettingsService(), dialog, fileSystem, auditStore);
         sut.RegisterCommands();
 
         await ExecuteCommandAsync(vm.FeatureCommands[FeatureCommandKeys.ProfileSave]);

@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using Romulus.Contracts.Ports;
 
 namespace Romulus.Infrastructure.Dat;
@@ -21,6 +22,7 @@ public sealed class DatSourceService : IDisposable
     private readonly IToolRunner? _tools;
     private readonly string _datRoot;
     private readonly bool _strictSidecarValidation;
+    private readonly ILogger<DatSourceService>? _logger;
 
     /// <summary>Maximum allowed download size (50 MB).</summary>
     private const long MaxDownloadBytes = 50 * 1024 * 1024;
@@ -28,16 +30,26 @@ public sealed class DatSourceService : IDisposable
     /// <summary>Maximum catalog file size to load (100 MB).</summary>
     private const long MaxCatalogFileSizeBytes = 100 * 1024 * 1024;
 
-    public DatSourceService(string datRoot, HttpClient httpClient, IToolRunner? tools = null, bool strictSidecarValidation = false)
+    public DatSourceService(
+        string datRoot,
+        HttpClient httpClient,
+        IToolRunner? tools = null,
+        bool strictSidecarValidation = false,
+        ILogger<DatSourceService>? logger = null)
     {
         _datRoot = datRoot ?? throw new ArgumentNullException(nameof(datRoot));
         _http = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _tools = tools;
         _strictSidecarValidation = strictSidecarValidation;
+        _logger = logger;
     }
 
-    public DatSourceService(string datRoot, IToolRunner? tools = null, bool strictSidecarValidation = false)
-        : this(datRoot, SharedHttpClient.Value, tools, strictSidecarValidation)
+    public DatSourceService(
+        string datRoot,
+        IToolRunner? tools = null,
+        bool strictSidecarValidation = false,
+        ILogger<DatSourceService>? logger = null)
+        : this(datRoot, SharedHttpClient.Value, tools, strictSidecarValidation, logger)
     {
     }
 
@@ -107,7 +119,10 @@ public sealed class DatSourceService : IDisposable
         try
         {
             // Download ZIP to temp
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await ExecuteHttpWithRetryAsync(
+                token => _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token),
+                operationName: "zip-dat download",
+                ct);
             response.EnsureSuccessStatusCode();
 
             // Reject HTML responses (login/redirect pages, e.g. Redump)
@@ -221,7 +236,10 @@ public sealed class DatSourceService : IDisposable
 
         try
         {
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await ExecuteHttpWithRetryAsync(
+                token => _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token),
+                operationName: "dat download",
+                ct);
             response.EnsureSuccessStatusCode();
 
             // Reject HTML responses (login/redirect pages, e.g. Redump)
@@ -330,8 +348,14 @@ public sealed class DatSourceService : IDisposable
         try
         {
             var shaUrl = sourceUrl + ".sha256";
-            using var request = new HttpRequestMessage(HttpMethod.Get, shaUrl);
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await ExecuteHttpWithRetryAsync(
+                async token =>
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, shaUrl);
+                    return await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                },
+                operationName: "dat sidecar download",
+                ct);
             if (!response.IsSuccessStatusCode)
                 return !_strictSidecarValidation;
 
@@ -353,6 +377,34 @@ public sealed class DatSourceService : IDisposable
         catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
             return !_strictSidecarValidation;
+        }
+    }
+
+    private async Task<T> ExecuteHttpWithRetryAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        string operationName,
+        CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+        var delay = TimeSpan.FromMilliseconds(250);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await operation(ct).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (attempt < maxAttempts)
+            {
+                _logger?.LogWarning(ex, "HTTP operation {Operation} failed (attempt {Attempt}/{MaxAttempts}); retrying.", operationName, attempt, maxAttempts);
+            }
+            catch (TaskCanceledException ex) when (!ct.IsCancellationRequested && attempt < maxAttempts)
+            {
+                _logger?.LogWarning(ex, "HTTP operation {Operation} timed out (attempt {Attempt}/{MaxAttempts}); retrying.", operationName, attempt, maxAttempts);
+            }
+
+            await Task.Delay(delay, ct).ConfigureAwait(false);
+            delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 2, 2_000));
         }
     }
 

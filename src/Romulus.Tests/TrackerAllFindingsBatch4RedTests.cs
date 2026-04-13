@@ -161,6 +161,13 @@ public sealed class TrackerAllFindingsBatch4RedTests
     }
 
     [Fact]
+    public void Core06_ClassificationIoResolver_MustRejectRuntimeReconfiguration()
+    {
+        var source = File.ReadAllText(FindRepoFile("src", "Romulus.Core", "Classification", "ClassificationIoResolver.cs"));
+        Assert.Contains("already configured", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Core07_SetParserIoResolver_MustNotReflectIntoInfrastructure()
     {
         var source = File.ReadAllText(FindRepoFile("src", "Romulus.Core", "SetParsing", "SetParserIoResolver.cs"));
@@ -168,10 +175,26 @@ public sealed class TrackerAllFindingsBatch4RedTests
     }
 
     [Fact]
+    public void Core07_SetParserIoResolver_MustRejectRuntimeReconfiguration()
+    {
+        var source = File.ReadAllText(FindRepoFile("src", "Romulus.Core", "SetParsing", "SetParserIoResolver.cs"));
+        Assert.Contains("already configured", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Api06_ApiRunConfigurationMapper_MustUsePrecomputedPropertyNameSet()
     {
         var source = File.ReadAllText(FindRepoFile("src", "Romulus.Api", "ApiRunConfigurationMapper.cs"));
         Assert.Contains("CollectPropertyNames", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Api06_ApiRunConfigurationMapper_MustUseCentralizedPresenceMap()
+    {
+        var source = File.ReadAllText(FindRepoFile("src", "Romulus.Api", "ApiRunConfigurationMapper.cs"));
+
+        Assert.Contains("BuildPresence", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasProperty(propertyNames", source, StringComparison.Ordinal);
     }
 
     [Fact]

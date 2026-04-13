@@ -42,7 +42,7 @@ public sealed class PhaseMetricsCollector
         {
             // Auto-complete previous phase
             if (_activePhase != null)
-                CompletePhaseInternal();
+                CompletePhaseInternal(autoCompleted: true);
 
             _activePhase = new PhaseMetricEntry
             {
@@ -63,7 +63,7 @@ public sealed class PhaseMetricsCollector
     {
         lock (_lock)
         {
-            CompletePhaseInternal(itemCount);
+            CompletePhaseInternal(itemCount, autoCompleted: false);
         }
     }
 
@@ -78,7 +78,7 @@ public sealed class PhaseMetricsCollector
         }
     }
 
-    private void CompletePhaseInternal(int itemCount = 0)
+    private void CompletePhaseInternal(int itemCount = 0, bool autoCompleted = false)
     {
         if (_activePhase == null || _activeStopwatch == null)
             return;
@@ -87,6 +87,7 @@ public sealed class PhaseMetricsCollector
         _activePhase.Duration = _activeStopwatch.Elapsed;
         _activePhase.ItemCount = itemCount;
         _activePhase.Status = RunConstants.PhaseStatusCompleted;
+        _activePhase.AutoCompleted = autoCompleted;
         _activePhase.ItemsPerSec = _activeStopwatch.Elapsed.TotalSeconds > 0
             ? Math.Round(itemCount / _activeStopwatch.Elapsed.TotalSeconds, 1)
             : 0;
@@ -122,6 +123,7 @@ public sealed class PhaseMetricsCollector
                     ItemCount = _activePhase.ItemCount,
                     ItemsPerSec = activeItemsPerSec,
                     Status = RunConstants.PhaseStatusRunning,
+                    AutoCompleted = _activePhase.AutoCompleted,
                     Meta = _activePhase.Meta
                 });
             }
@@ -137,6 +139,7 @@ public sealed class PhaseMetricsCollector
                 ItemCount = p.ItemCount,
                 ItemsPerSec = p.ItemsPerSec,
                 Status = p.Status,
+                AutoCompleted = p.AutoCompleted,
                 Meta = p.Meta,
                 PercentOfTotal = totalMs > 0
                     ? Math.Round(p.Duration.TotalMilliseconds / totalMs * 100, 1)
@@ -180,6 +183,7 @@ public sealed class PhaseMetricsCollector
                 p.ItemCount,
                 p.ItemsPerSec,
                 p.PercentOfTotal,
+                p.AutoCompleted,
                 p.Status
             })
         }, new JsonSerializerOptions { WriteIndented = true });

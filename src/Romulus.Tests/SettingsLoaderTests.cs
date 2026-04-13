@@ -74,8 +74,8 @@ public class SettingsLoaderTests : IDisposable
         // Verify all hardcoded defaults are preserved
         Assert.Equal("DryRun", settings.General.Mode);
         Assert.Equal("Info", settings.General.LogLevel);
-        Assert.Equal("dark", settings.General.Theme);
-        Assert.Equal("de", settings.General.Locale);
+        Assert.Equal("auto", settings.General.Theme);
+        Assert.Equal("auto", settings.General.Locale);
         Assert.False(settings.General.AggressiveJunk);
         Assert.Contains("EU", settings.General.PreferredRegions);
         Assert.True(settings.Dat.UseDat);
@@ -121,8 +121,10 @@ public class SettingsLoaderTests : IDisposable
         Assert.True(settings.Dat.UseDat);
         Assert.True(settings.Dat.DatFallback);
         Assert.Equal("SHA1", settings.Dat.HashType);
-        Assert.Equal("dark", settings.General.Theme);
-        Assert.Equal("de", settings.General.Locale);
+        Assert.NotEqual("auto", settings.General.Theme);
+        Assert.Contains(settings.General.Theme, new[] { "dark", "light" });
+        Assert.NotEqual("auto", settings.General.Locale);
+        Assert.False(string.IsNullOrWhiteSpace(settings.General.Locale));
     }
 
     [Fact]

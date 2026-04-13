@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.UI.Wpf.Models;
 using Romulus.UI.Wpf.Services;
 using Romulus.UI.Wpf.ViewModels;
@@ -30,7 +32,9 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
         _dialog = new ConfigurableDialogService(_tempDir);
         _settings = new StubSettingsServiceEx();
         _vm = new MainViewModel(new StubTheme(), _dialog, _settings);
-        _sut = new FeatureCommandService(_vm, _settings, _dialog);
+        var fileSystem = new FileSystemAdapter();
+        var auditStore = new AuditCsvStore(fileSystem, _ => { }, Path.Combine(_tempDir, "audit-signing.key"));
+        _sut = new FeatureCommandService(_vm, _settings, _dialog, fileSystem, auditStore);
         _sut.RegisterCommands();
         PopulateVmWithTestData();
     }

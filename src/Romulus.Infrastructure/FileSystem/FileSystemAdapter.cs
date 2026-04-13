@@ -1,5 +1,7 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Safety;
 
@@ -17,12 +19,68 @@ public sealed class FileSystemAdapter : IFileSystem
     private readonly object _scanWarningsGate = new();
     private readonly List<string> _scanWarnings = new();
 
+    private readonly record struct FileIdentity(uint VolumeSerialNumber, ulong FileIndex);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public uint CreationTimeLow;
+        public uint CreationTimeHigh;
+        public uint LastAccessTimeLow;
+        public uint LastAccessTimeHigh;
+        public uint LastWriteTimeLow;
+        public uint LastWriteTimeHigh;
+        public uint VolumeSerialNumber;
+        public uint FileSizeHigh;
+        public uint FileSizeLow;
+        public uint NumberOfLinks;
+        public uint FileIndexHigh;
+        public uint FileIndexLow;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandle(
+        SafeFileHandle hFile,
+        out ByHandleFileInformation lpFileInformation);
+
     /// <summary>
     /// Issue #21: Normalize path to NFC to handle macOS NFD-encoded paths
     /// on HFS+ volumes or USB sticks.
     /// </summary>
     internal static string NormalizePathNfc(string path)
         => Path.GetFullPath(path).Normalize(NormalizationForm.FormC);
+
+    private static bool TryGetFileIdentity(string path, out FileIdentity identity)
+    {
+        identity = default;
+        if (!OperatingSystem.IsWindows())
+            return false;
+
+        try
+        {
+            using var handle = File.OpenHandle(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+
+            if (!GetFileInformationByHandle(handle, out var info))
+                return false;
+
+            var fileIndex = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
+            identity = new FileIdentity(info.VolumeSerialNumber, fileIndex);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool ValidateSourceSnapshotBeforeMove(string fullSource, out FileIdentity sourceIdentity)
+        => TryGetFileIdentity(fullSource, out sourceIdentity);
 
     public bool TestPath(string literalPath, string pathType = "Any")
     {
@@ -215,6 +273,10 @@ public sealed class FileSystemAdapter : IFileSystem
         if (!File.Exists(fullSource))
             throw new FileNotFoundException("Source file not found.", fullSource);
 
+        // SEC-09: Capture source identity so we can re-check immediately before move.
+        // This does not remove all kernel-level races but narrows the practical TOCTOU window.
+        var hasSourceIdentity = ValidateSourceSnapshotBeforeMove(fullSource, out var sourceIdentity);
+
         // Block reparse points on source
         // Note: inherent TOCTOU between check and File.Move — mitigated by
         // post-move verification and the single-user nature of the application.
@@ -237,6 +299,15 @@ public sealed class FileSystemAdapter : IFileSystem
         // SEC-IO-01: Catch locked-file/IO errors gracefully → return null
         try
         {
+            if (hasSourceIdentity)
+            {
+                if (!TryGetFileIdentity(fullSource, out var preMoveIdentity))
+                    return null;
+
+                if (preMoveIdentity != sourceIdentity)
+                    return null;
+            }
+
             return MoveItemSafelyCore(fullSource, fullDest, overwrite);
         }
         catch (IOException) when (File.Exists(fullSource))

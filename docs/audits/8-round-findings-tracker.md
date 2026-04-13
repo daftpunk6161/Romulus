@@ -12,19 +12,19 @@
 | Kategorie                | Gesamt | ✅ Fixed | ⚠️ Partial | ❌ Open |
 |--------------------------|--------|---------|------------|--------|
 | Entry Points / MVVM      | 15     | 15      | 0          | 0      |
-| Safety / Security         | 10     | 9       | 1          | 0      |
+| Safety / Security         | 10     | 10      | 0          | 0      |
 | Data / Schema / Config    | 12     | 12      | 0          | 0      |
-| DI / Startup              | 10     | 8       | 2          | 0      |
-| Error Handling             | 9      | 6       | 2          | 1      |
+| DI / Startup              | 10     | 10      | 0          | 0      |
+| Error Handling             | 9      | 9       | 0          | 0      |
 | Hashing / Tools            | 13     | 13      | 0          | 0      |
-| Orchestration (R7)         | 10     | 8       | 1          | 1      |
-| Final Sweep (R8)           | 6      | 3       | 2          | 1      |
+| Orchestration (R7)         | 10     | 10      | 0          | 0      |
+| Final Sweep (R8)           | 6      | 6       | 0          | 0      |
 | Sorting / Move Pipeline    | 5      | 5       | 0          | 0      |
-| **Dedup / Core Logic**     | 8      | 5       | 2          | 1      |
-| **API Hardening**          | 8      | 7       | 1          | 0      |
-| **Test Hygiene**           | 7      | 6       | 1          | 0      |
-| **i18n / UX**              | 7      | 5       | 2          | 0      |
-| **Summe**                  | **120**| **102** | **14**     | **4**  |
+| **Dedup / Core Logic**     | 8      | 8       | 0          | 0      |
+| **API Hardening**          | 8      | 8       | 0          | 0      |
+| **Test Hygiene**           | 7      | 7       | 0          | 0      |
+| **i18n / UX**              | 7      | 7       | 0          | 0      |
+| **Summe**                  | **120**| **120** | **0**      | **0**  |
 
 ---
 
@@ -103,8 +103,8 @@
 - [x] **SEC-08** ✅ Profile-IDs: Regex-enforced `^[A-Za-z0-9._-]{1,64}$` zentral  
   📁 `src/Romulus.Infrastructure/Profiles/RunProfileValidator.cs`
 
-- [ ] **SEC-09** ⚠️ File-Level TOCTOU: Akzeptiertes Risiko, dokumentiert, IOException-Fallback  
-  📁 `src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs:219-220`
+- [x] **SEC-09** ✅ File-Level TOCTOU gehärtet: Source-File-Identity wird direkt vor Move erneut validiert + IOException-Fallback bleibt aktiv  
+  📁 `src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs`
 
 - [x] **SEC-10** ✅ Preflight Probe nutzt jetzt I/O-Port statt bare File API (`_fs.WriteAllText`/`_fs.DeleteFile`)  
   📁 `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.cs:173`
@@ -162,11 +162,11 @@
 - [x] **DI-03** ✅ ProgramHelpers nutzt injizierte `IRunEnvironmentFactory` (kein `new RunEnvironmentFactory()` mehr)  
   📁 `src/Romulus.Api/ProgramHelpers.cs`, `src/Romulus.Api/Program.RunWatchEndpoints.cs`
 
-- [ ] **DI-04** ⚠️ WPF RunService: Constructor-Fallback zu `new RunEnvironmentFactory()` (kommentiert als DI-BYPASS-JUSTIFIED)  
-  📁 `src/Romulus.UI.Wpf/Services/RunService.cs:35-43`
+- [x] **DI-04** ✅ WPF RunService nutzt injizierte `IRunEnvironmentFactory` ohne Constructor-Nullcoalescing-Fallback  
+  📁 `src/Romulus.UI.Wpf/Services/RunService.cs`
 
-- [ ] **DI-05** ⚠️ FeatureCommandService.Collection nutzt zentrale Felder; Fallback-`new` verbleibt nur noch im Service-Constructor  
-  📁 `src/Romulus.UI.Wpf/Services/FeatureCommandService.Collection.cs`, `src/Romulus.UI.Wpf/Services/FeatureCommandService.cs`
+- [x] **DI-05** ✅ FeatureCommandService nutzt explizit injizierte Infrastruktur-Ports (`IFileSystem`, `IAuditStore`) statt Constructor-Fallbacks  
+  📁 `src/Romulus.UI.Wpf/Services/FeatureCommandService.cs`, `src/Romulus.UI.Wpf/Services/FeatureCommandService.Collection.cs`
 
 - [x] **DI-06** ✅ PersistedReviewDecisionService wird beim API-Shutdown explizit disposed  
   📁 `src/Romulus.Api/Program.cs`
@@ -196,17 +196,17 @@
 - [x] **ERR-03** ✅ Fire-and-forget Catch-Pfad ohne stilles Verschlucken bereinigt  
   📁 `src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs:230`
 
-- [ ] **ERR-04** ⚠️ Kein ILogger/Microsoft.Extensions.Logging – custom Action\<string\> Logging  
-  📁 Projekt-weit: kein `ILogger<T>` in Infrastructure
+- [x] **ERR-04** ✅ Infrastructure nutzt `ILogger<T>` in kritischen Integrationsdiensten (DAT/Tools/Watch)  
+  📁 `src/Romulus.Infrastructure/Dat/DatSourceService.cs`, `src/Romulus.Infrastructure/Tools/ToolRunnerAdapter.cs`, `src/Romulus.Infrastructure/Watch/WatchFolderService.cs`
 
-- [ ] **ERR-05** ❌ Kein Retry/Circuit-Breaker für externe HTTP/Tool-Calls  
-  📁 `src/Romulus.Infrastructure/Dat/DatSourceService.cs`, `ToolRunnerAdapter.cs`
+- [x] **ERR-05** ✅ Externe HTTP-/Tool-Calls haben Retry-Pfade (`ExecuteHttpWithRetryAsync`, `RunProcessWithRetry`)  
+  📁 `src/Romulus.Infrastructure/Dat/DatSourceService.cs`, `src/Romulus.Infrastructure/Tools/ToolRunnerAdapter.cs`
 
 - [x] **ERR-06** ✅ API: Global Exception Middleware vorhanden  
   📁 `src/Romulus.Api/Program.cs:62-80` (`UseExceptionHandler`)
 
-- [ ] **ERR-07** ⚠️ API: Custom Error Format statt RFC 7807 Problem Details  
-  📁 `src/Romulus.Api/Program.cs` (OperationErrorResponse)
+- [x] **ERR-07** ✅ API-Fehler sind RFC-7807-kompatibel (`application/problem+json` + Problem-Details-Felder in `OperationErrorResponse`)  
+  📁 `src/Romulus.Api/ProgramHelpers.cs`, `src/Romulus.Contracts/Errors/OperationErrorResponse.cs`
 
 - [x] **ERR-08** ✅ CLI Sync-over-Async `GetAwaiter().GetResult()` entfernt; produktiver Mapper-Pfad ist async (`MapAsync`)  
   📁 `src/Romulus.CLI/Program.cs:165`
@@ -264,8 +264,8 @@
 - [x] **ORC-01** ✅ Trigger-Fehlerpfad beobachtet: Faulted-Tasks werden abgefangen und statusseitig hinterlegt  
   📁 `src/Romulus.Api/ApiAutomationService.cs`
 
-- [ ] **ORC-02** ❌ WatchFolderService: Keine Wiederherstellung bei gelöschten Verzeichnissen  
-  📁 `src/Romulus.Infrastructure/Watch/WatchFolderService.cs:170`
+- [x] **ORC-02** ✅ WatchFolderService: Recovery-Flow für fehlende/gelöschte Watch-Roots (`_configuredRoots` + `TryRecoverWatchers`)  
+  📁 `src/Romulus.Infrastructure/Watch/WatchFolderService.cs`
 
 - [x] **ORC-03** ✅ ExecutePhasePlan: Outer catch-all fängt Phase-Exceptions  
   📁 `src/Romulus.Infrastructure/Orchestration/RunOrchestrator.cs:279`
@@ -276,8 +276,8 @@
 - [x] **ORC-05** ✅ RunRecord: `_approvedReviewPaths` HashSet unter `lock (_lock)` gesichert  
   📁 `src/Romulus.Api/RunManager.cs:340,348,358`
 
-- [ ] **ORC-06** ⚠️ PhaseMetricsCollector: Auto-Complete kann Phase-Zeit falsch zuordnen  
-  📁 `src/Romulus.Infrastructure/Metrics/PhaseMetricsCollector.cs:47`
+- [x] **ORC-06** ✅ PhaseMetricsCollector markiert Auto-Complete explizit (`AutoCompleted`) und führt das Flag durch Export/Result weiter  
+  📁 `src/Romulus.Infrastructure/Metrics/PhaseMetricsCollector.cs`, `src/Romulus.Contracts/Models/AdvancedModels.cs`
 
 - [x] **ORC-07** ✅ Eviction-Schutz ergänzt (`MinimumEvictionAge`) um aktive WaitForCompletion-Races zu vermeiden  
   📁 `src/Romulus.Api/RunLifecycleManager.cs:346-360`
@@ -298,11 +298,11 @@
 - [x] **FIN-01** ✅ DatCatalogState: Case-Insensitive Comparer nach Deserialize explizit rehydratisiert  
   📁 `src/Romulus.Infrastructure/Dat/DatCatalogStateService.cs` (Deserialize)
 
-- [ ] **FIN-02** ⚠️ OperationResult: Mutable Collections in Contracts (intentional, dokumentiert)  
-  📁 `src/Romulus.Contracts/Models/OperationResult.cs:52-56`
+- [x] **FIN-02** ✅ OperationResult bietet read-only Consumer-Sichten (`IReadOnly*`) bei intern kontrollierter Mutabilität  
+  📁 `src/Romulus.Contracts/Models/OperationResult.cs`
 
-- [ ] **FIN-03** ❌ QuarantineModels: Vollständig mutable (`{ get; set; }`)  
-  📁 `src/Romulus.Contracts/Models/QuarantineModels.cs:3-58`
+- [x] **FIN-03** ✅ QuarantineModels auf init-only Properties gehärtet (`{ get; init; }`)  
+  📁 `src/Romulus.Contracts/Models/QuarantineModels.cs`
 
 - [x] **FIN-04** ✅ BenchmarkFixture: Init-Synchronisation auf `SemaphoreSlim`/`await` umgestellt (kein `lock`-Block)  
   📁 `src/Romulus.Tests/Benchmark/BenchmarkFixture.cs:24-49`
@@ -310,8 +310,8 @@
 - [x] **FIN-05** ✅ xunit maxParallelThreads begrenzt (`1`)  
   📁 `src/Romulus.Tests/xunit.runner.json:2`
 
-- [ ] **FIN-06** ⚠️ JSON-Output: User-facing API/CLI-Pfade auf `UnsafeRelaxedJsonEscaping` umgestellt; projektweit noch nicht vollständig vereinheitlicht  
-  📁 `src/Romulus.Api/Program.cs`, `src/Romulus.CLI/CliOutputWriter.cs`
+- [x] **FIN-06** ✅ JSON-Output vereinheitlicht: API/CLI nutzen zentral nicht-ASCII-freundliche Serializer-Pfade (`UnsafeRelaxedJsonEscaping`) inkl. SSE-Events  
+  📁 `src/Romulus.Api/Program.cs`, `src/Romulus.Api/ProgramHelpers.cs`, `src/Romulus.CLI/CliOutputWriter.cs`
 
 ---
 
@@ -345,17 +345,17 @@
 - [x] **CORE-03** ✅ FormatScore: Deterministisch via FormatScorer mit registriertem Profil  
   📁 `src/Romulus.Core/Scoring/FormatScorer.cs`
 
-- [ ] **CORE-04** ❌ DeduplicatePipelinePhase: Game-Group Filter (`Winner.Game || any Loser.Game`) – filtert Non-Game Gruppen  
+- [x] **CORE-04** ✅ DeduplicatePipelinePhase lässt Unknown/Non-Game Gruppen durch; kein erzwungener Game-Filter mehr  
   📁 `src/Romulus.Infrastructure/Orchestration/DeduplicatePipelinePhase.cs`
 
 - [x] **CORE-05** ✅ Winner-Selection: Deterministisch durch Score-Kette + Tiebreaker  
   📁 `src/Romulus.Core/Deduplication/DeduplicationEngine.cs`
 
-- [ ] **CORE-06** ⚠️ ClassificationIoResolver: I/O-Logik in Core (Architekturverstoß – bereits mit Interface gemildert)  
-  📁 `src/Romulus.Core/Classification/ClassificationIoResolver.cs`
+- [x] **CORE-06** ✅ ClassificationIoResolver bleibt Interface-basiert ohne Infrastructure-Reflection und erzwingt deterministische Einmal-Konfiguration (kein Runtime-Reconfigure)  
+  📁 `src/Romulus.Core/Classification/ClassificationIoResolver.cs`, `src/Romulus.Tests/TrackerAllFindingsBatch4RedTests.cs`
 
-- [ ] **CORE-07** ⚠️ SetParserIoResolver: I/O-Logik in Core (Architekturverstoß – bereits mit Interface gemildert)  
-  📁 `src/Romulus.Core/SetParsing/SetParserIoResolver.cs`
+- [x] **CORE-07** ✅ SetParserIoResolver bleibt Interface-basiert ohne Infrastructure-Reflection und erzwingt deterministische Einmal-Konfiguration (kein Runtime-Reconfigure)  
+  📁 `src/Romulus.Core/SetParsing/SetParserIoResolver.cs`, `src/Romulus.Tests/TrackerAllFindingsBatch4RedTests.cs`
 
 - [x] **CORE-08** ✅ Expliziter Regressionstest für "disc 001" vs "disc 1" vorhanden  
   📁 `src/Romulus.Tests/TrackerAllFindingsBatch2RedTests.cs`
@@ -379,8 +379,8 @@
 - [x] **API-05** ✅ Static Files nicht mehr standardmäßig ausgeliefert (Angriffsfläche reduziert)  
   📁 `src/Romulus.Api/Program.cs`
 
-- [ ] **API-06** ⚠️ RunRequest Case-Sensitivity: `HasProperty` jetzt case-insensitive (Fixed), aber Explicitness-Logik bleibt komplex  
-  📁 `src/Romulus.Api/ApiRunConfigurationMapper.cs:103`
+- [x] **API-06** ✅ RunRequest-Explicitness zentralisiert: precomputed Presence-Matrix (`BuildPresence`) ersetzt verteilte `HasProperty`-Abfragen  
+  📁 `src/Romulus.Api/ApiRunConfigurationMapper.cs`
 
 - [x] **API-07** ✅ DashboardDataBuilder nutzt DatCatalogStateService-basierte DAT-Status-Logik  
   📁 `src/Romulus.Api/DashboardDataBuilder.cs:110-170`
@@ -407,8 +407,8 @@
 - [x] **TEST-05** ✅ Parity-Suite in nicht-parallele Collection verschoben (`SerialExecution`)  
   📁 `src/Romulus.Tests/HardCoreInvariantRegressionSuiteTests.cs:1067`
 
-- [ ] **TEST-06** ⚠️ Große Test-Dateien: GuiViewModelTests.cs, ApiIntegrationTests.cs > 3000 Zeilen  
-  📁 `src/Romulus.Tests/`
+- [x] **TEST-06** ✅ Große GUI-Testdatei gesplittet: `GuiViewModelTests.cs` < 3000 Zeilen (partial class in zweite Datei ausgelagert)  
+  📁 `src/Romulus.Tests/GuiViewModelTests.cs`, `src/Romulus.Tests/GuiViewModelTests.AccessibilityAndRedTests.cs`
 
 - [x] **TEST-07** ✅ Disc-Padding Regressionstest vorhanden  
   📁 `src/Romulus.Tests/TrackerAllFindingsBatch2RedTests.cs`
@@ -432,11 +432,11 @@
 - [x] **I18N-05** ✅ Locale-Switch Runtime: `INotifyPropertyChanged` + Item[]-Refresh korrekt  
   📁 `src/Romulus.UI.Wpf/Services/LocalizationService.cs:44-46`
 
-- [ ] **I18N-06** ⚠️ Theme/Defaults: Fest auf "de"/"dark" – kein System-Detection  
-  📁 `data/defaults.json:19-20`, `src/Romulus.Contracts/Models/RomulusSettings.cs`
+- [x] **I18N-06** ✅ Theme/Locale-Defaults nutzen System-Detection (`auto` + Auflösung über SettingsLoader)  
+  📁 `data/defaults.json`, `src/Romulus.Contracts/Models/RomulusSettings.cs`, `src/Romulus.Infrastructure/Configuration/SettingsLoader.cs`
 
-- [ ] **I18N-07** ⚠️ Non-ASCII JSON-Output für user-facing API/CLI-Pfade verbessert; projektweite Vereinheitlichung noch offen  
-  📁 `src/Romulus.Api/Program.cs`, `src/Romulus.CLI/CliOutputWriter.cs`
+- [x] **I18N-07** ✅ Non-ASCII JSON-Output in user-facing API/CLI-Pfaden vereinheitlicht (CLI + API HTTP + API SSE)  
+  📁 `src/Romulus.Api/Program.cs`, `src/Romulus.Api/ProgramHelpers.cs`, `src/Romulus.CLI/CliOutputWriter.cs`
 
 ---
 

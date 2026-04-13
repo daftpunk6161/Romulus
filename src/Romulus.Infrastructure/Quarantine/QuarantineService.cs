@@ -129,10 +129,12 @@ public sealed class QuarantineService
         {
             if (mode == RunConstants.ModeDryRun)
             {
-                action.Status = RunConstants.ModeDryRun;
-                results.Add(action);
+                results.Add(CloneActionWithStatus(action, RunConstants.ModeDryRun));
                 continue;
             }
+
+            var status = "Pending";
+            string? error = null;
 
             try
             {
@@ -142,30 +144,30 @@ public sealed class QuarantineService
                 {
                     if (_fs.MoveItemSafely(action.SourcePath, action.TargetPath) is not null)
                     {
-                        action.Status = "Moved";
+                        status = "Moved";
                         moved++;
                     }
                     else
                     {
-                        action.Status = "Error";
-                        action.Error = "Move failed";
+                        status = "Error";
+                        error = "Move failed";
                         errors++;
                     }
                 }
                 else
                 {
-                    action.Status = "SourceMissing";
+                    status = "SourceMissing";
                     errors++;
                 }
             }
             catch (Exception ex)
             {
-                action.Status = "Error";
-                action.Error = ex.Message;
+                status = "Error";
+                error = ex.Message;
                 errors++;
             }
 
-            results.Add(action);
+            results.Add(CloneActionWithStatus(action, status, error));
         }
 
         return new QuarantineResult
@@ -186,7 +188,7 @@ public sealed class QuarantineService
             return new QuarantineContents();
 
         var files = new List<QuarantineFileEntry>();
-        var dateGroups = new Dictionary<string, List<QuarantineFileEntry>>();
+        var dateGroups = new Dictionary<string, IReadOnlyList<QuarantineFileEntry>>(StringComparer.OrdinalIgnoreCase);
         long totalSize = 0;
 
         foreach (var dir in Directory.GetDirectories(quarantineRoot))
@@ -220,6 +222,19 @@ public sealed class QuarantineService
             DateGroups = dateGroups
         };
     }
+
+    private static QuarantineAction CloneActionWithStatus(QuarantineAction source, string status, string? error = null)
+        => new()
+        {
+            SourcePath = source.SourcePath,
+            TargetPath = source.TargetPath,
+            QuarantineDir = source.QuarantineDir,
+            Reasons = source.Reasons,
+            Mode = source.Mode,
+            Status = status,
+            Timestamp = source.Timestamp,
+            Error = error
+        };
 
     /// <summary>
     /// Restores a file from quarantine to its original location.

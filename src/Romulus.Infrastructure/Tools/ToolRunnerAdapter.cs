@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion.ToolInvokers;
@@ -37,15 +38,22 @@ public sealed class ToolRunnerAdapter : IToolRunner
     private Dictionary<string, string>? _toolHashes;
     private readonly object _toolHashLock = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Hash, DateTime LastWriteUtc, long Length)> _hashCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ILogger<ToolRunnerAdapter>? _logger;
 
     /// <param name="toolHashesPath">Path to data/tool-hashes.json for SHA256 verification.</param>
     /// <param name="allowInsecureHashBypass">Skip hash check (NOT recommended for production).</param>
-    public ToolRunnerAdapter(string? toolHashesPath = null, bool allowInsecureHashBypass = false, int timeoutMinutes = 30, Action<string>? log = null)
+    public ToolRunnerAdapter(
+        string? toolHashesPath = null,
+        bool allowInsecureHashBypass = false,
+        int timeoutMinutes = 30,
+        Action<string>? log = null,
+        ILogger<ToolRunnerAdapter>? logger = null)
     {
         _toolHashesPath = toolHashesPath;
         _allowInsecureHashBypass = allowInsecureHashBypass;
         _timeoutMinutes = timeoutMinutes > 0 ? timeoutMinutes : 30;
         _log = log;
+        _logger = logger;
     }
 
     private readonly Action<string>? _log;
@@ -290,7 +298,7 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (!VerifyToolHash(filePath, requirement))
             return new ToolResult(-1, $"{label}: hash verification failed for '{filePath}'", false);
 
-        return RunProcess(filePath, arguments, label, timeout, cancellationToken);
+        return RunProcessWithRetry(filePath, arguments, label, timeout, cancellationToken);
     }
 
     public ToolResult Invoke7z(string sevenZipPath, string[] arguments)
@@ -301,7 +309,51 @@ public sealed class ToolRunnerAdapter : IToolRunner
         if (!VerifyToolHash(sevenZipPath, requirement: new ToolRequirement { ToolName = "7z" }))
             return new ToolResult(-1, "7z: hash verification failed", false);
 
-        return RunProcess(sevenZipPath, arguments, "7z", timeout: null, cancellationToken: CancellationToken.None);
+        return RunProcessWithRetry(sevenZipPath, arguments, "7z", timeout: null, cancellationToken: CancellationToken.None);
+    }
+
+    private ToolResult RunProcessWithRetry(
+        string exePath,
+        string[] arguments,
+        string label,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+        ToolResult lastResult = new(-1, string.Empty, false);
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            lastResult = RunProcess(exePath, arguments, label, timeout, cancellationToken);
+            if (lastResult.Success)
+                return lastResult;
+
+            if (attempt >= maxAttempts || !IsRetryableProcessFailure(lastResult, cancellationToken))
+                return lastResult;
+
+            var delay = TimeSpan.FromMilliseconds(200 * attempt);
+            _logger?.LogWarning("Tool process {Label} failed on attempt {Attempt}/{MaxAttempts}; retrying in {DelayMs} ms.", label, attempt, maxAttempts, delay.TotalMilliseconds);
+            _log?.Invoke($"[WARN] {label}: retry {attempt}/{maxAttempts}");
+
+            if (cancellationToken.WaitHandle.WaitOne(delay))
+                return lastResult;
+        }
+
+        return lastResult;
+    }
+
+    private static bool IsRetryableProcessFailure(ToolResult result, CancellationToken cancellationToken)
+    {
+        if (result.Success || cancellationToken.IsCancellationRequested)
+            return false;
+
+        if (result.ExitCode != -1)
+            return false;
+
+        var output = result.Output ?? string.Empty;
+        return output.Contains("failed to start process", StringComparison.OrdinalIgnoreCase)
+            || output.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+            || output.Contains("Win32", StringComparison.OrdinalIgnoreCase);
     }
 
     private ToolResult RunProcess(

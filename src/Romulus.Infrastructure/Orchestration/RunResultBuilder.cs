@@ -52,6 +52,14 @@ public sealed class RunResultBuilder
     public PhaseMetricsResult? PhaseMetrics { get; set; }
     public List<string> Warnings { get; } = new();
 
+    public RunResultBuilder AddWarning(string warning)
+    {
+        if (!string.IsNullOrWhiteSpace(warning))
+            Warnings.Add(warning);
+
+        return this;
+    }
+
     public RunResult Build()
     {
         var runResult = new RunResult

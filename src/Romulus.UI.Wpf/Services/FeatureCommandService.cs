@@ -43,17 +43,14 @@ public sealed partial class FeatureCommandService
         MainViewModel vm,
         ISettingsService settings,
         IDialogService dialog,
-        IFileSystem? fileSystem = null,
-        IAuditStore? auditStore = null)
+        IFileSystem fileSystem,
+        IAuditStore auditStore)
     {
         _vm = vm;
         _settings = settings;
         _dialog = dialog;
-        _fileSystem = fileSystem ?? new FileSystemAdapter();
-        _auditStore = auditStore ?? new AuditCsvStore(
-            _fileSystem,
-            msg => _vm.AddLog(msg, "INFO"),
-            AuditSecurityPaths.GetDefaultSigningKeyPath());
+        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _auditStore = auditStore ?? throw new ArgumentNullException(nameof(auditStore));
     }
 
     public void AttachWindowHost(IWindowHost windowHost)

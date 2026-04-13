@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Encodings.Web;
 using System.Text;
 using System.Text.Json;
 using System.Net;
@@ -16,9 +17,17 @@ using Romulus.Infrastructure.Safety;
 
 public partial class Program
 {
+    private static readonly JsonSerializerOptions ApiJsonSerializerOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     // V2-H10: API version from assembly metadata, not hardcoded
     internal static readonly string ApiVersion =
         typeof(Program).Assembly.GetName().Version?.ToString(2) ?? "1.0";
+
+    internal static string SerializeApiJson<T>(T value)
+        => JsonSerializer.Serialize(value, ApiJsonSerializerOptions);
 
     internal static bool FixedTimeEquals(string expected, string? actual)
     {
@@ -78,7 +87,7 @@ public partial class Program
     {
         // SEC: Prevent SSE event injection via newlines in event name
         var safeEventName = SanitizeSseEventName(eventName);
-        var json = JsonSerializer.Serialize(data);
+        var json = SerializeApiJson(data);
         var payload = $"event: {safeEventName}\ndata: {json}\n\n";
         await stream.WriteAsync(encoding.GetBytes(payload));
         await stream.FlushAsync();

@@ -139,9 +139,6 @@ public interface IFileSystem
     void CopyFile(string sourcePath, string destinationPath, bool overwrite = false);
     void WriteAllText(string path, string content)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentException("Path must not be empty.", nameof(path));
-
-        File.WriteAllText(path, content);
+        throw new NotSupportedException("WriteAllText is not supported by this file system implementation.");
     }
 }

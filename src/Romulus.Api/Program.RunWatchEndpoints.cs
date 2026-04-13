@@ -894,7 +894,7 @@ public partial class Program
                         current.CompletedUtc,
                         current.RecoveryState
                     };
-                    var stateJson = JsonSerializer.Serialize(stateSnapshot);
+                    var stateJson = SerializeApiJson(stateSnapshot);
         
                     if (!string.Equals(stateJson, lastStateJson, StringComparison.Ordinal))
                     {

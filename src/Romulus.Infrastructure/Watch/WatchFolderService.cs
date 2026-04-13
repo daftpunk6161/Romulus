@@ -1,4 +1,5 @@
 using System.IO;
+using Microsoft.Extensions.Logging;
 using Romulus.Infrastructure.Orchestration;
 
 namespace Romulus.Infrastructure.Watch;
@@ -9,11 +10,15 @@ namespace Romulus.Infrastructure.Watch;
 public sealed class WatchFolderService : IDisposable
 {
     private static readonly TimeSpan CooldownAfterTrigger = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RecoveryRetryInterval = TimeSpan.FromSeconds(5);
 
     private readonly object _sync = new();
     private readonly List<FileSystemWatcher> _watchers = new();
+    private readonly HashSet<string> _configuredRoots = new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<DateTime> _utcNowProvider;
+    private readonly ILogger<WatchFolderService>? _logger;
     private Timer? _debounceTimer;
+    private Timer? _recoveryTimer;
     private DateTime _firstChangeUtc = DateTime.MaxValue;
     private DateTime _lastTriggerUtc = DateTime.MinValue;
     private TimeSpan _debounceInterval = TimeSpan.FromSeconds(5);
@@ -21,9 +26,10 @@ public sealed class WatchFolderService : IDisposable
     private bool _pendingWhileBusy;
     private bool _disposed;
 
-    public WatchFolderService(Func<DateTime>? utcNowProvider = null)
+    public WatchFolderService(Func<DateTime>? utcNowProvider = null, ILogger<WatchFolderService>? logger = null)
     {
         _utcNowProvider = utcNowProvider ?? (() => DateTime.UtcNow);
+        _logger = logger;
     }
 
     public event Action? RunTriggered;
@@ -71,34 +77,30 @@ public sealed class WatchFolderService : IDisposable
             _firstChangeUtc = DateTime.MaxValue;
             _pendingWhileBusy = false;
             _lastTriggerUtc = DateTime.MinValue;
+            _configuredRoots.Clear();
 
             foreach (var root in roots)
             {
-                if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                if (string.IsNullOrWhiteSpace(root))
                     continue;
 
                 try
                 {
-                    var watcher = new FileSystemWatcher(root)
-                    {
-                        IncludeSubdirectories = true,
-                        NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
-                        // R7-03: Default 8KB buffer is too small for deep ROM trees; 64KB prevents missed events
-                        InternalBufferSize = 65536,
-                        EnableRaisingEvents = true
-                    };
-
-                    watcher.Changed += OnFileChanged;
-                    watcher.Created += OnFileChanged;
-                    watcher.Deleted += OnFileChanged;
-                    watcher.Renamed += OnFileChanged;
-                    watcher.Error += OnWatcherError;
-                    _watchers.Add(watcher);
+                    var normalizedRoot = Path.GetFullPath(root);
+                    _configuredRoots.Add(normalizedRoot);
+                    TryAttachWatcherLocked(normalizedRoot);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
                 {
+                    _logger?.LogWarning(ex, "Failed to attach watcher for root {Root}", root);
                     WatcherError?.Invoke(RunProgressLocalization.Format("Watch.Error", ex.Message));
                 }
+            }
+
+            if (NeedsRecoveryScanLocked())
+            {
+                EnsureRecoveryTimerLocked();
+                _recoveryTimer!.Change(RecoveryRetryInterval, RecoveryRetryInterval);
             }
 
             return _watchers.Count;
@@ -170,7 +172,43 @@ public sealed class WatchFolderService : IDisposable
     private void OnWatcherError(object sender, ErrorEventArgs e)
     {
         var message = e.GetException()?.Message ?? RunProgressLocalization.Format("Watch.UnknownError");
+        if (e.GetException() is Exception ex)
+            _logger?.LogWarning(ex, "File watcher error occurred: {Message}", message);
+        else
+            _logger?.LogWarning("File watcher error occurred: {Message}", message);
         WatcherError?.Invoke(RunProgressLocalization.Format("Watch.Error", message));
+
+        lock (_sync)
+        {
+            if (_disposed || _configuredRoots.Count == 0)
+                return;
+
+            TryRecoverWatchers();
+
+            if (NeedsRecoveryScanLocked())
+            {
+                EnsureRecoveryTimerLocked();
+                _recoveryTimer!.Change(RecoveryRetryInterval, RecoveryRetryInterval);
+            }
+            else
+            {
+                _recoveryTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    private void OnRecoveryTimer(object? state)
+    {
+        lock (_sync)
+        {
+            if (_disposed || _configuredRoots.Count == 0)
+                return;
+
+            TryRecoverWatchers();
+
+            if (!NeedsRecoveryScanLocked())
+                _recoveryTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
     }
 
     private void OnDebounceTimer(object? state)
@@ -211,23 +249,111 @@ public sealed class WatchFolderService : IDisposable
         _debounceTimer ??= new Timer(OnDebounceTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
+    private void EnsureRecoveryTimerLocked()
+    {
+        _recoveryTimer ??= new Timer(OnRecoveryTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
+
+    private bool TryRecoverWatchers()
+    {
+        for (var index = _watchers.Count - 1; index >= 0; index--)
+        {
+            var watcher = _watchers[index];
+            if (Directory.Exists(watcher.Path))
+                continue;
+
+            DisposeWatcher(watcher);
+            _watchers.RemoveAt(index);
+        }
+
+        foreach (var root in _configuredRoots)
+        {
+            if (IsWatchingRootLocked(root))
+                continue;
+
+            TryAttachWatcherLocked(root);
+        }
+
+        return !NeedsRecoveryScanLocked();
+    }
+
+    private bool TryAttachWatcherLocked(string root)
+    {
+        if (!Directory.Exists(root) || IsWatchingRootLocked(root))
+            return false;
+
+        try
+        {
+            var watcher = new FileSystemWatcher(root)
+            {
+                IncludeSubdirectories = true,
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                // R7-03: Default 8KB buffer is too small for deep ROM trees; 64KB prevents missed events
+                InternalBufferSize = 65536,
+                EnableRaisingEvents = true
+            };
+
+            watcher.Changed += OnFileChanged;
+            watcher.Created += OnFileChanged;
+            watcher.Deleted += OnFileChanged;
+            watcher.Renamed += OnFileChanged;
+            watcher.Error += OnWatcherError;
+            _watchers.Add(watcher);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            _logger?.LogWarning(ex, "Watcher attachment failed for root {Root}", root);
+            WatcherError?.Invoke(RunProgressLocalization.Format("Watch.Error", ex.Message));
+            return false;
+        }
+    }
+
+    private bool NeedsRecoveryScanLocked()
+    {
+        foreach (var configuredRoot in _configuredRoots)
+        {
+            if (!IsWatchingRootLocked(configuredRoot))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsWatchingRootLocked(string root)
+    {
+        foreach (var watcher in _watchers)
+        {
+            if (string.Equals(watcher.Path, root, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void DisposeWatcher(FileSystemWatcher watcher)
+    {
+        watcher.EnableRaisingEvents = false;
+        watcher.Changed -= OnFileChanged;
+        watcher.Created -= OnFileChanged;
+        watcher.Deleted -= OnFileChanged;
+        watcher.Renamed -= OnFileChanged;
+        watcher.Error -= OnWatcherError;
+        watcher.Dispose();
+    }
+
     private void StopInternal()
     {
         _debounceTimer?.Dispose();
         _debounceTimer = null;
+        _recoveryTimer?.Dispose();
+        _recoveryTimer = null;
 
         foreach (var watcher in _watchers)
-        {
-            watcher.EnableRaisingEvents = false;
-            watcher.Changed -= OnFileChanged;
-            watcher.Created -= OnFileChanged;
-            watcher.Deleted -= OnFileChanged;
-            watcher.Renamed -= OnFileChanged;
-            watcher.Error -= OnWatcherError;
-            watcher.Dispose();
-        }
+            DisposeWatcher(watcher);
 
         _watchers.Clear();
+        _configuredRoots.Clear();
         _firstChangeUtc = DateTime.MaxValue;
         _pendingWhileBusy = false;
         _lastTriggerUtc = DateTime.MinValue;

@@ -2,6 +2,8 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.Tests.TestFixtures;
 using Romulus.UI.Wpf.Models;
@@ -33,7 +35,9 @@ public sealed class FeatureCommandServiceTests : IDisposable
         _settings = new StubSettingsService();
         _windowHost = new StubWindowHost();
         _vm = new MainViewModel(new StubThemeService(), _dialog, _settings);
-        _sut = new FeatureCommandService(_vm, _settings, _dialog);
+        var fileSystem = new FileSystemAdapter();
+        var auditStore = new AuditCsvStore(fileSystem, _ => { }, Path.Combine(_tempDir, "audit-signing.key"));
+        _sut = new FeatureCommandService(_vm, _settings, _dialog, fileSystem, auditStore);
         _sut.AttachWindowHost(_windowHost);
     }
 
@@ -148,7 +152,9 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [Fact]
     public void RegisterCommands_WithoutWindowHost_OmitsWindowCommands()
     {
-        var sut = new FeatureCommandService(_vm, _settings, _dialog); // no windowHost
+        var fileSystem = new FileSystemAdapter();
+        var auditStore = new AuditCsvStore(fileSystem, _ => { }, Path.Combine(_tempDir, "audit-signing.key"));
+        var sut = new FeatureCommandService(_vm, _settings, _dialog, fileSystem, auditStore); // no windowHost
         sut.RegisterCommands();
         Assert.False(_vm.FeatureCommands.ContainsKey("CommandPalette"));
         Assert.False(_vm.FeatureCommands.ContainsKey("SystemTray"));

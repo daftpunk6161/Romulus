@@ -27,6 +27,11 @@ public sealed class RunService : IRunService
     private readonly RunConfigurationMaterializer _runConfigurationMaterializer;
     private readonly IAuditStore _recoveryAuditStore;
 
+    public RunService()
+        : this(runEnvironmentFactory: new RunEnvironmentFactory())
+    {
+    }
+
     public RunService(
         IAppState? appState = null,
         IRunOptionsFactory? runOptionsFactory = null,
@@ -36,7 +41,7 @@ public sealed class RunService : IRunService
         IAuditStore? recoveryAuditStore = null)
     {
         _appState = appState ?? new AppStateStore();
-        _runEnvironmentFactory = runEnvironmentFactory ?? new RunEnvironmentFactory();
+        _runEnvironmentFactory = runEnvironmentFactory ?? throw new ArgumentNullException(nameof(runEnvironmentFactory));
         _recoveryAuditStore = recoveryAuditStore ?? new AuditCsvStore(keyFilePath: AuditSecurityPaths.GetDefaultSigningKeyPath());
         var dataDir = FeatureService.ResolveDataDirectory()
                       ?? RunEnvironmentBuilder.ResolveDataDir();

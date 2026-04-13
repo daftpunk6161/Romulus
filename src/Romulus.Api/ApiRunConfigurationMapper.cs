@@ -18,54 +18,55 @@ internal static class ApiRunConfigurationMapper
         ArgumentNullException.ThrowIfNull(materializer);
 
         var propertyNames = CollectPropertyNames(rootElement);
+        var presence = BuildPresence(propertyNames);
 
         var draft = new RunConfigurationDraft
         {
             Roots = request.Roots ?? Array.Empty<string>(),
-            Mode = HasProperty(propertyNames, "mode") ? request.Mode : null,
-            WorkflowScenarioId = HasProperty(propertyNames, "workflowScenarioId") ? request.WorkflowScenarioId : null,
-            ProfileId = HasProperty(propertyNames, "profileId") ? request.ProfileId : null,
-            PreferRegions = HasProperty(propertyNames, "preferRegions") ? request.PreferRegions : null,
-            Extensions = HasProperty(propertyNames, "extensions") ? request.Extensions : null,
-            RemoveJunk = HasProperty(propertyNames, "removeJunk") ? request.RemoveJunk : null,
-            OnlyGames = HasProperty(propertyNames, "onlyGames") ? request.OnlyGames : null,
-            KeepUnknownWhenOnlyGames = HasProperty(propertyNames, "keepUnknownWhenOnlyGames") ? request.KeepUnknownWhenOnlyGames : null,
-            AggressiveJunk = HasProperty(propertyNames, "aggressiveJunk") ? request.AggressiveJunk : null,
-            SortConsole = HasProperty(propertyNames, "sortConsole") ? request.SortConsole : null,
-            EnableDat = HasProperty(propertyNames, "enableDat") ? request.EnableDat : null,
-            EnableDatAudit = HasProperty(propertyNames, "enableDatAudit") ? request.EnableDatAudit : null,
-            EnableDatRename = HasProperty(propertyNames, "enableDatRename") ? request.EnableDatRename : null,
-            DatRoot = HasProperty(propertyNames, "datRoot") ? request.DatRoot : null,
-            HashType = HasProperty(propertyNames, "hashType") ? request.HashType : null,
-            ConvertFormat = HasProperty(propertyNames, "convertFormat") ? request.ConvertFormat : null,
-            ConvertOnly = HasProperty(propertyNames, "convertOnly") ? request.ConvertOnly : null,
-            ApproveReviews = HasProperty(propertyNames, "approveReviews") ? request.ApproveReviews : null,
-            ApproveConversionReview = HasProperty(propertyNames, "approveConversionReview") ? request.ApproveConversionReview : null,
-            ConflictPolicy = HasProperty(propertyNames, "conflictPolicy") ? request.ConflictPolicy : null,
-            TrashRoot = HasProperty(propertyNames, "trashRoot") ? request.TrashRoot : null
+            Mode = presence.Mode ? request.Mode : null,
+            WorkflowScenarioId = presence.WorkflowScenarioId ? request.WorkflowScenarioId : null,
+            ProfileId = presence.ProfileId ? request.ProfileId : null,
+            PreferRegions = presence.PreferRegions ? request.PreferRegions : null,
+            Extensions = presence.Extensions ? request.Extensions : null,
+            RemoveJunk = presence.RemoveJunk ? request.RemoveJunk : null,
+            OnlyGames = presence.OnlyGames ? request.OnlyGames : null,
+            KeepUnknownWhenOnlyGames = presence.KeepUnknownWhenOnlyGames ? request.KeepUnknownWhenOnlyGames : null,
+            AggressiveJunk = presence.AggressiveJunk ? request.AggressiveJunk : null,
+            SortConsole = presence.SortConsole ? request.SortConsole : null,
+            EnableDat = presence.EnableDat ? request.EnableDat : null,
+            EnableDatAudit = presence.EnableDatAudit ? request.EnableDatAudit : null,
+            EnableDatRename = presence.EnableDatRename ? request.EnableDatRename : null,
+            DatRoot = presence.DatRoot ? request.DatRoot : null,
+            HashType = presence.HashType ? request.HashType : null,
+            ConvertFormat = presence.ConvertFormat ? request.ConvertFormat : null,
+            ConvertOnly = presence.ConvertOnly ? request.ConvertOnly : null,
+            ApproveReviews = presence.ApproveReviews ? request.ApproveReviews : null,
+            ApproveConversionReview = presence.ApproveConversionReview ? request.ApproveConversionReview : null,
+            ConflictPolicy = presence.ConflictPolicy ? request.ConflictPolicy : null,
+            TrashRoot = presence.TrashRoot ? request.TrashRoot : null
         };
 
         var explicitness = new RunConfigurationExplicitness
         {
-            Mode = HasProperty(propertyNames, "mode"),
-            PreferRegions = HasProperty(propertyNames, "preferRegions"),
-            Extensions = HasProperty(propertyNames, "extensions"),
-            RemoveJunk = HasProperty(propertyNames, "removeJunk"),
-            OnlyGames = HasProperty(propertyNames, "onlyGames"),
-            KeepUnknownWhenOnlyGames = HasProperty(propertyNames, "keepUnknownWhenOnlyGames"),
-            AggressiveJunk = HasProperty(propertyNames, "aggressiveJunk"),
-            SortConsole = HasProperty(propertyNames, "sortConsole"),
-            EnableDat = HasProperty(propertyNames, "enableDat"),
-            EnableDatAudit = HasProperty(propertyNames, "enableDatAudit"),
-            EnableDatRename = HasProperty(propertyNames, "enableDatRename"),
-            DatRoot = HasProperty(propertyNames, "datRoot"),
-            HashType = HasProperty(propertyNames, "hashType"),
-            ConvertFormat = HasProperty(propertyNames, "convertFormat"),
-            ConvertOnly = HasProperty(propertyNames, "convertOnly"),
-            ApproveReviews = HasProperty(propertyNames, "approveReviews"),
-            ApproveConversionReview = HasProperty(propertyNames, "approveConversionReview"),
-            ConflictPolicy = HasProperty(propertyNames, "conflictPolicy"),
-            TrashRoot = HasProperty(propertyNames, "trashRoot")
+            Mode = presence.Mode,
+            PreferRegions = presence.PreferRegions,
+            Extensions = presence.Extensions,
+            RemoveJunk = presence.RemoveJunk,
+            OnlyGames = presence.OnlyGames,
+            KeepUnknownWhenOnlyGames = presence.KeepUnknownWhenOnlyGames,
+            AggressiveJunk = presence.AggressiveJunk,
+            SortConsole = presence.SortConsole,
+            EnableDat = presence.EnableDat,
+            EnableDatAudit = presence.EnableDatAudit,
+            EnableDatRename = presence.EnableDatRename,
+            DatRoot = presence.DatRoot,
+            HashType = presence.HashType,
+            ConvertFormat = presence.ConvertFormat,
+            ConvertOnly = presence.ConvertOnly,
+            ApproveReviews = presence.ApproveReviews,
+            ApproveConversionReview = presence.ApproveConversionReview,
+            ConflictPolicy = presence.ConflictPolicy,
+            TrashRoot = presence.TrashRoot
         };
 
         var materialized = await materializer.MaterializeAsync(draft, explicitness, settings, ct: ct).ConfigureAwait(false);
@@ -115,8 +116,52 @@ internal static class ApiRunConfigurationMapper
         return names;
     }
 
-    private static bool HasProperty(IReadOnlySet<string> propertyNames, string propertyName)
-        => propertyNames.Contains(propertyName);
+    private static RunRequestPropertyPresence BuildPresence(IReadOnlySet<string> propertyNames)
+        => new(
+            Mode: propertyNames.Contains("mode"),
+            WorkflowScenarioId: propertyNames.Contains("workflowScenarioId"),
+            ProfileId: propertyNames.Contains("profileId"),
+            PreferRegions: propertyNames.Contains("preferRegions"),
+            Extensions: propertyNames.Contains("extensions"),
+            RemoveJunk: propertyNames.Contains("removeJunk"),
+            OnlyGames: propertyNames.Contains("onlyGames"),
+            KeepUnknownWhenOnlyGames: propertyNames.Contains("keepUnknownWhenOnlyGames"),
+            AggressiveJunk: propertyNames.Contains("aggressiveJunk"),
+            SortConsole: propertyNames.Contains("sortConsole"),
+            EnableDat: propertyNames.Contains("enableDat"),
+            EnableDatAudit: propertyNames.Contains("enableDatAudit"),
+            EnableDatRename: propertyNames.Contains("enableDatRename"),
+            DatRoot: propertyNames.Contains("datRoot"),
+            HashType: propertyNames.Contains("hashType"),
+            ConvertFormat: propertyNames.Contains("convertFormat"),
+            ConvertOnly: propertyNames.Contains("convertOnly"),
+            ApproveReviews: propertyNames.Contains("approveReviews"),
+            ApproveConversionReview: propertyNames.Contains("approveConversionReview"),
+            ConflictPolicy: propertyNames.Contains("conflictPolicy"),
+            TrashRoot: propertyNames.Contains("trashRoot"));
+
+    private readonly record struct RunRequestPropertyPresence(
+        bool Mode,
+        bool WorkflowScenarioId,
+        bool ProfileId,
+        bool PreferRegions,
+        bool Extensions,
+        bool RemoveJunk,
+        bool OnlyGames,
+        bool KeepUnknownWhenOnlyGames,
+        bool AggressiveJunk,
+        bool SortConsole,
+        bool EnableDat,
+        bool EnableDatAudit,
+        bool EnableDatRename,
+        bool DatRoot,
+        bool HashType,
+        bool ConvertFormat,
+        bool ConvertOnly,
+        bool ApproveReviews,
+        bool ApproveConversionReview,
+        bool ConflictPolicy,
+        bool TrashRoot);
 }
 
 internal sealed record ApiResolvedRunConfiguration(

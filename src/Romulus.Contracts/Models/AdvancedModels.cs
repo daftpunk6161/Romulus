@@ -10,6 +10,7 @@ public sealed class PhaseMetricEntry
     public TimeSpan Duration { get; set; }
     public int ItemCount { get; set; }
     public string Status { get; set; } = "Completed";
+    public bool AutoCompleted { get; set; }
     public double ItemsPerSec { get; set; }
     public double PercentOfTotal { get; set; }
     public Dictionary<string, object> Meta { get; set; } = new();
