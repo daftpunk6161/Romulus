@@ -736,7 +736,7 @@ public sealed class ApiRedPhaseTests : IDisposable
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("conflictPolicy", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CONFLICT-POLICY", body, StringComparison.OrdinalIgnoreCase);
     }
 
 

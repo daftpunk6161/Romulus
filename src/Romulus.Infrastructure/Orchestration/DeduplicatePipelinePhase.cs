@@ -40,9 +40,10 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
     private static List<DedupeGroup> GetGameGroups(IReadOnlyList<DedupeGroup> groups)
     {
         return groups
-            // Keep all meaningful domain groups (Game/NonGame/Unknown/Bios) and only
-            // exclude pure junk groups so downstream parity metrics are not undercounted.
-            .Where(g => g.Winner.Category != FileCategory.Junk || g.Losers.Any(l => l.Category != FileCategory.Junk))
+            // Keep Game, Unknown and NonGame groups. Exclude pure BIOS groups and
+            // pure JUNK groups so game counts are consistent across GUI/CLI/API (F-012).
+            .Where(g => g.Winner.Category != FileCategory.Bios
+                     && (g.Winner.Category != FileCategory.Junk || g.Losers.Any(l => l.Category != FileCategory.Junk)))
             .ToList();
     }
 }

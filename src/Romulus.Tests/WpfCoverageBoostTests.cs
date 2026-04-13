@@ -613,13 +613,9 @@ public sealed class WpfCoverageBoostTests : IDisposable
     public void LoadLocale_UnknownLocale_ReturnsEmptyOrDefault()
     {
         var result = FeatureService.LoadLocale("xx-XX");
-        var fallback = FeatureService.LoadLocale("de");
 
         Assert.NotNull(result);
-        if (fallback.Count > 0)
-            Assert.Equal(fallback.Count, result.Count);
-        else
-            Assert.Empty(result);
+        Assert.Empty(result);
     }
 
     // ═══ FeatureService: FormatSize ═════════════════════════════════════

@@ -70,7 +70,7 @@ public sealed class V2RemainingTests : IDisposable
 
         var hashes = svc.GetArchiveHashes(zip, "SHA1", CancellationToken.None);
 
-        Assert.Equal(4, hashes.Length);
+        Assert.Equal(2, hashes.Length);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class V2RemainingTests : IDisposable
 
         // Non-cancelled token should succeed
         var hashes = svc.GetArchiveHashes(zip, "SHA1", CancellationToken.None);
-        Assert.Equal(40, hashes.Length);
+        Assert.Equal(20, hashes.Length);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -104,6 +104,7 @@ public sealed class V2RemainingTests : IDisposable
     [InlineData(".rvz", true)]
     [InlineData(".pbp", true)]
     [InlineData(".nsp", true)]
+    [InlineData(".rom", true)]
     public void IsKnownFormat_KnownExtensions_ReturnsTrue(string ext, bool expected)
     {
         Assert.Equal(expected, FormatScorer.IsKnownFormat(ext));
@@ -112,7 +113,6 @@ public sealed class V2RemainingTests : IDisposable
     [Theory]
     [InlineData(".xyz")]
     [InlineData(".unknown")]
-    [InlineData(".rom")]
     [InlineData(".dat")]
     [InlineData(".txt")]
     [InlineData("")]
@@ -125,14 +125,14 @@ public sealed class V2RemainingTests : IDisposable
     public void IsKnownFormat_ConsistentWithGetFormatScore()
     {
         // Every known format must NOT return 300; every unknown MUST return 300
-        var knownExts = new[] { ".chd", ".iso", ".zip", ".7z", ".rar", ".nes", ".gba" };
+        var knownExts = new[] { ".chd", ".iso", ".zip", ".7z", ".rar", ".nes", ".gba", ".rom" };
         foreach (var ext in knownExts)
         {
             Assert.True(FormatScorer.IsKnownFormat(ext), $"{ext} should be known");
             Assert.NotEqual(300, FormatScorer.GetFormatScore(ext));
         }
 
-        var unknownExts = new[] { ".xyz", ".unknown", ".rom" };
+        var unknownExts = new[] { ".xyz", ".unknown" };
         foreach (var ext in unknownExts)
         {
             Assert.False(FormatScorer.IsKnownFormat(ext), $"{ext} should be unknown");

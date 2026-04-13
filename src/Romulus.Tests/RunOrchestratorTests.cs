@@ -1270,6 +1270,7 @@ public class RunOrchestratorTests : IDisposable
         public bool IsReparsePoint(string path) => false;
         public void DeleteFile(string path) { }
         public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) { }
+        public void WriteAllText(string path, string content) { }
     }
 
     private sealed class FakeAuditStore : IAuditStore

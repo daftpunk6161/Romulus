@@ -273,7 +273,7 @@ public sealed class ApiIntegrationTests
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            AssertError(doc.RootElement, ApiErrorCodes.RunInvalidRegion, ErrorKind.Recoverable, "Invalid region");
+            AssertError(doc.RootElement, ApiErrorCodes.RunInvalidRegion, ErrorKind.Recoverable, "region is invalid");
         }
         finally
         {

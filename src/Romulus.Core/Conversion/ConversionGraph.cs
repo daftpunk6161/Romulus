@@ -112,7 +112,10 @@ public sealed class ConversionGraph(IReadOnlyList<ConversionCapability> capabili
 
             // TASK-056: Block Lossy→Lossy conversion paths — a lossy source must not be
             // fed through another lossy conversion step (e.g. CSO→WBFS, NKit→GCZ).
-            if (sourceIntegrity == SourceIntegrity.Lossy && !capability.Lossless)
+            // Exception: expansion steps (command "expand") are always allowed because
+            // they recover data from a compressed/lossy format into a usable container.
+            if (sourceIntegrity == SourceIntegrity.Lossy && !capability.Lossless
+                && !string.Equals(capability.Command, "expand", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             yield return capability;

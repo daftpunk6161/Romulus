@@ -15,7 +15,7 @@ namespace Romulus.Api;
 /// Manages run lifecycle: creation (singleton), execution, cancellation, results.
 /// Now delegates to RunOrchestrator for the actual pipeline.
 /// </summary>
-public sealed class RunManager : IDisposable
+public sealed class RunManager : IDisposable, IAsyncDisposable
 {
     private readonly RunLifecycleManager _lifecycle;
     private readonly IRunOptionsFactory _runOptionsFactory;
@@ -82,20 +82,30 @@ public sealed class RunManager : IDisposable
     /// </summary>
     public Task ShutdownAsync() => _lifecycle.ShutdownAsync();
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (_disposed)
             return;
 
         try
         {
-            ShutdownAsync().GetAwaiter().GetResult();
+            await ShutdownAsync().ConfigureAwait(false);
         }
         catch (Exception)
         {
             // best-effort shutdown on host dispose
         }
 
+        _disposed = true;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        // Synchronous fallback: the host should prefer DisposeAsync.
+        // Mark disposed without blocking on async shutdown.
         _disposed = true;
     }
 
