@@ -1,5 +1,6 @@
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.FileSystem;
+using System.Text.Json;
 
 namespace Romulus.Infrastructure.Audit;
 
@@ -9,6 +10,39 @@ namespace Romulus.Infrastructure.Audit;
 /// </summary>
 public static class RollbackService
 {
+    private static int CountAffectedRollbackRows(string auditPath)
+    {
+        if (!File.Exists(auditPath))
+            return 1;
+
+        try
+        {
+            using var stream = new FileStream(auditPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+
+            // Skip CSV header row if present.
+            _ = reader.ReadLine();
+
+            var count = 0;
+            while (!reader.EndOfStream)
+            {
+                var line = reader.ReadLine();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var fields = AuditCsvParser.ParseCsvLine(line);
+                if (fields.Length >= 4)
+                    count++;
+            }
+
+            return Math.Max(1, count);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 1;
+        }
+    }
+
     private static AuditRollbackRootSet ResolveRootSet(string auditPath, IReadOnlyList<string> fallbackRoots)
     {
         var resolved = AuditRollbackRootResolver.Resolve(auditPath);
@@ -42,12 +76,12 @@ public static class RollbackService
             {
                 signingService.VerifyMetadataSidecar(auditPath);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException or JsonException)
             {
                 return new AuditRollbackResult
                 {
                     AuditCsvPath = auditPath,
-                    Failed = 1,
+                    Failed = CountAffectedRollbackRows(auditPath),
                     DryRun = false
                 };
             }

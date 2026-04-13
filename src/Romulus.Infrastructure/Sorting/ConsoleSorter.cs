@@ -628,7 +628,10 @@ public sealed class ConsoleSorter
             return;
 
         var sourceDirectory = Path.GetDirectoryName(sourcePlaylistPath) ?? string.Empty;
-        var memberRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var relativeRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var absoluteRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var fileNameRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var ambiguousFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (source, destination) in completedMoves.Skip(1))
         {
@@ -636,18 +639,39 @@ public sealed class ConsoleSorter
             if (string.IsNullOrWhiteSpace(destinationFileName))
                 continue;
 
-            var sourceRelative = Path.GetRelativePath(sourceDirectory, source).Replace('/', '\\');
-            if (!string.IsNullOrWhiteSpace(sourceRelative))
-                memberRenameMap[sourceRelative] = destinationFileName;
+            if (!TryResolveM3uEntryAbsolutePath(sourceDirectory, source, out var sourceAbsolute))
+                continue;
 
-            memberRenameMap[Path.GetFileName(source)] = destinationFileName;
-            memberRenameMap[source.Replace('/', '\\')] = destinationFileName;
+            absoluteRenameMap[sourceAbsolute] = destinationFileName;
+
+            var sourceRelative = Path.GetRelativePath(sourceDirectory, sourceAbsolute).Replace('/', '\\');
+            if (!string.IsNullOrWhiteSpace(sourceRelative))
+                relativeRenameMap[sourceRelative] = destinationFileName;
+
+            var sourceFileName = Path.GetFileName(sourceAbsolute);
+            if (!string.IsNullOrWhiteSpace(sourceFileName))
+            {
+                if (!fileNameRenameMap.TryAdd(sourceFileName, destinationFileName))
+                    ambiguousFileNames.Add(sourceFileName);
+            }
         }
 
-        if (memberRenameMap.Count == 0)
+        foreach (var ambiguousFileName in ambiguousFileNames)
+            fileNameRenameMap.Remove(ambiguousFileName);
+
+        if (relativeRenameMap.Count == 0 && absoluteRenameMap.Count == 0 && fileNameRenameMap.Count == 0)
             return;
 
-        var lines = File.ReadAllLines(movedPlaylistPath);
+        string[] lines;
+        try
+        {
+            lines = File.ReadAllLines(movedPlaylistPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
@@ -656,14 +680,54 @@ public sealed class ConsoleSorter
                 continue;
 
             var normalized = trimmed.Replace('/', '\\');
-            if (memberRenameMap.TryGetValue(normalized, out var replacement)
-                || memberRenameMap.TryGetValue(Path.GetFileName(normalized), out replacement))
+
+            if (relativeRenameMap.TryGetValue(normalized, out var replacement))
+            {
+                lines[i] = replacement;
+                continue;
+            }
+
+            if (TryResolveM3uEntryAbsolutePath(sourceDirectory, normalized, out var absolutePath)
+                && absoluteRenameMap.TryGetValue(absolutePath, out replacement))
+            {
+                lines[i] = replacement;
+                continue;
+            }
+
+            var fileName = Path.GetFileName(normalized);
+            if (!string.IsNullOrWhiteSpace(fileName)
+                && fileNameRenameMap.TryGetValue(fileName, out replacement))
             {
                 lines[i] = replacement;
             }
         }
 
-        File.WriteAllLines(movedPlaylistPath, lines);
+        try
+        {
+            File.WriteAllLines(movedPlaylistPath, lines);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Keep the original playlist content when rewrite is not possible.
+        }
+    }
+
+    private static bool TryResolveM3uEntryAbsolutePath(string sourceDirectory, string entry, out string absolutePath)
+    {
+        absolutePath = string.Empty;
+
+        try
+        {
+            var candidatePath = Path.IsPathRooted(entry)
+                ? entry
+                : Path.Combine(sourceDirectory, entry);
+            absolutePath = Path.GetFullPath(candidatePath).Replace('/', '\\');
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
     }
 
     internal static bool IsInExcludedFolder(string filePath, string root)

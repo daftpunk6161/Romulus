@@ -200,12 +200,12 @@
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs` (Zeilen 72, 150, 180+)
   - **Fix:** Constants oder Enum-Lookup.
 
-- [ ] **C-15 (P3): RollbackService — Failed zählt nur 1 statt tatsächliche Fehleranzahl**
+- [x] **C-15 (P3): RollbackService — Failed zählt nur 1 statt tatsächliche Fehleranzahl**
   - **Impact:** Bei 100 Dateien rollback, davon 5 failed → `Failed = 1`. Client kann nicht unterscheiden.
   - **Datei:** `src/Romulus.Infrastructure/Audit/RollbackService.cs` (Zeilen 17-32)
   - **Fix:** Tatsächliche Fehleranzahl zählen und zurückgeben.
 
-- [ ] **C-16 (P3): M3U-Rewrite-Logik fragil in ConsoleSorter**
+- [x] **C-16 (P3): M3U-Rewrite-Logik fragil in ConsoleSorter**
   - **Impact:** Nach Member-Move werden M3U-Einträge rewritten. Mehrere Matching-Strategien (relativ/absolut). Risiko: Playlist-Korruption bei Symlinks/UNC.
   - **Datei:** `src/Romulus.Infrastructure/Sorting/ConsoleSorter.cs`
   - **Fix:** Robusteren Playlist-Parser mit defensivem Fallback.
@@ -216,37 +216,54 @@
   - **Verifiziert durch:** `AuditCDRedTests.C13_RegionPreferenceAccess_MustUseDictionaryMapping`
 - [x] **C-14** umgesetzt in `MainViewModel` + `MainViewModel.RunPipeline`: zentrale Nav-Tag-Konstanten (`NavTagConfig`, `NavTagLibrary`, `NavTagTools`, `NavTagMissionControl`) statt harter Strings.
   - **Verifiziert durch:** `AuditCDRedTests.C14_MainViewModel_NavigationCommands_MustUseNamedTagConstants`
+- [x] **C-15** umgesetzt in `RollbackService` + `AuditSigningService`: Integritätsabbruch zählt parsebare Audit-Rows statt fixem `Failed = 1`, inkl. Json-Sidecar-Failure-Handling.
+  - **Verifiziert durch:** `AuditCDRedTests.C15_RollbackService_IntegrityFailure_MustReportAffectedRowCount`, `GuiViewModelTests.RollbackService_Execute_BlocksTamperedSignedAudit`
+- [x] **C-16** umgesetzt in `ConsoleSorter`: M3U-Rewrite trennt relative/absolute/unique-filename-Mapping und vermeidet Kollisionen bei gleichnamigen Set-Membern.
+  - **Verifiziert durch:** `AuditCDRedTests.C16_M3uRewrite_MustNotCollapseDistinctRelativeEntriesOnNameCollision`, `TrackerAllFindingsBatch3RedTests.Sort02_M3uPlaylist_MustBeRewrittenAfterAtomicSetMove`
 
 ---
 
 ## D. Doppelte Logik / Schattenlogik
 
-- [ ] **D-1 (P1): ProfileId/WorkflowScenarioId fehlen in Explicitness**
+- [x] **D-1 (P1): ProfileId/WorkflowScenarioId fehlen in Explicitness**
   - **Impact:** Wenn User explizit `--profile` in CLI oder `profileId` in API sendet, erkennt der Materializer es nicht als explizit. Settings-Defaults könnten User-Intent überschreiben.
   - **Dateien:** `src/Romulus.Api/ApiRunConfigurationMapper.cs` (Zeilen 39-67), `src/Romulus.CLI/CliOptionsMapper.cs` (Zeilen 85-95)
   - **Fix:** `ProfileId` und `WorkflowScenarioId` zu `RunConfigurationExplicitness` in beiden Mappern hinzufügen.
   - **Test:** Expliziter `--profile` → Materializer respektiert User-Intent, überschreibt nicht mit Default.
   - **Label:** `Parity Risk`
 
-- [ ] **D-2 (P2): CLI/API Asymmetrie bei Extensions-Normalisierung**
+- [x] **D-2 (P2): CLI/API Asymmetrie bei Extensions-Normalisierung**
   - **Impact:** CLI validiert erst (muss mit `.` starten), normalisiert dann (fügt `.` hinzu falls fehlt). API normalisiert über Materializer. Redundant aber safe — verschiedene Codepfade.
   - **Dateien:** `src/Romulus.CLI/CliArgsParser.cs` (Zeile 225), `src/Romulus.Api/ApiRunConfigurationMapper.cs` (Zeilen 114-120)
   - **Fix:** Zentrale Extension-Normalisierung in einem Shared Helper.
 
-- [ ] **D-3 (P2): BuildConversionReviewEntries dupliciert RunEnvironmentBuilder-Instanziierung**
+- [x] **D-3 (P2): BuildConversionReviewEntries dupliciert RunEnvironmentBuilder-Instanziierung**
   - **Impact:** VM-lokale Service-Instanziierung statt DI-Injection. Duplizierte Initialization.
   - **Datei:** `src/Romulus.UI.Wpf/ViewModels/MainViewModel.RunPipeline.cs` (Zeilen 1115-1151)
   - **Fix:** Via injizierten Service lösen statt lokale Erzeugung.
 
-- [ ] **D-4 (P3): VersionScorer Regex-Timeout Silent Catch**
+- [x] **D-4 (P3): VersionScorer Regex-Timeout Silent Catch**
   - **Impact:** Wenn RegexMatchTimeoutException auftritt, wird Version-Scoring partial — kein Warning, kein Log.
   - **Datei:** `src/Romulus.Core/Scoring/VersionScorer.cs` (Zeile 168)
   - **Fix:** Mindestens Trace-Warning loggen.
 
-- [ ] **D-5 (P3): GameKeyNormalizer DOS-Iteration-Cap nur Trace-Warning**
+- [x] **D-5 (P3): GameKeyNormalizer DOS-Iteration-Cap nur Trace-Warning**
   - **Impact:** Bei MaxDosMetadataStripIterations = 50 Limit: Key nur partial gestrippt, nur Trace-Log.
   - **Datei:** `src/Romulus.Core/GameKeys/GameKeyNormalizer.cs` (Zeile 309)
   - **Fix:** Warning-Level Log oder Rückgabeflag setzen.
+
+### Verifikation D (2026-04-13)
+
+- [x] **D-1** umgesetzt in `RunConfigurationExplicitness` + API/CLI Mapper.
+  - **Verifiziert durch:** `AuditCDRedTests.D01_RunConfigurationExplicitness_IncludesWorkflowAndProfileFlags`
+- [x] **D-2** umgesetzt via zentrale Extension-Normalisierung im CLI-Pfad.
+  - **Verifiziert durch:** `AuditCDRedTests.D02_CliParser_UsesSharedExtensionNormalizer`
+- [x] **D-3** umgesetzt via Delegation an `IRunService.BuildConversionReviewEntries`.
+  - **Verifiziert durch:** `AuditCDRedTests.D03_ConversionReviewEntries_AreDelegatedToRunService`
+- [x] **D-4** umgesetzt mit Warning-Trace bei Regex-Timeout in `VersionScorer`.
+  - **Verifiziert durch:** `AuditCDRedTests.D04_VersionScorer_RegexTimeoutCatch_LogsWarning`, `VersionScorerTests`
+- [x] **D-5** umgesetzt mit Warning-Level für Iteration-Cap in `GameKeyNormalizer`.
+  - **Verifiziert durch:** `AuditCDRedTests.D05_GameKeyNormalizer_IterationCap_UsesTraceWarning`, `GameKeyNormalizerCoverageTests`
 
 ---
 

@@ -250,14 +250,14 @@ public sealed class AuditSigningService
             {
                 VerifyMetadataSidecar(auditCsvPath);
             }
-            catch (Exception ex) when (ex is FileNotFoundException or InvalidDataException or IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is FileNotFoundException or InvalidDataException or IOException or UnauthorizedAccessException or JsonException)
             {
                 _log?.Invoke($"Audit integrity check failed: {ex.Message}");
                 return new AuditRollbackResult
                 {
                     AuditCsvPath = auditCsvPath,
                     DryRun = dryRun,
-                    Failed = 1
+                    Failed = Math.Max(1, CountAuditDataRows(auditCsvPath))
                 };
             }
         }
@@ -268,7 +268,7 @@ public sealed class AuditSigningService
             {
                 AuditCsvPath = auditCsvPath,
                 DryRun = dryRun,
-                Failed = 1
+                Failed = Math.Max(1, CountAuditDataRows(auditCsvPath))
             };
         }
 
@@ -586,6 +586,29 @@ public sealed class AuditSigningService
         }
 
         return false;
+    }
+
+    private static int CountAuditDataRows(string auditCsvPath)
+    {
+        using var stream = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        // Skip header row.
+        _ = reader.ReadLine();
+
+        var count = 0;
+        while (!reader.EndOfStream)
+        {
+            var line = reader.ReadLine();
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var fields = AuditCsvParser.ParseCsvLine(line);
+            if (fields.Length >= 4)
+                count++;
+        }
+
+        return count;
     }
 
     private static IEnumerable<string> ReadAuditRowsReverse(string auditCsvPath)

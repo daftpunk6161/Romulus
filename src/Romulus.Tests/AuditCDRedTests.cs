@@ -1,6 +1,10 @@
 using System.Text.RegularExpressions;
 using Romulus.Contracts.Models;
+using Romulus.Core.Classification;
 using Romulus.Core.Conversion;
+using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
+using Romulus.Infrastructure.Sorting;
 using Romulus.UI.Wpf.ViewModels;
 using Xunit;
 
@@ -167,6 +171,115 @@ public sealed class AuditCDRedTests
     }
 
     [Fact]
+    public void C15_RollbackService_IntegrityFailure_MustReportAffectedRowCount()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "Romulus_C15_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var auditPath = Path.Combine(tempDir, "audit.csv");
+            var keyPath = Path.Combine(tempDir, "audit-signing.key");
+            var store = new AuditCsvStore(keyFilePath: keyPath);
+
+            for (var i = 1; i <= 3; i++)
+            {
+                store.AppendAuditRow(
+                    auditPath,
+                    tempDir,
+                    Path.Combine(tempDir, $"old{i}.rom"),
+                    Path.Combine(tempDir, $"new{i}.rom"),
+                    "Move",
+                    "GAME",
+                    string.Empty,
+                    "test");
+            }
+
+            store.WriteMetadataSidecar(auditPath, new Dictionary<string, object> { ["Mode"] = "Move" });
+
+            // Corrupt sidecar JSON so integrity verification fails before rollback starts.
+            File.WriteAllText(auditPath + ".meta.json", "{ not-valid-json }");
+
+            var result = RollbackService.Execute(auditPath, [tempDir], keyPath);
+
+            Assert.Equal(3, result.Failed);
+            Assert.Equal(0, result.RolledBack);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+            catch
+            {
+                // best effort cleanup
+            }
+        }
+    }
+
+    [Fact]
+    public void C16_M3uRewrite_MustNotCollapseDistinctRelativeEntriesOnNameCollision()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "Romulus_C16_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var root = Path.Combine(tempDir, "sort-m3u-collision");
+            var inputDir = Path.Combine(root, "Input");
+            Directory.CreateDirectory(Path.Combine(inputDir, "sub"));
+
+            var m3uPath = Path.Combine(inputDir, "Game.m3u");
+            var cuePrimary = Path.Combine(inputDir, "disc1.cue");
+            var cueSecondary = Path.Combine(inputDir, "sub", "disc1.cue");
+
+            File.WriteAllText(m3uPath, "disc1.cue\r\nsub\\disc1.cue\r\n");
+            File.WriteAllText(cuePrimary, "FILE \"disc1.bin\" BINARY");
+            File.WriteAllText(cueSecondary, "FILE \"disc1-alt.bin\" BINARY");
+
+            var sorter = new ConsoleSorter(new FileSystemAdapter(), LoadDetector());
+            var result = sorter.Sort(
+                [root],
+                [".m3u", ".cue"],
+                dryRun: false,
+                enrichedConsoleKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [m3uPath] = "PS1",
+                    [cuePrimary] = "PS1",
+                    [cueSecondary] = "PS1"
+                },
+                candidatePaths: [m3uPath, cuePrimary, cueSecondary]);
+
+            var movedPlaylist = Path.Combine(root, "PS1", "Game.m3u");
+            Assert.True(File.Exists(movedPlaylist));
+            Assert.Equal(0, result.Failed);
+
+            var lines = File.ReadAllLines(movedPlaylist)
+                .Select(static line => line.Trim())
+                .Where(static line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith('#'))
+                .ToArray();
+
+            Assert.Equal(2, lines.Length);
+            Assert.Equal(1, lines.Count(static line => line.Equals("disc1.cue", StringComparison.OrdinalIgnoreCase)));
+            Assert.Equal(1, lines.Count(static line => line.Equals("disc1__DUP1.cue", StringComparison.OrdinalIgnoreCase)));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+            catch
+            {
+                // best effort cleanup
+            }
+        }
+    }
+
+    [Fact]
     public void D01_RunConfigurationExplicitness_IncludesWorkflowAndProfileFlags()
     {
         var source = ReadSource("src/Romulus.Contracts/Models/RunConfigurationModels.cs");
@@ -225,5 +338,12 @@ public sealed class AuditCDRedTests
             dir = dir.Parent;
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not resolve repository root from test context.");
+    }
+
+    private static ConsoleDetector LoadDetector()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var consolesPath = Path.Combine(repoRoot, "data", "consoles.json");
+        return ConsoleDetector.LoadFromJson(File.ReadAllText(consolesPath));
     }
 }
