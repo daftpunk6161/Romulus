@@ -604,7 +604,7 @@ public sealed class ConsoleSorter
                 if (string.Equals(member, file, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                if (!_fs.FileExists(member))
+                if (!_fs.TestPath(member, "Leaf"))
                     continue;
 
                 if (!claimedMembers.Add(member))

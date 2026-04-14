@@ -1105,7 +1105,9 @@ internal static partial class Program
 
         try
         {
-            return RunAsync(opts).ConfigureAwait(false).GetAwaiter().GetResult();
+            var runTask = Task.Run(async () => await RunAsync(opts).ConfigureAwait(false));
+            runTask.Wait();
+            return runTask.Result;
         }
         finally
         {

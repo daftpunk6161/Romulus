@@ -85,6 +85,15 @@ public static class RunProjectionFactory
         var datMatches = candidates.Count(c => c.DatMatch);
         var filteredNonGameCount = result.FilteredNonGameCount;
 
+        var verifyDelta = result.ConvertVerifyFailedCount - result.ConvertErrorCount;
+        if (verifyDelta < 0)
+        {
+            Trace.TraceWarning(
+                "negative-verify-delta: ConvertVerifyFailedCount ({0}) is lower than ConvertErrorCount ({1}); projection fail count keeps conversion errors authoritative.",
+                result.ConvertVerifyFailedCount,
+                result.ConvertErrorCount);
+        }
+
         // FailCount: direct event-based calculation.
         // ConvertErrorCount already includes verify-fails (since verify-fail sets Outcome=Error).
         // No delta heuristic needed — each error source contributes exactly once.
