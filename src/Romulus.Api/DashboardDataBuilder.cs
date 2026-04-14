@@ -79,7 +79,11 @@ internal static class DashboardDataBuilder
         var dataDir = RunEnvironmentBuilder.TryResolveDataDir()
             ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
         var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-        var datRoot = settings.Dat?.DatRoot;
+        var datRootResolution = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: null,
+            settingsDatRoot: settings.Dat?.DatRoot,
+            dataDir: dataDir);
+        var datRoot = datRootResolution.Path;
 
         if (string.IsNullOrWhiteSpace(datRoot) || !Directory.Exists(datRoot))
         {
@@ -87,7 +91,7 @@ internal static class DashboardDataBuilder
             {
                 Configured = false,
                 DatRoot = datRoot ?? string.Empty,
-                Message = "DatRoot is not configured or does not exist.",
+                Message = "DatRoot is not configured, does not exist, or no DAT files were auto-detected.",
                 TotalFiles = 0,
                 Consoles = Array.Empty<DashboardDatConsoleStatus>(),
                 OldFileCount = 0,

@@ -99,6 +99,26 @@ public sealed partial class RunOrchestrator
         if (!options.ConvertOnly || _converter is null)
             return false;
 
+        if (options.EnableDatAudit && _datIndex is not null && candidates.Count > 0)
+        {
+            var datAuditPhase = new DatAuditPipelinePhase();
+            var datAuditContext = new PipelineContext
+            {
+                Options = options,
+                FileSystem = _fs,
+                AuditStore = _audit,
+                Metrics = metrics,
+                OnProgress = _onProgress
+            };
+
+            var datAuditResult = datAuditPhase.Execute(
+                new DatAuditInput(candidates, _datIndex, options),
+                datAuditContext,
+                cancellationToken);
+
+            pipelineState.SetDatAuditOutput(datAuditResult);
+        }
+
         ExecuteConvertOnlyPhase(processingCandidates, options, result, metrics, cancellationToken);
         result.AllCandidates = candidates;
         result.TotalFilesScanned = candidates.Count;

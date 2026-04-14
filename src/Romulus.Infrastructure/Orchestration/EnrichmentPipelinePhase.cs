@@ -722,11 +722,13 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         string hash,
         ConsoleDetectionResult? detectionResult)
     {
-        var matches = datIndex.LookupAllByHash(hash);
-        if (matches.Count == 0)
+        var matches = datIndex.LookupAllByHash(hash)
+            .Where(static match => IsUsableResolvedConsoleKey(match.ConsoleKey))
+            .ToArray();
+        if (matches.Length == 0)
             return DatUnknownResolution.NoMatch;
 
-        if (matches.Count == 1)
+        if (matches.Length == 1)
         {
             var single = matches[0];
             return new DatUnknownResolution(true, single.ConsoleKey, single.Entry.IsBios, false, single.Entry.GameName);
@@ -782,12 +784,16 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
         IReadOnlyList<(string ConsoleKey, DatIndex.DatIndexEntry Entry)> nameMatches,
         ConsoleDetectionResult? detectionResult)
     {
-        if (nameMatches.Count == 0)
+        var filteredMatches = nameMatches
+            .Where(static match => IsUsableResolvedConsoleKey(match.ConsoleKey))
+            .ToArray();
+
+        if (filteredMatches.Length == 0)
             return DatUnknownResolution.NoMatch;
 
-        if (nameMatches.Count == 1)
+        if (filteredMatches.Length == 1)
         {
-            var single = nameMatches[0];
+            var single = filteredMatches[0];
             return new DatUnknownResolution(true, single.ConsoleKey, single.Entry.IsBios, false, single.Entry.GameName);
         }
 
@@ -795,7 +801,7 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
             return DatUnknownResolution.NoMatch;
 
         var matchMap = new Dictionary<string, DatIndex.DatIndexEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (consoleKey, entry) in nameMatches)
+        foreach (var (consoleKey, entry) in filteredMatches)
         {
             if (!matchMap.ContainsKey(consoleKey))
                 matchMap[consoleKey] = entry;
@@ -822,6 +828,11 @@ public sealed class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentPhaseInpu
 
         return new DatUnknownResolution(true, selectedKey, matchMap[selectedKey].IsBios, true, matchMap[selectedKey].GameName);
     }
+
+    private static bool IsUsableResolvedConsoleKey(string? consoleKey)
+        => !string.IsNullOrWhiteSpace(consoleKey)
+           && !consoleKey.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase)
+           && !consoleKey.Equals("AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
 
     internal static PlatformFamily ResolveFamily(
         ConsoleDetector? consoleDetector,

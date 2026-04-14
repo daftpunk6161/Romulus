@@ -427,9 +427,10 @@ public sealed partial class MainViewModel
             KeepUnknownWhenOnlyGames = draft.KeepUnknownWhenOnlyGames ?? KeepUnknownWhenOnlyGames;
             AggressiveJunk = draft.AggressiveJunk ?? AggressiveJunk;
             SortConsole = draft.SortConsole ?? SortConsole;
-            UseDat = draft.EnableDat ?? UseDat;
-            EnableDatAudit = (draft.EnableDat ?? UseDat) && (draft.EnableDatAudit ?? false);
-            EnableDatRename = (draft.EnableDat ?? UseDat) && (draft.EnableDatRename ?? false);
+            var effectiveEnableDat = draft.EnableDat ?? UseDat;
+            UseDat = effectiveEnableDat;
+            EnableDatAudit = effectiveEnableDat && (draft.EnableDatAudit ?? EnableDatAudit);
+            EnableDatRename = effectiveEnableDat && (draft.EnableDatRename ?? EnableDatRename);
             DatRoot = draft.DatRoot ?? string.Empty;
             DatHashType = draft.HashType ?? RunConstants.DefaultHashType;
             ConvertEnabled = !string.IsNullOrWhiteSpace(draft.ConvertFormat);

@@ -383,6 +383,25 @@ public class DatSourceServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadDatAsync_VerificationFailure_PreservesExistingTargetFile()
+    {
+        var existingPath = Path.Combine(_tempDir, "existing.dat");
+        File.WriteAllText(existingPath, "trusted-old-content");
+
+        var newContent = "<?xml version=\"1.0\"?><datafile><header><name>new</name></header></datafile>";
+        var handler = new ContentHandler(newContent);
+        using var httpClient = new HttpClient(handler);
+        using var svc = new DatSourceService(_tempDir, httpClient: httpClient);
+
+        var wrongSha256 = new string('0', 64);
+        var result = await svc.DownloadDatAsync("https://example.invalid/test.dat", "existing.dat", wrongSha256);
+
+        Assert.Null(result);
+        Assert.True(File.Exists(existingPath));
+        Assert.Equal("trusted-old-content", File.ReadAllText(existingPath));
+    }
+
+    [Fact]
     public async Task DownloadDatAsync_ContentLengthExceedsLimit_ReturnsNull()
     {
         var handler = new OversizedContentLengthHandler();

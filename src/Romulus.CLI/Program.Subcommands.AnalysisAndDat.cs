@@ -169,7 +169,7 @@ internal static partial class Program
             using var env = runEnvironmentFactory.Create(runOptions, SafeErrorWriteLine);
             if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
             {
-                SafeErrorWriteLine("[Error] No DAT index available. Configure DatRoot in settings or use --dat-root.");
+                SafeErrorWriteLine("[Error] No DAT index available. Import DAT files or configure DatRoot in settings.");
                 return 1;
             }
 
@@ -274,7 +274,7 @@ internal static partial class Program
             using var env = runEnvironmentFactory.Create(runOptions, SafeErrorWriteLine);
             if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
             {
-                SafeErrorWriteLine("[Error] No DAT index available. Configure DatRoot in settings or use --dat-root.");
+                SafeErrorWriteLine("[Error] No DAT index available. Import DAT files or configure DatRoot in settings.");
                 return 1;
             }
 

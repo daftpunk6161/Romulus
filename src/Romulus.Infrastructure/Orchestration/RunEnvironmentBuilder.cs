@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
@@ -15,6 +16,7 @@ using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Hashing;
 using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Logging;
+using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Tools;
 using IO = Romulus.Infrastructure.IO;
 
@@ -27,6 +29,27 @@ namespace Romulus.Infrastructure.Orchestration;
 /// </summary>
 public sealed class RunEnvironmentBuilder
 {
+    private static readonly Regex RxValidRuntimeConsoleKey = new(@"^[A-Z0-9_-]+$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex RxTrailingDescriptorSuffix = new(@"\s*[\(\[][^\)\]]*[\)\]]\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
+    public enum DatRootResolutionSource
+    {
+        None = 0,
+        RunOption = 1,
+        Settings = 2,
+        CatalogState = 3,
+        ConventionalPath = 4
+    }
+
+    public readonly record struct DatRootResolution(
+        string? Path,
+        DatRootResolutionSource Source);
+
     /// <summary>
     /// Try to resolve the data/ directory without throwing.
     /// Returns null when no candidate directory exists.
@@ -128,6 +151,294 @@ public sealed class RunEnvironmentBuilder
         return SettingsLoader.LoadDefaultsOnly(defaults);
     }
 
+    public static DatRootResolution ResolveEffectiveDatRoot(
+        RunOptions runOptions,
+        RomulusSettings settings,
+        string dataDir)
+    {
+        ArgumentNullException.ThrowIfNull(runOptions);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return ResolveEffectiveDatRoot(runOptions.DatRoot, settings.Dat.DatRoot, dataDir);
+    }
+
+    public static DatRootResolution ResolveEffectiveDatRoot(
+        string? runOptionDatRoot,
+        string? settingsDatRoot,
+        string dataDir)
+    {
+        string? statePath = null;
+        try
+        {
+            statePath = DatCatalogStateService.GetDefaultStatePath();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            statePath = null;
+        }
+
+        return ResolveEffectiveDatRoot(runOptionDatRoot, settingsDatRoot, dataDir, statePath);
+    }
+
+    internal static DatRootResolution ResolveEffectiveDatRoot(
+        string? runOptionDatRoot,
+        string? settingsDatRoot,
+        string dataDir,
+        string? statePath)
+    {
+        if (TryNormalizeExistingDirectory(runOptionDatRoot, out var explicitDatRoot))
+            return new DatRootResolution(explicitDatRoot, DatRootResolutionSource.RunOption);
+
+        string? configuredDatRootWithoutDatFiles = null;
+        if (TryNormalizeExistingDirectory(settingsDatRoot, out var configuredDatRoot))
+        {
+            if (DirectoryHasDatCandidates(configuredDatRoot))
+                return new DatRootResolution(configuredDatRoot, DatRootResolutionSource.Settings);
+
+            configuredDatRootWithoutDatFiles = configuredDatRoot;
+        }
+
+        if (TryAutoDetectDatRoot(dataDir, statePath, out var autoDetectedDatRoot, out var autoSource))
+            return new DatRootResolution(autoDetectedDatRoot, autoSource);
+
+        if (configuredDatRootWithoutDatFiles is not null)
+            return new DatRootResolution(configuredDatRootWithoutDatFiles, DatRootResolutionSource.Settings);
+
+        return new DatRootResolution(null, DatRootResolutionSource.None);
+    }
+
+    private static bool TryNormalizeExistingDirectory(string? rawPath, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(rawPath))
+            return false;
+
+        try
+        {
+            var full = Path.GetFullPath(rawPath.Trim());
+            if (!Directory.Exists(full))
+                return false;
+
+            normalizedPath = full;
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryAutoDetectDatRoot(
+        string dataDir,
+        string? statePath,
+        out string datRoot,
+        out DatRootResolutionSource source)
+    {
+        datRoot = string.Empty;
+        source = DatRootResolutionSource.None;
+
+        foreach (var candidate in EnumerateStateBackedDatRootCandidates(statePath))
+        {
+            if (!DirectoryHasDatCandidates(candidate))
+                continue;
+
+            datRoot = candidate;
+            source = DatRootResolutionSource.CatalogState;
+            return true;
+        }
+
+        foreach (var candidate in EnumerateConventionalDatRootCandidates(dataDir))
+        {
+            if (!DirectoryHasDatCandidates(candidate))
+                continue;
+
+            datRoot = candidate;
+            source = DatRootResolutionSource.ConventionalPath;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool DirectoryHasDatCandidates(string directoryPath)
+    {
+        try
+        {
+            return DatCatalogStateService.EnumerateLocalDatFilesSafe(directoryPath).Count > 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateStateBackedDatRootCandidates(string? statePath)
+    {
+        if (string.IsNullOrWhiteSpace(statePath))
+            yield break;
+
+        DatCatalogState state;
+        try
+        {
+            state = DatCatalogStateService.LoadState(statePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            yield break;
+        }
+
+        if (state.Entries.Count == 0)
+            yield break;
+
+        var directories = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var localPath in state.Entries.Values
+                     .Select(static info => info.LocalPath)
+                     .Where(static path => !string.IsNullOrWhiteSpace(path))
+                     .Order(StringComparer.OrdinalIgnoreCase))
+        {
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(localPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+
+            if (!File.Exists(fullPath))
+                continue;
+
+            if (!fullPath.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
+                && !fullPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var parentDirectory = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
+                continue;
+
+            directories[parentDirectory] = directories.TryGetValue(parentDirectory, out var count)
+                ? count + 1
+                : 1;
+        }
+
+        if (directories.Count == 0)
+            yield break;
+
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var commonDirectory = TryResolveCommonDirectory(directories.Keys);
+        if (commonDirectory is not null && yielded.Add(commonDirectory))
+            yield return commonDirectory;
+
+        foreach (var directory in directories
+                     .OrderByDescending(static pair => pair.Value)
+                     .ThenBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                     .Select(static pair => pair.Key))
+        {
+            if (yielded.Add(directory))
+                yield return directory;
+        }
+    }
+
+    private static string? TryResolveCommonDirectory(IEnumerable<string> paths)
+    {
+        var orderedPaths = paths
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (orderedPaths.Length < 2)
+            return null;
+
+        var common = orderedPaths[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (var index = 1; index < orderedPaths.Length; index++)
+        {
+            var current = orderedPaths[index].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            while (!string.IsNullOrWhiteSpace(common) && !IsSameOrNestedPath(current, common))
+                common = Path.GetDirectoryName(common);
+
+            if (string.IsNullOrWhiteSpace(common))
+                return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(common))
+            return null;
+
+        var normalized = common.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = Path.GetPathRoot(normalized)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!string.IsNullOrWhiteSpace(root)
+            && string.Equals(normalized, root, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return Directory.Exists(normalized) ? normalized : null;
+    }
+
+    private static bool IsSameOrNestedPath(string candidatePath, string rootPath)
+    {
+        var candidate = Path.GetFullPath(candidatePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = Path.GetFullPath(rootPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return candidate.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> EnumerateConventionalDatRootCandidates(string dataDir)
+    {
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var ordered = new List<string>();
+
+        void YieldCandidate(string? rawPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath))
+                return;
+
+            try
+            {
+                var fullPath = Path.GetFullPath(rawPath);
+                if (Directory.Exists(fullPath) && yielded.Add(fullPath))
+                    ordered.Add(fullPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                // ignore invalid candidate
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(dataDir))
+        {
+            YieldCandidate(Path.Combine(dataDir, "dats"));
+            var dataParent = Path.GetDirectoryName(Path.GetFullPath(dataDir));
+            if (!string.IsNullOrWhiteSpace(dataParent))
+                YieldCandidate(Path.Combine(dataParent, "dats"));
+        }
+
+        try { YieldCandidate(AppStoragePathResolver.ResolveRoamingPath("dats")); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // ignore inaccessible application storage candidates
+        }
+
+        try { YieldCandidate(AppStoragePathResolver.ResolveLocalPath("dats")); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // ignore inaccessible application storage candidates
+        }
+
+        foreach (var candidate in ordered)
+            yield return candidate;
+    }
+
     /// <summary>
     /// Build complete environment for a run.
     /// </summary>
@@ -214,9 +525,8 @@ public sealed class RunEnvironmentBuilder
         FileHashService? hashService = null;
         ICollectionIndex? collectionIndex = null;
         var knownBiosHashes = LoadKnownBiosHashes(dataDir, onWarning);
-        var effectiveDatRoot = !string.IsNullOrWhiteSpace(runOptions.DatRoot)
-            ? runOptions.DatRoot
-            : settings.Dat.DatRoot;
+        var datRootResolution = ResolveEffectiveDatRoot(runOptions, settings, dataDir);
+        var effectiveDatRoot = datRootResolution.Path;
         Dictionary<string, string>? datConsoleMap = null;
 
         try
@@ -252,10 +562,26 @@ public sealed class RunEnvironmentBuilder
                 : new FileHashService(persistentCachePath: FileHashService.ResolveDefaultPersistentCachePath());
         }
 
+        if (runOptions.EnableDat
+            && !string.IsNullOrWhiteSpace(effectiveDatRoot)
+            && (datRootResolution.Source is DatRootResolutionSource.CatalogState or DatRootResolutionSource.ConventionalPath))
+        {
+            var sourceLabel = datRootResolution.Source == DatRootResolutionSource.CatalogState
+                ? "dat-catalog-state"
+                : "konventioneller Pfad";
+            onWarning?.Invoke($"[DAT] DatRoot automatisch erkannt ({sourceLabel}): '{effectiveDatRoot}'");
+        }
+
         if (runOptions.EnableDat && !string.IsNullOrWhiteSpace(effectiveDatRoot) && Directory.Exists(effectiveDatRoot))
         {
             var datRepo = new DatRepositoryAdapter(toolRunner: toolRunner);
             datConsoleMap = BuildConsoleMap(dataDir, effectiveDatRoot, out var supplementalDats);
+            NormalizeRuntimeDatMappings(
+                datConsoleMap,
+                supplementalDats,
+                consoleDetector,
+                effectiveDatRoot,
+                onWarning);
 
             // Bridge unmapped consoles via datSources aliases (e.g. ARCADE → MAME DAT)
             if (consoleDetector is not null)
@@ -299,7 +625,7 @@ public sealed class RunEnvironmentBuilder
         }
         else if (runOptions.EnableDat)
         {
-            onWarning?.Invoke("[Warning] DAT enabled but DatRoot not set or not found");
+            onWarning?.Invoke("[Warning] DAT enabled but DatRoot not set or not found (auto-detection found no DAT root)");
         }
 
         var enrichmentFingerprint = ComputeEnrichmentFingerprint(
@@ -491,6 +817,354 @@ public sealed class RunEnvironmentBuilder
 
         return map;
     }
+
+    internal static void NormalizeRuntimeDatMappings(
+        Dictionary<string, string> map,
+        Dictionary<string, List<string>> supplementalDats,
+        ConsoleDetector? consoleDetector,
+        string datRoot,
+        Action<string>? onWarning)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        ArgumentNullException.ThrowIfNull(supplementalDats);
+
+        if (map.Count == 0 && supplementalDats.Count == 0)
+            return;
+
+        var combined = map
+            .Select(static entry => (SourceKey: entry.Key, DatPath: entry.Value))
+            .Concat(supplementalDats
+                .OrderBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .SelectMany(static pair => pair.Value.Select(path => (SourceKey: pair.Key, DatPath: path))))
+            .Where(static entry =>
+                !string.IsNullOrWhiteSpace(entry.SourceKey) &&
+                !string.IsNullOrWhiteSpace(entry.DatPath))
+            .OrderBy(static entry => entry.SourceKey, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static entry => entry.DatPath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var normalizedMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var normalizedSupplementals = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var droppedMappings = 0;
+        var remappedKeys = 0;
+
+        foreach (var (sourceKey, datPath) in combined)
+        {
+            var canonicalKey = ResolveRuntimeDatConsoleKey(sourceKey, datPath, datRoot, consoleDetector);
+            if (string.IsNullOrWhiteSpace(canonicalKey))
+            {
+                droppedMappings++;
+                continue;
+            }
+
+            if (!sourceKey.Equals(canonicalKey, StringComparison.OrdinalIgnoreCase))
+                remappedKeys++;
+
+            if (!normalizedMap.TryGetValue(canonicalKey, out var primaryPath))
+            {
+                normalizedMap[canonicalKey] = datPath;
+                continue;
+            }
+
+            if (string.Equals(primaryPath, datPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!normalizedSupplementals.TryGetValue(canonicalKey, out var list))
+            {
+                list = new List<string>();
+                normalizedSupplementals[canonicalKey] = list;
+            }
+
+            if (!list.Contains(datPath, StringComparer.OrdinalIgnoreCase))
+                list.Add(datPath);
+        }
+
+        if (droppedMappings > 0)
+        {
+            onWarning?.Invoke(
+                $"[DAT] {droppedMappings} DAT-Zuordnung(en) ohne aufloesbaren ConsoleKey ignoriert (verhindert UNKNOWN-Routing durch Phantom-Keys).");
+        }
+
+        if (remappedKeys > 0)
+            onWarning?.Invoke($"[DAT] {remappedKeys} DAT-Zuordnung(en) auf kanonische ConsoleKeys normalisiert.");
+
+        map.Clear();
+        foreach (var entry in normalizedMap)
+            map[entry.Key] = entry.Value;
+
+        supplementalDats.Clear();
+        foreach (var entry in normalizedSupplementals)
+            supplementalDats[entry.Key] = entry.Value
+                .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+    }
+
+    internal static string? ResolveRuntimeDatConsoleKey(
+        string sourceKey,
+        string datPath,
+        string datRoot,
+        ConsoleDetector? consoleDetector)
+    {
+        if (string.IsNullOrWhiteSpace(sourceKey))
+            return null;
+
+        var trimmedKey = sourceKey.Trim();
+        if (IsRuntimeSentinelConsoleKey(trimmedKey))
+            return null;
+
+        if (consoleDetector is not null)
+        {
+            var directConsole = consoleDetector.GetConsole(trimmedKey);
+            if (directConsole is not null)
+                return directConsole.Key;
+
+            foreach (var descriptor in EnumerateRuntimeConsoleDescriptors(trimmedKey, datPath, datRoot))
+            {
+                var resolved = ResolveConsoleKeyFromDescriptor(consoleDetector, descriptor);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                    return resolved;
+            }
+        }
+
+        var uppercaseKey = trimmedKey.ToUpperInvariant();
+        if (IsRuntimeSentinelConsoleKey(uppercaseKey))
+            return null;
+
+        return IsValidRuntimeConsoleKey(uppercaseKey) ? uppercaseKey : null;
+    }
+
+    private static IEnumerable<string> EnumerateRuntimeConsoleDescriptors(
+        string sourceKey,
+        string datPath,
+        string datRoot)
+    {
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddDescriptor(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return;
+
+            var trimmed = raw.Trim();
+            if (trimmed.Length == 0 || yielded.Contains(trimmed))
+                return;
+
+            // Keep candidates deterministic and bounded.
+            if (yielded.Count >= 24)
+                return;
+
+            yielded.Add(trimmed);
+        }
+
+        AddDescriptor(sourceKey);
+        AddDescriptor(StripTrailingDescriptorSuffixes(sourceKey));
+
+        var fileStem = Path.GetFileNameWithoutExtension(datPath);
+        AddDescriptor(fileStem);
+        AddDescriptor(StripTrailingDescriptorSuffixes(fileStem));
+
+        var datDirectory = Path.GetDirectoryName(datPath);
+        if (!string.IsNullOrWhiteSpace(datDirectory))
+        {
+            var relativeDirectory = GetRelativeDirectorySafe(datDirectory, datRoot);
+            AddDescriptor(relativeDirectory);
+            AddDescriptor(Path.GetFileName(datDirectory));
+        }
+
+        foreach (var descriptor in yielded.ToArray())
+        {
+            foreach (var segment in SplitDescriptorSegments(descriptor))
+                AddDescriptor(segment);
+        }
+
+        return yielded.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string? ResolveConsoleKeyFromDescriptor(ConsoleDetector consoleDetector, string descriptor)
+    {
+        if (string.IsNullOrWhiteSpace(descriptor))
+            return null;
+
+        var normalizedDescriptor = NormalizeDescriptor(descriptor);
+        if (normalizedDescriptor.Length == 0)
+            return null;
+
+        var bestScore = -1;
+        string? bestKey = null;
+        var ambiguous = false;
+
+        foreach (var key in consoleDetector.AllConsoleKeys.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase))
+        {
+            var info = consoleDetector.GetConsole(key);
+            if (info is null)
+                continue;
+
+            var score = ScoreDescriptorAgainstConsole(normalizedDescriptor, info);
+            if (score <= 0)
+                continue;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestKey = info.Key;
+                ambiguous = false;
+                continue;
+            }
+
+            if (score == bestScore && !string.Equals(bestKey, info.Key, StringComparison.OrdinalIgnoreCase))
+                ambiguous = true;
+        }
+
+        return ambiguous ? null : bestKey;
+    }
+
+    private static int ScoreDescriptorAgainstConsole(string normalizedDescriptor, ConsoleInfo info)
+    {
+        var aliases = EnumerateConsoleAliases(info);
+        var score = 0;
+
+        foreach (var alias in aliases)
+        {
+            var normalizedAlias = NormalizeDescriptor(alias);
+            if (normalizedAlias.Length == 0)
+                continue;
+
+            if (string.Equals(normalizedDescriptor, normalizedAlias, StringComparison.Ordinal))
+            {
+                score = Math.Max(score, 1000 + normalizedAlias.Length);
+                continue;
+            }
+
+            if (ContainsWholeAlias(normalizedDescriptor, normalizedAlias))
+                score = Math.Max(score, normalizedAlias.Length);
+        }
+
+        return score;
+    }
+
+    private static IEnumerable<string> EnumerateConsoleAliases(ConsoleInfo info)
+    {
+        yield return info.Key;
+        yield return info.DisplayName;
+
+        foreach (var alias in info.FolderAliases)
+            yield return alias;
+
+        foreach (var keyword in info.Keywords)
+            yield return keyword;
+    }
+
+    private static bool ContainsWholeAlias(string normalizedDescriptor, string normalizedAlias)
+    {
+        if (normalizedAlias.Length == 0)
+            return false;
+
+        var paddedDescriptor = $" {normalizedDescriptor} ";
+        var paddedAlias = $" {normalizedAlias} ";
+        return paddedDescriptor.Contains(paddedAlias, StringComparison.Ordinal);
+    }
+
+    private static string NormalizeDescriptor(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var sb = new StringBuilder(value.Length);
+        var pendingSpace = false;
+        foreach (var ch in value.Trim())
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (pendingSpace && sb.Length > 0)
+                    sb.Append(' ');
+                sb.Append(char.ToUpperInvariant(ch));
+                pendingSpace = false;
+            }
+            else
+            {
+                pendingSpace = sb.Length > 0;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static IEnumerable<string> SplitDescriptorSegments(string descriptor)
+    {
+        if (string.IsNullOrWhiteSpace(descriptor))
+            yield break;
+
+        foreach (var segment in descriptor.Split(
+                     [" - ", "/", "\\", "|", ":"],
+                     StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!string.IsNullOrWhiteSpace(segment))
+                yield return segment;
+        }
+    }
+
+    private static string StripTrailingDescriptorSuffixes(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var current = value.Trim();
+        while (true)
+        {
+            string next;
+            try
+            {
+                next = RxTrailingDescriptorSuffix.Replace(current, string.Empty).Trim();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return current;
+            }
+
+            if (next.Length == 0 || string.Equals(next, current, StringComparison.Ordinal))
+                return current;
+
+            current = next;
+        }
+    }
+
+    private static string? GetRelativeDirectorySafe(string directoryPath, string rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) || string.IsNullOrWhiteSpace(rootPath))
+            return null;
+
+        try
+        {
+            var relative = Path.GetRelativePath(rootPath, directoryPath);
+            if (relative.StartsWith("..", StringComparison.Ordinal))
+                return Path.GetFileName(directoryPath);
+
+            return relative;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return Path.GetFileName(directoryPath);
+        }
+    }
+
+    private static bool IsValidRuntimeConsoleKey(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        try
+        {
+            return RxValidRuntimeConsoleKey.IsMatch(key);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsRuntimeSentinelConsoleKey(string key)
+        => key.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase)
+           || key.Equals("AMBIGUOUS", StringComparison.OrdinalIgnoreCase);
 
     private static string[] GetDatCandidateFiles(string datRoot)
     {

@@ -61,6 +61,18 @@ public sealed class ResolveUnknownDatMatchTests
     }
 
     [Fact]
+    public void ResolveUnknownDatMatch_IgnoresSentinelConsoleKeys()
+    {
+        var index = new DatIndex();
+        index.Add("UNKNOWN", "abc123", "Phantom");
+
+        var result = EnrichmentPipelinePhase.ResolveUnknownDatMatch(index, "abc123", null);
+
+        Assert.False(result.IsMatch);
+        Assert.Null(result.ConsoleKey);
+    }
+
+    [Fact]
     public void ResolveUnknownDatMatch_MultipleMatches_NoDetection_ReturnsNoMatch()
     {
         var index = new DatIndex();
@@ -168,6 +180,20 @@ public sealed class ResolveUnknownDatMatchTests
         Assert.Equal("NES", result.ConsoleKey);
         Assert.Equal("Super Mario Bros", result.DatGameName);
         Assert.False(result.ResolvedFromAmbiguousCandidates);
+    }
+
+    [Fact]
+    public void ResolveUnknownDatNameMatch_IgnoresSentinelConsoleKeys()
+    {
+        var matches = new List<(string ConsoleKey, DatIndex.DatIndexEntry Entry)>
+        {
+            ("UNKNOWN", new DatIndex.DatIndexEntry("Phantom", null, false, null))
+        };
+
+        var result = EnrichmentPipelinePhase.ResolveUnknownDatNameMatch(matches, null);
+
+        Assert.False(result.IsMatch);
+        Assert.Null(result.ConsoleKey);
     }
 
     [Fact]

@@ -235,6 +235,8 @@ public sealed class DatSourceService : IDisposable
             && !localPath.Equals(Path.GetFullPath(_datRoot), StringComparison.OrdinalIgnoreCase))
             return null;
 
+        var tempDownloadPath = Path.Combine(Path.GetTempPath(), $"dat_download_{Guid.NewGuid():N}.tmp");
+
         try
         {
             using var response = await ExecuteHttpWithRetryAsync(
@@ -256,7 +258,7 @@ public sealed class DatSourceService : IDisposable
 
             await using (var responseStream = await response.Content.ReadAsStreamAsync(ct))
             await using (var localFileStream = new FileStream(
-                localPath,
+                tempDownloadPath,
                 FileMode.Create,
                 FileAccess.Write,
                 FileShare.None,
@@ -267,19 +269,18 @@ public sealed class DatSourceService : IDisposable
                 if (!copied)
                 {
                     localFileStream.Close();
-                    if (File.Exists(localPath))
-                        File.Delete(localPath);
+                    if (File.Exists(tempDownloadPath))
+                        File.Delete(tempDownloadPath);
                     return null;
                 }
             }
 
-            // Verify integrity
-            if (!await VerifyDatSignatureAsync(localPath, url, expectedSha256, ct))
-            {
-                // Fail-closed: delete unverified file
-                File.Delete(localPath);
+            // Verify integrity on temp file before replacing the existing DAT.
+            // This keeps the previous file intact on network/signature failures.
+            if (!await VerifyDatSignatureAsync(tempDownloadPath, url, expectedSha256, ct))
                 return null;
-            }
+
+            ReplaceWithBackup(tempDownloadPath, localPath);
 
             return localPath;
         }
@@ -294,6 +295,22 @@ public sealed class DatSourceService : IDisposable
         catch (InvalidOperationException)
         {
             throw; // Propagate HTML detection errors
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempDownloadPath))
+                    File.Delete(tempDownloadPath);
+            }
+            catch (IOException)
+            {
+                // non-fatal temp cleanup failure
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // non-fatal temp cleanup failure
+            }
         }
     }
 

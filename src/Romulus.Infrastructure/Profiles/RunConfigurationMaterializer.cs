@@ -84,6 +84,8 @@ public sealed class RunConfigurationMaterializer
         RunConfigurationDraft? baselineDraft,
         RomulusSettings settings)
     {
+        var effectiveEnableDat = resolvedDraft.EnableDat ?? baselineDraft?.EnableDat ?? settings.Dat.UseDat;
+
         var preferredRegions = resolvedDraft.PreferRegions is { Length: > 0 }
             ? NormalizeRegions(resolvedDraft.PreferRegions)
             : baselineDraft?.PreferRegions is { Length: > 0 }
@@ -108,8 +110,8 @@ public sealed class RunConfigurationMaterializer
             KeepUnknownWhenOnlyGames = resolvedDraft.KeepUnknownWhenOnlyGames ?? baselineDraft?.KeepUnknownWhenOnlyGames ?? true,
             AggressiveJunk = resolvedDraft.AggressiveJunk ?? baselineDraft?.AggressiveJunk ?? settings.General.AggressiveJunk,
             SortConsole = resolvedDraft.SortConsole ?? baselineDraft?.SortConsole ?? false,
-            EnableDat = resolvedDraft.EnableDat ?? baselineDraft?.EnableDat ?? settings.Dat.UseDat,
-            EnableDatAudit = resolvedDraft.EnableDatAudit ?? baselineDraft?.EnableDatAudit ?? false,
+            EnableDat = effectiveEnableDat,
+            EnableDatAudit = resolvedDraft.EnableDatAudit ?? baselineDraft?.EnableDatAudit ?? effectiveEnableDat,
             EnableDatRename = resolvedDraft.EnableDatRename ?? baselineDraft?.EnableDatRename ?? false,
             DatRoot = NormalizeOptionalPath(resolvedDraft.DatRoot ?? baselineDraft?.DatRoot ?? settings.Dat.DatRoot),
             HashType = NormalizeHashType(resolvedDraft.HashType ?? baselineDraft?.HashType ?? settings.Dat.HashType),

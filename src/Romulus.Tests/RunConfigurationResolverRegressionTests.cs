@@ -204,6 +204,35 @@ public sealed class RunConfigurationResolverRegressionTests : IDisposable
     AssertRunOptionsEquivalent(wizardMaterialized.Options, expertMaterialized.Options);
   }
 
+  [Fact]
+  public async Task RunConfigurationMaterializer_EnablesDatAuditByDefault_WhenDatEnabledAndUnset()
+  {
+    var settings = new RomulusSettings
+    {
+      General = new GeneralSettings
+      {
+        Mode = RunConstants.ModeDryRun
+      },
+      Dat = new DatSettings
+      {
+        UseDat = true,
+        HashType = "SHA1"
+      }
+    };
+
+    var materializer = new RunConfigurationMaterializer(_resolver);
+    var materialized = await materializer.MaterializeAsync(
+      new RunConfigurationDraft
+      {
+        Roots = [@"C:\Roms"]
+      },
+      new RunConfigurationExplicitness(),
+      settings);
+
+    Assert.True(materialized.Options.EnableDat);
+    Assert.True(materialized.Options.EnableDatAudit);
+  }
+
   private static RunConfigurationExplicitness BuildAllExplicitness()
     => new()
     {
@@ -280,6 +309,8 @@ public sealed class RunConfigurationResolverRegressionTests : IDisposable
               "mode": "DryRun",
               "removeJunk": false,
               "sortConsole": false,
+              "enableDat": true,
+              "enableDatAudit": true,
               "hashType": "SHA1"
             }
           },

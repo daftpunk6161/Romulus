@@ -292,20 +292,29 @@ public sealed partial class MainViewModel
                 candidate.ConsoleKey,
                 candidate.MatchEvidence.Level.ToString(),
                 reason);
+            var hasUnknownConsole = string.IsNullOrWhiteSpace(candidate.ConsoleKey)
+                || candidate.ConsoleKey.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase);
+            var routedToSafetyLane = false;
 
             switch (candidate.SortDecision)
             {
                 case SortDecision.Blocked:
-                case SortDecision.Unknown:
                     SafetyBlockedItems.Add(item);
+                    routedToSafetyLane = true;
                     break;
                 case SortDecision.Review:
                     SafetyReviewItems.Add(item);
+                    routedToSafetyLane = true;
+                    break;
+                case SortDecision.Unknown:
+                    SafetyUnknownItems.Add(item);
+                    routedToSafetyLane = true;
                     break;
             }
 
-            if (string.IsNullOrWhiteSpace(candidate.ConsoleKey)
-                || candidate.ConsoleKey.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase))
+            // Defensive fallback: if a candidate escaped the expected safety lanes but still
+            // has no usable console key, keep it visible in "Unbekannt" without double-counting.
+            if (!routedToSafetyLane && hasUnknownConsole)
             {
                 SafetyUnknownItems.Add(item);
             }

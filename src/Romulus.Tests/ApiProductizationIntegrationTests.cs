@@ -189,7 +189,8 @@ public sealed class ApiProductizationIntegrationTests
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var run = doc.RootElement.GetProperty("run");
             Assert.Equal("quick-scan", run.GetProperty("profileId").GetString());
-            Assert.False(run.GetProperty("enableDat").GetBoolean());
+            Assert.True(run.GetProperty("enableDat").GetBoolean());
+            Assert.True(run.GetProperty("enableDatAudit").GetBoolean());
             Assert.False(run.GetProperty("sortConsole").GetBoolean());
             Assert.True(run.GetProperty("removeJunk").GetBoolean() is false);
             Assert.Equal("DryRun", run.GetProperty("mode").GetString());

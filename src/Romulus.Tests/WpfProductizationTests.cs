@@ -86,10 +86,28 @@ public sealed class WpfProductizationTests : IDisposable
     await vm.ApplySelectedRunConfigurationAsync();
 
         Assert.Equal("quick-scan", vm.SelectedRunProfileId);
-        Assert.False(vm.UseDat);
+        Assert.True(vm.UseDat);
+        Assert.True(vm.EnableDatAudit);
         Assert.False(vm.SortConsole);
         Assert.False(vm.RemoveJunk);
         Assert.True(vm.DryRun);
+    }
+
+    [Fact]
+    public async Task MainViewModel_SelectedDefaultProfile_PreservesDatAuditToggleWhenNotSpecified()
+    {
+        var vm = CreateViewModel();
+        vm.Roots.Add(_tempRoot);
+        vm.UseDat = true;
+        vm.EnableDatAudit = true;
+        vm.EnableDatRename = false;
+
+        vm.SelectedRunProfileId = "default";
+        await vm.ApplySelectedRunConfigurationAsync();
+
+        Assert.Equal("default", vm.SelectedRunProfileId);
+        Assert.True(vm.UseDat);
+        Assert.True(vm.EnableDatAudit);
     }
 
     [Fact]

@@ -1017,6 +1017,44 @@ public sealed class WpfCoverageBoostTests : IDisposable
         Assert.Contains(candidate, vm.LastCandidates);
     }
 
+    [Fact]
+    public void MainViewModel_SafetyLists_UnknownDecision_GoesOnlyToUnknownLane()
+    {
+        var vm = CreateTestVM();
+        var unknownDecision = new RomCandidate
+        {
+            MainPath = "unknown.bin",
+            GameKey = "unknown",
+            ConsoleKey = "PS1",
+            SortDecision = SortDecision.Unknown
+        };
+
+        vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCandidate> { unknownDecision };
+
+        Assert.Equal(0, vm.SafetyBlockedCount);
+        Assert.Equal(0, vm.SafetyReviewCount);
+        Assert.Equal(1, vm.SafetyUnknownCount);
+    }
+
+    [Fact]
+    public void MainViewModel_SafetyLists_BlockedUnknownConsole_NotDuplicatedInUnknownLane()
+    {
+        var vm = CreateTestVM();
+        var blockedUnknownConsole = new RomCandidate
+        {
+            MainPath = "blocked.zip",
+            GameKey = "blocked",
+            ConsoleKey = "UNKNOWN",
+            SortDecision = SortDecision.Blocked
+        };
+
+        vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<RomCandidate> { blockedUnknownConsole };
+
+        Assert.Equal(1, vm.SafetyBlockedCount);
+        Assert.Equal(0, vm.SafetyReviewCount);
+        Assert.Equal(0, vm.SafetyUnknownCount);
+    }
+
     private static MainViewModel CreateTestVM()
     {
         return new MainViewModel(new StubThemeService(), new StubDialogService());

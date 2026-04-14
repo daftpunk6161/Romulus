@@ -159,6 +159,21 @@ public sealed class DatAuditClassifierRegressionTests
     }
 
     [Fact]
+    public void UnknownConsoleKey_HashMatchesOnlySentinelConsole_ReturnsUnknown()
+    {
+        var index = new DatIndex();
+        index.Add("UNKNOWN", "abc123", "Phantom", "Phantom.rom");
+
+        var status = DatAuditClassifier.Classify(
+            hash: "abc123",
+            actualFileName: "Phantom.zip",
+            consoleKey: "UNKNOWN",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Unknown, status);
+    }
+
+    [Fact]
     public void AmbiguousConsoleKey_HashMatchesMultipleConsoles_ReturnsAmbiguous()
     {
         var index = new DatIndex();

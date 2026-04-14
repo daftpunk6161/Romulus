@@ -60,7 +60,8 @@
     "settings": {
       "removeJunk": false,
       "sortConsole": false,
-      "enableDat": false,
+      "enableDat": true,
+      "enableDatAudit": true,
       "keepUnknownWhenOnlyGames": true,
       "hashType": "SHA1",
       "mode": "DryRun"

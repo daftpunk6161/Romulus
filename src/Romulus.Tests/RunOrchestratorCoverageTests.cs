@@ -109,6 +109,35 @@ public sealed class RunOrchestratorCoverageTests : IDisposable
             $"Expected error signaling, got Status={result.Status}, ConvertErrorCount={result.ConvertErrorCount}");
     }
 
+    [Fact]
+    public void Execute_ConvertOnly_WithDatAuditEnabled_ProducesDatAuditResult()
+    {
+        CreateFile("Game (USA).zip", 100);
+
+        var datIndex = new DatIndex();
+        datIndex.Add("NES", "deadbeef", "Game");
+
+        var orch = new RunOrchestrator(
+            new Infrastructure.FileSystem.FileSystemAdapter(),
+            new NoOpAuditStore(),
+            converter: new TrackingConverter(),
+            datIndex: datIndex);
+
+        var result = orch.Execute(new RunOptions
+        {
+            Roots = [_tempDir],
+            Extensions = [".zip"],
+            Mode = RunConstants.ModeMove,
+            ConvertOnly = true,
+            ConvertFormat = "chd",
+            EnableDatAudit = true
+        });
+
+        Assert.Equal("ok", result.Status);
+        Assert.NotNull(result.DatAuditResult);
+        Assert.Single(result.DatAuditResult!.Entries);
+    }
+
     // ── DryRun path – no mutation ───────────────────────────────────
 
     [Fact]

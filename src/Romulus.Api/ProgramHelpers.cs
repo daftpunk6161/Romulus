@@ -488,7 +488,10 @@ public partial class Program
                 return pathError;
         }
 
-        var effectiveDatRoot = run.DatRoot ?? settings.Dat?.DatRoot;
+        var effectiveDatRoot = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: run.DatRoot,
+            settingsDatRoot: settings.Dat?.DatRoot,
+            dataDir: dataDir).Path;
         if (!string.IsNullOrWhiteSpace(effectiveDatRoot))
         {
             var pathError = ValidatePathSecurity(effectiveDatRoot, "datRoot", allowedRootPolicy);
@@ -506,7 +509,7 @@ public partial class Program
 
         using var env = runEnvironmentFactory.Create(runOptions);
         if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
-            return ApiError(400, ApiErrorCodes.DatNotAvailable, "No DAT index available. Configure DatRoot in settings.", runId: runId);
+            return ApiError(400, ApiErrorCodes.DatNotAvailable, "No DAT index available. Import DAT files or configure DatRoot.", runId: runId);
 
         var report = await CompletenessReportService.BuildAsync(
             env.DatIndex,
@@ -588,7 +591,10 @@ public partial class Program
                 return pathError;
         }
 
-        var effectiveDatRoot = run.DatRoot ?? settings.Dat?.DatRoot;
+        var effectiveDatRoot = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: run.DatRoot,
+            settingsDatRoot: settings.Dat?.DatRoot,
+            dataDir: dataDir).Path;
         if (!string.IsNullOrWhiteSpace(effectiveDatRoot))
         {
             var pathError = ValidatePathSecurity(effectiveDatRoot, "datRoot", allowedRootPolicy);
@@ -606,7 +612,7 @@ public partial class Program
 
         using var env = runEnvironmentFactory.Create(runOptions);
         if (env.DatIndex is null || env.DatIndex.TotalEntries == 0)
-            return ApiError(400, ApiErrorCodes.DatNotAvailable, "No DAT index available. Configure DatRoot in settings.", runId: runId);
+            return ApiError(400, ApiErrorCodes.DatNotAvailable, "No DAT index available. Import DAT files or configure DatRoot.", runId: runId);
 
         var report = await CompletenessReportService.BuildAsync(
             env.DatIndex,

@@ -1,5 +1,6 @@
 using Romulus.Contracts.Models;
 using Romulus.Core.Classification;
+using Romulus.Infrastructure.Dat;
 using Romulus.Infrastructure.Orchestration;
 using Xunit;
 
@@ -242,7 +243,7 @@ public sealed class RunEnvironmentBuilderTests : IDisposable
     }
 
     [Fact]
-    public void Build_WhenDatEnabledButRootMissing_EmitsWarningAndBuildsEnvironment()
+    public void Build_WhenDatEnabledButRootMissing_AutoDetectsOrWarnsAndBuildsEnvironment()
     {
         var warnings = new List<string>();
         var options = new RunOptions
@@ -258,7 +259,10 @@ public sealed class RunEnvironmentBuilderTests : IDisposable
 
         Assert.NotNull(env.FileSystem);
         Assert.NotNull(env.Audit);
-        Assert.Contains(warnings, w => w.Contains("DAT enabled", StringComparison.OrdinalIgnoreCase));
+        Assert.True(
+            warnings.Any(w => w.Contains("DAT enabled", StringComparison.OrdinalIgnoreCase)) ||
+            warnings.Any(w => w.Contains("DatRoot automatisch erkannt", StringComparison.OrdinalIgnoreCase)),
+            "Expected either missing-DAT warning or auto-detected DAT root info.");
     }
 
     [Fact]
@@ -313,6 +317,194 @@ public sealed class RunEnvironmentBuilderTests : IDisposable
 
         Assert.Null(env.ConsoleDetector);
         Assert.Contains(warnings, w => w.Contains("consoles.json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ResolveEffectiveDatRoot_RunOptionTakesPriority()
+    {
+        var resolution = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: _datRoot,
+            settingsDatRoot: null,
+            dataDir: _dataDir,
+            statePath: Path.Combine(_tempDir, "missing-state.json"));
+
+        Assert.Equal(RunEnvironmentBuilder.DatRootResolutionSource.RunOption, resolution.Source);
+        Assert.Equal(Path.GetFullPath(_datRoot), resolution.Path);
+    }
+
+    [Fact]
+    public void ResolveEffectiveDatRoot_AutoDetectsFromCatalogState_WhenConfiguredRootsMissing()
+    {
+        var detectedRoot = Path.Combine(_tempDir, "state-dats");
+        Directory.CreateDirectory(detectedRoot);
+        var datPath = Path.Combine(detectedRoot, "state-entry.dat");
+        File.WriteAllText(datPath, "state");
+
+        var statePath = Path.Combine(_tempDir, "dat-catalog-state.json");
+        var state = new DatCatalogState
+        {
+            Entries = new Dictionary<string, DatLocalInfo>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["state-entry"] = new DatLocalInfo
+                {
+                    InstalledDate = DateTime.UtcNow,
+                    FileSha256 = "hash",
+                    FileSizeBytes = 5,
+                    LocalPath = datPath
+                }
+            }
+        };
+        DatCatalogStateService.SaveState(statePath, state);
+
+        var resolution = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: null,
+            settingsDatRoot: null,
+            dataDir: _dataDir,
+            statePath: statePath);
+
+        Assert.Equal(RunEnvironmentBuilder.DatRootResolutionSource.CatalogState, resolution.Source);
+        Assert.Equal(Path.GetFullPath(detectedRoot), resolution.Path);
+    }
+
+    [Fact]
+    public void ResolveEffectiveDatRoot_SettingsRootWithoutDatFiles_FallsBackToAutoDetectedStateRoot()
+    {
+        var emptySettingsRoot = Path.Combine(_tempDir, "settings-empty");
+        Directory.CreateDirectory(emptySettingsRoot);
+
+        var detectedRoot = Path.Combine(_tempDir, "state-dats-fallback");
+        Directory.CreateDirectory(detectedRoot);
+        var datPath = Path.Combine(detectedRoot, "fallback-entry.dat");
+        File.WriteAllText(datPath, "state");
+
+        var statePath = Path.Combine(_tempDir, "dat-catalog-state-fallback.json");
+        var state = new DatCatalogState
+        {
+            Entries = new Dictionary<string, DatLocalInfo>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fallback-entry"] = new DatLocalInfo
+                {
+                    InstalledDate = DateTime.UtcNow,
+                    FileSha256 = "hash",
+                    FileSizeBytes = 5,
+                    LocalPath = datPath
+                }
+            }
+        };
+        DatCatalogStateService.SaveState(statePath, state);
+
+        var resolution = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: null,
+            settingsDatRoot: emptySettingsRoot,
+            dataDir: _dataDir,
+            statePath: statePath);
+
+        Assert.Equal(RunEnvironmentBuilder.DatRootResolutionSource.CatalogState, resolution.Source);
+        Assert.Equal(Path.GetFullPath(detectedRoot), resolution.Path);
+    }
+
+    [Fact]
+    public void ResolveEffectiveDatRoot_AutoDetectsFromConventionalDataDirectory()
+    {
+        var conventionalRoot = Path.Combine(_dataDir, "dats");
+        Directory.CreateDirectory(conventionalRoot);
+        File.WriteAllText(Path.Combine(conventionalRoot, "conventional.dat"), "dat");
+
+        var resolution = RunEnvironmentBuilder.ResolveEffectiveDatRoot(
+            runOptionDatRoot: null,
+            settingsDatRoot: null,
+            dataDir: _dataDir,
+            statePath: Path.Combine(_tempDir, "missing-conventional-state.json"));
+
+        Assert.Equal(RunEnvironmentBuilder.DatRootResolutionSource.ConventionalPath, resolution.Source);
+        Assert.Equal(Path.GetFullPath(conventionalRoot), resolution.Path);
+    }
+
+    [Fact]
+    public void NormalizeRuntimeDatMappings_RemapsDescriptorKeysAndDropsInvalidPhantoms()
+    {
+        var gbcDat = Path.Combine(_datRoot, "Nintendo - Game Boy Color (20260328-141827).dat");
+        var nesDat = Path.Combine(_datRoot, "NES.dat");
+        var invalidDat = Path.Combine(_datRoot, "invalid descriptor.dat");
+        File.WriteAllText(gbcDat, "gbc");
+        File.WriteAllText(nesDat, "nes");
+        File.WriteAllText(invalidDat, "invalid");
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Nintendo - Game Boy Color (20260328-141827)"] = gbcDat,
+            ["NES"] = nesDat,
+            ["invalid descriptor"] = invalidDat
+        };
+        var supplemental = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        var detector = ConsoleDetector.LoadFromJson("""
+        {
+            "consoles": [
+                {
+                    "key": "GBC",
+                    "displayName": "Game Boy Color",
+                    "discBased": false,
+                    "uniqueExts": [".gbc"],
+                    "ambigExts": [],
+                    "folderAliases": ["gbc", "game boy color"]
+                },
+                {
+                    "key": "NES",
+                    "displayName": "Nintendo Entertainment System",
+                    "discBased": false,
+                    "uniqueExts": [".nes"],
+                    "ambigExts": [],
+                    "folderAliases": ["nes", "famicom"]
+                }
+            ]
+        }
+        """);
+
+        RunEnvironmentBuilder.NormalizeRuntimeDatMappings(
+            map,
+            supplemental,
+            detector,
+            _datRoot,
+            onWarning: null);
+
+        Assert.Equal(2, map.Count);
+        Assert.Equal(gbcDat, map["GBC"]);
+        Assert.Equal(nesDat, map["NES"]);
+        Assert.False(map.ContainsKey("invalid descriptor"));
+        Assert.Empty(supplemental);
+    }
+
+    [Fact]
+    public void NormalizeRuntimeDatMappings_DropsSentinelConsoleKeys()
+    {
+        var unknownDat = Path.Combine(_datRoot, "UNKNOWN.dat");
+        var ambiguousDat = Path.Combine(_datRoot, "AMBIGUOUS.dat");
+        var nesDat = Path.Combine(_datRoot, "NES.dat");
+        File.WriteAllText(unknownDat, "unknown");
+        File.WriteAllText(ambiguousDat, "ambiguous");
+        File.WriteAllText(nesDat, "nes");
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["UNKNOWN"] = unknownDat,
+            ["AMBIGUOUS"] = ambiguousDat,
+            ["NES"] = nesDat
+        };
+        var supplemental = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        RunEnvironmentBuilder.NormalizeRuntimeDatMappings(
+            map,
+            supplemental,
+            consoleDetector: null,
+            _datRoot,
+            onWarning: null);
+
+        Assert.Single(map);
+        Assert.Equal(nesDat, map["NES"]);
+        Assert.False(map.ContainsKey("UNKNOWN"));
+        Assert.False(map.ContainsKey("AMBIGUOUS"));
+        Assert.Empty(supplemental);
     }
 
     // ── BridgeDatSourceAliases ──────────────────────────────────────────

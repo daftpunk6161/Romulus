@@ -299,7 +299,10 @@ public sealed class RunEnvironmentBuilderCoverageBoostTests : IDisposable
             w => warnings.Add(w),
             collectionDatabasePath: Path.Combine(_tempDir, "test.db"));
 
-        Assert.Contains(warnings, w => w.Contains("DAT enabled but DatRoot not set"));
+        Assert.True(
+            warnings.Any(w => w.Contains("DAT enabled but DatRoot not set", StringComparison.OrdinalIgnoreCase))
+            || warnings.Any(w => w.Contains("DatRoot automatisch erkannt", StringComparison.OrdinalIgnoreCase)),
+            "Expected either missing-DAT warning or auto-detected DAT root info.");
         env.Dispose();
     }
 

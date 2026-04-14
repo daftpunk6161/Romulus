@@ -18,7 +18,8 @@ public static class WorkflowScenarioCatalog
                 Mode = RunConstants.ModeDryRun,
                 RemoveJunk = true,
                 SortConsole = true,
-                EnableDat = false,
+                EnableDat = true,
+                EnableDatAudit = true,
                 ApproveReviews = false,
                 ConvertOnly = false
             }),

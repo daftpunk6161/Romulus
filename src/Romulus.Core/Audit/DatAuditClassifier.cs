@@ -92,11 +92,13 @@ public static class DatAuditClassifier
             return new(nameStatus, inConsole.Value.GameName, inConsole.Value.RomFileName, consoleKey);
         }
 
-        var matches = datIndex.LookupAllByHash(hash);
-        if (matches.Count == 0)
+        var matches = datIndex.LookupAllByHash(hash)
+            .Where(static match => IsRealConsoleKey(match.ConsoleKey))
+            .ToArray();
+        if (matches.Length == 0)
             return new(DatAuditStatus.Unknown, null, null, consoleKey);
 
-        if (matches.Count > 1)
+        if (matches.Length > 1)
             return new(DatAuditStatus.Ambiguous, null, null, consoleKey);
 
         var single = matches[0];
