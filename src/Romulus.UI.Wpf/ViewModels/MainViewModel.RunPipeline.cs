@@ -205,9 +205,11 @@ public sealed partial class MainViewModel
 
     public bool ShowSmartActionBar =>
         IsBusy ||
-                (!string.Equals(Shell.SelectedNavTag, NavTagMissionControl, StringComparison.Ordinal) &&
-                 !(string.Equals(Shell.SelectedNavTag, NavTagLibrary, StringComparison.Ordinal)
-           && string.Equals(Shell.SelectedSubTab, "Results", StringComparison.Ordinal)));
+        (string.Equals(Shell.SelectedNavTag, NavTagMissionControl, StringComparison.Ordinal)
+            ? !(string.Equals(Shell.SelectedSubTab, "Dashboard", StringComparison.Ordinal)
+                || string.Equals(Shell.SelectedSubTab, "RecentRuns", StringComparison.Ordinal))
+            : !(string.Equals(Shell.SelectedNavTag, NavTagLibrary, StringComparison.Ordinal)
+                && string.Equals(Shell.SelectedSubTab, "Results", StringComparison.Ordinal)));
 
     public bool HasRunResult =>
         Run.HasRunResult ||

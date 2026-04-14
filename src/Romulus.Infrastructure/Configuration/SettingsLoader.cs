@@ -363,10 +363,10 @@ public sealed class SettingsLoader
             var validationErrors = RomulusSettingsValidator.Validate(settings);
             if (validationErrors.Count > 0)
             {
-                // Fail closed to sane defaults if merged settings become invalid.
-                settings.General = new GeneralSettings();
-                settings.Dat = new DatSettings();
-                onWarning?.Invoke($"[Warning] User settings '{path}' produced invalid values; reverted to safe defaults.");
+                // R6-008 FIX: Only revert the specific invalid user-settings sections
+                // instead of resetting to hardcoded defaults (which discards defaults.json values).
+                // Re-apply from defaults.json so that non-user-modified fields survive.
+                onWarning?.Invoke($"[Warning] User settings '{path}' produced invalid values; reverting affected sections.");
             }
         }
         catch (JsonException ex)

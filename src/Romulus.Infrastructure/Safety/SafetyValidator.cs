@@ -101,9 +101,19 @@ public sealed class SafetyValidator
             return null;
 
         // SEC-PATH-04: Reject NTFS Alternate Data Streams (colon after drive letter)
-        var adsCheckPortion = trimmed.Length >= 2 && trimmed[1] == ':'
-            ? trimmed[2..]
-            : trimmed;
+        // R2-008 FIX: UNC paths (\\server:port\share) must not be false-blocked as ADS.
+        // For UNC paths, skip ADS check on the hostname portion.
+        var isUncPath = trimmed.StartsWith(@"\\");
+        string adsCheckPortion;
+        if (trimmed.Length >= 2 && trimmed[1] == ':')
+            adsCheckPortion = trimmed[2..];
+        else if (isUncPath)
+        {
+            var thirdSep = trimmed.IndexOf('\\', 2);
+            adsCheckPortion = thirdSep >= 0 ? trimmed[thirdSep..] : string.Empty;
+        }
+        else
+            adsCheckPortion = trimmed;
         if (adsCheckPortion.Contains(':'))
             return null;
 

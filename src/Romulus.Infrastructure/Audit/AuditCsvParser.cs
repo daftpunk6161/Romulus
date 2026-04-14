@@ -166,7 +166,9 @@ public static class AuditCsvParser
 
     // R5-021 FIX: Include tab (\t) and carriage return (\r) — both are dangerous
     // spreadsheet prefixes that can trigger formula execution in Excel/Calc.
+    // R5-011 FIX: UNC paths (\\) can trigger SMB auto-resolution in spreadsheets.
     private static bool HasDangerousSpreadsheetPrefix(string value)
         => !string.IsNullOrEmpty(value)
-            && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r';
+            && (value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+                || value.StartsWith(@"\\"));
 }

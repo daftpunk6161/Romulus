@@ -83,7 +83,16 @@ public sealed class JsonRunProfileStore : IRunProfileStore, ISynchronousRunProfi
         var json = JsonSerializer.Serialize(normalizedProfile, SerializerOptions);
 
         await File.WriteAllTextAsync(tempPath, json, ct).ConfigureAwait(false);
-        File.Move(tempPath, filePath, overwrite: true);
+        // R6-003 FIX: Clean up temp file if Move fails.
+        try
+        {
+            File.Move(tempPath, filePath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tempPath); } catch { /* best-effort cleanup */ }
+            throw;
+        }
     }
 
     public ValueTask<bool> DeleteAsync(string id, CancellationToken ct = default)

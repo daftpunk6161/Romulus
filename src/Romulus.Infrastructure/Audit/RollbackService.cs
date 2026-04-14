@@ -12,8 +12,10 @@ public static class RollbackService
 {
     private static int CountAffectedRollbackRows(string auditPath)
     {
+        // R2-015 FIX: Return 0 (not 1) when audit file doesn't exist.
+        // Returning 1 was misleading ("1 Failed" for a non-existent file).
         if (!File.Exists(auditPath))
-            return 1;
+            return 0;
 
         try
         {

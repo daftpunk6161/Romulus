@@ -141,7 +141,19 @@ public sealed class ScheduleService : IDisposable
             if (_disposed || _timer is null)
                 return;
 
-            var nowLocal = _nowProvider();
+            // R3-019 FIX: Protect _nowProvider() call against exceptions to prevent
+            // state inconsistency (e.g. _nextIntervalDueUtc not updated).
+            DateTime nowLocal;
+            try
+            {
+                nowLocal = _nowProvider();
+            }
+            catch (Exception)
+            {
+                // Clock provider failure — skip this tick safely without corrupting state.
+                return;
+            }
+
             var nowUtc = nowLocal.ToUniversalTime();
             var isDue = false;
 

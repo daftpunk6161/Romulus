@@ -126,6 +126,8 @@ public sealed partial class RunOrchestrator
         result.GroupCount = gameCandidateCount;
         result.WinnerCount = gameCandidateCount;
         result.LoserCount = 0;
+        // R4-003 FIX: Set FilteredNonGameCount for KPI consistency in ConvertOnly path.
+        result.FilteredNonGameCount = candidates.Count - processingCandidates.Count;
         result.DedupeGroups = Array.Empty<DedupeGroup>();
         return true;
     }

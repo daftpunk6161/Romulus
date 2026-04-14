@@ -81,7 +81,7 @@ public sealed class ShellViewModel : ObservableObject
             {
                 MissionControlTag => 0,
                 LibraryTag => 1,
-                ConfigTag => 2,
+                ConfigTag => 0,
                 ToolsTag => 3,
                 SystemTag => 4,
                 _ => 0
@@ -128,13 +128,16 @@ public sealed class ShellViewModel : ObservableObject
 
     public bool ShowMissionControlNav => true;
     public bool ShowLibraryNav => true;
-    public bool ShowConfigNav => true;
-    public bool ShowToolsNav => true;
+    public bool ShowConfigNav => false;
+    public bool ShowToolsNav => !IsSimpleMode;
     public bool ShowSystemNav => true;
 
     public bool ShowMissionDashboardTab => true;
     public bool ShowMissionQuickStartTab => false;
     public bool ShowMissionRecentRunsTab => true;
+    public bool ShowMissionRegionsTab => true;
+    public bool ShowMissionOptionsTab => true;
+    public bool ShowMissionProfilesTab => !IsSimpleMode;
 
     public bool ShowLibraryResultsTab => true;
     public bool ShowLibraryDecisionsTab => !IsSimpleMode;
@@ -142,10 +145,10 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowLibraryReportTab => false;
     public bool ShowLibraryDatAuditTab => !IsSimpleMode;
 
-    public bool ShowConfigRegionsTab => true;
+    public bool ShowConfigRegionsTab => ShowMissionRegionsTab;
     public bool ShowConfigFilteringTab => false;
-    public bool ShowConfigOptionsTab => true;
-    public bool ShowConfigProfilesTab => !IsSimpleMode;
+    public bool ShowConfigOptionsTab => ShowMissionOptionsTab;
+    public bool ShowConfigProfilesTab => ShowMissionProfilesTab;
 
     public bool ShowToolsExternalToolsTab => true;
     public bool ShowToolsFeaturesTab => true;
@@ -153,7 +156,7 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowToolsConversionTab => false;
     public bool ShowToolsGameKeyLabTab => false;
 
-    public bool ShowSystemActivityLogTab => !IsSimpleMode;
+    public bool ShowSystemActivityLogTab => false;
     public bool ShowSystemAppearanceTab => true;
     public bool ShowSystemAboutTab => true;
 
@@ -161,7 +164,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag => "Mission Control",
         LibraryTag => "Library",
-        ConfigTag => "Konfiguration",
+        ConfigTag => "Mission Control",
         ToolsTag => "Werkzeugkatalog",
         SystemTag => "System",
         _ => "Mission Control"
@@ -194,7 +197,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag or "Start" => MissionControlTag,
         LibraryTag or "Analyse" => LibraryTag,
-        ConfigTag or "Setup" => ConfigTag,
+        ConfigTag or "Setup" => MissionControlTag,
         ToolsTag => ToolsTag,
         SystemTag or "Log" => SystemTag,
         _ => MissionControlTag
@@ -212,9 +215,9 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag => "Dashboard",
         LibraryTag => "Results",
-        ConfigTag => "Regions",
+        ConfigTag => "Dashboard",
         ToolsTag => "Features",
-        SystemTag => IsSimpleMode ? "Appearance" : "ActivityLog",
+        SystemTag => "Appearance",
         _ => "Dashboard"
     };
 
@@ -230,19 +233,17 @@ public sealed class ShellViewModel : ObservableObject
 
     private bool IsSubTabAllowed(string navTag, string subTab) => NormalizeNavTag(navTag) switch
     {
-        MissionControlTag => subTab is "Dashboard" or "RecentRuns",
+        MissionControlTag => !IsSimpleMode
+            ? subTab is "Dashboard" or "RecentRuns" or "Regions" or "Options" or "Profiles"
+            : subTab is "Dashboard" or "RecentRuns" or "Regions" or "Options",
         LibraryTag => !IsSimpleMode
             ? subTab is "Results" or "Decisions" or "Safety" or "DatAudit"
             : subTab is "Results" or "Safety",
-        ConfigTag => !IsSimpleMode
-            ? subTab is "Regions" or "Options" or "Profiles"
-            : subTab is "Regions" or "Options",
+        ConfigTag => false,
         ToolsTag => !IsSimpleMode
             ? subTab is "Features" or "ExternalTools" or "DatManagement"
             : subTab is "Features" or "ExternalTools" or "DatManagement",
-        SystemTag => !IsSimpleMode
-            ? subTab is "ActivityLog" or "Appearance" or "About"
-            : subTab is "Appearance" or "About",
+        SystemTag => subTab is "Appearance" or "About",
         _ => false
     };
 
@@ -250,6 +251,12 @@ public sealed class ShellViewModel : ObservableObject
     {
         var currentNavTag = NormalizeNavTag(SelectedNavTag);
         var coercedNavTag = currentNavTag;
+
+        if (string.Equals(coercedNavTag, ConfigTag, StringComparison.Ordinal))
+            coercedNavTag = MissionControlTag;
+
+        if (IsSimpleMode && string.Equals(coercedNavTag, ToolsTag, StringComparison.Ordinal))
+            coercedNavTag = MissionControlTag;
 
         if (!string.Equals(coercedNavTag, currentNavTag, StringComparison.Ordinal))
         {
@@ -273,6 +280,9 @@ public sealed class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowMissionDashboardTab));
         OnPropertyChanged(nameof(ShowMissionQuickStartTab));
         OnPropertyChanged(nameof(ShowMissionRecentRunsTab));
+        OnPropertyChanged(nameof(ShowMissionRegionsTab));
+        OnPropertyChanged(nameof(ShowMissionOptionsTab));
+        OnPropertyChanged(nameof(ShowMissionProfilesTab));
 
         OnPropertyChanged(nameof(ShowLibraryResultsTab));
         OnPropertyChanged(nameof(ShowLibraryDecisionsTab));

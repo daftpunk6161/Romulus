@@ -50,6 +50,9 @@ public sealed class ToolsViewModel : ObservableObject
     public ObservableCollection<ToolItem> ToolItems { get; } = [];
     public ICollectionView ToolItemsView { get; private set; } = null!;
     public ObservableCollection<ToolCategory> ToolCategories { get; } = [];
+    public ObservableCollection<ToolItem> CoreWorkflowItems { get; } = [];
+    public ObservableCollection<ToolItem> MaintenanceToolItems { get; } = [];
+    public ObservableCollection<ToolItem> AdvancedToolItems { get; } = [];
     public ObservableCollection<ToolItem> QuickAccessItems { get; } = [];
     public ObservableCollection<ToolItem> RecentToolItems { get; } = [];
     public ObservableCollection<ToolItem> RecommendedToolItems { get; } = [];
@@ -235,6 +238,7 @@ public sealed class ToolsViewModel : ObservableObject
                 Category = _loc[$"Tool.Cat.{entry.CategoryKey}"],
                 Description = _loc[$"Tool.{entry.Key}.Desc"],
                 Icon = entry.Icon,
+                CatalogGroup = ResolveCatalogGroup(entry.CategoryKey, entry.Maturity),
                 RequiresRunResult = entry.RequiresRunResult,
                 IsEssential = entry.IsEssential,
                 Maturity = entry.Maturity,
@@ -267,8 +271,45 @@ public sealed class ToolsViewModel : ObservableObject
         ToolItemsView.Filter = ToolItemFilter;
 
         RebuildToolCategories();
+        RebuildCatalogGroupCollections();
         RebuildQuickAccess();
         RefreshCatalogMetrics();
+    }
+
+    private void RebuildCatalogGroupCollections()
+    {
+        CoreWorkflowItems.Clear();
+        MaintenanceToolItems.Clear();
+        AdvancedToolItems.Clear();
+
+        foreach (var item in ToolItems.OrderBy(static t => t.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+        {
+            switch (item.CatalogGroup)
+            {
+                case ToolCatalogGroup.Core:
+                    CoreWorkflowItems.Add(item);
+                    break;
+                case ToolCatalogGroup.Maintenance:
+                    MaintenanceToolItems.Add(item);
+                    break;
+                default:
+                    AdvancedToolItems.Add(item);
+                    break;
+            }
+        }
+    }
+
+    private static ToolCatalogGroup ResolveCatalogGroup(string categoryKey, ToolMaturity maturity)
+    {
+        if (maturity == ToolMaturity.Experimental)
+            return ToolCatalogGroup.Advanced;
+
+        return categoryKey switch
+        {
+            "Analysis" or "Conversion" or "DatVerify" => ToolCatalogGroup.Core,
+            "Collection" or "Security" or "Export" => ToolCatalogGroup.Maintenance,
+            _ => ToolCatalogGroup.Advanced
+        };
     }
 
     private static IReadOnlyList<ToolCatalogEntry> CreateCatalogEntries()

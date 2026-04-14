@@ -49,6 +49,7 @@ public sealed partial class ToolItem : ObservableObject
     public required string Category { get; init; }
     public required string Description { get; init; }
     public required string Icon { get; init; }
+    public ToolCatalogGroup CatalogGroup { get; init; } = ToolCatalogGroup.Core;
     public bool RequiresRunResult { get; init; }
     public bool IsEssential { get; init; }
     public ToolMaturity Maturity { get; init; } = ToolMaturity.Production;
@@ -151,6 +152,13 @@ public enum ToolMaturity
     Production = 0,
     Guided = 1,
     Experimental = 2
+}
+
+public enum ToolCatalogGroup
+{
+    Core = 0,
+    Maintenance = 1,
+    Advanced = 2
 }
 
 public sealed record ToolContextSnapshot(

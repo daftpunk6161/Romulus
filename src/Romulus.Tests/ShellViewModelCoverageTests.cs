@@ -32,7 +32,7 @@ public sealed class ShellViewModelCoverageTests
     [Theory]
     [InlineData("MissionControl", 0)]
     [InlineData("Library", 1)]
-    [InlineData("Config", 2)]
+    [InlineData("Config", 0)]
     [InlineData("Tools", 3)]
     [InlineData("System", 4)]
     public void SelectedNavTag_SetsCorrectIndex(string tag, int expectedIndex)
@@ -45,7 +45,7 @@ public sealed class ShellViewModelCoverageTests
     [Theory]
     [InlineData("Start", "MissionControl")]
     [InlineData("Analyse", "Library")]
-    [InlineData("Setup", "Config")]
+    [InlineData("Setup", "MissionControl")]
     [InlineData("Log", "System")]
     public void SelectedNavTag_NormalizesLegacyAliases(string alias, string expectedTag)
     {
@@ -86,7 +86,7 @@ public sealed class ShellViewModelCoverageTests
     [Theory]
     [InlineData("MissionControl", "Dashboard")]
     [InlineData("Library", "Results")]
-    [InlineData("Config", "Regions")]
+    [InlineData("Config", "Dashboard")]
     [InlineData("Tools", "Features")]
     public void DefaultSubTab_MatchesNavArea(string navTag, string expectedSubTab)
     {
@@ -110,7 +110,7 @@ public sealed class ShellViewModelCoverageTests
         var vm = Create();
         vm.IsSimpleMode = false;
         vm.SelectedNavTag = "System";
-        Assert.Equal("ActivityLog", vm.SelectedSubTab);
+        Assert.Equal("Appearance", vm.SelectedSubTab);
     }
 
     [Fact]
@@ -175,13 +175,37 @@ public sealed class ShellViewModelCoverageTests
     }
 
     [Fact]
+    public void NavigateTo_Config_RoutesToMissionControlSetup()
+    {
+        var vm = Create();
+
+        vm.NavigateTo("Config");
+        vm.SelectedSubTab = "Options";
+
+        Assert.Equal("MissionControl", vm.SelectedNavTag);
+        Assert.Equal("Options", vm.SelectedSubTab);
+    }
+
+    [Fact]
+    public void MissionControl_ExpertMode_AllowsProfilesSubTab()
+    {
+        var vm = Create();
+        vm.IsSimpleMode = false;
+        vm.SelectedNavTag = "MissionControl";
+
+        vm.SelectedSubTab = "Profiles";
+
+        Assert.Equal("Profiles", vm.SelectedSubTab);
+    }
+
+    [Fact]
     public void SubTab_SimpleMode_RejectsConfigProfiles()
     {
         var vm = Create();
         vm.IsSimpleMode = true;
         vm.SelectedNavTag = "Config";
         vm.SelectedSubTab = "Profiles";
-        Assert.Equal("Regions", vm.SelectedSubTab);
+        Assert.Equal("Dashboard", vm.SelectedSubTab);
     }
 
     [Fact]
@@ -201,7 +225,21 @@ public sealed class ShellViewModelCoverageTests
         vm.IsSimpleMode = false;
         vm.SelectedNavTag = "System";
         vm.SelectedSubTab = "ActivityLog";
-        Assert.Equal("ActivityLog", vm.SelectedSubTab);
+        Assert.Equal("Appearance", vm.SelectedSubTab);
+    }
+
+    [Fact]
+    public void System_ExpertMode_UsesAppearanceNotActivityLog()
+    {
+        var vm = Create();
+        vm.IsSimpleMode = false;
+
+        Assert.False(vm.ShowSystemActivityLogTab);
+
+        vm.SelectedNavTag = "System";
+        vm.SelectedSubTab = "ActivityLog";
+
+        Assert.Equal("Appearance", vm.SelectedSubTab);
     }
 
     #endregion
@@ -249,7 +287,7 @@ public sealed class ShellViewModelCoverageTests
         Assert.Equal("Profiles", vm.SelectedSubTab);
 
         vm.IsSimpleMode = true;
-        Assert.Equal("Regions", vm.SelectedSubTab);
+        Assert.Equal("Dashboard", vm.SelectedSubTab);
     }
 
     [Fact]
@@ -278,7 +316,7 @@ public sealed class ShellViewModelCoverageTests
         Assert.True(vm.ShowLibraryDecisionsTab);
         Assert.True(vm.ShowLibraryDatAuditTab);
         Assert.True(vm.ShowConfigProfilesTab);
-        Assert.True(vm.ShowSystemActivityLogTab);
+        Assert.False(vm.ShowSystemActivityLogTab);
     }
 
     [Fact]
@@ -287,11 +325,13 @@ public sealed class ShellViewModelCoverageTests
         var vm = Create();
         Assert.True(vm.ShowMissionControlNav);
         Assert.True(vm.ShowLibraryNav);
-        Assert.True(vm.ShowConfigNav);
-        Assert.True(vm.ShowToolsNav);
+        Assert.False(vm.ShowConfigNav);
+        Assert.False(vm.ShowToolsNav);
         Assert.True(vm.ShowSystemNav);
         Assert.True(vm.ShowMissionDashboardTab);
         Assert.True(vm.ShowMissionRecentRunsTab);
+        Assert.True(vm.ShowMissionRegionsTab);
+        Assert.True(vm.ShowMissionOptionsTab);
         Assert.True(vm.ShowLibraryResultsTab);
         Assert.True(vm.ShowLibrarySafetyTab);
         Assert.True(vm.ShowConfigRegionsTab);
@@ -351,8 +391,8 @@ public sealed class ShellViewModelCoverageTests
     {
         var vm = Create();
         vm.NavigateTo("Library");
-        vm.NavigateTo("Config");
-        Assert.Equal(2, vm.SelectedNavIndex);
+        vm.NavigateTo("Tools");
+        Assert.Equal(3, vm.SelectedNavIndex);
 
         vm.NavGoBack();
         Assert.Equal(1, vm.SelectedNavIndex);
@@ -365,12 +405,12 @@ public sealed class ShellViewModelCoverageTests
     {
         var vm = Create();
         vm.NavigateTo("Library");
-        vm.NavigateTo("Config");
+        vm.NavigateTo("Tools");
         vm.NavGoBack();
         Assert.Equal(1, vm.SelectedNavIndex);
 
         vm.NavGoForward();
-        Assert.Equal(2, vm.SelectedNavIndex);
+        Assert.Equal(3, vm.SelectedNavIndex);
         Assert.False(vm.CanNavForward);
     }
 
@@ -403,11 +443,11 @@ public sealed class ShellViewModelCoverageTests
     {
         var vm = Create();
         vm.NavigateTo("Library");
-        vm.NavigateTo("Config");
+        vm.NavigateTo("Tools");
         vm.NavGoBack();
         Assert.True(vm.CanNavForward);
 
-        vm.NavigateTo("Tools");
+        vm.NavigateTo("System");
         Assert.False(vm.CanNavForward);
     }
 
@@ -425,7 +465,6 @@ public sealed class ShellViewModelCoverageTests
     {
         var vm = Create();
         vm.NavigateTo("Library");
-        vm.NavigateTo("Config");
         vm.NavigateTo("Tools");
         vm.NavigateTo("System");
 
@@ -433,7 +472,7 @@ public sealed class ShellViewModelCoverageTests
         Assert.Equal(3, vm.SelectedNavIndex); // Tools
 
         vm.NavGoBack();
-        Assert.Equal(2, vm.SelectedNavIndex); // Config
+        Assert.Equal(1, vm.SelectedNavIndex); // Library
 
         vm.NavGoForward();
         Assert.Equal(3, vm.SelectedNavIndex); // Tools
@@ -628,7 +667,7 @@ public sealed class ShellViewModelCoverageTests
     [Theory]
     [InlineData("MissionControl", "Mission Control")]
     [InlineData("Library", "Library")]
-    [InlineData("Config", "Konfiguration")]
+    [InlineData("Config", "Mission Control")]
     [InlineData("Tools", "Werkzeugkatalog")]
     [InlineData("System", "System")]
     public void CurrentWorkspaceTitle_MatchesNavArea(string tag, string expectedTitle)
@@ -650,7 +689,6 @@ public sealed class ShellViewModelCoverageTests
     [InlineData("ExternalTools", "Externe Tools")]
     [InlineData("Features", "Werkzeuge & Features")]
     [InlineData("DatManagement", "DAT-Verwaltung")]
-    [InlineData("ActivityLog", "Aktivitaet")]
     [InlineData("Appearance", "Darstellung")]
     [InlineData("About", "Info")]
     public void CurrentWorkspaceSection_MatchesSubTab(string subTab, string expectedSection)
@@ -664,10 +702,10 @@ public sealed class ShellViewModelCoverageTests
         else if (subTab is "Results" or "Decisions" or "Safety" or "DatAudit")
             vm.SelectedNavTag = "Library";
         else if (subTab is "Regions" or "Options" or "Profiles")
-            vm.SelectedNavTag = "Config";
+            vm.SelectedNavTag = "MissionControl";
         else if (subTab is "Features" or "ExternalTools" or "DatManagement")
             vm.SelectedNavTag = "Tools";
-        else if (subTab is "ActivityLog" or "Appearance" or "About")
+        else if (subTab is "Appearance" or "About")
             vm.SelectedNavTag = "System";
 
         vm.SelectedSubTab = subTab;
@@ -689,7 +727,7 @@ public sealed class ShellViewModelCoverageTests
         var changedProps = new List<string>();
         vm.PropertyChanged += (_, e) => changedProps.Add(e.PropertyName!);
 
-        vm.SelectedNavTag = "Config";
+        vm.SelectedNavTag = "Library";
 
         Assert.Contains("CurrentWorkspaceTitle", changedProps);
         Assert.Contains("CurrentWorkspaceSection", changedProps);

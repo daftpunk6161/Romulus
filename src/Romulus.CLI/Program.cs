@@ -1284,14 +1284,36 @@ internal static partial class Program
 
         try
         {
-            var mutex = new Mutex(initiallyOwned: true, mutexName, out var createdNew);
-            if (!createdNew)
+            var mutex = new Mutex(initiallyOwned: false, mutexName);
+            try
+            {
+                // R3-002 FIX: Use WaitOne with timeout and handle AbandonedMutexException.
+                // If a previous process crashed, Windows auto-releases the abandoned mutex,
+                // but .NET throws AbandonedMutexException to signal this condition.
+                bool acquired;
+                try
+                {
+                    acquired = mutex.WaitOne(millisecondsTimeout: 100);
+                }
+                catch (AbandonedMutexException)
+                {
+                    // Previous holder crashed — we now own the mutex.
+                    acquired = true;
+                }
+
+                if (!acquired)
+                {
+                    mutex.Dispose();
+                    return null;
+                }
+
+                return new RunExecutionMutexLease(mutex);
+            }
+            catch
             {
                 mutex.Dispose();
-                return null;
+                throw;
             }
-
-            return new RunExecutionMutexLease(mutex);
         }
         catch (UnauthorizedAccessException)
         {

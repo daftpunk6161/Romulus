@@ -1370,6 +1370,22 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
 | 11 | **Danger Confirm Dialog** mit Typing-Bestätigung | Hoch | Mittel |
 | 12 | **Simple/Expert Mode** durchziehen (NavRail, Tables, ToolBox) | Hoch | Hoch |
 
+### Umsetzungsstatus (Stand 2026-04-14)
+
+| Phase | Status | Nachweis |
+|-------|--------|----------|
+| Phase 1 | Umgesetzt | Theme-/Kontrast-Fixes, Focus-Ring, Danger-Styling, Context-Wing-Anpassungen in der WPF-Oberfläche integriert |
+| Phase 2 | Umgesetzt | Tool-Grouping, Mission-Control-Integration für Setup/Config, Activity-Log-Entkopplung in den Detail-Drawer, KPI-Disclosure und Simple/Expert-Verhalten umgesetzt |
+
+#### Verifizierung (Pflicht)
+
+- Build: `dotnet build src/Romulus.sln` erfolgreich (alle Projekte grün)
+- Tests (Phase-2-relevanter Scope): 546 bestanden, 0 fehlgeschlagen
+      - `ShellViewModelCoverageTests`
+      - `FeatureCommandServiceTests`
+      - `WpfProductizationTests`
+      - `GuiViewModelTests.AccessibilityAndRedTests`
+
 ### Phase 3: Designsystem-Verfeinerung (4-8 Wochen)
 
 | # | Maßnahme | Impact | Aufwand |
@@ -1426,4 +1442,4 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
 
 *Erstellt: 2026-04-14*
 *Für: Romulus UI/UX Redesign*
-*Status: Proposal – zur Review und Priorisierung*
+*Status: Phase 1 und Phase 2 umgesetzt, Phase 3+ in Planung*

@@ -241,6 +241,9 @@ public sealed class WatchFolderService : IDisposable
             _lastTriggerUtc = nowUtc;
         }
 
+        // R3-018 FIX: Check _disposed after lock release to prevent invoking on disposed service.
+        if (_disposed) return;
+
         RunTriggered?.Invoke();
     }
 

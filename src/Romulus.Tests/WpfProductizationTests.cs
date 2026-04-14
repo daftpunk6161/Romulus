@@ -396,6 +396,36 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("TextAlignment=\"Center\"", progressViewXaml);
     }
 
+    [Fact]
+    public void Phase2_MissionControl_ContainsEmbeddedSetupTabs_AndConfigNavIsRetired()
+    {
+        var subTabBarXaml = File.ReadAllText(FindUiFile("Views", "SubTabBar.xaml"));
+        var navigationRailXaml = File.ReadAllText(FindUiFile("Views", "NavigationRail.xaml"));
+
+        Assert.Contains("Shell.ShowMissionRegionsTab", subTabBarXaml);
+        Assert.Contains("Shell.ShowMissionOptionsTab", subTabBarXaml);
+        Assert.Contains("Shell.ShowMissionProfilesTab", subTabBarXaml);
+        Assert.DoesNotContain("Shell.ShowConfigNav", navigationRailXaml);
+    }
+
+    [Fact]
+    public void Phase2_SystemActivityLog_IsServedViaDetailDrawer_NotSystemSubTabView()
+    {
+        var mainWindowXaml = File.ReadAllText(FindUiFile("", "MainWindow.xaml"));
+
+        Assert.Contains("Log-Stream", mainWindowXaml);
+        Assert.DoesNotContain("<views:SystemActivityView", mainWindowXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase2_ResultView_SecondaryKpis_AreGroupedInExpandableSection()
+    {
+        var resultViewXaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
+
+        Assert.Contains("Weitere Kennzahlen", resultViewXaml);
+        Assert.Contains("<Expander", resultViewXaml, StringComparison.Ordinal);
+    }
+
     private static async Task ExecuteCommandAsync(ICommand command)
     {
         command.Execute(null);

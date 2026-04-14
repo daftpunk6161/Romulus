@@ -159,9 +159,17 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
             () => Roots.Count > 0 && !IsBusy && !HasBlockingValidationErrors);
 
         // GUI-063: Navigation history commands (delegate to Shell)
-        GoToSetupCommand = new RelayCommand(() => Shell.NavigateTo(NavTagConfig));
+        GoToSetupCommand = new RelayCommand(() =>
+        {
+            Shell.NavigateTo(NavTagMissionControl);
+            Shell.SelectedSubTab = "Options";
+        });
         GoToAnalyseCommand = new RelayCommand(() => Shell.NavigateTo(NavTagLibrary));
-        GoToConfigCommand = new RelayCommand(() => Shell.NavigateTo(NavTagConfig));
+        GoToConfigCommand = new RelayCommand(() =>
+        {
+            Shell.NavigateTo(NavTagMissionControl);
+            Shell.SelectedSubTab = "Options";
+        });
         GoToLibraryCommand = new RelayCommand(() => Shell.NavigateTo(NavTagLibrary));
         GoToToolsCommand = new RelayCommand(() => Shell.NavigateTo(NavTagTools));
 

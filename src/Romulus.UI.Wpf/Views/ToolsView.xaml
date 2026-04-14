@@ -319,35 +319,48 @@
             <StackPanel Visibility="{Binding SelectedToolsSection, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Alle Werkzeuge}">
               <TextBlock Text="{Binding DataContext.Loc[Tools.SectionAll], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
-              <ItemsControl ItemsSource="{Binding ToolCategories}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Border Style="{StaticResource SectionCard}" Margin="0,0,0,4">
-                      <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
-                        <Expander.Header>
-                          <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                       Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"
-                                       Margin="{DynamicResource SpaceRightSM}"/>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding Items.Count, StringFormat=' ({0})'}"
-                                       Foreground="{DynamicResource BrushTextMuted}" FontSize="11"
-                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
-                          </StackPanel>
-                        </Expander.Header>
-                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,8,0,0"
-                                      ItemTemplate="{StaticResource ToolCardTemplate}">
-                          <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                              <WrapPanel/>
-                            </ItemsPanelTemplate>
-                          </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                      </Expander>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+              <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                <StackPanel>
+                  <TextBlock Text="Core Workflows" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
+                  <TextBlock Text="Empfohlene Kernabläufe für tägliche Arbeit." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
+                  <ItemsControl ItemsSource="{Binding CoreWorkflowItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+
+              <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                <StackPanel>
+                  <TextBlock Text="Maintenance" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
+                  <TextBlock Text="Pflege, Verifikation und Recovery-Werkzeuge." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
+                  <ItemsControl ItemsSource="{Binding MaintenanceToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+
+              <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8"
+                      Visibility="{Binding IsSimpleMode, Converter={StaticResource InverseBoolToVis}}">
+                <StackPanel>
+                  <TextBlock Text="Advanced" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
+                  <TextBlock Text="Expertenfunktionen, Automatisierung und Infrastruktur." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
+                  <ItemsControl ItemsSource="{Binding AdvancedToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
 
               <TextBlock Text="{Binding DataContext.Loc[Tools.ConversionRegistryTitle], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource SectionHeader}" Margin="0,20,0,8"/>

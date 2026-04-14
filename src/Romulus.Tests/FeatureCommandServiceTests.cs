@@ -1128,6 +1128,20 @@ public sealed class FeatureCommandServiceTests : IDisposable
     }
 
     [Fact]
+    public void ToolsViewModel_Grouping_ExposesCoreMaintenanceAndAdvancedCollections()
+    {
+        var vm = new ToolsViewModel(new LocalizationService());
+
+        Assert.NotEmpty(vm.CoreWorkflowItems);
+        Assert.NotEmpty(vm.MaintenanceToolItems);
+        Assert.NotEmpty(vm.AdvancedToolItems);
+
+        Assert.All(vm.CoreWorkflowItems, item => Assert.Equal(ToolCatalogGroup.Core, item.CatalogGroup));
+        Assert.All(vm.MaintenanceToolItems, item => Assert.Equal(ToolCatalogGroup.Maintenance, item.CatalogGroup));
+        Assert.All(vm.AdvancedToolItems, item => Assert.Equal(ToolCatalogGroup.Advanced, item.CatalogGroup));
+    }
+
+    [Fact]
     public void ToolsViewModel_WiredToolCommand_RecordsRecentUsage()
     {
         var vm = new ToolsViewModel(new LocalizationService());

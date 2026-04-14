@@ -2206,7 +2206,9 @@ public partial class GuiViewModelTests
         var content = File.ReadAllText(subTabPath);
 
         Assert.Contains("Shell.ShowLibraryDecisionsTab", content);
-        Assert.Contains("Shell.ShowSystemActivityLogTab", content);
+        Assert.Contains("Shell.ShowMissionRegionsTab", content);
+        Assert.Contains("Shell.ShowMissionOptionsTab", content);
+        Assert.DoesNotContain("Shell.ShowSystemActivityLogTab", content);
         Assert.DoesNotContain("ConverterParameter=QuickStart", content);
         Assert.DoesNotContain("ConverterParameter=Filtering", content);
         Assert.DoesNotContain("ConverterParameter=Report", content);

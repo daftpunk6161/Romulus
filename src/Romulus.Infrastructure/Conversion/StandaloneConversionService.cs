@@ -14,6 +14,7 @@ public sealed class StandaloneConversionService : IDisposable
     private readonly IFormatConverter _converter;
     private readonly ICollectionIndex? _collectionIndex;
     private readonly IDisposable? _lifetime;
+    private bool _disposed;
 
     public StandaloneConversionService(
         IFormatConverter converter,
@@ -144,6 +145,10 @@ public sealed class StandaloneConversionService : IDisposable
 
     public void Dispose()
     {
+        // R5-019 FIX: Guard against double-dispose and dispose _collectionIndex.
+        if (_disposed) return;
+        _disposed = true;
+        (_collectionIndex as IDisposable)?.Dispose();
         _lifetime?.Dispose();
     }
 

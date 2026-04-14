@@ -202,7 +202,9 @@ public sealed class AuditCsvStore : IAuditStore
 
     private static FileLockHandle AcquireFileLock(string auditCsvPath)
     {
-        while (true)
+        // R2-014 FIX: Add retry limit to prevent infinite loop in pathological race condition.
+        const int maxRetries = 100;
+        for (int attempt = 0; attempt < maxRetries; attempt++)
         {
             var handle = FileLocks.GetOrAdd(auditCsvPath, static _ => new FileLockHandle());
             Interlocked.Increment(ref handle.RefCount);
@@ -211,6 +213,8 @@ public sealed class AuditCsvStore : IAuditStore
 
             ReleaseFileLock(auditCsvPath, handle);
         }
+
+        throw new InvalidOperationException($"Failed to acquire file lock for '{auditCsvPath}' after {maxRetries} retries.");
     }
 
     private static void ReleaseFileLock(string auditCsvPath, FileLockHandle handle)

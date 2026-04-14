@@ -108,9 +108,35 @@
           <!-- Normal screens (hidden during run) -->
           <Grid Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVis}}">
 
-            <!-- ── MissionControl ──────────────────────────────── -->
-            <views:StartView Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}"
-                             TabIndex="51"/>
+            <!-- ── MissionControl (Dashboard + embedded Setup tabs) ───── -->
+            <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}"
+                  KeyboardNavigation.TabIndex="51">
+              <views:StartView TabIndex="51">
+                <views:StartView.Style>
+                  <Style TargetType="views:StartView">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Shell.SelectedSubTab}" Value="Regions">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Shell.SelectedSubTab}" Value="Options">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Shell.SelectedSubTab}" Value="Profiles">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </views:StartView.Style>
+              </views:StartView>
+
+              <views:ConfigRegionsView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Regions}"/>
+              <views:ConfigOptionsView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Options}"/>
+              <views:ConfigProfilesView
+                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Profiles}"/>
+            </Grid>
 
             <!-- ── Library (sub-tab-aware) ─────────────────────── -->
             <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Library}"
@@ -123,17 +149,6 @@
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Safety}"/>
               <views:DatAuditView DataContext="{Binding DatAudit}"
                   Visibility="{Binding DataContext.Shell.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatAudit}"/>
-            </Grid>
-
-            <!-- ── Config (sub-tab-aware) ──────────────────────── -->
-            <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}"
-                  KeyboardNavigation.TabIndex="53">
-              <views:ConfigRegionsView
-                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Regions}"/>
-              <views:ConfigOptionsView
-                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Options}"/>
-              <views:ConfigProfilesView
-                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Profiles}"/>
             </Grid>
 
             <!-- ── Tools (sub-tab-aware) ───────────────────────── -->
@@ -150,8 +165,6 @@
             <!-- ── System (sub-tab-aware) ──────────────────────── -->
             <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}"
                   KeyboardNavigation.TabIndex="55">
-              <views:SystemActivityView
-                  Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=ActivityLog}"/>
               <views:SystemAppearanceView
                   Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Appearance}"/>
               <views:SystemAboutView
