@@ -82,6 +82,7 @@ public static class RunOptionsBuilder
 
         var normalizedExtensions = options.Extensions
             .Where(static e => !string.IsNullOrWhiteSpace(e))
+            .Select(static e => e.ToLowerInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 

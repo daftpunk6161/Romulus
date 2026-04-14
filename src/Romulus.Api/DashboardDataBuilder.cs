@@ -96,7 +96,7 @@ internal static class DashboardDataBuilder
                 Consoles = Array.Empty<DashboardDatConsoleStatus>(),
                 OldFileCount = 0,
                 CatalogEntries = 0,
-                WithinAllowedRoots = string.IsNullOrWhiteSpace(datRoot) || allowedRootPolicy.IsPathAllowed(datRoot)
+                WithinAllowedRoots = !string.IsNullOrWhiteSpace(datRoot) && allowedRootPolicy.IsPathAllowed(datRoot)
             });
         }
 
@@ -127,7 +127,7 @@ internal static class DashboardDataBuilder
                 Consoles = Array.Empty<DashboardDatConsoleStatus>(),
                 OldFileCount = 0,
                 CatalogEntries = 0,
-                WithinAllowedRoots = string.IsNullOrWhiteSpace(datRoot) || allowedRootPolicy.IsPathAllowed(datRoot)
+                WithinAllowedRoots = !string.IsNullOrWhiteSpace(datRoot) && allowedRootPolicy.IsPathAllowed(datRoot)
             });
         }
 

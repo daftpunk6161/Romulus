@@ -101,6 +101,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         Shell = shell ?? MainViewModelChildFactory.CreateShell(_loc, DeferCommandRequery);
         Shell.SetCommandRequery(DeferCommandRequery);
         Shell.IsSimpleMode = _isSimpleMode;
+        Shell.ReduceMotionPreference = _enableReducedMotion;
         Shell.PropertyChanged += OnShellStatePropertyChanged;
         Setup = setup ?? MainViewModelChildFactory.CreateSetup(_theme, _dialog, _settings, _loc);
         Setup.PropertyChanged += OnSetupSettingsPropertyChanged;

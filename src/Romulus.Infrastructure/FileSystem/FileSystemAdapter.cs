@@ -48,9 +48,12 @@ public sealed class FileSystemAdapter : IFileSystem
     /// <summary>
     /// Issue #21: Normalize path to NFC to handle macOS NFD-encoded paths
     /// on HFS+ volumes or USB sticks.
+    /// R2-016: Cache results to avoid redundant normalization on hot paths.
     /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _nfcCache = new(StringComparer.OrdinalIgnoreCase);
+
     internal static string NormalizePathNfc(string path)
-        => Path.GetFullPath(path).Normalize(NormalizationForm.FormC);
+        => _nfcCache.GetOrAdd(path, static p => Path.GetFullPath(p).Normalize(NormalizationForm.FormC));
 
     private static bool TryGetFileIdentity(string path, out FileIdentity identity)
     {

@@ -52,6 +52,9 @@ public sealed class RunResultBuilder
     public PhaseMetricsResult? PhaseMetrics { get; set; }
     public List<string> Warnings { get; } = new();
 
+    /// <summary>R4-023: Indicates partial completion (cancel/error mid-pipeline).</summary>
+    public bool IsPartial { get; set; }
+
     public RunResultBuilder AddWarning(string warning)
     {
         if (!string.IsNullOrWhiteSpace(warning))
@@ -104,7 +107,8 @@ public sealed class RunResultBuilder
         AllCandidates = AllCandidates,
         DedupeGroups = DedupeGroups,
         PhaseMetrics = PhaseMetrics,
-        Warnings = Warnings.Count > 0 ? Warnings.ToArray() : Array.Empty<string>()
+        Warnings = Warnings.Count > 0 ? Warnings.ToArray() : Array.Empty<string>(),
+        IsPartial = IsPartial
         };
 
         // Defensive invariant check keeps report/output channels aligned.

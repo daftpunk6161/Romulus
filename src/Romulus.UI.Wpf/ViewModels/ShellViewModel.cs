@@ -14,6 +14,7 @@ public sealed class ShellViewModel : ObservableObject
 {
     private const string MissionControlTag = "MissionControl";
     private const string LibraryTag = "Library";
+    private const string PipelineTag = "Pipeline";
     private const string ConfigTag = "Config";
     private const string ToolsTag = "Tools";
     private const string SystemTag = "System";
@@ -70,7 +71,7 @@ public sealed class ShellViewModel : ObservableObject
         {
             0 => MissionControlTag,
             1 => LibraryTag,
-            2 => ConfigTag,
+            2 => PipelineTag,
             3 => ToolsTag,
             4 => SystemTag,
             _ => MissionControlTag
@@ -81,6 +82,7 @@ public sealed class ShellViewModel : ObservableObject
             {
                 MissionControlTag => 0,
                 LibraryTag => 1,
+                PipelineTag => 2,
                 ConfigTag => 0,
                 ToolsTag => 3,
                 SystemTag => 4,
@@ -128,6 +130,7 @@ public sealed class ShellViewModel : ObservableObject
 
     public bool ShowMissionControlNav => true;
     public bool ShowLibraryNav => true;
+    public bool ShowPipelineNav => !IsSimpleMode;
     public bool ShowConfigNav => false;
     public bool ShowToolsNav => !IsSimpleMode;
     public bool ShowSystemNav => true;
@@ -156,6 +159,10 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowToolsConversionTab => false;
     public bool ShowToolsGameKeyLabTab => false;
 
+    public bool ShowPipelineConversionTab => true;
+    public bool ShowPipelineSortingTab => true;
+    public bool ShowPipelineBatchTab => !IsSimpleMode;
+
     public bool ShowSystemActivityLogTab => false;
     public bool ShowSystemAppearanceTab => true;
     public bool ShowSystemAboutTab => true;
@@ -164,6 +171,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag => "Mission Control",
         LibraryTag => "Library",
+        PipelineTag => "Pipeline",
         ConfigTag => "Mission Control",
         ToolsTag => "Werkzeugkatalog",
         SystemTag => "System",
@@ -185,6 +193,9 @@ public sealed class ShellViewModel : ObservableObject
         "ExternalTools" => "Externe Tools",
         "Features" => "Werkzeuge & Features",
         "DatManagement" => "DAT-Verwaltung",
+        "Conversion" => "Conversion",
+        "Sorting" => "Sorting",
+        "Batch" => "Batch",
         "ActivityLog" => "Aktivitaet",
         "Appearance" => "Darstellung",
         "About" => "Info",
@@ -197,6 +208,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag or "Start" => MissionControlTag,
         LibraryTag or "Analyse" => LibraryTag,
+        PipelineTag => PipelineTag,
         ConfigTag or "Setup" => MissionControlTag,
         ToolsTag => ToolsTag,
         SystemTag or "Log" => SystemTag,
@@ -215,6 +227,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         MissionControlTag => "Dashboard",
         LibraryTag => "Results",
+        PipelineTag => "Conversion",
         ConfigTag => "Dashboard",
         ToolsTag => "Features",
         SystemTag => "Appearance",
@@ -239,6 +252,9 @@ public sealed class ShellViewModel : ObservableObject
         LibraryTag => !IsSimpleMode
             ? subTab is "Results" or "Decisions" or "Safety" or "DatAudit"
             : subTab is "Results" or "Safety",
+        PipelineTag => !IsSimpleMode
+            ? subTab is "Conversion" or "Sorting" or "Batch"
+            : false,
         ConfigTag => false,
         ToolsTag => !IsSimpleMode
             ? subTab is "Features" or "ExternalTools" or "DatManagement"
@@ -253,6 +269,9 @@ public sealed class ShellViewModel : ObservableObject
         var coercedNavTag = currentNavTag;
 
         if (string.Equals(coercedNavTag, ConfigTag, StringComparison.Ordinal))
+            coercedNavTag = MissionControlTag;
+
+        if (IsSimpleMode && string.Equals(coercedNavTag, PipelineTag, StringComparison.Ordinal))
             coercedNavTag = MissionControlTag;
 
         if (IsSimpleMode && string.Equals(coercedNavTag, ToolsTag, StringComparison.Ordinal))
@@ -273,6 +292,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ShowMissionControlNav));
         OnPropertyChanged(nameof(ShowLibraryNav));
+        OnPropertyChanged(nameof(ShowPipelineNav));
         OnPropertyChanged(nameof(ShowConfigNav));
         OnPropertyChanged(nameof(ShowToolsNav));
         OnPropertyChanged(nameof(ShowSystemNav));
@@ -300,6 +320,10 @@ public sealed class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowToolsDatManagementTab));
         OnPropertyChanged(nameof(ShowToolsConversionTab));
         OnPropertyChanged(nameof(ShowToolsGameKeyLabTab));
+
+        OnPropertyChanged(nameof(ShowPipelineConversionTab));
+        OnPropertyChanged(nameof(ShowPipelineSortingTab));
+        OnPropertyChanged(nameof(ShowPipelineBatchTab));
 
         OnPropertyChanged(nameof(ShowSystemActivityLogTab));
         OnPropertyChanged(nameof(ShowSystemAppearanceTab));
@@ -350,7 +374,8 @@ public sealed class ShellViewModel : ObservableObject
         {
             MissionControlTag => 0,
             LibraryTag => 1,
-            ConfigTag => 2,
+            PipelineTag => 2,
+            ConfigTag => 0,
             ToolsTag => 3,
             SystemTag => 4,
             _ => 0
@@ -508,5 +533,16 @@ public sealed class ShellViewModel : ObservableObject
     public void DismissNotification(NotificationItem item) => Notifications.Remove(item);
 
     // ═══ ACCESSIBILITY ══════════════════════════════════════════════════
-    public bool ReduceMotion => !System.Windows.SystemParameters.ClientAreaAnimation;
+    private bool _reduceMotionPreference;
+    public bool ReduceMotionPreference
+    {
+        get => _reduceMotionPreference;
+        set
+        {
+            if (SetProperty(ref _reduceMotionPreference, value))
+                OnPropertyChanged(nameof(ReduceMotion));
+        }
+    }
+
+    public bool ReduceMotion => ReduceMotionPreference || !System.Windows.SystemParameters.ClientAreaAnimation;
 }

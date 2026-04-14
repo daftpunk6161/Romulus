@@ -19,7 +19,7 @@ public sealed class ShellViewModelCoverageTests
     [Theory]
     [InlineData(0, "MissionControl")]
     [InlineData(1, "Library")]
-    [InlineData(2, "Config")]
+    [InlineData(2, "Pipeline")]
     [InlineData(3, "Tools")]
     [InlineData(4, "System")]
     public void SelectedNavIndex_MapsToCorrectTag(int index, string expectedTag)

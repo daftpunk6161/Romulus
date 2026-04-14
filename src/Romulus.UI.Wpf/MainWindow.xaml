@@ -9,7 +9,7 @@
     Width="1280" Height="860"
     MinWidth="960" MinHeight="720"
     WindowStartupLocation="CenterScreen"
-    FontFamily="Segoe UI" FontSize="13"
+    FontFamily="Segoe UI" FontSize="{Binding UiBaseFontSize}"
     Background="{DynamicResource BrushBackground}" Foreground="{DynamicResource BrushTextPrimary}"
     UseLayoutRounding="True"
     SnapsToDevicePixels="True">
@@ -150,6 +150,12 @@
               <views:DatAuditView DataContext="{Binding DatAudit}"
                   Visibility="{Binding DataContext.Shell.SelectedSubTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatAudit}"/>
             </Grid>
+
+                <!-- ── Pipeline (sub-tab-aware) ────────────────────── -->
+                <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Pipeline}"
+                  KeyboardNavigation.TabIndex="53">
+                  <views:PipelineWorkbenchView/>
+                </Grid>
 
             <!-- ── Tools (sub-tab-aware) ───────────────────────── -->
             <Grid Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}"

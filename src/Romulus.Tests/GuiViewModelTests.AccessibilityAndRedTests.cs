@@ -2089,8 +2089,8 @@ public partial class GuiViewModelTests
             [AppTheme.CleanDarkPro] = "Clean Dark",
             [AppTheme.RetroCRT] = "Retro CRT",
             [AppTheme.ArcadeNeon] = "Arcade Neon",
-            [AppTheme.Light] = "Hell",
-            [AppTheme.HighContrast] = "Kontrast",
+            [AppTheme.Light] = "Clean Daylight",
+            [AppTheme.HighContrast] = "Stark Contrast",
         };
 
         // Verify ThemeToggleText also covers all themes (complementary)
@@ -2099,8 +2099,8 @@ public partial class GuiViewModelTests
             [AppTheme.Dark] = "⮞ Clean Dark",
             [AppTheme.CleanDarkPro] = "⮞ Retro CRT",
             [AppTheme.RetroCRT] = "⮞ Arcade Neon",
-            [AppTheme.ArcadeNeon] = "⮞ Hell",
-            [AppTheme.Light] = "⮞ Kontrast",
+            [AppTheme.ArcadeNeon] = "⮞ Clean Daylight",
+            [AppTheme.Light] = "⮞ Stark Contrast",
             [AppTheme.HighContrast] = "⮞ Synthwave",
         };
 
@@ -2213,7 +2213,7 @@ public partial class GuiViewModelTests
         Assert.DoesNotContain("ConverterParameter=Filtering", content);
         Assert.DoesNotContain("ConverterParameter=Report", content);
         Assert.Contains("ConverterParameter=DatManagement", content);
-        Assert.DoesNotContain("ConverterParameter=Conversion", content);
+        Assert.Contains("ConverterParameter=Conversion", content);
         Assert.DoesNotContain("ConverterParameter=GameKeyLab", content);
     }
 

@@ -230,8 +230,8 @@ public sealed partial class SetupViewModel : ObservableObject, INotifyDataErrorI
         AppTheme.Dark         => "⮞ Clean Dark",
         AppTheme.CleanDarkPro => "⮞ Retro CRT",
         AppTheme.RetroCRT     => "⮞ Arcade Neon",
-        AppTheme.ArcadeNeon   => "⮞ Hell",
-        AppTheme.Light        => "⮞ Kontrast",
+        AppTheme.ArcadeNeon   => "⮞ Clean Daylight",
+        AppTheme.Light        => "⮞ Stark Contrast",
         AppTheme.HighContrast => "⮞ Synthwave",
         _                     => "⮞ Synthwave",
     };

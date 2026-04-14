@@ -1324,7 +1324,7 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
 | **Screen Reader** | ⚠️ Lücken bei ARIA-Roles | AutomationProperties.Role ergänzen |
 | **Status nicht nur Farbe** | ⚠️ Teilweise | Triple-Encoding durchsetzen (Icon+Farbe+Text) |
 | **Touch Targets ≥ 44px** | ✓ MinTouchTarget definiert | CheckBox-Padding prüfen |
-| **Reduced Motion** | ❌ Nicht implementiert | `prefers-reduced-motion` Äquivalent in Settings |
+| **Reduced Motion** | ✓ Umgesetzt | Toggle in System > Appearance vorhanden, wirkt auf Shell-Motion-Verhalten |
 | **Live Regions** | ⚠️ Teilweise | Status-Änderungen als LiveRegion markieren |
 
 ### Konkrete Fixes (priorisiert)
@@ -1376,6 +1376,7 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
 |-------|--------|----------|
 | Phase 1 | Umgesetzt | Theme-/Kontrast-Fixes, Focus-Ring, Danger-Styling, Context-Wing-Anpassungen in der WPF-Oberfläche integriert |
 | Phase 2 | Umgesetzt | Tool-Grouping, Mission-Control-Integration für Setup/Config, Activity-Log-Entkopplung in den Detail-Drawer, KPI-Disclosure und Simple/Expert-Verhalten umgesetzt |
+| Phase 3 | Umgesetzt (Scope dieser Iteration) | Pipeline als eigener Nav-Bereich, neue Appearance-Steuerungen (Reduced Motion, Density, Wizard-Startup), Dialog-Basisstil mit Severity-Tagging sowie Theme-Update auf Clean Daylight / Stark Contrast umgesetzt |
 
 #### Verifizierung (Pflicht)
 
@@ -1385,6 +1386,12 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
       - `FeatureCommandServiceTests`
       - `WpfProductizationTests`
       - `GuiViewModelTests.AccessibilityAndRedTests`
+- Tests (Phase-3-Akzeptanz): 5 bestanden, 0 fehlgeschlagen
+      - `dotnet test src/Romulus.sln --filter "FullyQualifiedName~Phase3_"`
+- Tests (Phase-3-Regression/Impact): 581 bestanden, 0 fehlgeschlagen
+      - `WpfProductizationTests`
+      - `ShellViewModelCoverageTests`
+      - `GuiViewModelTests`
 
 ### Phase 3: Designsystem-Verfeinerung (4-8 Wochen)
 
@@ -1442,4 +1449,4 @@ So bekommen alle Nutzergruppen ihren optimalen Modus, ohne dass die Grundstruktu
 
 *Erstellt: 2026-04-14*
 *Für: Romulus UI/UX Redesign*
-*Status: Phase 1 und Phase 2 umgesetzt, Phase 3+ in Planung*
+*Status: Phase 1 bis Phase 3 umgesetzt, Phase 4 in Planung*

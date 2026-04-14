@@ -109,7 +109,10 @@ public sealed class ScheduleService : IDisposable
         bool shouldTrigger;
         lock (_sync)
         {
-            shouldTrigger = _pendingWhileBusy && _timer is not null && IsBusyCheck?.Invoke() != true;
+            // R3-020: Protect IsBusyCheck invocation — treat exception as "still busy"
+            var isBusy = true;
+            try { isBusy = IsBusyCheck?.Invoke() == true; } catch { /* treat as still busy */ }
+            shouldTrigger = _pendingWhileBusy && _timer is not null && !isBusy;
             if (shouldTrigger)
                 _pendingWhileBusy = false;
         }

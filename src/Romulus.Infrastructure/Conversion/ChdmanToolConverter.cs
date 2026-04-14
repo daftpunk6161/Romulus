@@ -99,7 +99,8 @@ internal sealed class ChdmanToolConverter
     {
         var dir = Path.GetDirectoryName(sourcePath)!;
         var baseName = Path.GetFileNameWithoutExtension(sourcePath);
-        var extractDir = Path.Combine(dir, $"_extract_{baseName}_{Guid.NewGuid():N}");
+        // R5-017: Use system temp directory instead of source directory for extraction
+        var extractDir = Path.Combine(Path.GetTempPath(), $"_extract_{baseName}_{Guid.NewGuid():N}");
 
         try
         {

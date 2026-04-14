@@ -86,6 +86,9 @@ public sealed partial class MainViewModel
         nameof(PreferBR), nameof(PreferNL), nameof(PreferSE), nameof(PreferSCAN),
         nameof(LogLevel), nameof(MinimizeToTray),
         nameof(WatchAutoStart),
+        nameof(EnableReducedMotion),
+        nameof(SelectedDensityMode),
+        nameof(ShowFirstRunWizardOnStartup),
     };
 
     /// <summary>Schedule an auto-save 2 seconds after the last persisted property change.</summary>
@@ -817,6 +820,49 @@ public sealed partial class MainViewModel
     public bool IsExpertMode => !_isSimpleMode;
     public string CurrentUiModeLabel => IsSimpleMode ? "Einfach" : "Experte";
 
+    private bool _enableReducedMotion;
+    public bool EnableReducedMotion
+    {
+        get => _enableReducedMotion;
+        set
+        {
+            if (!SetProperty(ref _enableReducedMotion, value))
+                return;
+
+            Shell.ReduceMotionPreference = value;
+        }
+    }
+
+    private UiDensityMode _selectedDensityMode = UiDensityMode.Normal;
+    public UiDensityMode SelectedDensityMode
+    {
+        get => _selectedDensityMode;
+        set
+        {
+            if (!SetProperty(ref _selectedDensityMode, value))
+                return;
+
+            OnPropertyChanged(nameof(UiBaseFontSize));
+        }
+    }
+
+    public IReadOnlyList<UiDensityMode> AvailableDensityModes { get; } =
+        [UiDensityMode.Compact, UiDensityMode.Normal, UiDensityMode.Comfortable];
+
+    public double UiBaseFontSize => SelectedDensityMode switch
+    {
+        UiDensityMode.Compact => 12.5,
+        UiDensityMode.Comfortable => 14.5,
+        _ => 13.0,
+    };
+
+    private bool _showFirstRunWizardOnStartup = true;
+    public bool ShowFirstRunWizardOnStartup
+    {
+        get => _showFirstRunWizardOnStartup;
+        set => SetProperty(ref _showFirstRunWizardOnStartup, value);
+    }
+
     // Simple-mode options (not persisted — derived from main options at run time)
     [ObservableProperty]
     private int _simpleRegionIndex;
@@ -920,8 +966,8 @@ public sealed partial class MainViewModel
         AppTheme.CleanDarkPro => "Clean Dark",
         AppTheme.RetroCRT     => "Retro CRT",
         AppTheme.ArcadeNeon   => "Arcade Neon",
-        AppTheme.Light        => "Hell",
-        AppTheme.HighContrast  => "Kontrast",
+        AppTheme.Light        => "Clean Daylight",
+        AppTheme.HighContrast  => "Stark Contrast",
         _                     => _theme.Current.ToString(),
     };
 
@@ -948,8 +994,8 @@ public sealed partial class MainViewModel
         AppTheme.Dark         => "⮞ Clean Dark",
         AppTheme.CleanDarkPro => "⮞ Retro CRT",
         AppTheme.RetroCRT     => "⮞ Arcade Neon",
-        AppTheme.ArcadeNeon   => "⮞ Hell",
-        AppTheme.Light        => "⮞ Kontrast",
+        AppTheme.ArcadeNeon   => "⮞ Clean Daylight",
+        AppTheme.Light        => "⮞ Stark Contrast",
         AppTheme.HighContrast => "⮞ Synthwave",
         _                     => "⮞ Synthwave",
     };

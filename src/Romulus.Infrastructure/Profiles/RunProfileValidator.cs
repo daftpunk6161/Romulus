@@ -26,6 +26,14 @@ public static partial class RunProfileValidator
     [GeneratedRegex("^[A-Za-z0-9._-]{1,64}$", RegexOptions.CultureInvariant)]
     private static partial Regex ProfileIdRegex();
 
+    /// <summary>R6-007: Windows reserved device names that must be rejected as profile IDs.</summary>
+    private static readonly IReadOnlySet<string> WindowsReservedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
     public static bool TryNormalizeProfileId(string? id, out string normalizedId)
     {
         normalizedId = string.Empty;
@@ -34,6 +42,11 @@ public static partial class RunProfileValidator
 
         var trimmed = id.Trim();
         if (!ProfileIdRegex().IsMatch(trimmed))
+            return false;
+
+        // R6-007: Reject Windows reserved device names
+        var nameWithoutExtension = trimmed.Contains('.') ? trimmed[..trimmed.IndexOf('.')] : trimmed;
+        if (WindowsReservedNames.Contains(nameWithoutExtension))
             return false;
 
         normalizedId = trimmed;

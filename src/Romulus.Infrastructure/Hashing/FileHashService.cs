@@ -170,8 +170,16 @@ public sealed class FileHashService : IDisposable
             };
 
             var tempPath = _persistentCachePath + "." + Environment.ProcessId + ".tmp";
-            File.WriteAllText(tempPath, JsonSerializer.Serialize(document, PersistentJsonOptions));
-            File.Move(tempPath, _persistentCachePath, overwrite: true);
+            try
+            {
+                File.WriteAllText(tempPath, JsonSerializer.Serialize(document, PersistentJsonOptions));
+                File.Move(tempPath, _persistentCachePath, overwrite: true);
+            }
+            finally
+            {
+                // R6-009: Clean up .tmp on partial failure
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* best-effort */ }
+            }
             _persistentDirty = false;
         }
     }
@@ -376,6 +384,11 @@ public sealed class FileHashService : IDisposable
                 return false;
 
             if (entry.LastWriteUtcTicks != fingerprint.LastWriteUtcTicks || entry.Length != fingerprint.Length)
+                return false;
+
+            // R2-013: TTL staleness guard — discard entries older than 7 days
+            var ageDays = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - entry.RecordedUtcTicks).TotalDays;
+            if (ageDays > 7)
                 return false;
 
             hash = entry.Hash;

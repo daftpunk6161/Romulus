@@ -340,7 +340,7 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.DoesNotContain("ConverterParameter=Filtering", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=Report", subTabBarXaml);
         Assert.Contains("ConverterParameter=DatManagement", subTabBarXaml);
-        Assert.DoesNotContain("ConverterParameter=Conversion", subTabBarXaml);
+        Assert.Contains("ConverterParameter=Conversion", subTabBarXaml);
         Assert.DoesNotContain("ConverterParameter=GameKeyLab", subTabBarXaml);
         Assert.DoesNotContain("ConfigFiltersView", mainWindowXaml);
         Assert.DoesNotContain("LibraryReportView", mainWindowXaml);
@@ -424,6 +424,74 @@ public sealed class WpfProductizationTests : IDisposable
 
         Assert.Contains("Weitere Kennzahlen", resultViewXaml);
         Assert.Contains("<Expander", resultViewXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase3_PipelineArea_IsPresentInNavigationSubTabsAndMainContent()
+    {
+        var navigationRailXaml = File.ReadAllText(FindUiFile("Views", "NavigationRail.xaml"));
+        var subTabBarXaml = File.ReadAllText(FindUiFile("Views", "SubTabBar.xaml"));
+        var mainWindowXaml = File.ReadAllText(FindUiFile("", "MainWindow.xaml"));
+
+        Assert.Contains("Shell.ShowPipelineNav", navigationRailXaml);
+        Assert.Contains("ConverterParameter=Pipeline", navigationRailXaml);
+        Assert.Contains("ConverterParameter=Pipeline", subTabBarXaml);
+        Assert.Contains("ConverterParameter=Conversion", subTabBarXaml);
+        Assert.Contains("ConverterParameter=Sorting", subTabBarXaml);
+        Assert.Contains("ConverterParameter=Batch", subTabBarXaml);
+        Assert.Contains("<views:PipelineWorkbenchView", mainWindowXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase3_AppearanceView_ExposesReducedMotionAndDensityControls()
+    {
+        var appearanceXaml = File.ReadAllText(FindUiFile("Views", "SystemAppearanceView.xaml"));
+
+        Assert.Contains("EnableReducedMotion", appearanceXaml);
+        Assert.Contains("SelectedDensityMode", appearanceXaml);
+        Assert.Contains("AvailableDensityModes", appearanceXaml);
+    }
+
+    [Fact]
+    public void Phase3_SettingsPersistence_ContainsMotionDensityAndWizardStartupFlags()
+    {
+        var settingsDto = File.ReadAllText(FindUiFile("Services", "SettingsDto.cs"));
+        var settingsService = File.ReadAllText(FindUiFile("Services", "SettingsService.cs"));
+
+        Assert.Contains("ReduceMotion", settingsDto);
+        Assert.Contains("DensityMode", settingsDto);
+        Assert.Contains("ShowFirstRunWizardOnStartup", settingsDto);
+
+        Assert.Contains("reduceMotion", settingsService, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("densityMode", settingsService, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("showFirstRunWizardOnStartup", settingsService, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Phase3_DialogWindows_UseSharedBaseStyleAndSeveritySignal()
+    {
+        var messageDialogXaml = File.ReadAllText(FindUiFile("", "MessageDialog.xaml"));
+        var inputDialogXaml = File.ReadAllText(FindUiFile("", "InputDialog.xaml"));
+        var resultDialogXaml = File.ReadAllText(FindUiFile("", "ResultDialog.xaml"));
+        var dangerDialogXaml = File.ReadAllText(FindUiFile("", "DangerConfirmDialog.xaml"));
+
+        Assert.Contains("BaseDialogWindowStyle", messageDialogXaml);
+        Assert.Contains("BaseDialogWindowStyle", inputDialogXaml);
+        Assert.Contains("BaseDialogWindowStyle", resultDialogXaml);
+        Assert.Contains("BaseDialogWindowStyle", dangerDialogXaml);
+
+        Assert.Contains("DialogSeverity", messageDialogXaml);
+        Assert.Contains("DialogSeverity", dangerDialogXaml);
+    }
+
+    [Fact]
+    public void Phase3_ThemeCatalog_IncludesCleanDaylightAndStarkContrastNaming()
+    {
+        var themeService = File.ReadAllText(FindUiFile("Services", "ThemeService.cs"));
+        var settingsVm = File.ReadAllText(FindUiFile("ViewModels", "MainViewModel.Settings.cs"));
+
+        Assert.Contains("CleanDaylight", themeService);
+        Assert.Contains("Stark Contrast", settingsVm);
     }
 
     private static async Task ExecuteCommandAsync(ICommand command)

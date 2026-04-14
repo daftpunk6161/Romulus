@@ -84,7 +84,7 @@ public partial class MainWindow : Window, IWindowHost
             _vm.LoadInitialSettings();
             UpdateContextPanelWidth();
             _vm.Shell.IsCompactNav = ActualWidth < NavCompactBreakpoint;
-            if (_vm.Roots.Count == 0)
+            if (_vm.ShowFirstRunWizardOnStartup && _vm.Roots.Count == 0)
             {
                 _vm.ApplyLocaleRegionDefaults();
                 _vm.Shell.ShowFirstRunWizard = true;

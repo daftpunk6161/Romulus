@@ -27,8 +27,7 @@ internal sealed class PhasePlanExecutor(Action<string>? onProgress) : IPhasePlan
                 _onProgress?.Invoke($"[WARN] {phase.Name}: {warning}");
 
             if (string.Equals(stepResult.Status, Contracts.RunConstants.StatusFailed, StringComparison.OrdinalIgnoreCase))
-            {
-                _onProgress?.Invoke($"[Plan] Phase '{phase.Name}' failed – aborting remaining phases.");
+            {                pipelineState.SetFailedPhase(phase.Name, stepResult.Status);                _onProgress?.Invoke($"[Plan] Phase '{phase.Name}' failed – aborting remaining phases.");
                 break;
             }
         }

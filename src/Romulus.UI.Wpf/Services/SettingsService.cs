@@ -3,6 +3,7 @@ using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Configuration;
 using Romulus.Infrastructure.Paths;
+using Romulus.UI.Wpf.Models;
 using Romulus.UI.Wpf.ViewModels;
 
 namespace Romulus.UI.Wpf.Services;
@@ -145,6 +146,9 @@ public sealed class SettingsService : ISettingsService
                     WatchAutoStart = GetBool(ui, "watchAutoStart"),
                     ConflictPolicy = cp,
                     Theme = GetString(ui, "theme", "Dark"),
+                    ReduceMotion = GetBool(ui, "reduceMotion"),
+                    DensityMode = ParseDensityMode(GetString(ui, "densityMode", UiDensityMode.Normal.ToString())),
+                    ShowFirstRunWizardOnStartup = GetBool(ui, "showFirstRunWizardOnStartup", true),
                     SelectedWorkflowScenarioId = GetString(ui, "selectedWorkflowScenarioId"),
                     SelectedRunProfileId = GetString(ui, "selectedRunProfileId"),
                     MinimizeToTray = GetBool(ui, "minimizeToTray"),
@@ -293,6 +297,9 @@ public sealed class SettingsService : ISettingsService
         vm.ConfirmMove = dto.ConfirmMove;
         vm.WatchAutoStart = dto.WatchAutoStart;
         vm.ConflictPolicy = dto.ConflictPolicy;
+        vm.EnableReducedMotion = dto.ReduceMotion;
+        vm.SelectedDensityMode = dto.DensityMode;
+        vm.ShowFirstRunWizardOnStartup = dto.ShowFirstRunWizardOnStartup;
         vm.MinimizeToTray = dto.MinimizeToTray;
         vm.IsSimpleMode = dto.IsSimpleMode;
         vm.SchedulerIntervalMinutes = dto.SchedulerIntervalMinutes;
@@ -369,6 +376,9 @@ public sealed class SettingsService : ISettingsService
                         watchAutoStart = vm.WatchAutoStart,
                         conflictPolicy = vm.ConflictPolicy.ToString(),
                         theme = vm.CurrentThemeName,
+                        reduceMotion = vm.EnableReducedMotion,
+                        densityMode = vm.SelectedDensityMode.ToString(),
+                        showFirstRunWizardOnStartup = vm.ShowFirstRunWizardOnStartup,
                         selectedWorkflowScenarioId = vm.SelectedWorkflowScenarioId,
                         selectedRunProfileId = vm.SelectedRunProfileId,
                         minimizeToTray = vm.MinimizeToTray,
@@ -408,5 +418,13 @@ public sealed class SettingsService : ISettingsService
     {
         return el.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number
             ? val.GetInt32() : fallback;
+    }
+
+    private static UiDensityMode ParseDensityMode(string? raw)
+    {
+        if (Enum.TryParse<UiDensityMode>(raw, true, out var parsed))
+            return parsed;
+
+        return UiDensityMode.Normal;
     }
 }

@@ -12,7 +12,8 @@ public enum AppTheme { Dark, Light, HighContrast, CleanDarkPro, RetroCRT, Arcade
 public sealed class ThemeService : IThemeService
 {
     private const string DarkThemeUri         = "pack://application:,,,/Themes/SynthwaveDark.xaml";
-    private const string LightThemeUri        = "pack://application:,,,/Themes/Light.xaml";
+    private const string LightThemeUri        = "pack://application:,,,/Themes/CleanDaylight.xaml";
+    private const string LegacyLightThemeUri  = "pack://application:,,,/Themes/Light.xaml";
     private const string HighContrastThemeUri  = "pack://application:,,,/Themes/HighContrast.xaml";
     private const string CleanDarkProThemeUri  = "pack://application:,,,/Themes/CleanDarkPro.xaml";
     private const string RetroCrtThemeUri      = "pack://application:,,,/Themes/RetroCRT.xaml";
@@ -76,6 +77,7 @@ public sealed class ThemeService : IThemeService
     {
         DarkThemeUri,
         LightThemeUri,
+        LegacyLightThemeUri,
         HighContrastThemeUri,
         CleanDarkProThemeUri,
         RetroCrtThemeUri,

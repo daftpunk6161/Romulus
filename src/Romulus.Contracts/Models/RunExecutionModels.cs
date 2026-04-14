@@ -141,6 +141,9 @@ public sealed class RunResult
     /// Non-fatal warnings collected during pipeline execution (e.g. skipped deferred analysis).
     /// </summary>
     public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
+
+    /// <summary>R4-023: Indicates partial completion (cancel/error mid-pipeline).</summary>
+    public bool IsPartial { get; init; }
 }
 
 public static class RunResultValidator

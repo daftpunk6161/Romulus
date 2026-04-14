@@ -55,6 +55,22 @@
           </StackPanel>
 
           <StackPanel Orientation="Horizontal"
+                      Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Pipeline}">
+            <RadioButton GroupName="SubTab" Content="Conversion" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowPipelineConversionTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Conversion}"
+                         AutomationProperties.Name="Pipeline Conversion"/>
+            <RadioButton GroupName="SubTab" Content="Sorting" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowPipelineSortingTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Sorting}"
+                         AutomationProperties.Name="Pipeline Sorting"/>
+            <RadioButton GroupName="SubTab" Content="Batch" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowPipelineBatchTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Batch}"
+                         AutomationProperties.Name="Pipeline Batch"/>
+          </StackPanel>
+
+          <StackPanel Orientation="Horizontal"
                       Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}">
             <RadioButton GroupName="SubTab" Content="Toolchain" Style="{StaticResource SubTabPill}"
                          Visibility="{Binding Shell.ShowToolsExternalToolsTab, Converter={StaticResource BoolToVis}}"

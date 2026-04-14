@@ -48,6 +48,9 @@ public sealed record SettingsDto
     public bool WatchAutoStart { get; init; }
     public ConflictPolicy ConflictPolicy { get; init; } = ConflictPolicy.Rename;
     public string Theme { get; init; } = "Dark";
+    public bool ReduceMotion { get; init; }
+    public UiDensityMode DensityMode { get; init; } = UiDensityMode.Normal;
+    public bool ShowFirstRunWizardOnStartup { get; init; } = true;
     public string? SelectedWorkflowScenarioId { get; init; }
     public string? SelectedRunProfileId { get; init; }
 

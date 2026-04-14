@@ -25,6 +25,15 @@
       <conv:FractionToWidthConverter x:Key="FractionToWidth"/>
       <conv:FractionToGridLengthConverter x:Key="FractionToGridLength"/>
       <conv:IntToVisibilityConverter x:Key="IntToVis"/>
+
+      <Style x:Key="BaseDialogWindowStyle" TargetType="Window">
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Background" Value="{DynamicResource BrushBackground}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
+        <Setter Property="WindowStartupLocation" Value="CenterOwner"/>
+      </Style>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

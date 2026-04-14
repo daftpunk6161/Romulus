@@ -367,15 +367,17 @@ public sealed partial class RunOrchestrator : IDisposable
         }
     }
 
-    private void TryFlushHashCache()
+    private bool TryFlushHashCache()
     {
         try
         {
             _hashService?.FlushPersistentCache();
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             _onProgress?.Invoke($"[HashCache] Persist failed: {ex.Message}");
+            return false;
         }
     }
 

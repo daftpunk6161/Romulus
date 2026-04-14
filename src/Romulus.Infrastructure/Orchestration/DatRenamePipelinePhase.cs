@@ -25,6 +25,7 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
         var failedCount = 0;
         var executeMode = string.Equals(input.Options.Mode, "Move", StringComparison.OrdinalIgnoreCase);
         var skipOnConflict = string.Equals(input.Options.ConflictPolicy, "Skip", StringComparison.OrdinalIgnoreCase);
+        var collisionCount = 0;
 
         foreach (var entry in input.Entries)
         {
@@ -80,6 +81,9 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
                 if (!winnersByTargetPath.ContainsKey(item.TargetPath))
                     winnersByTargetPath[item.TargetPath] = item;
             }
+
+            // R4-016: Track collision count (items that lost target-path resolution)
+            collisionCount = executableItems.Count - winnersByTargetPath.Count;
 
             foreach (var item in executableItems.OrderBy(static item => item.Entry.FilePath, StringComparer.OrdinalIgnoreCase))
             {
@@ -162,7 +166,8 @@ public sealed class DatRenamePipelinePhase : IPipelinePhase<DatRenameInput, DatR
             proposedCount,
             executedCount,
             skippedCount,
-            failedCount);
+            failedCount,
+            collisionCount);
     }
 
     private sealed record DatRenameExecutionItem(
@@ -194,4 +199,5 @@ public sealed record DatRenameResult(
     int ProposedCount,
     int ExecutedCount,
     int SkippedCount,
-    int FailedCount);
+    int FailedCount,
+    int CollisionCount = 0);

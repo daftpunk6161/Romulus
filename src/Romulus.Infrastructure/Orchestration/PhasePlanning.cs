@@ -38,6 +38,18 @@ public sealed class PipelineState
     public DatAuditResult? DatAuditResult { get; private set; }
     public DatRenameResult? DatRenameResult { get; private set; }
 
+    /// <summary>R4-010: Name of the phase that failed (if any).</summary>
+    public string? FailedPhaseName { get; private set; }
+
+    /// <summary>R4-010: Status string of the failed phase.</summary>
+    public string? FailedPhaseStatus { get; private set; }
+
+    public void SetFailedPhase(string phaseName, string status)
+    {
+        FailedPhaseName = phaseName;
+        FailedPhaseStatus = status;
+    }
+
     public void SetScanOutput(IReadOnlyList<RomCandidate> allCandidates, IReadOnlyList<RomCandidate> processingCandidates)
     {
         if (AllCandidates is not null || ProcessingCandidates is not null)

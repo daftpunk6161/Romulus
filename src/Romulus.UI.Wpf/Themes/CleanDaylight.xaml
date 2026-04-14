@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<!-- ═══ CLEAN DAYLIGHT ═══════════════════════════════════════════════════
+     Bright daylight palette with stronger contrast for daytime usage. ═══ -->
+
+    <SolidColorBrush x:Key="BrushBackground"   Color="#F7FAFF"/>
+    <SolidColorBrush x:Key="BrushSurface"      Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BrushSurfaceAlt"   Color="#ECF3FF"/>
+    <SolidColorBrush x:Key="BrushSurfaceLight" Color="#F4F8FF"/>
+
+    <SolidColorBrush x:Key="BrushAccentCyan"   Color="#004F93"/>
+    <SolidColorBrush x:Key="BrushAccentPurple" Color="#5F3BC4"/>
+
+    <SolidColorBrush x:Key="BrushDanger"       Color="#BE2C2C"/>
+    <SolidColorBrush x:Key="BrushSuccess"      Color="#1F8D5E"/>
+    <SolidColorBrush x:Key="BrushWarning"      Color="#A86400"/>
+
+    <SolidColorBrush x:Key="BrushTextPrimary"  Color="#0F1428"/>
+    <SolidColorBrush x:Key="BrushTextMuted"    Color="#445071"/>
+    <SolidColorBrush x:Key="BrushBorder"       Color="#C4CFE8"/>
+
+    <SolidColorBrush x:Key="BrushDangerBg"  Color="#FFF1F1"/>
+    <SolidColorBrush x:Key="BrushSuccessBg" Color="#F1FFF6"/>
+    <SolidColorBrush x:Key="BrushInfoBg"    Color="#F2F6FF"/>
+    <SolidColorBrush x:Key="BrushWarningBg" Color="#FFF8EA"/>
+
+    <SolidColorBrush x:Key="BrushButtonPressed"   Color="#D2DAEF"/>
+    <SolidColorBrush x:Key="BrushInputSelection"  Color="#004F9344"/>
+    <SolidColorBrush x:Key="BrushBorderHover"     Color="#004F93"/>
+    <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#004F93"/>
+    <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#003F77"/>
+    <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#00315D"/>
+    <SolidColorBrush x:Key="BrushDangerHover"     Color="#BE2C2C11"/>
+    <SolidColorBrush x:Key="BrushWarningHover"    Color="#A8640011"/>
+    <SolidColorBrush x:Key="BrushScrimOverlay"    Color="#99000000"/>
+
+</ResourceDictionary>
