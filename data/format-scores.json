@@ -113,7 +113,9 @@
     ".cue",
     ".gdi",
     ".ccd",
+    ".sub",
     ".chd",
+    ".gcm",
     ".rvz",
     ".gcz",
     ".m3u",
@@ -126,11 +128,18 @@
     ".mdf",
     ".mds",
     ".cdi",
+    ".ecm",
+    ".zip",
+    ".7z",
+    ".rar",
     ".wud",
     ".wux",
     ".nsp",
     ".xci",
     ".nsz",
-    ".xcz"
+    ".xcz",
+    ".dax",
+    ".jso",
+    ".zso"
   ]
 }

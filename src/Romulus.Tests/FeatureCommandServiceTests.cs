@@ -171,6 +171,44 @@ public sealed class FeatureCommandServiceTests : IDisposable
     }
 
     [Fact]
+    public void F015_RegisterCommands_AllDeclaredFeatureCommandKeys_AreRegistered()
+    {
+        _sut.RegisterCommands();
+
+        var declaredKeys = typeof(FeatureCommandKeys)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly)
+            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var registeredKeys = _vm.FeatureCommands.Keys.ToHashSet(StringComparer.Ordinal);
+        var missing = declaredKeys.Except(registeredKeys, StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+
+        Assert.True(missing.Length == 0,
+            "FeatureCommandKeys without registration: " + string.Join(", ", missing));
+    }
+
+    [Fact]
+    public void F015_RegisterCommands_NoUndeclaredCommandKeysExist()
+    {
+        _sut.RegisterCommands();
+
+        var declaredKeys = typeof(FeatureCommandKeys)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly)
+            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var undeclared = _vm.FeatureCommands.Keys
+            .Where(key => !declaredKeys.Contains(key))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(undeclared.Length == 0,
+            "Registered commands without FeatureCommandKeys constant: " + string.Join(", ", undeclared));
+    }
+
+    [Fact]
     public void RegisterCommands_CountIsAtLeast56()
     {
         _sut.RegisterCommands();
