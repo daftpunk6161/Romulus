@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using Romulus.Contracts.Models;
 
@@ -16,13 +17,81 @@ public static class FileClassifier
     private static readonly TimeSpan RxTimeout = SafeRegex.DefaultTimeout;
 
     private static readonly Regex RxBios = new(
-        @"\((bios|firmware)\)|\[bios\]|^\s*bios(?:\s|_|-|\.|\d|$)"
-        + @"|\b(?:gba|dc|psx|ps1|ps2|nds?|saturn|sega_?cd|segacd|genesis|megadrive|n64|lynx|jaguar|turbografx|atari7800)_bios\b"
+        @"\((bios|firmware)\)|\[bios\]|^\s*bios(?:\s|-|\.|\d|$)"
         + @"|\bscph[-_ ]?\d{3,6}\b"
         + @"|\bsyscard[123]\b"
         + @"|\b(?:cps2|neo\s*geo|sega\s*saturn|atari\s*jaguar|3do)\s+bios\b"
         + @"|\bboot[._ -]?rom\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
+
+    private static readonly HashSet<string> KnownCompactBiosNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "pcfxbios",
+        "panafz10",
+        "stvbios",
+        "stv",
+        "pgm",
+        "pgm2",
+        "cps1",
+        "cps2",
+        "cps2board",
+        "cps3",
+        "cps3board",
+        "decocass",
+        "isgsm",
+        "skns",
+        "neogeo",
+        "namcos2",
+        "naomi",
+        "naomi2",
+        "taitogn",
+        "atomiswave"
+    };
+
+    private static readonly string[] KnownNormalizedBiosPrefixes =
+    [
+        "dc boot",
+        "system card ",
+        "system rom ",
+        "ipl rom ",
+        "system menu ",
+        "firmware update "
+    ];
+
+    private static readonly string[] KnownCompactBiosPrefixes =
+    [
+        "gbabios",
+        "dcbios",
+        "dcboot",
+        "psxbios",
+        "ps1bios",
+        "ps2bios",
+        "playstationbios",
+        "saturnbios",
+        "segacdbios",
+        "genesisbios",
+        "megadrivebios",
+        "n64bios",
+        "lynxbios",
+        "jaguarbios",
+        "turbografxbios",
+        "atari7800bios",
+        "pcfxbios",
+        "biosnds7",
+        "biosnds9",
+        "ndsbios",
+        "ndbios"
+    ];
+
+    private static readonly string[] KnownBiosFalsePositivePrefixes =
+    [
+        "bios boot disc",
+        "bios test rom",
+        "open source gba bios",
+        "bios update guide",
+        "bios readme",
+        "bios checker"
+    ];
 
     private static readonly Regex RxJunkTags = new(
         @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program)\)"
@@ -144,8 +213,8 @@ public static class FileClassifier
         if (string.IsNullOrWhiteSpace(baseName))
             return new ClassificationDecision(FileCategory.Unknown, 5, "empty-basename");
 
-        // 1. BIOS — highest priority
-        if (SafeRegex.IsMatch(RxBios, baseName))
+        // 1. BIOS — highest priority, but guarded against known false-positive phrases.
+        if (ShouldTreatAsBios(baseName))
             return new ClassificationDecision(FileCategory.Bios, 98, "bios-tag");
 
         // 2. Standard junk tags (parenthesized/bracketed)
@@ -174,5 +243,62 @@ public static class FileClassifier
         }
 
         return new ClassificationDecision(FileCategory.Game, 75, "game-default");
+    }
+
+    private static bool ShouldTreatAsBios(string baseName)
+    {
+        if (string.IsNullOrWhiteSpace(baseName))
+            return false;
+
+        var normalized = NormalizeTokenStream(baseName);
+        if (normalized.Length == 0 || StartsWithAny(normalized, KnownBiosFalsePositivePrefixes))
+            return false;
+
+        if (SafeRegex.IsMatch(RxBios, baseName))
+            return true;
+
+        var compact = normalized.Replace(" ", string.Empty, StringComparison.Ordinal);
+        if (KnownCompactBiosNames.Contains(compact))
+            return true;
+
+        if (StartsWithAny(normalized, KnownNormalizedBiosPrefixes))
+            return true;
+
+        return StartsWithAny(compact, KnownCompactBiosPrefixes);
+    }
+
+    private static bool StartsWithAny(string value, string[] prefixes)
+    {
+        foreach (var prefix in prefixes)
+        {
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeTokenStream(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        bool pendingSpace = false;
+
+        foreach (var ch in value)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (pendingSpace && builder.Length > 0)
+                    builder.Append(' ');
+
+                builder.Append(char.ToLowerInvariant(ch));
+                pendingSpace = false;
+            }
+            else
+            {
+                pendingSpace = builder.Length > 0;
+            }
+        }
+
+        return builder.ToString().Trim();
     }
 }

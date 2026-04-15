@@ -10,12 +10,14 @@ public sealed class ConversionPlanner(
     IConversionRegistry registry,
     Func<string, string?> toolFinder,
     Func<string, long> fileSizeProvider,
-    Func<string, bool>? encryptedPbpDetector = null) : IConversionPlanner
+    Func<string, bool>? encryptedPbpDetector = null,
+    Func<string, bool?>? ps2CdDetector = null) : IConversionPlanner
 {
     private readonly IConversionRegistry _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     private readonly Func<string, string?> _toolFinder = toolFinder ?? throw new ArgumentNullException(nameof(toolFinder));
     private readonly Func<string, long> _fileSizeProvider = fileSizeProvider ?? throw new ArgumentNullException(nameof(fileSizeProvider));
     private readonly Func<string, bool>? _encryptedPbpDetector = encryptedPbpDetector;
+    private readonly Func<string, bool?>? _ps2CdDetector = ps2CdDetector;
     private readonly ConversionPolicyEvaluator _policyEvaluator = new();
 
     /// <inheritdoc />
@@ -54,13 +56,13 @@ public sealed class ConversionPlanner(
             };
         }
 
-        var conditionEvaluator = new ConversionConditionEvaluator(_fileSizeProvider, _encryptedPbpDetector);
+        var conditionEvaluator = new ConversionConditionEvaluator(_fileSizeProvider, _encryptedPbpDetector, _ps2CdDetector);
         var graph = new ConversionGraph(_registry.GetCapabilities());
         var capabilities = graph.FindPath(
             normalizedExt,
             preferredTarget,
             normalizedConsole,
-            c => conditionEvaluator.Evaluate(c, sourcePath),
+            c => conditionEvaluator.Evaluate(c, sourcePath, normalizedConsole),
             sourceIntegrity);
 
         if (capabilities is null)
@@ -71,7 +73,7 @@ public sealed class ConversionPlanner(
                     normalizedExt,
                     alt,
                     normalizedConsole,
-                    c => conditionEvaluator.Evaluate(c, sourcePath),
+                    c => conditionEvaluator.Evaluate(c, sourcePath, normalizedConsole),
                     sourceIntegrity);
 
                 if (capabilities is not null)

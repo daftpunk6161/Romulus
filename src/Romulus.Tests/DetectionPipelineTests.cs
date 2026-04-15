@@ -128,7 +128,7 @@ public sealed class DetectionPipelineTests
             magic.CopyTo(data.AsSpan(1));
             File.WriteAllBytes(path, data);
 
-            Assert.Equal("7800", detector.Detect(path));
+            Assert.Equal("A78", detector.Detect(path));
         }
         finally { DeleteQuietly(path); }
     }

@@ -84,10 +84,11 @@ function Inc-SpecialArea($area) {
 
 $uniqueSystems = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $coveredFC = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-$biosSystems = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$biosSystems = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
 foreach ($entry in $entries) {
     $ck = $entry.expected.consoleKey
+    $ckStr = if ($ck) { $ck } else { "" }
     if ($ck) {
         $family = Get-PlatformFamily $ck
         $familyCounts[$family]++
@@ -104,28 +105,22 @@ foreach ($entry in $entries) {
 
     $tagSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$tags, [System.StringComparer]::OrdinalIgnoreCase)
 
-    # Special areas
+    # Special areas — keep this in lockstep with Update-Manifest.ps1
     if ($tagSet.Contains("bios")) { 
         Inc-SpecialArea "biosTotal"
         if ($ck) { $null = $biosSystems.Add($ck) }
     }
-    if ($tagSet.Contains("parent")) { Inc-SpecialArea "arcadeParent" }
-    if ($tagSet.Contains("clone")) { Inc-SpecialArea "arcadeClone" }
+    if ($tagSet.Contains("parent") -or $tagSet.Contains("arcade-parent")) { Inc-SpecialArea "arcadeParent" }
+    if ($tagSet.Contains("clone") -or $tagSet.Contains("arcade-clone")) { Inc-SpecialArea "arcadeClone" }
     if ($tagSet.Contains("arcade-split") -or $tagSet.Contains("arcade-merged") -or $tagSet.Contains("arcade-non-merged") -or $tagSet.Contains("arcade-nonmerged")) { Inc-SpecialArea "arcadeSplitMergedNonMerged" }
     if ($tagSet.Contains("arcade-bios")) { Inc-SpecialArea "arcadeBios" }
     if ($tagSet.Contains("arcade-chd") -or $tagSet.Contains("arcade-game-chd")) { Inc-SpecialArea "arcadeChdSupplement" }
+    if ($tagSet.Contains("arcade-game-chd")) { Inc-SpecialArea "arcadeGameChd" }
     if ($tagSet.Contains("bios-wrong-name") -or $tagSet.Contains("bios-wrong-folder") -or $tagSet.Contains("bios-false-positive") -or $tagSet.Contains("bios-shared")) { Inc-SpecialArea "biosErrorModes" }
     if ($tagSet.Contains("arcade-confusion-split-merged") -or $tagSet.Contains("arcade-confusion-merged-nonmerged")) { Inc-SpecialArea "arcadeConfusion" }
-    if ($tagSet.Contains("cross-system") -or $tagSet.Contains("cross-system-ambiguity")) {
-        if ($ck -in @("PS1","PS2","PS3","PSP")) { Inc-SpecialArea "psDisambiguation" }
-        if ($ck -in @("GB","GBC")) { Inc-SpecialArea "gbGbcCgb" }
-        if ($ck -in @("MD","32X")) { Inc-SpecialArea "md32x" }
-        if ($ck -in @("SAT","DC")) { Inc-SpecialArea "satDcDisambiguation" }
-        if ($ck -in @("PCE","PCECD")) { Inc-SpecialArea "pcePcecdDisambiguation" }
-    }
     if ($tagSet.Contains("multi-file")) { Inc-SpecialArea "multiFileSets" }
     if ($tagSet.Contains("multi-disc")) { Inc-SpecialArea "multiDisc" }
-    if ($tagSet.Contains("chd-raw-sha1")) { Inc-SpecialArea "chdRawSha1" }
+    if ($tagSet.Contains("chd-raw-sha1") -or $tagSet.Contains("chd-single")) { Inc-SpecialArea "chdRawSha1" }
     if ($tagSet.Contains("no-intro") -or $tagSet.Contains("dat-nointro")) { Inc-SpecialArea "datNoIntro" }
     if ($tagSet.Contains("redump") -or $tagSet.Contains("dat-redump")) { Inc-SpecialArea "datRedump" }
     if ($tagSet.Contains("mame") -or $tagSet.Contains("dat-mame")) { Inc-SpecialArea "datMame" }
@@ -140,9 +135,23 @@ foreach ($entry in $entries) {
     if ($tagSet.Contains("header-vs-headerless-pair")) { Inc-SpecialArea "headerVsHeaderlessPairs" }
     if ($tagSet.Contains("container-cso") -or $tagSet.Contains("container-wia") -or $tagSet.Contains("container-rvz") -or $tagSet.Contains("container-wbfs")) { Inc-SpecialArea "containerVariants" }
     if ($tagSet.Contains("keyword-detection")) { Inc-SpecialArea "keywordOnly" }
+    if (($tagSet.Contains("cross-system") -or $tagSet.Contains("cross-system-ambiguity") -or $tagSet.Contains("ps-disambiguation")) -and $ckStr -in @("PS1","PS2","PS3","PSP")) { Inc-SpecialArea "psDisambiguation" }
+    if (($tagSet.Contains("cross-system") -or $tagSet.Contains("cross-system-ambiguity") -or $tagSet.Contains("gb-gbc-ambiguity")) -and $ckStr -in @("GB","GBC")) { Inc-SpecialArea "gbGbcCgb" }
+    if (($tagSet.Contains("cross-system") -or $tagSet.Contains("cross-system-ambiguity") -or $tagSet.Contains("md-32x-ambiguity")) -and $ckStr -in @("MD","32X")) { Inc-SpecialArea "md32x" }
+    if (($tagSet.Contains("cross-system-ambiguity") -or $tagSet.Contains("sat-dc-disambiguation")) -and $ckStr -in @("SAT","DC")) { Inc-SpecialArea "satDcDisambiguation" }
+    if (($tagSet.Contains("cross-system-ambiguity") -or $tagSet.Contains("pce-pcecd-disambiguation")) -and $ckStr -in @("PCE","PCECD")) { Inc-SpecialArea "pcePcecdDisambiguation" }
 }
 
 $specialAreas["biosSystems"] = $biosSystems.Count
+
+$holdoutDir = Join-Path (Split-Path $gtDir -Parent) 'holdout'
+$holdoutCount = 0
+if (Test-Path $holdoutDir) {
+    $holdoutCount = Get-ChildItem $holdoutDir -Filter *.jsonl | ForEach-Object {
+        Get-Content $_.FullName | Where-Object { $_.Trim() -ne '' }
+    } | Measure-Object | Select-Object -ExpandProperty Count
+}
+$specialAreas["holdout"] = $holdoutCount
 
 Write-Host ""
 Write-Host "=== PLATFORM FAMILIES ==="

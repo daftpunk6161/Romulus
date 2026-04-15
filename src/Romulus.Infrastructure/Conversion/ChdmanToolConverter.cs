@@ -42,23 +42,7 @@ internal sealed class ChdmanToolConverter
             return new ConversionResult(sourcePath, null, ConversionOutcome.Skipped,
                 $"chdman-unsupported-source:{sourceExt}");
 
-        // PS2 CD/DVD safety heuristic: images under 700MB should be treated as CD images.
-        // This avoids createDVD on CD-based PS2 titles which can produce invalid outputs.
-        var effectiveCommand = command;
-        if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase)
-            && DiscFormats.IsChdmanCreatedvdHeuristicExtension(sourceExt))
-        {
-            try
-            {
-                var size = new FileInfo(sourcePath).Length;
-                if (size > 0 && size < ToolInvokers.ToolInvokerSupport.CdImageThresholdBytes)
-                    effectiveCommand = "createcd";
-            }
-            catch (IOException)
-            {
-                // Best effort only; keep caller-selected command if size cannot be read.
-            }
-        }
+        var effectiveCommand = ToolInvokers.ToolInvokerSupport.ResolveEffectiveChdmanCommand(command, sourcePath);
 
         var args = new[] { effectiveCommand, "-i", sourcePath, "-o", targetPath };
         var result = _tools.InvokeProcess(toolPath, args, ChdmanRequirement, "chdman", null, CancellationToken.None);
@@ -182,7 +166,8 @@ internal sealed class ChdmanToolConverter
                     "archive-no-disc-image");
 
             // Step 3: Convert via chdman
-            var args = new[] { command, "-i", inputFile, "-o", targetPath };
+            var effectiveCommand = ToolInvokers.ToolInvokerSupport.ResolveEffectiveChdmanCommand(command, inputFile);
+            var args = new[] { effectiveCommand, "-i", inputFile, "-o", targetPath };
             var result = _tools.InvokeProcess(toolPath, args, ChdmanRequirement, "chdman", null, CancellationToken.None);
 
             if (!result.Success)

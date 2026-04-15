@@ -5,7 +5,7 @@
     "groundTruthVersion": "2.1.0",
     "lastModified": "2026-04-15"
   },
-  "totalEntries": 7639,
+  "totalEntries": 7692,
   "holdoutEntries": 200,
   "systemsCovered": 78,
   "systemsList": [
@@ -89,39 +89,36 @@
     "ZX"
   ],
   "bySet": {
-    "performance-scale": 5000,
-    "chaos-mixed": 234,
-    "bios-coverage": 15,
-    "dat-coverage": 389,
-    "edge-cases": 329,
-    "repair-safety": 113,
-    "computer-coverage": 15,
-    "golden-realworld": 641,
     "arcade-coverage": 15,
-    "golden-core": 772,
-    "negative-controls": 101,
-    "redump-specials": 15
+    "repair-safety": 113,
+    "dat-coverage": 389,
+    "golden-core": 776,
+    "edge-cases": 354,
+    "chaos-mixed": 245,
+    "golden-realworld": 649,
+    "computer-coverage": 15,
+    "redump-specials": 15,
+    "bios-coverage": 15,
+    "performance-scale": 5000,
+    "negative-controls": 106
   },
   "byPlatformFamily": {
-    "arcade": 248,
-    "hybrid": 501,
-    "cartridge": 3847,
-    "disc": 1913,
-    "computer": 993
+    "computer": 998,
+    "disc": 1922,
+    "hybrid": 505,
+    "cartridge": 3868,
+    "arcade": 252
   },
   "byDifficulty": {
-    "easy": 3950,
-    "hard": 1203,
-    "medium": 2352,
-    "adversarial": 134
+    "hard": 1229,
+    "adversarial": 144,
+    "medium": 2362,
+    "easy": 3957
   },
   "systemsCoveredByFamily": {
-    "hybrid": [
-      "3DS",
-      "PSP",
-      "SWITCH",
-      "VITA",
-      "WIIU"
+    "arcade": [
+      "ARCADE",
+      "NEOGEO"
     ],
     "disc": [
       "3DO",
@@ -142,22 +139,6 @@
       "WII",
       "X360",
       "XBOX"
-    ],
-    "arcade": [
-      "ARCADE",
-      "NEOGEO"
-    ],
-    "computer": [
-      "A800",
-      "AMIGA",
-      "ATARIST",
-      "C64",
-      "CPC",
-      "DOS",
-      "MSX",
-      "PC98",
-      "X68K",
-      "ZX"
     ],
     "cartridge": [
       "32X",
@@ -203,391 +184,410 @@
       "VECTREX",
       "WS",
       "WSC"
+    ],
+    "computer": [
+      "A800",
+      "AMIGA",
+      "ATARIST",
+      "C64",
+      "CPC",
+      "DOS",
+      "MSX",
+      "PC98",
+      "X68K",
+      "ZX"
+    ],
+    "hybrid": [
+      "3DS",
+      "PSP",
+      "SWITCH",
+      "VITA",
+      "WIIU"
     ]
   },
   "fallklasseCounts": {
-    "FC-01": 6066,
-    "FC-02": 135,
-    "FC-03": 45,
+    "FC-01": 6076,
+    "FC-02": 136,
+    "FC-03": 55,
     "FC-04": 92,
     "FC-05": 85,
     "FC-06": 386,
     "FC-07": 86,
-    "FC-08": 90,
-    "FC-09": 139,
+    "FC-08": 93,
+    "FC-09": 141,
     "FC-10": 39,
     "FC-11": 75,
-    "FC-12": 43,
-    "FC-13": 40,
-    "FC-14": 30,
-    "FC-15": 22,
+    "FC-12": 45,
+    "FC-13": 45,
+    "FC-14": 35,
+    "FC-15": 25,
     "FC-16": 72,
     "FC-17": 113,
-    "FC-18": 132,
+    "FC-18": 144,
     "FC-19": 213,
-    "FC-20": 90
+    "FC-20": 100
   },
   "datEcosystemCounts": {
-    "tosec": 218,
-    "no-intro": 687,
-    "redump": 433,
-    "mame": 246
+    "no-intro": 698,
+    "mame": 250,
+    "tosec": 220,
+    "redump": 442
   },
   "specialAreaCounts": {
-    "arcadeClone": 36,
-    "arcadeBios": 13,
-    "datMame": 238,
-    "gbGbcCgb": 15,
-    "arcadeGameChd": 9,
-    "biosSystems": 23,
-    "cueBin": 22,
-    "pcePcecdDisambiguation": 5,
+    "biosTotal": 87,
     "psDisambiguation": 42,
-    "arcadeSplitMergedNonMerged": 64,
-    "datTosec": 217,
-    "arcadeChdSupplement": 18,
-    "m3uPlaylist": 9,
-    "serialNumber": 18,
-    "keywordOnly": 25,
-    "multiFileSets": 29,
-    "satDcDisambiguation": 8,
-    "directoryBased": 40,
-    "datNoIntro": 621,
-    "biosErrorModes": 24,
-    "headerVsHeaderlessPairs": 15,
-    "md32x": 12,
-    "containerVariants": 19,
-    "chdRawSha1": 12,
-    "datRedump": 386,
-    "arcadeParent": 103,
     "gdiTracks": 10,
-    "biosTotal": 84,
-    "headerless": 81,
+    "arcadeBios": 13,
+    "md32x": 14,
+    "biosErrorModes": 25,
+    "biosSystems": 25,
+    "datMame": 242,
+    "arcadeConfusion": 25,
+    "headerless": 86,
+    "chdRawSha1": 12,
+    "serialNumber": 18,
     "ccdMds": 12,
+    "gbGbcCgb": 18,
     "multiDisc": 39,
-    "arcadeConfusion": 23
+    "pcePcecdDisambiguation": 8,
+    "datNoIntro": 632,
+    "satDcDisambiguation": 10,
+    "datRedump": 394,
+    "datTosec": 219,
+    "headerVsHeaderlessPairs": 25,
+    "containerVariants": 20,
+    "arcadeClone": 38,
+    "keywordOnly": 25,
+    "m3uPlaylist": 9,
+    "arcadeGameChd": 9,
+    "arcadeChdSupplement": 18,
+    "directoryBased": 45,
+    "arcadeSplitMergedNonMerged": 66,
+    "arcadeParent": 103,
+    "cueBin": 22,
+    "multiFileSets": 29
   },
   "coverageTargets": {
-    "specialAreas.pcePcecdDisambiguation": {
-      "hardFail": 3,
-      "target": 8
-    },
-    "specialAreas.containerVariants": {
-      "hardFail": 0,
-      "target": 20
-    },
-    "caseClasses.FC-16": {
-      "hardFail": 50,
-      "target": 70
-    },
-    "platformFamily.cartridge": {
-      "hardFail": 730,
-      "target": 920
-    },
-    "specialAreas.arcadeParent": {
-      "hardFail": 77,
-      "target": 100
-    },
-    "specialAreas.keywordOnly": {
-      "hardFail": 12,
-      "target": 20
-    },
-    "caseClasses.FC-20": {
-      "hardFail": 75,
-      "target": 100
-    },
-    "specialAreas.headerless": {
-      "hardFail": 40,
-      "target": 55
-    },
-    "specialAreas.arcadeSplitMergedNonMerged": {
-      "hardFail": 36,
-      "target": 48
-    },
-    "specialAreas.arcadeClone": {
-      "hardFail": 28,
-      "target": 38
-    },
-    "specialAreas.datRedump": {
-      "hardFail": 201,
-      "target": 260
-    },
-    "specialAreas.directoryBased": {
-      "hardFail": 32,
-      "target": 45
-    },
-    "specialAreas.arcadeBios": {
-      "hardFail": 5,
-      "target": 10
-    },
-    "caseClasses.FC-11": {
-      "hardFail": 25,
-      "target": 35
-    },
-    "specialAreas.holdout": {
-      "hardFail": 20,
-      "target": 50
-    },
-    "platformFamily.arcade": {
-      "hardFail": 160,
-      "target": 210
-    },
-    "caseClasses.FC-13": {
-      "hardFail": 32,
-      "target": 45
-    },
-    "specialAreas.gbGbcCgb": {
-      "hardFail": 12,
-      "target": 18
-    },
-    "caseClasses.FC-06": {
-      "hardFail": 250,
-      "target": 320
-    },
-    "caseClasses.FC-12": {
-      "hardFail": 34,
-      "target": 45
-    },
-    "systemsCovered": {
-      "hardFail": 52,
-      "target": 65
-    },
-    "specialAreas.biosErrorModes": {
-      "hardFail": 18,
-      "target": 25
-    },
-    "specialAreas.md32x": {
-      "hardFail": 9,
-      "target": 14
-    },
-    "specialAreas.serialNumber": {
-      "hardFail": 0,
-      "target": 15
-    },
-    "specialAreas.arcadeConfusion": {
-      "hardFail": 16,
-      "target": 25
-    },
-    "specialAreas.arcadeChdSupplement": {
-      "hardFail": 6,
-      "target": 10
-    },
-    "caseClasses.FC-17": {
-      "hardFail": 80,
-      "target": 105
-    },
-    "caseClasses.FC-14": {
-      "hardFail": 24,
-      "target": 35
-    },
-    "specialAreas.biosSystems": {
-      "hardFail": 18,
-      "target": 25
-    },
-    "specialAreas.datMame": {
-      "hardFail": 20,
-      "target": 28
-    },
-    "specialAreas.biosTotal": {
-      "hardFail": 55,
-      "target": 75
-    },
-    "caseClasses.FC-03": {
-      "hardFail": 32,
-      "target": 45
-    },
-    "caseClasses.FC-10": {
-      "hardFail": 27,
-      "target": 38
-    },
-    "caseClasses.FC-15": {
-      "hardFail": 16,
-      "target": 25
-    },
-    "specialAreas.datNoIntro": {
-      "hardFail": 329,
-      "target": 420
-    },
-    "specialAreas.multiDisc": {
-      "hardFail": 27,
-      "target": 38
-    },
-    "caseClasses.FC-02": {
-      "hardFail": 76,
-      "target": 100
-    },
-    "specialAreas.chdRawSha1": {
-      "hardFail": 8,
-      "target": 12
-    },
-    "caseClasses.FC-19": {
-      "hardFail": 155,
-      "target": 200
-    },
     "fallklassenCovered": {
-      "hardFail": 16,
-      "target": 20
-    },
-    "specialAreas.satDcDisambiguation": {
-      "hardFail": 5,
-      "target": 10
-    },
-    "caseClasses.FC-18": {
-      "hardFail": 90,
-      "target": 120
-    },
-    "specialAreas.headerVsHeaderlessPairs": {
-      "hardFail": 10,
-      "target": 25
-    },
-    "caseClasses.FC-07": {
-      "hardFail": 52,
-      "target": 70
-    },
-    "totalEntries": {
-      "hardFail": 2000,
-      "target": 2400
-    },
-    "platformFamily.hybrid": {
-      "hardFail": 108,
-      "target": 140
-    },
-    "platformFamily.disc": {
-      "hardFail": 385,
-      "target": 490
-    },
-    "caseClasses.FC-05": {
-      "hardFail": 46,
-      "target": 60
-    },
-    "specialAreas.psDisambiguation": {
-      "hardFail": 28,
-      "target": 38
-    },
-    "specialAreas.cueBin": {
-      "hardFail": 0,
-      "target": 20
-    },
-    "caseClasses.FC-04": {
-      "hardFail": 48,
-      "target": 65
-    },
-    "specialAreas.gdiTracks": {
-      "hardFail": 0,
-      "target": 8
+      "target": 20,
+      "hardFail": 16
     },
     "specialAreas.datTosec": {
-      "hardFail": 120,
-      "target": 155
+      "target": 155,
+      "hardFail": 120
     },
-    "specialAreas.m3uPlaylist": {
-      "hardFail": 0,
-      "target": 8
-    },
-    "caseClasses.FC-09": {
-      "hardFail": 105,
-      "target": 135
-    },
-    "caseClasses.FC-01": {
-      "hardFail": 710,
-      "target": 900
-    },
-    "specialAreas.arcadeGameChd": {
-      "hardFail": 5,
-      "target": 8
-    },
-    "platformFamily.computer": {
-      "hardFail": 175,
-      "target": 225
+    "specialAreas.psDisambiguation": {
+      "target": 38,
+      "hardFail": 28
     },
     "specialAreas.ccdMds": {
-      "hardFail": 0,
-      "target": 10
+      "target": 10,
+      "hardFail": 0
     },
     "specialAreas.multiFileSets": {
-      "hardFail": 16,
-      "target": 25
+      "target": 25,
+      "hardFail": 16
+    },
+    "specialAreas.arcadeParent": {
+      "target": 100,
+      "hardFail": 77
+    },
+    "caseClasses.FC-09": {
+      "target": 135,
+      "hardFail": 105
+    },
+    "caseClasses.FC-18": {
+      "target": 120,
+      "hardFail": 90
+    },
+    "specialAreas.headerVsHeaderlessPairs": {
+      "target": 25,
+      "hardFail": 10
+    },
+    "platformFamily.arcade": {
+      "target": 210,
+      "hardFail": 160
+    },
+    "specialAreas.arcadeGameChd": {
+      "target": 8,
+      "hardFail": 5
+    },
+    "caseClasses.FC-02": {
+      "target": 100,
+      "hardFail": 76
+    },
+    "specialAreas.keywordOnly": {
+      "target": 20,
+      "hardFail": 12
+    },
+    "caseClasses.FC-03": {
+      "target": 45,
+      "hardFail": 32
+    },
+    "specialAreas.datMame": {
+      "target": 28,
+      "hardFail": 20
+    },
+    "specialAreas.biosSystems": {
+      "target": 25,
+      "hardFail": 18
+    },
+    "caseClasses.FC-15": {
+      "target": 25,
+      "hardFail": 16
+    },
+    "specialAreas.md32x": {
+      "target": 14,
+      "hardFail": 9
+    },
+    "caseClasses.FC-19": {
+      "target": 200,
+      "hardFail": 155
+    },
+    "caseClasses.FC-14": {
+      "target": 35,
+      "hardFail": 24
+    },
+    "totalEntries": {
+      "target": 2400,
+      "hardFail": 2000
+    },
+    "caseClasses.FC-20": {
+      "target": 100,
+      "hardFail": 75
+    },
+    "specialAreas.arcadeConfusion": {
+      "target": 25,
+      "hardFail": 16
+    },
+    "caseClasses.FC-04": {
+      "target": 65,
+      "hardFail": 48
+    },
+    "specialAreas.multiDisc": {
+      "target": 38,
+      "hardFail": 27
+    },
+    "caseClasses.FC-13": {
+      "target": 45,
+      "hardFail": 32
+    },
+    "specialAreas.gdiTracks": {
+      "target": 8,
+      "hardFail": 0
+    },
+    "caseClasses.FC-10": {
+      "target": 38,
+      "hardFail": 27
+    },
+    "platformFamily.disc": {
+      "target": 490,
+      "hardFail": 385
+    },
+    "platformFamily.cartridge": {
+      "target": 920,
+      "hardFail": 730
+    },
+    "caseClasses.FC-01": {
+      "target": 900,
+      "hardFail": 710
+    },
+    "systemsCovered": {
+      "target": 65,
+      "hardFail": 52
+    },
+    "specialAreas.serialNumber": {
+      "target": 15,
+      "hardFail": 0
+    },
+    "caseClasses.FC-17": {
+      "target": 105,
+      "hardFail": 80
+    },
+    "specialAreas.gbGbcCgb": {
+      "target": 18,
+      "hardFail": 12
+    },
+    "specialAreas.pcePcecdDisambiguation": {
+      "target": 8,
+      "hardFail": 3
+    },
+    "specialAreas.chdRawSha1": {
+      "target": 12,
+      "hardFail": 8
+    },
+    "caseClasses.FC-16": {
+      "target": 70,
+      "hardFail": 50
+    },
+    "specialAreas.headerless": {
+      "target": 55,
+      "hardFail": 40
+    },
+    "caseClasses.FC-12": {
+      "target": 45,
+      "hardFail": 34
+    },
+    "specialAreas.biosTotal": {
+      "target": 75,
+      "hardFail": 55
+    },
+    "specialAreas.containerVariants": {
+      "target": 20,
+      "hardFail": 0
+    },
+    "specialAreas.arcadeBios": {
+      "target": 10,
+      "hardFail": 5
+    },
+    "specialAreas.cueBin": {
+      "target": 20,
+      "hardFail": 0
+    },
+    "specialAreas.arcadeSplitMergedNonMerged": {
+      "target": 48,
+      "hardFail": 36
+    },
+    "specialAreas.m3uPlaylist": {
+      "target": 8,
+      "hardFail": 0
+    },
+    "caseClasses.FC-06": {
+      "target": 320,
+      "hardFail": 250
+    },
+    "platformFamily.computer": {
+      "target": 225,
+      "hardFail": 175
+    },
+    "specialAreas.datRedump": {
+      "target": 260,
+      "hardFail": 201
+    },
+    "specialAreas.holdout": {
+      "target": 50,
+      "hardFail": 20
+    },
+    "caseClasses.FC-11": {
+      "target": 35,
+      "hardFail": 25
+    },
+    "platformFamily.hybrid": {
+      "target": 140,
+      "hardFail": 108
+    },
+    "specialAreas.datNoIntro": {
+      "target": 420,
+      "hardFail": 329
+    },
+    "specialAreas.arcadeClone": {
+      "target": 38,
+      "hardFail": 28
+    },
+    "specialAreas.directoryBased": {
+      "target": 45,
+      "hardFail": 32
+    },
+    "caseClasses.FC-07": {
+      "target": 70,
+      "hardFail": 52
+    },
+    "caseClasses.FC-05": {
+      "target": 60,
+      "hardFail": 46
+    },
+    "specialAreas.arcadeChdSupplement": {
+      "target": 10,
+      "hardFail": 6
+    },
+    "specialAreas.satDcDisambiguation": {
+      "target": 10,
+      "hardFail": 5
+    },
+    "specialAreas.biosErrorModes": {
+      "target": 25,
+      "hardFail": 18
     },
     "caseClasses.FC-08": {
-      "hardFail": 55,
-      "target": 75
+      "target": 75,
+      "hardFail": 55
     }
   },
   "coverageActuals": {
-    "specialAreas.containerVariants": 19,
-    "caseClasses.FC-16": 72,
-    "platformFamily.cartridge": 3847,
-    "specialAreas.arcadeParent": 103,
-    "specialAreas.multiDisc": 39,
-    "caseClasses.FC-20": 90,
-    "specialAreas.headerless": 81,
-    "specialAreas.arcadeSplitMergedNonMerged": 64,
-    "specialAreas.arcadeClone": 36,
-    "specialAreas.md32x": 12,
-    "specialAreas.arcadeBios": 13,
-    "caseClasses.FC-11": 75,
-    "specialAreas.holdout": 200,
-    "platformFamily.arcade": 248,
-    "caseClasses.FC-13": 40,
-    "specialAreas.gbGbcCgb": 15,
-    "caseClasses.FC-06": 386,
-    "caseClasses.FC-12": 43,
-    "systemsCovered": 78,
-    "specialAreas.m3uPlaylist": 9,
-    "specialAreas.satDcDisambiguation": 8,
-    "specialAreas.serialNumber": 18,
-    "specialAreas.keywordOnly": 25,
     "specialAreas.arcadeChdSupplement": 18,
-    "caseClasses.FC-17": 113,
-    "caseClasses.FC-14": 30,
-    "specialAreas.biosSystems": 23,
-    "specialAreas.datMame": 238,
-    "specialAreas.biosTotal": 84,
-    "caseClasses.FC-03": 45,
-    "caseClasses.FC-10": 39,
-    "caseClasses.FC-15": 22,
-    "specialAreas.datNoIntro": 621,
-    "specialAreas.chdRawSha1": 12,
-    "caseClasses.FC-02": 135,
-    "specialAreas.arcadeConfusion": 23,
-    "specialAreas.directoryBased": 40,
-    "caseClasses.FC-19": 213,
     "fallklassenCovered": 20,
-    "specialAreas.pcePcecdDisambiguation": 5,
-    "caseClasses.FC-18": 132,
-    "specialAreas.headerVsHeaderlessPairs": 15,
-    "caseClasses.FC-07": 86,
-    "totalEntries": 7639,
-    "platformFamily.hybrid": 501,
-    "platformFamily.disc": 1913,
-    "caseClasses.FC-05": 85,
+    "specialAreas.datTosec": 219,
     "specialAreas.psDisambiguation": 42,
-    "specialAreas.cueBin": 22,
-    "caseClasses.FC-04": 92,
-    "specialAreas.gdiTracks": 10,
-    "specialAreas.datTosec": 217,
-    "specialAreas.datRedump": 386,
-    "caseClasses.FC-09": 139,
-    "caseClasses.FC-01": 6066,
-    "specialAreas.arcadeGameChd": 9,
-    "platformFamily.computer": 993,
-    "specialAreas.biosErrorModes": 24,
     "specialAreas.ccdMds": 12,
+    "specialAreas.chdRawSha1": 12,
+    "specialAreas.arcadeParent": 103,
+    "caseClasses.FC-09": 141,
+    "caseClasses.FC-18": 144,
+    "specialAreas.headerVsHeaderlessPairs": 25,
+    "platformFamily.arcade": 252,
+    "specialAreas.arcadeGameChd": 9,
+    "caseClasses.FC-02": 136,
+    "specialAreas.keywordOnly": 25,
+    "caseClasses.FC-03": 55,
+    "specialAreas.datMame": 242,
+    "specialAreas.biosSystems": 25,
+    "caseClasses.FC-15": 25,
+    "specialAreas.gdiTracks": 10,
+    "caseClasses.FC-19": 213,
+    "specialAreas.m3uPlaylist": 9,
+    "caseClasses.FC-14": 35,
+    "totalEntries": 7692,
+    "caseClasses.FC-20": 100,
+    "specialAreas.arcadeConfusion": 25,
+    "caseClasses.FC-04": 92,
+    "specialAreas.multiDisc": 39,
+    "caseClasses.FC-13": 45,
+    "caseClasses.FC-10": 39,
+    "platformFamily.disc": 1922,
+    "platformFamily.cartridge": 3868,
+    "caseClasses.FC-01": 6076,
+    "systemsCovered": 78,
+    "specialAreas.serialNumber": 18,
+    "caseClasses.FC-17": 113,
+    "specialAreas.gbGbcCgb": 18,
+    "specialAreas.arcadeSplitMergedNonMerged": 66,
     "specialAreas.multiFileSets": 29,
-    "caseClasses.FC-08": 90
+    "caseClasses.FC-16": 72,
+    "caseClasses.FC-12": 45,
+    "specialAreas.biosTotal": 87,
+    "specialAreas.arcadeBios": 13,
+    "specialAreas.cueBin": 22,
+    "specialAreas.headerless": 86,
+    "specialAreas.containerVariants": 20,
+    "caseClasses.FC-06": 386,
+    "platformFamily.computer": 998,
+    "specialAreas.datRedump": 394,
+    "specialAreas.arcadeClone": 38,
+    "caseClasses.FC-11": 75,
+    "platformFamily.hybrid": 505,
+    "specialAreas.datNoIntro": 632,
+    "specialAreas.md32x": 14,
+    "specialAreas.directoryBased": 45,
+    "caseClasses.FC-07": 86,
+    "caseClasses.FC-05": 85,
+    "specialAreas.pcePcecdDisambiguation": 8,
+    "specialAreas.satDcDisambiguation": 10,
+    "specialAreas.holdout": 200,
+    "specialAreas.biosErrorModes": 25,
+    "caseClasses.FC-08": 93
   },
   "fileChecksums": {
-    "golden-realworld.jsonl": "97830783573b53bb106ee80f209c7072c309687e15931daf46f0a39a5f0d1188",
-    "bios-coverage.jsonl": "ad0bc7596dfcd76fd1e75c60420aea2c01a6370504f13a669487d3011bdf30ad",
-    "arcade-coverage.jsonl": "402035d908ff71d034500b7b617a2b9d05cebc229964aa8b9f28dbdec97a5648",
-    "performance-scale.jsonl": "4e4b2015642fde92bf43e87f83e4f0a688d57dc712bbdad122faf2f65dd9f8de",
-    "computer-coverage.jsonl": "4280cb4439584b811917f04903c6eef071828e2c4792a5c859ee592a1966158c",
+    "golden-core.jsonl": "7711e5dba8b261f0bf74fa422638dcf5d423e1a1ae1abb46507bcc4d65bb6736",
+    "chaos-mixed.jsonl": "02a85ed8020616d5eed1ec050748c377e06548c8bbd7dc1d876b77cbea609fa2",
+    "negative-controls.jsonl": "ec2aeab89c411411b5c1a55099780d1a209487d890941436324a226259972409",
     "dat-coverage.jsonl": "b102abc047f64c98759aea7ab6c66f4629768780aef9b002bf38779b0330c9ee",
-    "edge-cases.jsonl": "bca14bc820eedb5f225e4c3f47367c31431af1fe5e107b7e88f2f12bd50cbb37",
-    "golden-core.jsonl": "98e3f2cf16977b8a446a10c15a280e018e8cf71e0648d5246566e62ec36af20e",
-    "redump-specials.jsonl": "c99269bb9cf7403f6a7820483ab83b3c886379e57732b32063f24af77c8dc976",
-    "chaos-mixed.jsonl": "4ca98c77ce79a3cb97c12a3731b1071ce164810dd84fb8d1f19cfaf59bf4ff18",
+    "edge-cases.jsonl": "bfb318c9122a93480fffe7a9c1458b2f1315df3c09c6f6e78066fcf3df243e5f",
+    "performance-scale.jsonl": "4e4b2015642fde92bf43e87f83e4f0a688d57dc712bbdad122faf2f65dd9f8de",
+    "bios-coverage.jsonl": "ad0bc7596dfcd76fd1e75c60420aea2c01a6370504f13a669487d3011bdf30ad",
+    "golden-realworld.jsonl": "acfe0f17215724034614d7cccd2dc7f28ad9f252d5aa556298485bdd4d0f5492",
     "repair-safety.jsonl": "877572b1668b5de7c91d4f5a4023dfe3f7baed2201697b223002253a8a59c880",
-    "negative-controls.jsonl": "be355f63f9a6f6f8ea600824b64bdfeb384bfe3aea1eeab82f19611839b1cee6"
+    "arcade-coverage.jsonl": "402035d908ff71d034500b7b617a2b9d05cebc229964aa8b9f28dbdec97a5648",
+    "redump-specials.jsonl": "c99269bb9cf7403f6a7820483ab83b3c886379e57732b32063f24af77c8dc976",
+    "computer-coverage.jsonl": "4280cb4439584b811917f04903c6eef071828e2c4792a5c859ee592a1966158c"
   }
 }

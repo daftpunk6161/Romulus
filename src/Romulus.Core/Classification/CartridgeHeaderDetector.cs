@@ -110,7 +110,7 @@ public sealed class CartridgeHeaderDetector
 
         // Atari 7800: "ATARI7800" at offset 1
         if (bytesRead >= 10 && data.Slice(1, 9).SequenceEqual(Atari7800Magic))
-            return "7800";
+            return "A78";
 
         // Genesis/Mega Drive: "SEGA MEGA DRIVE" or "SEGA GENESIS" at offset 0x100
         if (bytesRead >= 0x110)

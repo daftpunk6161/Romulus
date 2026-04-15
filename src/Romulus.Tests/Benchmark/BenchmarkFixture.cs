@@ -2,6 +2,8 @@ using Romulus.Core.Classification;
 using Romulus.Tests.Benchmark.Generators;
 using Romulus.Tests.Benchmark.Infrastructure;
 using Romulus.Tests.Benchmark.Models;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using Xunit;
 
@@ -42,9 +44,9 @@ public sealed class BenchmarkFixture : IAsyncLifetime
             var allForGeneration = new List<GroundTruthEntry>(AllEntries);
             allForGeneration.AddRange(holdoutEntries);
 
-            // Generate stubs if not already present or entry count changed
+            // Generate stubs if not already present or any source JSONL changed.
             var markerFile = Path.Combine(SamplesRoot, ".generated");
-            var expectedMarker = $"{allForGeneration.Count} entries generated";
+            var expectedMarker = BuildGenerationMarker(allForGeneration.Count);
             var needsRegeneration = !File.Exists(markerFile)
                 || File.ReadAllText(markerFile).Trim() != expectedMarker;
 
@@ -123,5 +125,29 @@ public sealed class BenchmarkFixture : IAsyncLifetime
             "repair-safety" => entry.Id.StartsWith("rs-", StringComparison.OrdinalIgnoreCase),
             _ => false
         };
+    }
+
+    internal static string BuildGenerationMarker(int totalEntryCount)
+    {
+        var markerPaths = BenchmarkPaths.AllJsonlFiles
+            .Concat([BenchmarkPaths.HoldoutJsonlPath]);
+        return BuildGenerationMarker(totalEntryCount, markerPaths);
+    }
+
+    internal static string BuildGenerationMarker(int totalEntryCount, IEnumerable<string> paths)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+        foreach (var path in paths
+            .Where(File.Exists)
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes(path));
+            hash.AppendData(File.ReadAllBytes(path));
+        }
+
+        return $"{totalEntryCount} entries generated ({Convert.ToHexString(hash.GetHashAndReset())})";
     }
 }

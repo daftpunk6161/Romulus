@@ -54,12 +54,16 @@ public sealed class DatRepositoryAdapter
                 {
                     if (rom.TryGetValue("hash", out var hash) && !string.IsNullOrWhiteSpace(hash))
                     {
+                        var normalizedHash = hash.Trim();
+                        if (normalizedHash.Length == 0)
+                            continue;
+
                         rom.TryGetValue("name", out var romFileName);
                         var isBios = rom.TryGetValue("isbios", out var biosFlag)
                             ? IsTruthyFlag(biosFlag)
                             : IsLikelyBiosGameName(game.Key, romFileName);
                         var parentGameName = ResolveParentName(game.Key, parentMap);
-                        index.Add(consoleKey, hash, game.Key, romFileName, isBios, parentGameName);
+                        index.Add(consoleKey, normalizedHash, game.Key, romFileName, isBios, parentGameName);
                     }
                 }
             }
@@ -273,13 +277,17 @@ public sealed class DatRepositoryAdapter
 
                             if (hash is not null)
                             {
-                                rom["hash"] = hash;
-                                if (!fallbackWarningEmitted
-                                    && !string.Equals(selectedHashType, requestedHashType, StringComparison.OrdinalIgnoreCase))
+                                var normalizedHash = hash.Trim();
+                                if (normalizedHash.Length > 0)
                                 {
-                                    _log?.Invoke(
-                                        $"[Warning] DAT '{datPath}' lacks requested hash type '{requestedHashType}' for one or more entries. Using '{selectedHashType}' fallback; verify HashType alignment.");
-                                    fallbackWarningEmitted = true;
+                                    rom["hash"] = normalizedHash;
+                                    if (!fallbackWarningEmitted
+                                        && !string.Equals(selectedHashType, requestedHashType, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        _log?.Invoke(
+                                            $"[Warning] DAT '{datPath}' lacks requested hash type '{requestedHashType}' for one or more entries. Using '{selectedHashType}' fallback; verify HashType alignment.");
+                                        fallbackWarningEmitted = true;
+                                    }
                                 }
                             }
 

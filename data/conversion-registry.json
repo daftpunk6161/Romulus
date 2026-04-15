@@ -115,7 +115,7 @@
     },
     {
       "sourceExtension": ".pbp",
-      "targetExtension": ".cue",
+      "targetExtension": ".chd",
       "tool": { "toolName": "psxtract" },
       "command": "pbp2chd",
       "applicableConsoles": ["PS1", "PSP"],

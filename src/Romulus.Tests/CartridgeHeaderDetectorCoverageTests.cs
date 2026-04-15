@@ -107,7 +107,7 @@ public sealed class CartridgeHeaderDetectorCoverageTests
     // ═══ Atari 7800 ══════════════════════════════════════════════════
 
     [Fact]
-    public void Detect_Atari7800Header_Returns7800()
+    public void Detect_Atari7800Header_ReturnsA78()
     {
         var data = new byte[512];
         // "ATARI7800" at offset 1
@@ -115,7 +115,7 @@ public sealed class CartridgeHeaderDetectorCoverageTests
         magic.CopyTo(data.AsSpan(1));
         ConfigureStream(data);
 
-        Assert.Equal("7800", _detector.Detect("test.a78"));
+        Assert.Equal("A78", _detector.Detect("test.a78"));
     }
 
     // ═══ Genesis / Mega Drive ════════════════════════════════════════

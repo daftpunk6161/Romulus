@@ -23,7 +23,7 @@ internal sealed class StubGeneratorDispatch
         ["MD"] = ("md-header", "megadrive"),
         ["32X"] = ("md-header", "32x"),
         ["LYNX"] = ("lynx-header", "standard"),
-        ["7800"] = ("atari7800-header", "standard"),
+        ["A78"] = ("a7800-header", "standard"),
     };
 
     private static readonly Dictionary<string, (string GeneratorId, string Variant)> DiscMap = new(StringComparer.OrdinalIgnoreCase)

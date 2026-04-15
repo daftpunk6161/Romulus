@@ -231,6 +231,11 @@ public partial class Program
                 if (pathError is not null)
                     return pathError;
             }
+
+            request.Roots = request.Roots
+                .Select(static root => root.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         
             var mode = request.Mode ?? "DryRun";
             if (!mode.Equals("DryRun", StringComparison.OrdinalIgnoreCase) &&

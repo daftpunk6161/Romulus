@@ -193,7 +193,7 @@ public sealed class ArchiveHashService
         foreach (var entry in sortedEntries)
         {
             ct.ThrowIfCancellationRequested();
-            if (entry.Length <= 0) continue;
+            if (string.IsNullOrEmpty(entry.Name)) continue;
             try
             {
                 using var stream = entry.Open();

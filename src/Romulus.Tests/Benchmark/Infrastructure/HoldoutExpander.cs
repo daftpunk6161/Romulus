@@ -111,7 +111,7 @@ internal sealed class HoldoutExpander
                 Extension = ext,
                 SizeBytes = 1024 * (1 + random.Next(32768)),
                 Directory = template.Dir,
-                Stub = GetStubForSystem(system) is { } gen ? new StubInfo { Generator = gen } : null
+                Stub = GetStubForSystem(system)
             },
             Tags = template.Tags,
             Difficulty = template.Difficulty,
@@ -143,7 +143,7 @@ internal sealed class HoldoutExpander
                 Extension = ext,
                 SizeBytes = 1024 * (1 + random.Next(65536)),
                 Directory = system.ToLowerInvariant(),
-                Stub = GetStubForSystem(system) is { } gen ? new StubInfo { Generator = gen } : null
+                Stub = GetStubForSystem(system)
             },
             Tags = ["clean-reference", "holdout"],
             Difficulty = random.NextDouble() < 0.3 ? "medium" : "easy",
@@ -175,14 +175,25 @@ internal sealed class HoldoutExpander
         _ => ".bin"
     };
 
-    private static string? GetStubForSystem(string system) => system switch
+    internal static StubInfo? GetStubForSystem(string system) => system switch
     {
-        "NES" => "nes-ines", "SNES" => "snes-header", "N64" => "n64-header",
-        "GBA" => "gba-header", "GB" or "GBC" => "gb-header", "MD" or "32X" => "md-header",
-        "PS1" => "ps1-pvd", "PS2" => "ps2-pvd",
-        "SAT" or "DC" or "SCD" => "sega-ipbin",
-        "GC" or "WII" => "nintendo-disc",
-        "LYNX" => "lynx-header", "A78" => "a7800-header",
+        "NES" => new StubInfo { Generator = "nes-ines", Variant = "standard" },
+        "SNES" => new StubInfo { Generator = "snes-header", Variant = "lorom" },
+        "N64" => new StubInfo { Generator = "n64-header", Variant = "big-endian" },
+        "GBA" => new StubInfo { Generator = "gba-header", Variant = "standard" },
+        "GB" => new StubInfo { Generator = "gb-header", Variant = "dmg" },
+        "GBC" => new StubInfo { Generator = "gb-header", Variant = "cgb-dual" },
+        "MD" => new StubInfo { Generator = "md-header", Variant = "megadrive" },
+        "32X" => new StubInfo { Generator = "md-header", Variant = "32x" },
+        "PS1" => new StubInfo { Generator = "ps1-pvd", Variant = "standard" },
+        "PS2" => new StubInfo { Generator = "ps2-pvd", Variant = "standard" },
+        "SAT" => new StubInfo { Generator = "sega-ipbin", Variant = "saturn" },
+        "DC" => new StubInfo { Generator = "sega-ipbin", Variant = "dreamcast" },
+        "SCD" => new StubInfo { Generator = "sega-ipbin", Variant = "segacd" },
+        "GC" => new StubInfo { Generator = "nintendo-disc", Variant = "gamecube" },
+        "WII" => new StubInfo { Generator = "nintendo-disc", Variant = "wii" },
+        "LYNX" => new StubInfo { Generator = "lynx-header", Variant = "standard" },
+        "A78" => new StubInfo { Generator = "a7800-header", Variant = "standard" },
         _ => null
     };
 }

@@ -2,6 +2,7 @@ using System.IO.Compression;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion;
+using Romulus.Tests.TestFixtures;
 using Xunit;
 
 namespace Romulus.Tests;
@@ -65,6 +66,29 @@ public sealed class ChdmanToolConverterCoverageTests : IDisposable
 
         Assert.Equal(ConversionOutcome.Success, result.Outcome);
         Assert.Contains("createcd", stub.LastArgs!); // Downgraded from DVD to CD
+    }
+
+    [Fact]
+    public void Convert_Ps2DvdSystemCnf_KeepsCreatedvdEvenWhenSmall()
+    {
+        var source = Path.Combine(_tempDir, "ps2-dvd.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(
+            source,
+            "BOOT2 = cdrom0:\\SLUS_123.45;1",
+            500L * 1024 * 1024);
+
+        var target = Path.Combine(_tempDir, "ps2-dvd.chd");
+        var stub = new TrackingToolRunner();
+        stub.RegisterTool("chdman", "chdman.exe");
+        stub.NextResult = new ToolResult(0, "ok", true);
+        File.WriteAllBytes(target, new byte[1024]);
+
+        var converter = new ChdmanToolConverter(stub);
+        var result = converter.Convert(source, target, "chdman.exe", "createdvd");
+
+        Assert.Equal(ConversionOutcome.Success, result.Outcome);
+        Assert.Contains("createdvd", stub.LastArgs!);
+        Assert.DoesNotContain("createcd", stub.LastArgs!);
     }
 
     [Fact]
@@ -255,6 +279,31 @@ public sealed class ChdmanToolConverterCoverageTests : IDisposable
         var result = converter.Convert(zipPath, target, "chdman.exe", "createcd");
 
         Assert.Equal(ConversionOutcome.Success, result.Outcome);
+    }
+
+    [Fact]
+    public void Convert_ZipWithPs2CdIso_UsesCreatecdResolution()
+    {
+        var innerIso = Path.Combine(_tempDir, "ps2-cd.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(innerIso, "BOOT = cdrom0:\\SLUS_123.45;1");
+
+        var zipPath = Path.Combine(_tempDir, "ps2-cd.zip");
+        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        {
+            archive.CreateEntryFromFile(innerIso, "game.iso");
+        }
+
+        var target = Path.Combine(_tempDir, "ps2-cd.chd");
+        var stub = new TrackingToolRunner();
+        stub.RegisterTool("chdman", "chdman.exe");
+        stub.NextResult = new ToolResult(0, "ok", true);
+        File.WriteAllBytes(target, new byte[1024]);
+
+        var converter = new ChdmanToolConverter(stub);
+        var result = converter.Convert(zipPath, target, "chdman.exe", "createdvd");
+
+        Assert.Equal(ConversionOutcome.Success, result.Outcome);
+        Assert.Contains("createcd", stub.LastArgs!);
     }
 
     [Fact]

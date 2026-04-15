@@ -1233,7 +1233,12 @@ public sealed partial class MainViewModel
 
                     if (_syncContext is null)
                     {
-                        ApplyProgressMessage(msg);
+                        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                        if (dispatcher is null || dispatcher.CheckAccess())
+                            ApplyProgressMessage(msg);
+                        else
+                            _ = dispatcher.InvokeAsync(() => ApplyProgressMessage(msg));
+
                         return;
                     }
 

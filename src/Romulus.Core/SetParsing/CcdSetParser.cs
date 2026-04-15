@@ -33,7 +33,7 @@ public static class CcdSetParser
     public static IReadOnlyList<string> GetMissingFiles(string ccdPath, ISetParserIo? io = null)
     {
         var parserIo = SetParserIoResolver.Resolve(io);
-        if (string.IsNullOrWhiteSpace(ccdPath))
+        if (string.IsNullOrWhiteSpace(ccdPath) || !parserIo.Exists(ccdPath))
             return Array.Empty<string>();
 
         var dir = Path.GetDirectoryName(ccdPath) ?? "";

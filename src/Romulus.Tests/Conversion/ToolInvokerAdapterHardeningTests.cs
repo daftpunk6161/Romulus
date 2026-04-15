@@ -2,6 +2,7 @@ using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion;
 using System.Security.Cryptography;
+using Romulus.Tests.TestFixtures;
 using Xunit;
 
 namespace Romulus.Tests.Conversion;
@@ -89,6 +90,36 @@ public sealed class ToolInvokerAdapterHardeningTests
             Assert.True(result.Success);
             Assert.NotNull(runner.LastArgs);
             Assert.Equal("createcd", runner.LastArgs![0]);
+        }
+        finally
+        {
+            if (File.Exists(source))
+                File.Delete(source);
+            if (File.Exists(target))
+                File.Delete(target);
+        }
+    }
+
+    [Fact]
+    public void Invoke_CreatedvdWithPs2DvdSystemCnf_KeepsCreatedvd()
+    {
+        var source = Path.Combine(Path.GetTempPath(), $"tool_invoker_ps2dvd_{Guid.NewGuid():N}.iso");
+        var target = Path.ChangeExtension(source, ".chd");
+        Ps2SystemCnfIsoBuilder.WriteIso(
+            source,
+            "BOOT2 = cdrom0:\\SLUS_123.45;1",
+            699L * 1024 * 1024);
+
+        var runner = new RecordingToolRunner { ToolPath = GetExistingExecutablePath() };
+        var invoker = new ToolInvokerAdapter(runner);
+
+        try
+        {
+            var result = invoker.Invoke(source, target, Capability("chdman", "createdvd"));
+
+            Assert.True(result.Success);
+            Assert.NotNull(runner.LastArgs);
+            Assert.Equal("createdvd", runner.LastArgs![0]);
         }
         finally
         {

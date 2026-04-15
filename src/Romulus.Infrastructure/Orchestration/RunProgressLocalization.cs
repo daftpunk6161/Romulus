@@ -141,14 +141,20 @@ internal static class RunProgressLocalization
 
         ["Scan.Start"] = $"{RunConstants.Phases.Scan} Analyse de {{0}} dossier(s) racine...",
         ["Scan.Root"] = $"{RunConstants.Phases.Scan} Racine: {{0}}",
+        ["Scan.RootCollecting"] = $"{RunConstants.Phases.Scan} {{0}}: collecte en cours...",
+        ["Scan.RootFound"] = $"{RunConstants.Phases.Scan} {{0}}: {{1}} fichier(s) trouves",
+        ["Scan.ProgressProcessed"] = $"{RunConstants.Phases.Scan} {{0}}/{{1}} fichier(s) traites...",
         ["Filter.OnlyGames"] = $"{RunConstants.Phases.Filter} OnlyGames actif: {{0}} fichier(s) non-jeu exclus (KeepUnknown={{1}})",
         ["Scan.Completed"] = $"{RunConstants.Phases.Scan} Termine: {{0}} fichier(s) en {{1}}ms",
         ["Scan.HashLarge"] = $"{RunConstants.Phases.Scan} Hash: {{0}} ({{1:F0}} MB)...",
+        ["Scan.IncompleteWarning"] = "WARNING: analyse incomplete: {0} repertoire(s) inaccessibles",
+        ["Scan.HighMemoryWarning"] = "WARNING: {0:N0} fichiers analyses - utilisation memoire elevee. Envisagez moins de racines.",
 
         ["Move.Start"] = $"{RunConstants.Phases.Move} Deplacement de {{0}} doublon(s) vers la corbeille...",
         ["Move.Completed"] = $"{RunConstants.Phases.Move} Termine: {{0}} deplace(s), {{1}} erreur(s)",
         ["Move.Abort.OutOfSpace"] = $"{RunConstants.Phases.Move} Arret: espace disque insuffisant ({{0}} octets disponibles, {{1}} octets requis).",
         ["Move.Progress"] = $"{RunConstants.Phases.Move} Progression: {{0}}/{{1}} (moved={{2}}, skipped={{3}}, failed={{4}})",
+        ["Move.SkipConflict"] = $"{RunConstants.Phases.Move} Ignorer (conflit): {{0}}",
 
         ["Sort.Start"] = $"{RunConstants.Phases.Sort} Tri des fichiers par console...",
         ["Sort.Completed"] = $"{RunConstants.Phases.Sort} Tri des consoles termine",
@@ -158,7 +164,31 @@ internal static class RunProgressLocalization
         ["Report.Failed"] = $"{RunConstants.Phases.Report} Impossible d'ecrire le rapport au chemin cible ou de secours.",
 
         ["Audit.WriteSidecar"] = "[Audit] Ecriture du sidecar d'audit...",
+        ["Audit.SidecarWriteFailed"] = "[Audit] Echec ecriture sidecar: {0}: {1}",
         ["Done.Pipeline"] = $"{RunConstants.Phases.Finished} Pipeline termine en {{0}}ms - {{1}} fichier(s), {{2}} groupe(s)",
+
+        ["Analyze.Skipped.CrossRoot"] = "[CrossRoot] Analyse ignoree: {0}",
+        ["Analyze.Skipped.FolderDedupe"] = "[FolderDedupe] Analyse ignoree: {0}",
+        ["Analyze.Skipped.Quarantine"] = "[Quarantine] Analyse ignoree: {0}",
+        ["Analyze.Skipped.Hardlink"] = "[Hardlink] Analyse ignoree: {0}",
+        ["Preview.FolderDedupeSummary"] = "[FolderDedupe] Apercu: {0} resultat(s), racines PS3={1}, racines basename={2}",
+        ["Preview.CrossRootSummary"] = "[CrossRoot] Apercu: {0} groupes de hash inter-racines (echantillon={1})",
+        ["Preview.QuarantineSummary"] = "[Quarantine] Apercu: {0} fichier(s) suspects dans un echantillon de {1} candidats",
+        ["Preview.HardlinkSummary"] = "[Hardlink] Support NTFS hardlink: {0}/{1} racine(s)",
+        ["CollectionIndex.DeltaLookupsDisabled"] = "[CollectionIndex] Delta lookups desactives pour ce run: {0}",
+
+        ["Dedupe.Start"] = $"{RunConstants.Phases.Dedupe} Regroupement de {{0}} fichier(s) par GameKey...",
+        ["Dedupe.Completed"] = $"{RunConstants.Phases.Dedupe} Termine en {{0}}ms: {{1}} groupe(s), Keep={{2}}, Move={{3}}, Junk={{4}}",
+
+        ["Junk.Start"] = $"{RunConstants.Phases.Junk} Suppression des fichiers junk...",
+        ["Junk.Completed"] = $"{RunConstants.Phases.Junk} {{0}} fichier(s) junk supprime(s)",
+
+        ["Convert.OnlyStart"] = $"{RunConstants.Phases.Convert} Convert-only: {{0}} fichier(s)...",
+        ["Convert.StartGroups"] = $"{RunConstants.Phases.Convert} Demarrage de la conversion de format pour {{0}} groupe(s)...",
+        ["Convert.Completed"] = $"{RunConstants.Phases.Convert} Termine: {{0}} converti(s), {{1}} ignores, {{2}} bloques, {{3}} erreur(s)",
+        ["Convert.Progress"] = $"{RunConstants.Phases.Convert} Progression: {{0}}/{{1}} {{2}} (ok={{3}}, skip={{4}}, blocked={{5}}, err={{6}})",
+        ["Convert.FileTarget"] = $"{RunConstants.Phases.Convert} {{0}} -> {{1}}",
+        ["Convert.StepDone"] = $"{RunConstants.Phases.Convert} {{0}} etape {{1}} sur {{2}} terminee",
 
         ["Watch.Error"] = "Erreur FileSystemWatcher: {0}",
         ["Watch.UnknownError"] = "Erreur watcher inconnue"

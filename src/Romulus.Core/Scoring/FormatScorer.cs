@@ -270,14 +270,15 @@ public static class FormatScorer
                 return cached;
 
             var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var rank = 0;
             for (var i = 0; i < preferOrder.Count; i++)
             {
-                var region = preferOrder[i];
+                var region = preferOrder[i]?.Trim();
                 if (string.IsNullOrWhiteSpace(region))
                     continue;
 
                 if (!map.ContainsKey(region))
-                    map[region] = i;
+                    map[region] = rank++;
             }
 
             RegionScoreCache[cacheKey] = map;

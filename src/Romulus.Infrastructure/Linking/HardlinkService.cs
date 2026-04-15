@@ -18,8 +18,9 @@ public sealed class HardlinkService
             var root = Path.GetPathRoot(Path.GetFullPath(path));
             if (string.IsNullOrEmpty(root)) return false;
             var driveInfo = new DriveInfo(root);
-            // Hardlinks require NTFS
-            return string.Equals(driveInfo.DriveFormat, "NTFS", StringComparison.OrdinalIgnoreCase);
+            // Hardlinks are supported on NTFS and ReFS volumes.
+            return string.Equals(driveInfo.DriveFormat, "NTFS", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(driveInfo.DriveFormat, "ReFS", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

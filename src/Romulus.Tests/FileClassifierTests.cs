@@ -11,12 +11,46 @@ public class FileClassifierTests
     [Theory]
     [InlineData("[BIOS] PlayStation (Europe)")]
     [InlineData("BIOS - something")]
-    [InlineData("bios test rom")]
     [InlineData("Sony PS2 (Firmware)")]
     [InlineData("Game Boy Advance (BIOS)")]
+    [InlineData("dc_boot")]
+    [InlineData("pcfxbios")]
+    [InlineData("panafz10")]
+    [InlineData("playstation_bios")]
+    [InlineData("gba_biosfile")]
+    [InlineData("ps2bios_39001")]
+    [InlineData("saturn_bios_v1")]
+    [InlineData("System Card (USA)")]
+    [InlineData("System ROM v2.2 (USA)")]
+    [InlineData("IPL ROM v1.00 (Japan)")]
+    [InlineData("System Menu v4.3 (USA)")]
+    [InlineData("firmware_update (USA)")]
+    [InlineData("pgm")]
+    [InlineData("cps2")]
+    [InlineData("cps3")]
+    [InlineData("decocass")]
+    [InlineData("isgsm")]
+    [InlineData("skns")]
+    [InlineData("stvbios")]
+    [InlineData("namcos2")]
+    [InlineData("naomi")]
+    [InlineData("naomi2")]
+    [InlineData("taitogn")]
+    [InlineData("atomiswave")]
+    [InlineData("neogeo")]
+    [InlineData("stv")]
     public void Bios_DetectedCorrectly(string name)
     {
         Assert.Equal(FileCategory.Bios, FileClassifier.Classify(name));
+    }
+
+    [Theory]
+    [InlineData("BIOS Boot Disc (USA)")]
+    [InlineData("bios_test_rom (PD)")]
+    [InlineData("open_source_gba_bios")]
+    public void BiosFalsePositives_AreNotDetectedAsBios(string name)
+    {
+        Assert.NotEqual(FileCategory.Bios, FileClassifier.Classify(name));
     }
 
     // ── Standard junk tags ──────────────────────────────────────────────

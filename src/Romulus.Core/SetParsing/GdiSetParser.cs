@@ -49,8 +49,8 @@ public static class GdiSetParser
             var quoteStart = trimmed.IndexOf('"');
             if (quoteStart >= 0)
             {
-                var quoteEnd = trimmed.IndexOf('"', quoteStart + 1);
-                if (quoteEnd < 0) continue;
+                var quoteEnd = trimmed.LastIndexOf('"');
+                if (quoteEnd <= quoteStart) continue;
                 fileName = trimmed.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
             }
             else

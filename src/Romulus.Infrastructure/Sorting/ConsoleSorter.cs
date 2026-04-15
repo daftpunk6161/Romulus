@@ -637,7 +637,6 @@ public sealed class ConsoleSorter
         var relativeRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var absoluteRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var fileNameRenameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var ambiguousFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (source, destination) in completedMoves.Skip(1))
         {
@@ -656,14 +655,8 @@ public sealed class ConsoleSorter
 
             var sourceFileName = Path.GetFileName(sourceAbsolute);
             if (!string.IsNullOrWhiteSpace(sourceFileName))
-            {
-                if (!fileNameRenameMap.TryAdd(sourceFileName, destinationFileName))
-                    ambiguousFileNames.Add(sourceFileName);
-            }
+                fileNameRenameMap.TryAdd(sourceFileName, destinationFileName);
         }
-
-        foreach (var ambiguousFileName in ambiguousFileNames)
-            fileNameRenameMap.Remove(ambiguousFileName);
 
         if (relativeRenameMap.Count == 0 && absoluteRenameMap.Count == 0 && fileNameRenameMap.Count == 0)
             return;

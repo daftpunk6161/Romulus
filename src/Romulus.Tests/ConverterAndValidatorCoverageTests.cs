@@ -431,6 +431,18 @@ public sealed class ConverterAndValidatorCoverageTests : IDisposable
             return NextProcess;
         }
 
+        public ToolResult InvokeProcess(
+            string filePath,
+            string[] arguments,
+            ToolRequirement? requirement,
+            string? errorLabel,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+        {
+            InvokeCount++;
+            return NextProcess;
+        }
+
         public ToolResult Invoke7z(string sevenZipPath, string[] arguments)
         {
             InvokeCount++;

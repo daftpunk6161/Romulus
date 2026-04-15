@@ -1,6 +1,7 @@
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion.ToolInvokers;
+using Romulus.Tests.TestFixtures;
 using Xunit;
 
 namespace Romulus.Tests.Conversion.ToolInvokers;
@@ -76,6 +77,26 @@ public sealed class ChdmanInvokerTests : IDisposable
         Assert.True(result.Success);
         Assert.NotNull(runner.LastArguments);
         Assert.Equal("createcd", runner.LastArguments![0]);
+    }
+
+    [Fact]
+    public void Invoke_CreatedvdWithPs2DvdSystemCnf_KeepsCreatedvd()
+    {
+        var sourcePath = Path.Combine(_root, "ps2-dvd.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(
+            sourcePath,
+            "BOOT2 = cdrom0:\\SLUS_123.45;1",
+            ToolInvokerSupport.CdImageThresholdBytes - 1);
+
+        var runner = new TestToolRunner(new Dictionary<string, string?> { ["chdman"] = _toolPath });
+        runner.Enqueue(new ToolResult(0, "ok", true));
+
+        var sut = new ChdmanInvoker(runner);
+        var result = sut.Invoke(sourcePath, Path.Combine(_root, "ps2-dvd.chd"), Cap("chdman", ".chd", "createdvd"));
+
+        Assert.True(result.Success);
+        Assert.NotNull(runner.LastArguments);
+        Assert.Equal("createdvd", runner.LastArguments![0]);
     }
 
     [Fact]

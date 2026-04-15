@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Conversion.ToolInvokers;
+using Romulus.Tests.TestFixtures;
 using Xunit;
 
 namespace Romulus.Tests.Conversion.ToolInvokers;
@@ -149,7 +150,57 @@ public sealed class ToolInvokerSupportTests : IDisposable
     }
 
     [Fact]
-    public void ResolveEffectiveChdmanCommand_SmallIso_DowngradesToCreatecd()
+    public void TryResolvePs2CdFromSystemCnf_BootEntry_ReturnsTrue()
+    {
+        var path = Path.Combine(_root, "ps2-cd.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(path, "BOOT = cdrom0:\\SLUS_123.45;1");
+
+        var detected = ToolInvokerSupport.TryResolvePs2CdFromSystemCnf(path);
+
+        Assert.True(detected);
+    }
+
+    [Fact]
+    public void TryResolvePs2CdFromSystemCnf_Boot2Entry_ReturnsFalse()
+    {
+        var path = Path.Combine(_root, "ps2-dvd.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(path, "BOOT2 = cdrom0:\\SLUS_123.45;1");
+
+        var detected = ToolInvokerSupport.TryResolvePs2CdFromSystemCnf(path);
+
+        Assert.False(detected);
+    }
+
+    [Fact]
+    public void ResolveEffectiveChdmanCommand_Ps2CdSystemCnf_DowngradesToCreatecd()
+    {
+        var path = Path.Combine(_root, "ps2-cd-large.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(
+            path,
+            "BOOT = cdrom0:\\SLUS_123.45;1",
+            ToolInvokerSupport.CdImageThresholdBytes + 1);
+
+        var command = ToolInvokerSupport.ResolveEffectiveChdmanCommand("createdvd", path);
+
+        Assert.Equal("createcd", command);
+    }
+
+    [Fact]
+    public void ResolveEffectiveChdmanCommand_Ps2DvdSystemCnf_KeepsCreatedvd()
+    {
+        var path = Path.Combine(_root, "ps2-dvd-small.iso");
+        Ps2SystemCnfIsoBuilder.WriteIso(
+            path,
+            "BOOT2 = cdrom0:\\SLUS_123.45;1",
+            ToolInvokerSupport.CdImageThresholdBytes - 1);
+
+        var command = ToolInvokerSupport.ResolveEffectiveChdmanCommand("createdvd", path);
+
+        Assert.Equal("createdvd", command);
+    }
+
+    [Fact]
+    public void ResolveEffectiveChdmanCommand_SmallIsoWithoutSystemCnf_DowngradesToCreatecd()
     {
         var path = CreateSizedFile("small.iso", ToolInvokerSupport.CdImageThresholdBytes - 1);
 

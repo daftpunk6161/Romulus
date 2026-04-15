@@ -88,9 +88,64 @@ public sealed class ConversionPlannerTests
         Assert.Equal(".zip", plan.Steps[0].OutputExtension);
     }
 
+    [Fact]
+    public void Plan_Ps2CdDetectorOverridesLargeFileSize_SelectsCreatecd()
+    {
+        var registry = CreateRegistry(
+        [
+            Cap(".iso", ".chd", "chdman", 0, "createcd", "PS2", ConversionCondition.FileSizeLessThan700MB),
+            Cap(".iso", ".chd", "chdman", 0, "createdvd", "PS2", ConversionCondition.FileSizeGreaterEqual700MB)
+        ],
+        ConversionPolicy.Auto,
+        ".chd");
+
+        var planner = CreatePlanner(
+            registry,
+            _ => "C:\\tools\\ok.exe",
+            _ => ConversionThresholds.CdImageThresholdBytes + 1,
+            _ => true);
+
+        var plan = planner.Plan("C:\\roms\\game.iso", "PS2", ".iso");
+
+        Assert.Single(plan.Steps);
+        Assert.Equal("createcd", plan.Steps[0].Capability.Command);
+    }
+
+    [Fact]
+    public void Plan_Ps2DvdDetectorOverridesSmallFileSize_SelectsCreatedvd()
+    {
+        var registry = CreateRegistry(
+        [
+            Cap(".iso", ".chd", "chdman", 0, "createcd", "PS2", ConversionCondition.FileSizeLessThan700MB),
+            Cap(".iso", ".chd", "chdman", 0, "createdvd", "PS2", ConversionCondition.FileSizeGreaterEqual700MB)
+        ],
+        ConversionPolicy.Auto,
+        ".chd");
+
+        var planner = CreatePlanner(
+            registry,
+            _ => "C:\\tools\\ok.exe",
+            _ => ConversionThresholds.CdImageThresholdBytes - 1,
+            _ => false);
+
+        var plan = planner.Plan("C:\\roms\\game.iso", "PS2", ".iso");
+
+        Assert.Single(plan.Steps);
+        Assert.Equal("createdvd", plan.Steps[0].Capability.Command);
+    }
+
     private static ConversionPlanner CreatePlanner(IConversionRegistry registry, Func<string, string?> toolFinder)
     {
         return new ConversionPlanner(registry, toolFinder, _ => 1024);
+    }
+
+    private static ConversionPlanner CreatePlanner(
+        IConversionRegistry registry,
+        Func<string, string?> toolFinder,
+        Func<string, long> fileSizeProvider,
+        Func<string, bool?>? ps2CdDetector = null)
+    {
+        return new ConversionPlanner(registry, toolFinder, fileSizeProvider, ps2CdDetector: ps2CdDetector);
     }
 
     private static IConversionRegistry CreateRegistry(
@@ -102,21 +157,28 @@ public sealed class ConversionPlannerTests
         return new FakeRegistry(capabilities, policy, preferredTarget, alternativeTargets ?? []);
     }
 
-    private static ConversionCapability Cap(string source, string target, string tool, int cost)
+    private static ConversionCapability Cap(
+        string source,
+        string target,
+        string tool,
+        int cost,
+        string command = "convert",
+        string consoleKey = "PS1",
+        ConversionCondition condition = ConversionCondition.None)
     {
         return new ConversionCapability
         {
             SourceExtension = source,
             TargetExtension = target,
             Tool = new ToolRequirement { ToolName = tool },
-            Command = "convert",
-            ApplicableConsoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "PS1", "PSP" },
+            Command = command,
+            ApplicableConsoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { consoleKey, "PSP" },
             RequiredSourceIntegrity = null,
             ResultIntegrity = SourceIntegrity.Lossless,
             Lossless = true,
             Cost = cost,
             Verification = VerificationMethod.FileExistenceCheck,
-            Condition = ConversionCondition.None
+            Condition = condition
         };
     }
 

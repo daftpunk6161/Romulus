@@ -510,7 +510,7 @@ public sealed class MovePhaseAuditInvariantTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(0, result.MoveCount);
-        Assert.Equal(1, result.FailCount);
+        Assert.Equal(3, result.FailCount);
         Assert.Contains(audit.Rows, action => string.Equals(action, "MOVE_FAILED", StringComparison.OrdinalIgnoreCase));
     }
 

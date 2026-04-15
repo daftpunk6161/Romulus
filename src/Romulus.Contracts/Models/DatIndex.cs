@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Romulus.Contracts.Models;
 
@@ -13,6 +14,7 @@ public sealed class DatIndex
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _data = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _nameIndex = new(StringComparer.OrdinalIgnoreCase);
     private int _totalEntries;
+    private int _droppedByCapacityLimit;
 
     public readonly record struct DatIndexEntry(string GameName, string? RomFileName, bool IsBios = false, string? ParentGameName = null);
 
@@ -25,6 +27,9 @@ public sealed class DatIndex
     /// <summary>Total number of hash entries across all consoles.</summary>
     public int TotalEntries => Volatile.Read(ref _totalEntries);
 
+    /// <summary>Number of new entries rejected because a console-specific capacity limit was reached.</summary>
+    public int DroppedByCapacityLimit => Volatile.Read(ref _droppedByCapacityLimit);
+
     /// <summary>Add or update a hash→gameName mapping for a console.</summary>
     public void Add(string consoleKey, string hash, string gameName, string? romFileName = null, bool isBios = false, string? parentGameName = null)
     {
@@ -33,15 +38,29 @@ public sealed class DatIndex
         var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
 
         // Allow updates for existing keys even when at capacity
-        if (hashMap.ContainsKey(hash))
+        if (hashMap.TryGetValue(hash, out var oldEntry))
         {
             hashMap[hash] = newEntry;
+            if (!string.Equals(oldEntry.GameName, gameName, StringComparison.OrdinalIgnoreCase))
+                nameMap.TryRemove(oldEntry.GameName, out _);
             // Keep name index in sync on update
             nameMap[gameName] = newEntry;
             return;
         }
         if (MaxEntriesPerConsole > 0 && hashMap.Count >= MaxEntriesPerConsole)
+        {
+            var dropped = Interlocked.Increment(ref _droppedByCapacityLimit);
+            if (dropped == 1 || dropped % 100 == 0)
+            {
+                Trace.TraceWarning(
+                    "[DatIndex] Capacity limit reached for console '{0}'. Limit={1}, Dropped={2}.",
+                    consoleKey,
+                    MaxEntriesPerConsole,
+                    dropped);
+            }
+
             return;
+        }
         if (hashMap.TryAdd(hash, newEntry))
             Interlocked.Increment(ref _totalEntries);
 

@@ -466,7 +466,7 @@ internal sealed class DatasetExpander
         string[] biosSystems = [
             "PS1", "PS2", "PS3", "SAT", "DC", "GBA", "NDS", "3DS",
             "NEOCD", "PCECD", "PCFX", "SCD", "CD32", "CDI", "JAGCD",
-            "3DO", "GC", "WII", "WIIU", "FMTOWNS"
+            "3DO", "GC", "WII", "WIIU", "FMTOWNS", "PC98", "X68K"
         ];
 
         foreach (var key in biosSystems)
@@ -681,7 +681,8 @@ internal sealed class DatasetExpander
             ("gradius2", "gradius"), ("outrundx", "outrun"),
             ("raiden2", "raiden"), ("dariusg", "darius"),
             ("mshj", "msh"), ("ssf2ta", "ssf2t"),
-            ("sf2rb", "sf2"),
+            ("sf2rb", "sf2"), ("kof2002b", "kof2002"),
+            ("tmht2p", "tmnt"),
         };
 
         foreach (var (clone, parent) in clones)
@@ -986,7 +987,11 @@ internal sealed class DatasetExpander
 
     private void GenerateArchiveInnerEntries(Dictionary<string, List<GroundTruthEntry>> result)
     {
-        foreach (var sys in Systems.Where(s => !s.DiscBased && s.UniqueExts.Length > 0).Take(35))
+        var archiveSystems = Systems.Where(s => !s.DiscBased && s.UniqueExts.Length > 0)
+            .Take(35)
+            .Concat(Systems.Where(s => s.Key == "ZX" || s.Key == "BSX"));
+
+        foreach (var sys in archiveSystems)
         {
             var ext = sys.UniqueExts[0];
             var id = NextId("gr", sys.Key, "arcinner");
@@ -1035,7 +1040,7 @@ internal sealed class DatasetExpander
             var sys = Systems.FirstOrDefault(s => s.Key == key);
             if (sys is null) continue;
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 var id = NextId("gr", key, "dir");
                 if (_existingIds.Contains(id)) continue;
@@ -1119,7 +1124,12 @@ internal sealed class DatasetExpander
         }
 
         // ROM-like files in non-system folders
-        foreach (var sys in Systems.Where(s => s.UniqueExts.Length > 0).Take(18))
+        var unknownSystems = Systems.Where(s => s.UniqueExts.Length > 0)
+            .Take(18)
+            .Concat(Systems.Where(s =>
+                s.Key == "MSX" || s.Key == "N64" || s.Key == "NDS" || s.Key == "NES" || s.Key == "NGP"));
+
+        foreach (var sys in unknownSystems)
         {
             var ext = sys.UniqueExts[0];
             var id = NextId("nc", sys.Key, "expunk");
@@ -1188,6 +1198,46 @@ internal sealed class DatasetExpander
                 {
                     PrimaryMethod = "DiscHeader",
                     AcceptableAlternatives = ["Heuristic"]
+                },
+                FileModel = new FileModelInfo { Type = "single-file" },
+                Relationships = new RelationshipInfo()
+            });
+        }
+
+        foreach (var key in new[] { "PS1", "SAT", "PCECD" })
+        {
+            var sys = Systems.First(s => s.Key == key);
+            var ext = sys.AmbigExts.FirstOrDefault(e => !string.Equals(e, ".iso", StringComparison.OrdinalIgnoreCase))
+                ?? sys.AmbigExts[0];
+            var id = NextId("ec", key, "ambig");
+            if (_existingIds.Contains(id)) continue;
+
+            Add(result, "edge-cases.jsonl", new GroundTruthEntry
+            {
+                Id = id,
+                Source = new SourceInfo
+                {
+                    FileName = $"{sys.SampleGames[0]} (Disc Image){ext}",
+                    Extension = ext,
+                    SizeBytes = sys.TypicalSize,
+                    Directory = "mixed_media",
+                },
+                Tags = ["ambiguous", "disc-header", sys.DatEcosystem],
+                Difficulty = "hard",
+                Expected = new ExpectedResult
+                {
+                    ConsoleKey = key,
+                    Category = "Game",
+                    Confidence = 55,
+                    HasConflict = true,
+                    DatMatchLevel = "weak",
+                    DatEcosystem = sys.DatEcosystem,
+                    SortDecision = "review"
+                },
+                DetectionExpectations = new DetectionExpectations
+                {
+                    PrimaryMethod = "DiscHeader",
+                    AcceptableAlternatives = ["Heuristic", "FolderName"]
                 },
                 FileModel = new FileModelInfo { Type = "single-file" },
                 Relationships = new RelationshipInfo()
@@ -1436,7 +1486,12 @@ internal sealed class DatasetExpander
 
     private void GenerateBrokenEntries(Dictionary<string, List<GroundTruthEntry>> result)
     {
-        foreach (var sys in Systems.Where(s => s.UniqueExts.Length > 0).Take(35))
+        var brokenSystems = Systems.Where(s => s.UniqueExts.Length > 0)
+            .Take(35)
+            .Concat(Systems.Where(s =>
+                s.Key == "ZX" || s.Key == "BSX" || s.Key == "FDS" || s.Key == "GAMECOM" || s.Key == "GP32"));
+
+        foreach (var sys in brokenSystems)
         {
             var ext = sys.UniqueExts[0];
 
@@ -2373,6 +2428,9 @@ internal sealed class DatasetExpander
             ("Dragon Warrior (USA) (DMG+CGB)", ".gb", "GB", 0x80, "dual-mode old naming"),
             ("Mega Man Xtreme (USA) (CGB)", ".gbc", "GBC", 0xC0, "CGB-only"),
             ("Bionic Commando (USA) (DMG)", ".gb", "GB", 0x00, "pure DMG"),
+            ("Zelda Oracle of Ages (USA) (CGB)", ".gbc", "GBC", 0xC0, "late GBC-only release"),
+            ("Dragon Warrior Monsters 2 (USA) (CGB+DMG)", ".gb", "GB", 0x80, "dual-mode collection edge"),
+            ("Shantae (USA) (CGB)", ".gbc", "GBC", 0xC0, "high-profile CGB-only"),
         };
 
         for (int i = 0; i < gbGbcEntries.Length; i++)
@@ -2427,6 +2485,7 @@ internal sealed class DatasetExpander
             ("Star Wars Arcade (32X)", "32X", ".32x"), ("Virtua Racing Deluxe (32X)", "32X", ".32x"),
             ("Sonic 3 mislabeled as 32X", "MD", ".bin"), ("Streets of Rage 32X hack", "MD", ".bin"),
             ("Pitfall 32X (USA)", "32X", ".bin"), ("Cosmic Carnage (USA)", "32X", ".bin"),
+            ("Tempo (32X)", "32X", ".32x"), ("Thunder Force IV mislabeled 32X", "MD", ".bin"),
         };
 
         for (int i = 0; i < md32xEntries.Length; i++)
@@ -3261,6 +3320,7 @@ internal sealed class DatasetExpander
             ("Mario Galaxy (USA).rvz", ".rvz", "WII", "container-rvz"),
             ("Smash Brawl (USA).rvz", ".rvz", "WII", "container-rvz"),
             ("Melee (USA).rvz", ".rvz", "GC", "container-rvz"),
+            ("Metroid Prime Trilogy (USA).wia", ".wia", "WII", "container-wia"),
             ("Twilight Princess Wii (USA).wbfs", ".wbfs", "WII", "container-wbfs"),
             ("Mario Kart Wii (USA).wbfs", ".wbfs", "WII", "container-wbfs"),
         };
@@ -3846,6 +3906,7 @@ internal sealed class DatasetExpander
             ("dc_boot_rom.bin", "DC", "redump", 2097152L, "FolderName"),
             ("saturn_bios_v1.bin", "SAT", "redump", 524288L, "FolderName"),
             ("gba_biosfile.bin", "GBA", "no-intro", 16384L, "FolderName"),
+            ("pcfxbios_v101.bin", "PCFX", "redump", 524288L, "FolderName"),
         };
 
         foreach (var (name, sysKey, datEco, size, primary) in entries)
@@ -4100,6 +4161,7 @@ internal sealed class DatasetExpander
         {
             ("kof98", 33554432L), ("mslug", 33554432L), ("samsho2", 33554432L), ("garou", 33554432L),
             ("rbff2", 33554432L), ("kof2002", 33554432L), ("mslug3", 33554432L), ("lastblad", 33554432L),
+            ("svc", 33554432L),
         };
 
         foreach (var (name, size) in games)
@@ -4132,6 +4194,7 @@ internal sealed class DatasetExpander
             ("mslug_merged", 67108864L), ("kof98_merged", 67108864L), ("samsho5_merged", 67108864L),
             ("garoupm", 67108864L), ("rbff2_merged", 67108864L), ("kof2k2mp", 67108864L),
             ("mslug3_merged", 67108864L), ("svc_merged", 67108864L),
+            ("garou_merged", 67108864L),
         };
 
         foreach (var (name, size) in games)
@@ -4236,6 +4299,11 @@ internal sealed class DatasetExpander
             ("LYNX", ".lnx", "California Games", 262144),
             ("GB",   ".gb",  "Tetris", 32768),
             ("N64",  ".z64", "Super Mario 64", 8388608),
+            ("GBA",  ".gba", "Metroid Fusion", 16777216),
+            ("GBC",  ".gbc", "Pokemon Crystal", 2097152),
+            ("32X",  ".32x", "Tempo", 3145728),
+            ("NES",  ".nes", "Mega Man 2", 262160),
+            ("SNES", ".sfc", "Super Mario World", 524288),
         };
 
         foreach (var (sys, ext, game, size) in pairs)
@@ -5081,10 +5149,10 @@ internal sealed class DatasetExpander
 
     private void GenerateSatDcCrossSystem(Dictionary<string, List<GroundTruthEntry>> result)
     {
-        var satGames = new[] { "Nights into Dreams", "Panzer Dragoon Saga", "Radiant Silvergun", "Burning Rangers" };
-        var dcGames = new[] { "Sonic Adventure", "Jet Grind Radio", "Shenmue", "Power Stone" };
+        var satGames = new[] { "Nights into Dreams", "Panzer Dragoon Saga", "Radiant Silvergun", "Burning Rangers", "Guardian Heroes" };
+        var dcGames = new[] { "Sonic Adventure", "Jet Grind Radio", "Shenmue", "Power Stone", "Crazy Taxi" };
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < satGames.Length; i++)
         {
             var satId = NextId("ec", "SAT", "crossiso");
             if (!_existingIds.Contains(satId))
@@ -5093,7 +5161,7 @@ internal sealed class DatasetExpander
                 {
                     Id = satId,
                     Source = new SourceInfo { FileName = $"{satGames[i]} (USA).iso", Extension = ".iso", SizeBytes = 734003200, Directory = "saturn" },
-                    Tags = ["cross-system-ambiguity", "disc-header", "redump"],
+                    Tags = ["cross-system-ambiguity", "sat-dc-disambiguation", "disc-header", "redump"],
                     Difficulty = "hard",
                     Expected = new ExpectedResult
                     {
@@ -5113,7 +5181,7 @@ internal sealed class DatasetExpander
                 {
                     Id = dcId,
                     Source = new SourceInfo { FileName = $"{dcGames[i]} (USA).iso", Extension = ".iso", SizeBytes = 1073741824, Directory = "dreamcast" },
-                    Tags = ["cross-system-ambiguity", "disc-header", "redump"],
+                    Tags = ["cross-system-ambiguity", "sat-dc-disambiguation", "disc-header", "redump"],
                     Difficulty = "hard",
                     Expected = new ExpectedResult
                     {
@@ -5137,6 +5205,9 @@ internal sealed class DatasetExpander
             ("PCECD", "Ys Book I II (USA).bin",       ".bin", "pcecd", 734003200,  70, "exact", "review"),
             ("PCECD", "Rondo of Blood (JPN).iso",     ".iso", "pcecd", 734003200,  75, "exact", "sort"),
             ("PCECD", "Gate of Thunder (USA).bin",     ".bin", "pce",   734003200,  60, "fuzzy", "review"),
+            ("PCE",   "Soldier Blade (USA).pce",      ".pce", "tg16",   524288,     72, "exact", "review"),
+            ("PCECD", "Lords of Thunder (USA).chd",    ".chd", "pcecd", 734003200,  72, "exact", "review"),
+            ("PCECD", "Dragon Slayer - The Legend of Heroes (JPN).bin", ".bin", "turbografx", 734003200, 58, "fuzzy", "review"),
         };
 
         foreach (var (sys, name, ext, dir, size, conf, datMatch, decision) in entries)

@@ -486,7 +486,8 @@ public sealed class RunEnvironmentBuilder
                         conversionRegistry,
                         toolRunner.FindTool,
                         path => new FileInfo(path).Length,
-                        PbpEncryptionDetector.IsEncrypted);
+                        PbpEncryptionDetector.IsEncrypted,
+                        ToolInvokerSupport.TryResolvePs2CdFromSystemCnf);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)

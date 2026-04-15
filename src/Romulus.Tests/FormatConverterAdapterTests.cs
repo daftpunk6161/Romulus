@@ -2,6 +2,7 @@ using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion;
 using System.IO.Compression;
+using Romulus.Tests.TestFixtures;
 using Xunit;
 
 namespace Romulus.Tests;
@@ -292,6 +293,33 @@ public class FormatConverterAdapterTests
             Assert.Equal(ConversionOutcome.Success, result.Outcome);
             Assert.Contains("createcd", _tools.LastArgs, StringComparer.OrdinalIgnoreCase);
             Assert.DoesNotContain("createdvd", _tools.LastArgs, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (File.Exists(isoPath)) File.Delete(isoPath);
+            if (File.Exists(expectedTarget)) File.Delete(expectedTarget);
+        }
+    }
+
+    [Fact]
+    public void Convert_Ps2IsoWithBoot2Marker_KeepsCreateDvdEvenUnderThreshold()
+    {
+        var target = new ConversionTarget(".chd", "chdman", "createdvd");
+        var isoPath = Path.Combine(Path.GetTempPath(), $"ps2_dvd_{Guid.NewGuid():N}.iso");
+        var expectedTarget = Path.ChangeExtension(isoPath, ".chd");
+
+        try
+        {
+            Ps2SystemCnfIsoBuilder.WriteIso(
+                isoPath,
+                "BOOT2 = cdrom0:\\SLUS_123.45;1",
+                699L * 1024 * 1024);
+
+            var result = _converter.Convert(isoPath, target);
+
+            Assert.Equal(ConversionOutcome.Success, result.Outcome);
+            Assert.Contains("createdvd", _tools.LastArgs, StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain("createcd", _tools.LastArgs, StringComparer.OrdinalIgnoreCase);
         }
         finally
         {

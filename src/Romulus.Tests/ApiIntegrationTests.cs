@@ -157,7 +157,7 @@ public sealed class ApiIntegrationTests
     }
 
     [Fact]
-    public async Task RateLimit_DifferentApiKeys_SameClient_HaveIndependentBuckets()
+    public async Task RateLimit_DifferentApiKeys_SameClient_ShareBucket()
     {
         using var factory = CreateFactory(new Dictionary<string, string?>
         {
@@ -174,7 +174,7 @@ public sealed class ApiIntegrationTests
         var firstKeySecondRequest = await firstClient.GetAsync("/health");
 
         Assert.Equal(HttpStatusCode.OK, firstKeyFirstRequest.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, secondKeyFirstRequest.StatusCode);
+        Assert.Equal((HttpStatusCode)429, secondKeyFirstRequest.StatusCode);
         Assert.Equal((HttpStatusCode)429, firstKeySecondRequest.StatusCode);
     }
 

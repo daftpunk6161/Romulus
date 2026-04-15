@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.FileSystem;
@@ -83,6 +84,7 @@ public sealed class AuditCsvStore : IAuditStore
             Directory.CreateDirectory(dir);
 
         var lockHandle = AcquireFileLock(auditCsvPath);
+        using var crossProcessMutex = AcquireCrossProcessMutex(auditCsvPath);
         try
         {
             lock (lockHandle.Sync)
@@ -102,6 +104,7 @@ public sealed class AuditCsvStore : IAuditStore
         }
         finally
         {
+            crossProcessMutex.ReleaseMutex();
             ReleaseFileLock(auditCsvPath, lockHandle);
         }
     }
@@ -120,6 +123,7 @@ public sealed class AuditCsvStore : IAuditStore
             Directory.CreateDirectory(dir);
 
         var lockHandle = AcquireFileLock(auditCsvPath);
+        using var crossProcessMutex = AcquireCrossProcessMutex(auditCsvPath);
         try
         {
             lock (lockHandle.Sync)
@@ -165,6 +169,7 @@ public sealed class AuditCsvStore : IAuditStore
         }
         finally
         {
+            crossProcessMutex.ReleaseMutex();
             ReleaseFileLock(auditCsvPath, lockHandle);
         }
     }
@@ -215,6 +220,33 @@ public sealed class AuditCsvStore : IAuditStore
         }
 
         throw new InvalidOperationException($"Failed to acquire file lock for '{auditCsvPath}' after {maxRetries} retries.");
+    }
+
+    private static Mutex AcquireCrossProcessMutex(string auditCsvPath)
+    {
+        var mutex = new Mutex(false, BuildCrossProcessMutexName(auditCsvPath));
+        try
+        {
+            _ = mutex.WaitOne();
+        }
+        catch (AbandonedMutexException)
+        {
+            // Previous process terminated while holding the mutex.
+            // The current process now owns it and can safely continue.
+        }
+
+        return mutex;
+    }
+
+    private static string BuildCrossProcessMutexName(string auditCsvPath)
+    {
+        var normalized = Path.GetFullPath(auditCsvPath).ToUpperInvariant();
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        var suffix = Convert.ToHexString(hash.AsSpan(0, 16));
+
+        return OperatingSystem.IsWindows()
+            ? $"Global\\Romulus.AuditCsv.{suffix}"
+            : $"Romulus.AuditCsv.{suffix}";
     }
 
     private static void ReleaseFileLock(string auditCsvPath, FileLockHandle handle)

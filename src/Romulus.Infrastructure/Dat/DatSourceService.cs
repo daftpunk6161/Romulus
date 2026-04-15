@@ -398,7 +398,7 @@ public sealed class DatSourceService : IDisposable
             var actual = ComputeFileSha256(localPath);
             return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or RegexMatchTimeoutException)
         {
             return !_strictSidecarValidation;
         }

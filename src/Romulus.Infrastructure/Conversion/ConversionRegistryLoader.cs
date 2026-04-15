@@ -164,8 +164,8 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
             ApplicableConsoles = applicableConsoles,
             RequiredSourceIntegrity = requiredSourceIntegrity,
             ResultIntegrity = resultIntegrity,
-            Lossless = item.GetProperty("lossless").GetBoolean(),
-            Cost = item.GetProperty("cost").GetInt32(),
+            Lossless = ReadRequiredBool(item, "lossless"),
+            Cost = ReadRequiredInt(item, "cost"),
             Verification = verification,
             Description = ReadOptionalString(item, "description"),
             Condition = condition
@@ -309,6 +309,30 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
             JsonValueKind.Null => null,
             _ => throw new InvalidOperationException($"Property '{propertyName}' must be integer or null.")
         };
+    }
+
+    private static bool ReadRequiredBool(JsonElement item, string propertyName)
+    {
+        if (!item.TryGetProperty(propertyName, out var value))
+            throw new InvalidOperationException($"Missing required property '{propertyName}'.");
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new InvalidOperationException($"Property '{propertyName}' must be a boolean.")
+        };
+    }
+
+    private static int ReadRequiredInt(JsonElement item, string propertyName)
+    {
+        if (!item.TryGetProperty(propertyName, out var value))
+            throw new InvalidOperationException($"Missing required property '{propertyName}'.");
+
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var parsed))
+            throw new InvalidOperationException($"Property '{propertyName}' must be an integer.");
+
+        return parsed;
     }
 
     private static TEnum ParseRequiredEnum<TEnum>(string value)

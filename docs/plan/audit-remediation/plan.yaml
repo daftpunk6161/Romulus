@@ -984,7 +984,7 @@ tasks:
       - "F-020"
       - "F-021"
     priority: medium
-    status: pending
+    status: completed
     dependencies:
       - "w3-conversion-consistency"
       - "w2-security-hardening"
