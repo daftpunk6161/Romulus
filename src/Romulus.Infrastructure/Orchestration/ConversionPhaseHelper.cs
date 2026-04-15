@@ -2,7 +2,9 @@ using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Conversion;
+using Romulus.Infrastructure.Safety;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Romulus.Infrastructure.Orchestration;
 
@@ -25,6 +27,7 @@ internal static class ConversionPhaseHelper
         public int Errors;
         public int Skipped;
         public int Blocked;
+        public int CleanupFailures;
     }
 
     internal sealed record ConversionWorkItem(
@@ -182,6 +185,13 @@ internal static class ConversionPhaseHelper
         if (string.Equals(options.Mode, RunConstants.ModeDryRun, StringComparison.OrdinalIgnoreCase))
             return null;
 
+        if (!AllowedRootPathPolicy.Validate(filePath, options.Roots))
+        {
+            counters.Blocked++;
+            context.OnProgress?.Invoke($"WARNING: Conversion source outside allowed roots: {filePath}");
+            return null;
+        }
+
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         ConversionTarget? target = null;
         ConversionResult convResult;
@@ -241,7 +251,8 @@ internal static class ConversionPhaseHelper
                 {
                     if (!TryMoveSetMembersToTrash(context, options, sourcePath, sourceExt, movedArtifacts, out var memberMoveFailureReason))
                     {
-                        CleanupConversionOutputs(context, convResult);
+                        var cleanupFailures = CleanupConversionOutputs(context, convResult);
+                        RecordCleanupFailures(context, options, sourcePath, counters, cleanupFailures);
                         counters.Errors++;
                         TryAppendConversionErrorAudit(context, options, sourcePath, memberMoveFailureReason ?? "set-member-trash-failed");
                         return convResult with
@@ -255,9 +266,21 @@ internal static class ConversionPhaseHelper
                 var sourceTrashPath = PipelinePhaseHelpers.MoveConvertedSourceToTrash(context, options, sourcePath, convertedPath);
                 if (string.IsNullOrWhiteSpace(sourceTrashPath))
                 {
-                    RollbackMovedArtifacts(context, movedArtifacts);
-                    CleanupConversionOutputs(context, convResult);
+                    var rollbackFailureCount = RollbackMovedArtifacts(context, movedArtifacts);
+                    var cleanupFailures = CleanupConversionOutputs(context, convResult);
+                    RecordCleanupFailures(context, options, sourcePath, counters, cleanupFailures);
                     counters.Errors++;
+
+                    if (rollbackFailureCount > 0)
+                    {
+                        TryAppendConversionErrorAudit(context, options, sourcePath, $"rollback-partial-failure:{rollbackFailureCount}");
+                        return convResult with
+                        {
+                            Outcome = ConversionOutcome.Error,
+                            Reason = "rollback-partial-failure"
+                        };
+                    }
+
                     TryAppendConversionErrorAudit(context, options, sourcePath, "source-trash-failed");
                     return convResult with
                     {
@@ -270,9 +293,21 @@ internal static class ConversionPhaseHelper
 
                 if (!TryAppendSuccessfulConversionAudits(context, options, sourcePath, convResult, target, movedArtifacts, out var auditFailureReason))
                 {
-                    RollbackMovedArtifacts(context, movedArtifacts);
-                    CleanupConversionOutputs(context, convResult);
+                    var rollbackFailureCount = RollbackMovedArtifacts(context, movedArtifacts);
+                    var cleanupFailures = CleanupConversionOutputs(context, convResult);
+                    RecordCleanupFailures(context, options, sourcePath, counters, cleanupFailures);
                     counters.Errors++;
+
+                    if (rollbackFailureCount > 0)
+                    {
+                        TryAppendConversionErrorAudit(context, options, sourcePath, $"rollback-partial-failure:{rollbackFailureCount}");
+                        return convResult with
+                        {
+                            Outcome = ConversionOutcome.Error,
+                            Reason = "rollback-partial-failure"
+                        };
+                    }
+
                     TryAppendConversionErrorAudit(context, options, sourcePath, auditFailureReason ?? "conversion-audit-failed");
                     return convResult with
                     {
@@ -300,7 +335,8 @@ internal static class ConversionPhaseHelper
                         sourcePath,
                         convResult.TargetPath,
                         ConversionVerificationHelpers.ResolveToolName(convResult, target));
-                    CleanupConversionOutputs(context, convResult);
+                    var cleanupFailures = CleanupConversionOutputs(context, convResult);
+                    RecordCleanupFailures(context, options, sourcePath, counters, cleanupFailures);
                 }
             }
         }
@@ -317,7 +353,8 @@ internal static class ConversionPhaseHelper
             counters.Errors++;
             context.OnProgress?.Invoke($"WARNING: Conversion failed for {sourcePath}: {convResult.Reason}");
             PipelinePhaseHelpers.AppendConversionErrorAudit(context, options, sourcePath, convResult.Reason);
-            CleanupConversionOutputs(context, convResult);
+            var cleanupFailures = CleanupConversionOutputs(context, convResult);
+            RecordCleanupFailures(context, options, sourcePath, counters, cleanupFailures);
         }
 
         return convResult;
@@ -352,16 +389,20 @@ internal static class ConversionPhaseHelper
             var memberRoot = PipelinePhaseHelpers.FindRootForPath(member, options.Roots);
             if (memberRoot is null)
             {
-                RollbackMovedArtifacts(context, movedArtifacts.ToArray());
-                failureReason = $"set-member-outside-allowed-roots:{member}";
+                var rollbackFailureCount = RollbackMovedArtifacts(context, movedArtifacts.ToArray());
+                failureReason = rollbackFailureCount > 0
+                    ? "rollback-partial-failure"
+                    : $"set-member-outside-allowed-roots:{member}";
                 return false;
             }
 
             if (!PipelinePhaseHelpers.TryMovePathToConvertedTrash(context, options, member, out var trashPath, out var moveFailureReason)
                 || string.IsNullOrWhiteSpace(trashPath))
             {
-                RollbackMovedArtifacts(context, movedArtifacts.ToArray());
-                failureReason = moveFailureReason ?? $"set-member-trash-failed:{member}";
+                var rollbackFailureCount = RollbackMovedArtifacts(context, movedArtifacts.ToArray());
+                failureReason = rollbackFailureCount > 0
+                    ? "rollback-partial-failure"
+                    : moveFailureReason ?? $"set-member-trash-failed:{member}";
                 return false;
             }
 
@@ -432,14 +473,16 @@ internal static class ConversionPhaseHelper
         {
             PipelinePhaseHelpers.AppendConversionErrorAudit(context, options, sourcePath, reason);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // best effort only
+            Trace.WriteLine($"WARNING: Could not append conversion error audit for '{sourcePath}' ({reason}): {ex.Message}");
         }
     }
 
-    private static void RollbackMovedArtifacts(PipelineContext context, IReadOnlyList<MovedArtifact> movedArtifacts)
+    private static int RollbackMovedArtifacts(PipelineContext context, IReadOnlyList<MovedArtifact> movedArtifacts)
     {
+        var failureCount = 0;
+
         for (var i = movedArtifacts.Count - 1; i >= 0; i--)
         {
             var movedArtifact = movedArtifacts[i];
@@ -449,20 +492,26 @@ internal static class ConversionPhaseHelper
                 if (string.IsNullOrWhiteSpace(restoredPath)
                     || !string.Equals(restoredPath, movedArtifact.SourcePath, StringComparison.OrdinalIgnoreCase))
                 {
+                    failureCount++;
                     context.OnProgress?.Invoke(
                         $"WARNING: Could not restore moved conversion source: {movedArtifact.TrashPath} -> {movedArtifact.SourcePath} (restore mismatch)");
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
+                failureCount++;
                 context.OnProgress?.Invoke(
                     $"WARNING: Could not restore moved conversion source: {movedArtifact.TrashPath} -> {movedArtifact.SourcePath} ({ex.Message})");
             }
         }
+
+        return failureCount;
     }
 
-    private static void CleanupConversionOutputs(PipelineContext context, ConversionResult convResult)
+    private static IReadOnlyList<string> CleanupConversionOutputs(PipelineContext context, ConversionResult convResult)
     {
+        var failedOutputs = new List<string>();
+
         foreach (var outputPath in PipelinePhaseHelpers.GetConversionOutputPaths(convResult))
         {
             try
@@ -472,9 +521,26 @@ internal static class ConversionPhaseHelper
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
+                failedOutputs.Add(outputPath);
                 context.OnProgress?.Invoke($"WARNING: Could not clean conversion output: {outputPath} ({ex.Message})");
             }
         }
+
+        return failedOutputs;
+    }
+
+    private static void RecordCleanupFailures(
+        PipelineContext context,
+        RunOptions options,
+        string sourcePath,
+        ConversionCounters counters,
+        IReadOnlyList<string> failedOutputs)
+    {
+        if (failedOutputs.Count == 0)
+            return;
+
+        counters.CleanupFailures += failedOutputs.Count;
+        TryAppendConversionErrorAudit(context, options, sourcePath, $"cleanup-output-failed:{failedOutputs.Count}");
     }
 
     private static int GetParallelism(int workItemCount)

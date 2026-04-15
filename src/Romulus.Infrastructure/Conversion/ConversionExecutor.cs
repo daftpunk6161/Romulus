@@ -227,7 +227,7 @@ public sealed class ConversionExecutor(IEnumerable<IToolInvoker> invokers, bool 
                             new ConversionStepResult(
                                 step.Order,
                                 finalOutputPath,
-                                true,
+                                false,
                                 verifyStatus,
                                 null,
                                 invokeResult.DurationMs));

@@ -55,11 +55,11 @@ public sealed class ConversionVerificationHelpersTests
     }
 
     [Fact]
-    public void IsVerificationSuccessful_NotAttempted_NullTarget_ReturnsFalse()
+    public void IsVerificationSuccessful_NotAttempted_NullTarget_NoPlan_ReturnsTrueForLegacyConverter()
     {
         var result = MakeResult(targetPath: "/some/path.chd", verification: VerificationStatus.NotAttempted);
 
-        Assert.False(ConversionVerificationHelpers.IsVerificationSuccessful(
+        Assert.True(ConversionVerificationHelpers.IsVerificationSuccessful(
             result, new StubConverter(verifyReturns: true), null));
     }
 
@@ -74,6 +74,53 @@ public sealed class ConversionVerificationHelpersTests
 
         Assert.False(ConversionVerificationHelpers.IsVerificationSuccessful(
             result, new StubConverter(verifyReturns: false), target));
+    }
+
+    [Fact]
+    public void IsVerificationSuccessful_NotAttempted_ExplicitAndDerivedTargetPaths_AreConsistent()
+    {
+        var capability = new ConversionCapability
+        {
+            Tool = new ToolRequirement { ToolName = "chdman" },
+            SourceExtension = ".iso",
+            TargetExtension = ".chd",
+            Command = "createcd",
+            ResultIntegrity = SourceIntegrity.Lossless,
+            Lossless = true,
+            Cost = 1,
+            Verification = VerificationMethod.ChdmanVerify
+        };
+
+        var plan = new ConversionPlan
+        {
+            SourcePath = "/x.iso",
+            ConsoleKey = "PS1",
+            Policy = ConversionPolicy.Auto,
+            SourceIntegrity = SourceIntegrity.Lossless,
+            Safety = ConversionSafety.Safe,
+            Steps =
+            [
+                new ConversionStep
+                {
+                    Order = 0,
+                    InputExtension = ".iso",
+                    OutputExtension = ".chd",
+                    Capability = capability,
+                    IsIntermediate = false
+                }
+            ]
+        };
+
+        var result = MakeResult(targetPath: "/some/path.chd", verification: VerificationStatus.NotAttempted, plan: plan);
+        var explicitTarget = new ConversionTarget(".chd", "chdman", "createcd");
+
+        var explicitTrue = ConversionVerificationHelpers.IsVerificationSuccessful(result, new StubConverter(verifyReturns: true), explicitTarget);
+        var derivedTrue = ConversionVerificationHelpers.IsVerificationSuccessful(result, new StubConverter(verifyReturns: true), null);
+        Assert.Equal(explicitTrue, derivedTrue);
+
+        var explicitFalse = ConversionVerificationHelpers.IsVerificationSuccessful(result, new StubConverter(verifyReturns: false), explicitTarget);
+        var derivedFalse = ConversionVerificationHelpers.IsVerificationSuccessful(result, new StubConverter(verifyReturns: false), null);
+        Assert.Equal(explicitFalse, derivedFalse);
     }
 
     #endregion

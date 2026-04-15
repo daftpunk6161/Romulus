@@ -204,18 +204,18 @@ public sealed class VersionScorer
                 var segments = rev.Split('.', StringSplitOptions.RemoveEmptyEntries);
                 long weight = 1;
                 for (var i = 1; i < segments.Length; i++)
-                    weight *= 1000;
+                    weight = SaturatingMultiply(weight, 1000);
 
                 long dottedScore = 0;
                 foreach (var segment in segments)
                 {
                     if (!long.TryParse(segment, out var segVal))
                         break;
-                    dottedScore += segVal * weight;
+                    dottedScore = SaturatingAdd(dottedScore, SaturatingMultiply(segVal, weight));
                     if (weight > 1) weight /= 1000;
                 }
 
-                score += dottedScore;
+                score = SaturatingAdd(score, dottedScore);
             }
             else if (SafeRegex.IsMatch(RxNumericSuffix, rev))
             {
@@ -238,7 +238,7 @@ public sealed class VersionScorer
                 }
                 // BUG-FIX: Removed dead remainder code — RxNumericSuffix is anchored (^...$)
                 // so numericMatch.Length == rev.Length, meaning remainder was always empty.
-                score += (numeric * 10L) + suffixScore;
+                score = SaturatingAdd(score, SaturatingAdd(SaturatingMultiply(numeric, 10L), suffixScore));
             }
             else if (SafeRegex.IsMatch(RxLeadingDigits, rev))
             {
@@ -247,7 +247,7 @@ public sealed class VersionScorer
                     return score;
 
                 if (long.TryParse(digitMatch.Value, out var leadingDigit))
-                    score += leadingDigit * 10L;
+                    score = SaturatingAdd(score, SaturatingMultiply(leadingDigit, 10L));
             }
         }
 
@@ -284,20 +284,20 @@ public sealed class VersionScorer
 
                 long weight = 1;
                 for (var i = 1; i < effectiveSegments.Count; i++)
-                    weight *= 1000;
+                    weight = SaturatingMultiply(weight, 1000);
 
                 long versionScore = 0;
                 foreach (var seg in effectiveSegments)
                 {
-                    versionScore += seg * weight;
+                    versionScore = SaturatingAdd(versionScore, SaturatingMultiply(seg, weight));
                     if (weight > 1) weight /= 1000;
                 }
-                score += versionScore;
+                score = SaturatingAdd(score, versionScore);
 
                 // CORE-02: Differentiate versions with trailing segments beyond the clamp
                 if (wasTruncated)
                 {
-                    score += segments.Count - maxSegments;
+                    score = SaturatingAdd(score, segments.Count - maxSegments);
                     Trace.WriteLine($"[VersionScorer] Version segment list truncated to {maxSegments} segment(s) for '{baseName}'.");
                 }
             }
@@ -324,14 +324,39 @@ public sealed class VersionScorer
 
             if (hasEn)
             {
-                score += 50;
-                score += langTokens.Length * 5;
+                score = SaturatingAdd(score, 50);
+                score = SaturatingAdd(score, langTokens.Length * 5);
             }
 
             if (hasDe)
-                score += 25;
+                score = SaturatingAdd(score, 25);
         }
 
         return score;
+    }
+
+    private static long SaturatingAdd(long left, long right)
+    {
+        try
+        {
+            return checked(left + right);
+        }
+        catch (OverflowException)
+        {
+            return right >= 0 ? long.MaxValue : long.MinValue;
+        }
+    }
+
+    private static long SaturatingMultiply(long left, long right)
+    {
+        try
+        {
+            return checked(left * right);
+        }
+        catch (OverflowException)
+        {
+            var sameSign = (left >= 0 && right >= 0) || (left < 0 && right < 0);
+            return sameSign ? long.MaxValue : long.MinValue;
+        }
     }
 }

@@ -324,4 +324,34 @@ public class FileSystemAdapterTests : IDisposable
         Assert.Contains(regularFile, files, StringComparer.OrdinalIgnoreCase);
         Assert.DoesNotContain(files, f => f.Contains("linked.rom", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void MoveDirectorySafely_ReparsePointInDestinationAncestry_IsBlocked()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var source = Path.Combine(_tempDir, "src-dir");
+        var linkRoot = Path.Combine(_tempDir, "link-root");
+        var symlink = Path.Combine(linkRoot, "linked");
+        var realTarget = Path.Combine(_tempDir, "real-target");
+
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(linkRoot);
+        Directory.CreateDirectory(Path.Combine(realTarget, "child"));
+        File.WriteAllText(Path.Combine(source, "a.bin"), "x");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlink, realTarget);
+        }
+        catch
+        {
+            return;
+        }
+
+        var destination = Path.Combine(symlink, "child", "final");
+
+        Assert.Throws<InvalidOperationException>(() => _fs.MoveDirectorySafely(source, destination));
+    }
 }

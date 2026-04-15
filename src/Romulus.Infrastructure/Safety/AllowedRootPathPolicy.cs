@@ -64,6 +64,16 @@ public sealed class AllowedRootPathPolicy
         return false;
     }
 
+    /// <summary>
+    /// Validates a path against the provided root allowlist using the same policy rules
+    /// as API security checks (normalization + reparse-point rejection).
+    /// </summary>
+    public static bool Validate(string path, IReadOnlyList<string>? roots)
+    {
+        var policy = new AllowedRootPathPolicy(roots ?? Array.Empty<string>());
+        return policy.IsPathAllowed(path);
+    }
+
     private static string NormalizeRoot(string root)
     {
         var fullPath = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -84,6 +94,13 @@ public sealed class AllowedRootPathPolicy
                 if (dir.Exists && (dir.Attributes & FileAttributes.ReparsePoint) != 0)
                     return true;
                 dir = dir.Parent;
+            }
+
+            if (File.Exists(fullPath))
+            {
+                var fileAttributes = File.GetAttributes(fullPath);
+                if ((fileAttributes & FileAttributes.ReparsePoint) != 0)
+                    return true;
             }
         }
         catch (IOException) { }

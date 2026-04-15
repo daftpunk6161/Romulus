@@ -53,6 +53,10 @@ public static class AuditCsvParser
                 }
             }
         }
+
+        if (inQuotes)
+            throw new InvalidDataException("Malformed CSV row: unclosed quoted field.");
+
         fields.Add(current.ToString());
 
         return fields.ToArray();

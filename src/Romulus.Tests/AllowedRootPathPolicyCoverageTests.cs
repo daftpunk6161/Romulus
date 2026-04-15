@@ -215,4 +215,55 @@ public sealed class AllowedRootPathPolicyCoverageTests
         var policy = new AllowedRootPathPolicy([""]);
         Assert.False(policy.IsEnforced);
     }
+
+    [Fact]
+    public void IsPathAllowed_FileSymlinkInsideRoot_ReturnsFalse()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), "Romulus_AllowedRoots_" + Guid.NewGuid().ToString("N"));
+        var outside = Path.Combine(Path.GetTempPath(), "Romulus_AllowedRoots_Outside_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outside);
+
+        try
+        {
+            var outsideFile = Path.Combine(outside, "outside.rom");
+            File.WriteAllText(outsideFile, "x");
+
+            var linkPath = Path.Combine(root, "linked.rom");
+            try
+            {
+                File.CreateSymbolicLink(linkPath, outsideFile);
+            }
+            catch
+            {
+                return;
+            }
+
+            var policy = new AllowedRootPathPolicy([root]);
+            Assert.False(policy.IsPathAllowed(linkPath));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                if (Directory.Exists(outside))
+                    Directory.Delete(outside, true);
+            }
+            catch
+            {
+            }
+        }
+    }
 }

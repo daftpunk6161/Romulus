@@ -5,6 +5,7 @@ using Romulus.Infrastructure.Audit;
 using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Metrics;
 using Romulus.Infrastructure.Orchestration;
+using System.Diagnostics;
 using Xunit;
 
 namespace Romulus.Tests.Conversion;
@@ -150,6 +151,168 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_root, RunConstants.WellKnownFolders.TrashConverted, Path.GetFileName(localTrackPath))));
     }
 
+    [Fact]
+    public void ConvertSingleFile_SourceOutsideRoots_BlocksBeforeConversion()
+    {
+        var outsideRoot = Path.Combine(Path.GetTempPath(), "Romulus.ConversionPhaseHelper.Outside", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideRoot);
+        try
+        {
+            var sourcePath = Path.Combine(outsideRoot, "outside.iso");
+            File.WriteAllBytes(sourcePath, [1, 2, 3, 4]);
+
+            var converter = new RecordingConverter();
+            var counters = new ConversionPhaseHelper.ConversionCounters();
+
+            var result = ConversionPhaseHelper.ConvertSingleFile(
+                sourcePath,
+                "PS1",
+                converter,
+                new RunOptions
+                {
+                    Roots = [_root],
+                    Mode = RunConstants.ModeMove,
+                    Extensions = [".iso"]
+                },
+                CreateContext(RunConstants.ModeMove),
+                counters,
+                trackSetMembers: false,
+                CancellationToken.None);
+
+            Assert.Null(result);
+            Assert.False(converter.ConvertCalled);
+            Assert.Equal(1, counters.Blocked);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(outsideRoot))
+                    Directory.Delete(outsideRoot, true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    [Fact]
+    public void ConvertSingleFile_SourceMoveFailure_WithRollbackFailure_ReportsRollbackPartialFailure()
+    {
+        var sourcePath = Path.Combine(_root, "rollback-fail.cue");
+        var localTrackPath = Path.Combine(_root, "rollback-track.bin");
+
+        File.WriteAllText(sourcePath, "FILE \"rollback-track.bin\" BINARY");
+        File.WriteAllBytes(localTrackPath, [1, 2, 3, 4]);
+
+        var targetPath = Path.Combine(_root, "rollback-fail.chd");
+        var converter = new SuccessfulConverter(targetPath);
+        var counters = new ConversionPhaseHelper.ConversionCounters();
+        var fileSystem = new RollbackFailingFileSystem(sourcePath, localTrackPath);
+
+        var result = ConversionPhaseHelper.ConvertSingleFile(
+            sourcePath,
+            "PS1",
+            converter,
+            new RunOptions
+            {
+                Roots = [_root],
+                Mode = RunConstants.ModeMove,
+                Extensions = [".cue", ".bin"]
+            },
+            CreateContext(RunConstants.ModeMove, [".cue", ".bin"], fileSystem),
+            counters,
+            trackSetMembers: true,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(ConversionOutcome.Error, result!.Outcome);
+        Assert.Equal("rollback-partial-failure", result.Reason);
+    }
+
+    [Fact]
+    public void ConvertSingleFile_CleanupFailure_AppendsCleanupFailureAudit()
+    {
+        var sourcePath = Path.Combine(_root, "cleanup.iso");
+        var targetPath = Path.Combine(_root, "cleanup.chd");
+        File.WriteAllBytes(sourcePath, [1, 2, 3, 4]);
+        File.WriteAllBytes(targetPath, [7, 8, 9, 10]);
+
+        var fileSystem = new DeleteFailingFileSystem(targetPath);
+        var auditStore = new RecordingAuditStore();
+        var converter = new ErrorOutcomeConverter(targetPath);
+        var counters = new ConversionPhaseHelper.ConversionCounters();
+
+        var result = ConversionPhaseHelper.ConvertSingleFile(
+            sourcePath,
+            "PS1",
+            converter,
+            new RunOptions
+            {
+                Roots = [_root],
+                Mode = RunConstants.ModeMove,
+                Extensions = [".iso"],
+                AuditPath = Path.Combine(_root, "audit.csv")
+            },
+            CreateContext(RunConstants.ModeMove, [".iso"], fileSystem, auditStore),
+            counters,
+            trackSetMembers: false,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(ConversionOutcome.Error, result!.Outcome);
+        Assert.Contains(
+            auditStore.Rows,
+            row => row.Reason.Contains("cleanup-output-failed", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ConvertSingleFile_WhenErrorAuditAppendThrows_WritesTraceFallback()
+    {
+        var sourcePath = Path.Combine(_root, "trace-fallback.iso");
+        var targetPath = Path.Combine(_root, "trace-fallback.chd");
+        File.WriteAllBytes(sourcePath, [1, 2, 3, 4]);
+
+        var converter = new SuccessfulConverter(targetPath);
+        var counters = new ConversionPhaseHelper.ConversionCounters();
+        var fileSystem = new SourceMoveFailingFileSystem(sourcePath);
+        var auditStore = new ThrowingAuditStore();
+
+        var traceWriter = new StringWriter();
+        var listener = new TextWriterTraceListener(traceWriter);
+        Trace.Listeners.Add(listener);
+        try
+        {
+            var result = ConversionPhaseHelper.ConvertSingleFile(
+                sourcePath,
+                "PS1",
+                converter,
+                new RunOptions
+                {
+                    Roots = [_root],
+                    Mode = RunConstants.ModeMove,
+                    Extensions = [".iso"],
+                    AuditPath = Path.Combine(_root, "audit-throws.csv")
+                },
+                CreateContext(RunConstants.ModeMove, [".iso"], fileSystem, auditStore),
+                counters,
+                trackSetMembers: false,
+                CancellationToken.None);
+
+            Assert.NotNull(result);
+            Assert.Equal(ConversionOutcome.Error, result!.Outcome);
+        }
+        finally
+        {
+            listener.Flush();
+            Trace.Listeners.Remove(listener);
+            listener.Dispose();
+        }
+
+        var traceOutput = traceWriter.ToString();
+        Assert.Contains("conversion error audit", traceOutput, StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         try
@@ -162,7 +325,7 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
         }
     }
 
-    private PipelineContext CreateContext(string mode, IReadOnlyList<string>? extensions = null, IFileSystem? fileSystem = null)
+    private PipelineContext CreateContext(string mode, IReadOnlyList<string>? extensions = null, IFileSystem? fileSystem = null, IAuditStore? auditStore = null)
     {
         var metrics = new PhaseMetricsCollector();
         metrics.Initialize();
@@ -176,7 +339,7 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
                 Extensions = extensions ?? [".iso"]
             },
             FileSystem = fileSystem ?? new FileSystemAdapter(),
-            AuditStore = new AuditCsvStore(),
+            AuditStore = auditStore ?? new AuditCsvStore(),
             Metrics = metrics
         };
     }
@@ -263,5 +426,121 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
         public bool IsReparsePoint(string path) => _inner.IsReparsePoint(path);
         public void DeleteFile(string path) => _inner.DeleteFile(path);
         public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) => _inner.CopyFile(sourcePath, destinationPath, overwrite);
+    }
+
+    private sealed class RollbackFailingFileSystem(string blockedSourcePath, string rollbackDestinationPath) : IFileSystem
+    {
+        private readonly FileSystemAdapter _inner = new();
+        private readonly string _blockedSourcePath = Path.GetFullPath(blockedSourcePath);
+        private readonly string _rollbackDestinationPath = Path.GetFullPath(rollbackDestinationPath);
+
+        public bool TestPath(string literalPath, string pathType = "Any") => _inner.TestPath(literalPath, pathType);
+        public string EnsureDirectory(string path) => _inner.EnsureDirectory(path);
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? extensions = null) => _inner.GetFilesSafe(root, extensions);
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath)
+        {
+            var fullSource = Path.GetFullPath(sourcePath);
+            var fullDestination = Path.GetFullPath(destinationPath);
+
+            if (string.Equals(fullSource, _blockedSourcePath, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            if (string.Equals(fullDestination, _rollbackDestinationPath, StringComparison.OrdinalIgnoreCase)
+                && fullSource.Contains(RunConstants.WellKnownFolders.TrashConverted, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new IOException("forced-rollback-failure");
+            }
+
+            return _inner.MoveItemSafely(sourcePath, destinationPath);
+        }
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath) => _inner.ResolveChildPathWithinRoot(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => _inner.IsReparsePoint(path);
+        public void DeleteFile(string path) => _inner.DeleteFile(path);
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) => _inner.CopyFile(sourcePath, destinationPath, overwrite);
+    }
+
+    private sealed class DeleteFailingFileSystem(string blockedDeletePath) : IFileSystem
+    {
+        private readonly FileSystemAdapter _inner = new();
+        private readonly string _blockedDeletePath = Path.GetFullPath(blockedDeletePath);
+
+        public bool TestPath(string literalPath, string pathType = "Any") => _inner.TestPath(literalPath, pathType);
+        public string EnsureDirectory(string path) => _inner.EnsureDirectory(path);
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? extensions = null) => _inner.GetFilesSafe(root, extensions);
+        public string? MoveItemSafely(string sourcePath, string destinationPath) => _inner.MoveItemSafely(sourcePath, destinationPath);
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath) => _inner.ResolveChildPathWithinRoot(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => _inner.IsReparsePoint(path);
+
+        public void DeleteFile(string path)
+        {
+            if (string.Equals(Path.GetFullPath(path), _blockedDeletePath, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("forced-delete-failure");
+
+            _inner.DeleteFile(path);
+        }
+
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) => _inner.CopyFile(sourcePath, destinationPath, overwrite);
+    }
+
+    private sealed class ErrorOutcomeConverter(string targetPath) : IFormatConverter
+    {
+        public ConversionTarget? GetTargetFormat(string consoleKey, string sourceExtension)
+            => new(".chd", "chdman", "createcd");
+
+        public ConversionResult Convert(string sourcePath, ConversionTarget target, CancellationToken cancellationToken = default)
+            => new(sourcePath, targetPath, ConversionOutcome.Error, "tool-error");
+
+        public bool Verify(string targetPath, ConversionTarget target) => false;
+    }
+
+    private sealed class RecordingAuditStore : IAuditStore
+    {
+        public List<AuditAppendRow> Rows { get; } = [];
+
+        public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata) { }
+        public bool TestMetadataSidecar(string auditCsvPath) => false;
+        public void Flush(string auditCsvPath) { }
+        public IReadOnlyList<string> Rollback(string auditCsvPath, string[] allowedRestoreRoots, string[] allowedCurrentRoots, bool dryRun = false) => [];
+
+        public void AppendAuditRow(
+            string auditCsvPath,
+            string rootPath,
+            string oldPath,
+            string newPath,
+            string action,
+            string category = "",
+            string hash = "",
+            string reason = "")
+        {
+            Rows.Add(new AuditAppendRow(rootPath, oldPath, newPath, action, category, hash, reason));
+        }
+
+        public void AppendAuditRows(string auditCsvPath, IReadOnlyList<AuditAppendRow> rows)
+        {
+            Rows.AddRange(rows);
+        }
+    }
+
+    private sealed class ThrowingAuditStore : IAuditStore
+    {
+        public void WriteMetadataSidecar(string auditCsvPath, IDictionary<string, object> metadata) { }
+        public bool TestMetadataSidecar(string auditCsvPath) => false;
+        public void Flush(string auditCsvPath) { }
+        public IReadOnlyList<string> Rollback(string auditCsvPath, string[] allowedRestoreRoots, string[] allowedCurrentRoots, bool dryRun = false) => [];
+
+        public void AppendAuditRow(
+            string auditCsvPath,
+            string rootPath,
+            string oldPath,
+            string newPath,
+            string action,
+            string category = "",
+            string hash = "",
+            string reason = "")
+        {
+            throw new IOException("forced-audit-append-failure");
+        }
     }
 }

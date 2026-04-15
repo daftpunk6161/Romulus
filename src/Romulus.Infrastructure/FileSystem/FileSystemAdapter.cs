@@ -511,14 +511,10 @@ public sealed class FileSystemAdapter : IFileSystem
         if ((sourceInfo.Attributes & FileAttributes.ReparsePoint) != 0)
             throw new InvalidOperationException("Blocked: Source directory is a reparse point.");
 
-        // SEC-MOVE-02: Block reparse points on destination parent
-        var destParent = Path.GetDirectoryName(fullDest);
-        if (!string.IsNullOrEmpty(destParent) && Directory.Exists(destParent))
-        {
-            var destParentInfo = new DirectoryInfo(destParent);
-            if ((destParentInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidOperationException("Blocked: Destination parent is a reparse point.");
-        }
+        // SEC-MOVE-02: Block reparse points in full destination ancestry
+        var destRoot = Path.GetPathRoot(fullDest) ?? Path.GetDirectoryName(fullDest) ?? fullDest;
+        if (HasReparsePointInAncestry(fullDest, destRoot))
+            throw new InvalidOperationException("Blocked: Destination path targets a reparse-point directory.");
 
         var finalDest = fullDest;
         if (Directory.Exists(finalDest))

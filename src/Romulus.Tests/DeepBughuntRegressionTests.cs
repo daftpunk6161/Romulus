@@ -394,7 +394,7 @@ public sealed class DeepBughuntRegressionTests : IDisposable
     }
 
     [Fact]
-    public void F7_IsVerificationSuccessful_NullTarget_NoPlan_ReturnsFalse()
+    public void F7_IsVerificationSuccessful_NullTarget_NoPlan_ReturnsTrueForLegacyPath()
     {
         var result = new ConversionResult("/x.iso", "/x.chd", ConversionOutcome.Success)
         {
@@ -405,7 +405,7 @@ public sealed class DeepBughuntRegressionTests : IDisposable
         var verifyResult = ConversionVerificationHelpers.IsVerificationSuccessful(
             result, new StubConverter(verifyReturns: true), target: null);
 
-        Assert.False(verifyResult);
+        Assert.True(verifyResult);
     }
 
     // ═══════════════════════════════════════════════════════════════

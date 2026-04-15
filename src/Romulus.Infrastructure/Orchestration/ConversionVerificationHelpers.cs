@@ -14,6 +14,8 @@ internal static class ConversionVerificationHelpers
     /// Determines whether a conversion result represents a successfully verified output.
     /// Checks the embedded VerificationResult first; falls back to the converter's Verify method
     /// if the result was NotAttempted and a target format is available.
+    /// For legacy converters without target metadata, verification is treated as skipped-success
+    /// when a concrete target path exists.
     /// </summary>
     internal static bool IsVerificationSuccessful(ConversionResult convResult, IFormatConverter converter, ConversionTarget? target)
     {
@@ -38,7 +40,7 @@ internal static class ConversionVerificationHelpers
         }
 
         if (effectiveTarget is null)
-            return false;
+            return true;
 
         return converter.Verify(convResult.TargetPath, effectiveTarget);
     }

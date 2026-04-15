@@ -1,5 +1,6 @@
 using LiteDB;
 using System.Text;
+using System.Reflection;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Index;
 using Xunit;
@@ -275,6 +276,66 @@ public sealed class LiteDbCollectionIndexTests : IDisposable
         Assert.Equal(2, metadataResult.SchemaVersion);
         Assert.NotEmpty(backups);
         Assert.True(File.Exists(dbPath));
+    }
+
+    [Fact]
+    public async Task RecreateDatabase_OpenFailure_FallsBackToUsableInMemoryDatabase()
+    {
+        var dbPath = Path.Combine(_tempDir, "collection-fallback.db");
+        var openAttempts = 0;
+
+        LiteDatabase OpenDatabase(string path)
+        {
+            openAttempts++;
+            if (openAttempts == 1)
+            {
+                return new LiteDatabase(new ConnectionString
+                {
+                    Filename = path,
+                    Connection = ConnectionType.Shared
+                });
+            }
+
+            throw new IOException("forced-open-failure");
+        }
+
+        using var index = new LiteDbCollectionIndex(dbPath, onWarning: null, OpenDatabase);
+
+        var recreate = typeof(LiteDbCollectionIndex).GetMethod("RecreateDatabase", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(recreate);
+
+        recreate!.Invoke(index, ["forced-test"]);
+
+        var metadata = await index.GetMetadataAsync();
+        Assert.Equal(2, metadata.SchemaVersion);
+        Assert.True(openAttempts >= 2);
+    }
+
+    [Fact]
+    public void RegisterMutationAndMaybeCompact_RebuildFailure_DoesNotResetPendingMutationCount()
+    {
+        var dbPath = Path.Combine(_tempDir, "collection-rebuild-failure.db");
+        using var index = new LiteDbCollectionIndex(
+            dbPath,
+            onWarning: null,
+            openDatabaseFactory: path => new LiteDatabase(new ConnectionString
+            {
+                Filename = path,
+                Connection = ConnectionType.Shared
+            }),
+            tryRebuildDatabase: _ => throw new IOException("forced-rebuild-failure"));
+
+        var pendingField = typeof(LiteDbCollectionIndex).GetField("_pendingMutationCount", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(pendingField);
+        pendingField!.SetValue(index, 0);
+
+        var register = typeof(LiteDbCollectionIndex).GetMethod("RegisterMutationAndMaybeCompact", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(register);
+
+        register!.Invoke(index, [5000]);
+
+        var pendingAfterFailure = (int)(pendingField.GetValue(index) ?? -1);
+        Assert.Equal(5000, pendingAfterFailure);
     }
 
     private LiteDbCollectionIndex CreateIndex(string? dbPath = null)

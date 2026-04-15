@@ -391,6 +391,24 @@ public sealed class ConversionExecutorTests : IDisposable
     }
 
     [Fact]
+    public void Execute_VerificationFailed_CallbackMarksStepAsFailed()
+    {
+        var invoker = new FakeInvoker(
+            verifyFunc: (_, _) => VerificationStatus.VerifyFailed);
+
+        var plan = MakeExecutablePlan();
+        var sut = new ConversionExecutor([invoker]);
+        ConversionStepResult? stepResult = null;
+
+        var result = sut.Execute(plan, (_, currentStepResult) => stepResult = currentStepResult);
+
+        Assert.NotNull(stepResult);
+        Assert.False(stepResult!.Success);
+        Assert.Equal(ConversionOutcome.Error, result.Outcome);
+        Assert.Equal("verification-failed", result.Reason);
+    }
+
+    [Fact]
     public void Execute_VerificationVerified_ReturnsSuccess()
     {
         var invoker = new FakeInvoker(

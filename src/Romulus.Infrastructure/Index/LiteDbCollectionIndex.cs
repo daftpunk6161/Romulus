@@ -24,17 +24,30 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
     private readonly string _databasePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Action<string>? _onWarning;
+    private readonly Func<string, LiteDatabase> _openDatabaseFactory;
+    private readonly Func<LiteDatabase, bool> _tryRebuildDatabase;
     private LiteDatabase _database;
     private int _pendingMutationCount;
     private bool _disposed;
 
     public LiteDbCollectionIndex(string databasePath, Action<string>? onWarning = null)
+        : this(databasePath, onWarning, CreateLiteDatabase)
+    {
+    }
+
+    internal LiteDbCollectionIndex(
+        string databasePath,
+        Action<string>? onWarning,
+        Func<string, LiteDatabase> openDatabaseFactory,
+        Func<LiteDatabase, bool>? tryRebuildDatabase = null)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("Database path must not be empty.", nameof(databasePath));
 
         _databasePath = Path.GetFullPath(databasePath);
         _onWarning = onWarning;
+        _openDatabaseFactory = openDatabaseFactory ?? throw new ArgumentNullException(nameof(openDatabaseFactory));
+        _tryRebuildDatabase = tryRebuildDatabase ?? TryRebuildDatabase;
         _database = OpenOrRecoverDatabase();
         EnsureSchema();
     }
@@ -362,15 +375,17 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
         if (_pendingMutationCount < MutationCompactionThreshold)
             return;
 
+        var rebuildSucceeded = false;
         try
         {
-            _database.Rebuild();
+            rebuildSucceeded = _tryRebuildDatabase(_database);
         }
         catch (Exception ex)
         {
             _onWarning?.Invoke($"[CollectionIndex] Periodic compaction skipped: {ex.Message}");
         }
-        finally
+
+        if (rebuildSucceeded)
         {
             _pendingMutationCount = 0;
         }
@@ -400,11 +415,37 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
     private LiteDatabase OpenDatabase()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
-        return new LiteDatabase(new ConnectionString
+        return _openDatabaseFactory(_databasePath);
+    }
+
+    private static LiteDatabase CreateLiteDatabase(string databasePath)
+        => new(new ConnectionString
         {
-            Filename = _databasePath,
+            Filename = databasePath,
             Connection = ConnectionType.Shared
         });
+
+    private static LiteDatabase OpenInMemoryDatabase()
+        => new(new MemoryStream());
+
+    private static bool TryRebuildDatabase(LiteDatabase database)
+    {
+        database.Rebuild();
+        return true;
+    }
+
+    private void InitializeFreshSchema()
+    {
+        var now = DateTime.UtcNow;
+        _database.GetCollection<MetadataDocument>(MetadataCollectionName).Upsert(new MetadataDocument
+        {
+            Id = MetadataId,
+            SchemaVersion = CurrentSchemaVersion,
+            CreatedUtcTicks = now.Ticks,
+            UpdatedUtcTicks = now.Ticks
+        });
+
+        EnsureIndexes();
     }
 
     private void EnsureSchema()
@@ -451,18 +492,20 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
     {
         _database.Dispose();
         RecoverDatabaseFile(reason);
-        _database = OpenDatabase();
 
-        var now = DateTime.UtcNow;
-        _database.GetCollection<MetadataDocument>(MetadataCollectionName).Upsert(new MetadataDocument
+        try
         {
-            Id = MetadataId,
-            SchemaVersion = CurrentSchemaVersion,
-            CreatedUtcTicks = now.Ticks,
-            UpdatedUtcTicks = now.Ticks
-        });
+            _database = OpenDatabase();
+        }
+        catch (Exception ex) when (ex is LiteException or IOException or InvalidOperationException or UnauthorizedAccessException or ArgumentException)
+        {
+            _onWarning?.Invoke($"[CollectionIndex] Recreate open failed ({reason}); switched to in-memory degraded mode: {ex.Message}");
+            _database = OpenInMemoryDatabase();
+            InitializeFreshSchema();
+            return;
+        }
 
-        EnsureIndexes();
+        InitializeFreshSchema();
     }
 
     private void EnsureIndexes()

@@ -195,4 +195,22 @@ public class VersionScorerTests
         var second = _sut.GetVersionScore("Game (Rev 5abcdefghijklmnop)");
         Assert.Equal(first, second);
     }
+
+    [Fact]
+    public void VersionNumbers_ExtremeSegments_SaturatesToLongMaxValue()
+    {
+        var score = _sut.GetVersionScore("Game (v2147483647.2147483647.2147483647.2147483647.2147483647.2147483647)");
+        Assert.Equal(long.MaxValue, score);
+    }
+
+    [Fact]
+    public void VersionNumbers_ExtremeSegments_RemainDeterministic()
+    {
+        const string versionName = "Game (v2147483647.2147483647.2147483647.2147483647.2147483647.2147483647)";
+
+        var first = _sut.GetVersionScore(versionName);
+        var second = _sut.GetVersionScore(versionName);
+
+        Assert.Equal(first, second);
+    }
 }

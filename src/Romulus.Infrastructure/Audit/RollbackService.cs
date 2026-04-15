@@ -32,9 +32,16 @@ public static class RollbackService
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
 
-                var fields = AuditCsvParser.ParseCsvLine(line);
-                if (fields.Length >= 4)
-                    count++;
+                try
+                {
+                    var fields = AuditCsvParser.ParseCsvLine(line);
+                    if (fields.Length >= 4)
+                        count++;
+                }
+                catch (InvalidDataException)
+                {
+                    // Corrupt rows are ignored for affected-row counting.
+                }
             }
 
             // R6-006 FIX: Return actual count — Math.Max(1, 0) returned 1 for empty

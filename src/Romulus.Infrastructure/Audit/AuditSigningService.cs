@@ -318,7 +318,18 @@ public sealed class AuditSigningService
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             totalRows++;
-            var fields = AuditCsvParser.ParseCsvLine(line);
+            string[] fields;
+            try
+            {
+                fields = AuditCsvParser.ParseCsvLine(line);
+            }
+            catch (InvalidDataException)
+            {
+                skippedUnsafe++;
+                _log?.Invoke("Rollback skipped (corrupt CSV row). ");
+                continue;
+            }
+
             if (fields.Length < 4) continue;
 
             // Fields: RootPath, OldPath, NewPath, Action, Category, Hash, Reason, Timestamp
@@ -603,9 +614,16 @@ public sealed class AuditSigningService
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            var fields = AuditCsvParser.ParseCsvLine(line);
-            if (fields.Length >= 4)
-                count++;
+            try
+            {
+                var fields = AuditCsvParser.ParseCsvLine(line);
+                if (fields.Length >= 4)
+                    count++;
+            }
+            catch (InvalidDataException)
+            {
+                // Corrupt rows are intentionally skipped.
+            }
         }
 
         return count;
