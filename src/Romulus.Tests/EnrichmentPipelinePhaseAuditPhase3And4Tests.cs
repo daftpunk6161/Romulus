@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Core.Classification;
@@ -307,6 +308,59 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         Assert.True(candidate.DatMatch);
         Assert.Equal("PS1", candidate.ConsoleKey);
         Assert.Equal("Game Title", candidate.DatGameName);
+        Assert.Equal(MatchKind.DatNameOnlyMatch, candidate.PrimaryMatchKind);
+    }
+
+    [Fact]
+    public void Execute_ArcadeZipKnownConsole_NameOnlyFallback_MatchesByName()
+    {
+        var root = Path.Combine(_tempDir, "phase4_arcade_zip_name_only");
+        var arcadeFolder = Path.Combine(root, "Arcade");
+        Directory.CreateDirectory(arcadeFolder);
+        var filePath = Path.Combine(arcadeFolder, "Metal Slug 5.zip");
+
+        using (var archive = ZipFile.Open(filePath, ZipArchiveMode.Create))
+        {
+            var entry = archive.CreateEntry("dummy.bin");
+            using var stream = entry.Open();
+            stream.Write([0x01, 0x02, 0x03, 0x04]);
+        }
+
+        var hashService = new FileHashService();
+        var datIndex = new DatIndex();
+        datIndex.Add("ARCADE", "different-hash", "Metal Slug 5", "mslug5.zip");
+
+        var detector = new ConsoleDetector([
+            new ConsoleInfo(
+                Key: "ARCADE",
+                DisplayName: "Arcade",
+                DiscBased: false,
+                UniqueExts: ["arc"],
+                AmbigExts: ["zip"],
+                FolderAliases: ["Arcade"],
+                Family: PlatformFamily.Arcade,
+                HashStrategy: "set-archive-sha1")
+        ]);
+
+        var scan = new[] { new ScannedFileEntry(root, filePath, ".zip") };
+        var options = new RunOptions
+        {
+            Roots = [root],
+            Extensions = [".zip"],
+            Mode = "DryRun",
+            HashType = "SHA1"
+        };
+
+        var phase = new EnrichmentPipelinePhase();
+        var result = phase.Execute(
+            new EnrichmentPhaseInput(scan, detector, hashService, new ArchiveHashService(), datIndex),
+            CreateContext(options),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(result);
+        Assert.True(candidate.DatMatch);
+        Assert.Equal("ARCADE", candidate.ConsoleKey);
+        Assert.Equal("Metal Slug 5", candidate.DatGameName);
         Assert.Equal(MatchKind.DatNameOnlyMatch, candidate.PrimaryMatchKind);
     }
 

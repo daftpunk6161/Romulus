@@ -579,18 +579,25 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             }
         }
 
-        // Stage 4: Name-based fallback for disc images (CHD raw SHA1 ≠ per-track SHA1 in Redump DATs)
+        // Stage 4: Name-based fallback.
+        // Unknown-console path stays extension-gated (disc-safe), known-console path follows family policy.
         if (!datMatch
-            && datPolicy.AllowNameOnlyDatMatch
-            && DiscFormats.IsDatNameOnlyExtensionWithoutBin(lowerExt))
+            && datPolicy.AllowNameOnlyDatMatch)
         {
             var stem = Path.GetFileNameWithoutExtension(filePath);
             if (!string.IsNullOrEmpty(stem)
                 && (!datPolicy.RequireStrictNameForNameOnly || IsStrictDatNameCandidate(stem)))
             {
                 var lookupNames = GetStrictDatNameCandidates(stem);
-                if (consoleKey is "UNKNOWN" or "" or "AMBIGUOUS")
+                var isUnknownConsole = consoleKey is "UNKNOWN" or "" or "AMBIGUOUS";
+                if (isUnknownConsole)
                 {
+                    if (!DiscFormats.IsDatNameOnlyExtensionWithoutBin(lowerExt))
+                    {
+                        // Unknown-console name-only fallback is intentionally limited to disc-like extensions.
+                    }
+                    else
+                    {
                     // Conservative guard: unknown-console name-only fallback only with detector context.
                     // This prevents pre-detection false positives for families where name-only matching is unsafe.
                     if (detectionResult is null)
@@ -668,6 +675,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
                                 }
                             }
                         }
+                    }
                     }
                 }
                 else

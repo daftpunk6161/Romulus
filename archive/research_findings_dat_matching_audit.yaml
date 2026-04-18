@@ -4,13 +4,15 @@ focus_area: dat-matching-audit
 created_at: "2026-04-16T00:00:00Z"
 created_by: gem-researcher
 status: completed
+remediation_status: completed
+remediation_completed_at: "2026-04-18T00:00:00Z"
 
 tldr: |
   - DAT matching uses a 4-stage pipeline: (1) Archive inner hash, (2) Headerless hash, (3) Container hash, (4) Name-only fallback. All stages use cross-console lookup.
-  - DatIndex stores ConsoleKey → Hash → DatIndexEntry mappings (hash index) PLUS ConsoleKey → GameName → DatIndexEntry (name index). SHA1 is default hash type with CRC/MD5/SHA256 fallback chain.
+  - DatIndex stores ConsoleKey → Hash → DatIndexEntry mappings (primary hash index) PLUS alias hash mappings (CRC/MD5/SHA256) and ConsoleKey → GameName → DatIndexEntry (name index).
   - DatAuditClassifier determines status: Have (hash found + name matches), HaveWrongName (hash found + name differs), Miss (DAT loaded for console but hash absent), Unknown (no DAT for console), Ambiguous (hash in multiple consoles without disambiguation).
   - dat-catalog.json maps ConsoleKey to DAT sources (Redump/No-Intro). BuildConsoleMap resolves local DAT files via ID/System/ConsoleKey stem or PackMatch glob, then scans datRoot for unmapped DATs by stem.
-  - Name-only fallback is gated by FamilyDatPolicy.AllowNameOnlyDatMatch (disc/arcade/computer families), requires detector context for UNKNOWN consoles, and applies extension plausibility guards. Log message "name-only-fallback uebersprungen (kein Detector-Kontext)" means the file had UNKNOWN console and no detection hypotheses to disambiguate.
+  - Name-only fallback now follows family policy for known consoles (including Arcade/Computer non-disc sets) and remains detector+extension-gated for UNKNOWN consoles. This preserves safety while unblocking valid known-console ZIP name matches.
 
 research_metadata:
   methodology: "Hybrid retrieval: semantic_search + grep_search for discovery, read_file for detailed code examination across Contracts, Core, Infrastructure layers"
@@ -673,38 +675,29 @@ related_dependencies:
       relationship_to_domain: "Consumes DatAuditResult for completeness reports"
       direction: outbound
 
-open_questions:
-  - question: "Are there situations where supplemental DATs (FBNeo) create hash collisions with primary DATs (No-Intro) for the same ConsoleKey?"
-    context: "MergeFrom merges supplemental indices using Add which updates existing keys. If both DATs have the same hash but different game names, the supplemental entry overwrites the primary."
-    type: nice_to_know
-    affects: []
+open_questions: []
 
-  - question: "Is there a mechanism to distinguish Redump track-SHA1 vs raw-SHA1 in the DatIndex?"
-    context: "CHD files get raw SHA1 from FileHashService, but Redump DATs often store per-track SHA1. This mismatch is the primary reason name-only fallback exists for .chd files. The DatIndex doesn't distinguish hash types."
-    type: research
-    affects: []
+gaps: []
 
-gaps:
-  - area: "Hash type alignment between FileHashService and DatIndex"
-    description: |
-      DatIndex stores hashes as plain strings without recording which hash algorithm produced them.
-      If FileHashService computes SHA1 but a DAT only had CRC32 (after fallback), the lookup will fail
-      because the SHA1 hash won't match the CRC32 value stored in the index. The fallback chain in
-      DatRepositoryAdapter does NOT normalize hash type alignment — it stores whatever it finds.
-      This could cause false Miss results when:
-      - The DAT only has CRC32 hashes (common for MAME/FBNeo)
-      - The enrichment pipeline computes SHA1
-      - SHA1 ≠ CRC32, so lookup returns no match → Miss
-    impact: research_blocker
-    affects: []
+remediation_outcomes:
+  - item: "Hash type alignment and lookup compatibility"
+    status: resolved
+    implementation: |
+      DatRepositoryAdapter now indexes primary hash plus alias hashes (sha1/md5/crc/sha256) via AddWithAliases,
+      and EnrichmentPipelinePhase performs deterministic multi-hash lookup order (preferred → SHA1 → CRC32 → MD5).
+      This closes false-miss cases where DAT entries only expose alternate hash families.
+    evidence:
+      - src/Romulus.Infrastructure/Dat/DatRepositoryAdapter.cs
+      - src/Romulus.Contracts/Models/DatIndex.cs
+      - src/Romulus.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs
+      - src/Romulus.Tests/DatRepositoryAdapterTests.cs
+      - src/Romulus.Tests/EnrichmentPipelinePhaseHashFallbackTests.cs
 
-  - area: "Name-only fallback for non-disc files"
-    description: |
-      Name-only fallback is gated by IsDatNameOnlyExtensionWithoutBin which only includes disc
-      image extensions (.chd, .iso, .gcm, .img, .cso, .rvz). Arcade .zip files get name-only via
-      the ArcadeDatStrategy (AllowNameOnlyDatMatch=true) but the extension check
-      IsDatNameOnlyExtensionWithoutBin(.zip) returns false, so the name-only block is skipped.
-      However, for known consoles, the fallback goes through LookupByName(consoleKey, stem) without
-      the extension gate — only UNKNOWN console path requires the extension check.
-    impact: nice_to_know
-    affects: []
+  - item: "Name-only fallback for known non-disc families"
+    status: resolved
+    implementation: |
+      Name-only fallback in Stage 4 now allows known-console matching whenever FamilyDatPolicy.AllowNameOnlyDatMatch is true,
+      including Arcade/Computer ZIP scenarios. UNKNOWN-console fallback remains extension-gated and detector-context-gated.
+    evidence:
+      - src/Romulus.Infrastructure/Orchestration/EnrichmentPipelinePhase.cs
+      - src/Romulus.Tests/EnrichmentPipelinePhaseAuditPhase3And4Tests.cs
