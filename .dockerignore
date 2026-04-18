@@ -1,0 +1,37 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+artifacts/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Test outputs
+**/TestResults/
+**/coverage/
+
+# Archive & docs (not needed in image)
+archive/
+docs/
+plan/
+benchmark/
+reports/
+audit-logs/
+
+# Git
+.git/
+.gitignore
+
+# Node
+node_modules/
+
+# Claude/Copilot
+.claude/
+.github/
+AGENTS.md
+CONTRIBUTING.md
+README.md

@@ -646,7 +646,14 @@ tasks:
     agent: gem-devops
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Dockerfile: Multi-stage build mit CLI + API in separaten Verzeichnissen.
+      docker-compose.headless.yml: API-Service + CLI-Runner (profiles: cli).
+      .dockerignore: Optimierte Build-Kontexte.
+      Caddy: Reverse-Proxy mit TLS.
+      Healthcheck: Container-orchestrierung-fähig.
     dependencies: []
     conflicts_with: []
     context_files:
@@ -800,7 +807,14 @@ tasks:
     agent: gem-implementer
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Contracts: IGameMetadataProvider, IGameMetadataCache, GameMetadata models.
+      Infrastructure: ScreenScraperMetadataProvider, LiteDbGameMetadataCache, MetadataEnrichmentService.
+      CLI: romulus enrich subcommand. API: POST /metadata/enrich + /metadata/enrich/batch.
+      Tests: MetadataEnrichmentServiceTests, ScreenScraperMetadataProviderTests, LiteDbGameMetadataCacheTests.
+      Offen: Nur ScreenScraper-Provider (kein IGDB/LibRetro-DB), nur URL-Referenzen (kein Artwork-Download).
     dependencies:
       - community-launch
     conflicts_with: []
@@ -851,7 +865,12 @@ tasks:
     agent: gem-implementer
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      FrontendExportService mit 11 Frontends: CSV, JSON, Excel, RetroArch, M3U,
+      LaunchBox, EmulationStation, Playnite, MiSTer, Analogue Pocket, OnionOS.
+      CLI + GUI integriert. Tests: FrontendExportRegressionTests.
     dependencies:
       - community-launch
       - metadata-enrichment
@@ -899,7 +918,13 @@ tasks:
     agent: gem-implementer
     prototype: false
     priority: medium
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      In IntegrityService implementiert: IPS (nativ), BPS/UPS (via flips.exe),
+      XDELTA/VCDIFF (via xdelta3.exe). ResolvePatchFormat() per Magic-Bytes.
+      Tests: IntegrityServicePatchTests. Offen: Kein separates IPatchApplicator-Interface,
+      keine Batch-Pipeline, keine automatische Patch-Erkennung im Run-Flow.
     dependencies:
       - community-launch
     conflicts_with: []
@@ -952,7 +977,13 @@ tasks:
     agent: gem-implementer
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Contracts: CollectionHealthReport, CollectionHealthBreakdown, CollectionHealthIntegrity.
+      Infrastructure: CollectionHealthMonitor (HealthScorer + IntegrityService + CollectionIndex).
+      API: GET /health/collection mit Console-Filter. CLI: romulus health subcommand.
+      Tests: CollectionHealthMonitorTests (21 Tests), ApiIntegrationTests (health endpoints).
     dependencies:
       - metadata-enrichment
       - frontend-sync
@@ -1007,7 +1038,13 @@ tasks:
     agent: gem-implementer
     prototype: true
     priority: medium
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Contracts: IRetroAchievementsCatalog port, RetroAchievementsCheckRequest/Result/CatalogEntry models.
+      Infrastructure: RetroAchievementsComplianceService mit SHA1→MD5→CRC32 Cascade.
+      Tests: RetroAchievementsComplianceServiceTests (4 Tests).
+      Offen: Kein RA-API-Client (nur lokaler Catalog-Port), kein GUI-Badge, kein CLI-Command.
     dependencies:
       - metadata-enrichment
     conflicts_with: []

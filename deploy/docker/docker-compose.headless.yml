@@ -3,7 +3,7 @@ services:
     build:
       context: ../..
       dockerfile: deploy/docker/api/Dockerfile
-    image: romulus-api:local
+    image: romulus:local
     restart: unless-stopped
     environment:
       ROM_CLEANUP_API_KEY: ${ROMULUS_API_KEY:?set ROMULUS_API_KEY}
@@ -28,6 +28,32 @@ services:
         source: /srv/romulus/roms
         target: /srv/romulus/roms
         read_only: true
+      - type: bind
+        source: /srv/romulus/exports
+        target: /srv/romulus/exports
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "dotnet", "api/Romulus.Api.dll", "--urls", "http://localhost:7878", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # One-shot CLI runner. Usage:
+  #   docker compose -f docker-compose.headless.yml run --rm romulus-cli health --console snes
+  #   docker compose -f docker-compose.headless.yml run --rm romulus-cli enrich --console snes
+  romulus-cli:
+    image: romulus:local
+    profiles: ["cli"]
+    entrypoint: ["dotnet", "cli/romulus.dll"]
+    volumes:
+      - romulus_index:/app/.romulus
+      - romulus_profiles:/root/.config/Romulus
+      - type: bind
+        source: /srv/romulus/roms
+        target: /srv/romulus/roms
       - type: bind
         source: /srv/romulus/exports
         target: /srv/romulus/exports
