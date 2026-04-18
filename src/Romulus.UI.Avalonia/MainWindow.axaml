@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Romulus.UI.Avalonia.ViewModels"
+        xmlns:views="using:Romulus.UI.Avalonia.Views"
+        x:Class="Romulus.UI.Avalonia.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Romulus Avalonia (Phase C)"
+        Width="1180"
+        Height="760"
+        MinWidth="900"
+        MinHeight="620">
+  <Window.DataTemplates>
+    <DataTemplate DataType="vm:StartViewModel">
+      <views:StartView />
+    </DataTemplate>
+    <DataTemplate DataType="vm:ProgressViewModel">
+      <views:ProgressView />
+    </DataTemplate>
+    <DataTemplate DataType="vm:ResultViewModel">
+      <views:ResultView />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="20">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel>
+        <TextBlock Text="{Binding Headline}" FontSize="28" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding NavigationSubtitle}" Opacity="0.75" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="{Binding ThemeLabel}" Command="{Binding ToggleThemeCommand}" />
+        <Button Content="Tray" Command="{Binding ToggleTrayCommand}" IsEnabled="{Binding TraySupported}" />
+        <Border Padding="10,6" CornerRadius="6" BorderBrush="#D0D7DE" BorderThickness="1">
+          <TextBlock Text="Phase C" FontWeight="SemiBold" />
+        </Border>
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Start" Command="{Binding NavigateStartCommand}" />
+        <Button Content="Progress" Command="{Binding NavigateProgressCommand}" />
+        <Button Content="Result" Command="{Binding NavigateResultCommand}" />
+      </StackPanel>
+
+      <TextBlock Grid.Column="1"
+                 VerticalAlignment="Center"
+                 Opacity="0.75"
+                 Text="DryRun / Preview -> Summary -> Apply -> Report (Phase C Adapter Slice)" />
+
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+        <Button Content="Preview starten"
+                Command="{Binding StartPreviewCommand}"
+                IsVisible="{Binding IsStartScreen}" />
+        <Button Content="Als abgeschlossen markieren"
+                Command="{Binding CompleteRunCommand}"
+                IsVisible="{Binding IsProgressScreen}" />
+        <Button Content="Zurück zu Start"
+                Command="{Binding ReturnToStartCommand}"
+                IsVisible="{Binding IsResultScreen}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="2" BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="10" Background="#FCFCFD">
+      <ContentControl Content="{Binding CurrentScreenViewModel}" />
+    </Border>
+  </Grid>
+</Window>

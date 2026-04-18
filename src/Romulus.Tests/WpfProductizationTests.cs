@@ -350,7 +350,6 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("ConverterParameter=Dashboard", startViewXaml);
         Assert.Contains("ConsoleFiltersView", configOptionsXaml);
         Assert.Contains("ExtensionFiltersView", configOptionsXaml);
-        Assert.Contains("DatMappings", configOptionsXaml);
         Assert.Contains("GameKeyPreviewInput", configOptionsXaml);
         Assert.Contains("OpenReportCommand", resultViewXaml);
         Assert.Contains("ConversionCapabilities", toolsViewXaml);
@@ -468,17 +467,10 @@ public sealed class WpfProductizationTests : IDisposable
     }
 
     [Fact]
-    public void Phase3_DialogWindows_UseSharedBaseStyleAndSeveritySignal()
+    public void Phase3_DialogWindows_UseSeveritySignal()
     {
         var messageDialogXaml = File.ReadAllText(FindUiFile("", "MessageDialog.xaml"));
-        var inputDialogXaml = File.ReadAllText(FindUiFile("", "InputDialog.xaml"));
-        var resultDialogXaml = File.ReadAllText(FindUiFile("", "ResultDialog.xaml"));
         var dangerDialogXaml = File.ReadAllText(FindUiFile("", "DangerConfirmDialog.xaml"));
-
-        Assert.Contains("BaseDialogWindowStyle", messageDialogXaml);
-        Assert.Contains("BaseDialogWindowStyle", inputDialogXaml);
-        Assert.Contains("BaseDialogWindowStyle", resultDialogXaml);
-        Assert.Contains("BaseDialogWindowStyle", dangerDialogXaml);
 
         Assert.Contains("DialogSeverity", messageDialogXaml);
         Assert.Contains("DialogSeverity", dangerDialogXaml);

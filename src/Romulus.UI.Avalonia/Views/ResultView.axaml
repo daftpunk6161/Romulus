@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Romulus.UI.Avalonia.ViewModels"
+             x:Class="Romulus.UI.Avalonia.Views.ResultView"
+             x:DataType="vm:ResultViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="16">
+    <TextBlock Text="Result" FontSize="24" FontWeight="SemiBold" />
+
+    <Border Grid.Row="1" Padding="14" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+      <TextBlock Text="{Binding RunSummaryText}" TextWrapping="Wrap" />
+    </Border>
+
+    <UniformGrid Grid.Row="2" Columns="4" Rows="1" ColumnSpacing="10">
+      <Border Padding="12" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Games" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding DashGames}" FontSize="22" FontWeight="Bold" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="12" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Dupes" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding DashDupes}" FontSize="22" FontWeight="Bold" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="12" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Junk" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding DashJunk}" FontSize="22" FontWeight="Bold" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="12" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Health" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding HealthScore}" FontSize="22" FontWeight="Bold" />
+        </StackPanel>
+      </Border>
+    </UniformGrid>
+  </Grid>
+</UserControl>

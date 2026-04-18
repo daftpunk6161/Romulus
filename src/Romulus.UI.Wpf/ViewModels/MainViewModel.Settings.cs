@@ -156,7 +156,6 @@ public sealed partial class MainViewModel
             {
                 ValidateDirectoryPath(value, nameof(DatRoot));
                 RefreshStatus();
-                _autoDetectDatMappingsCommand?.NotifyCanExecuteChanged();
                 SyncSetupProperty(nameof(SetupViewModel.DatRoot), value);
             }
         }
@@ -1040,27 +1039,6 @@ public sealed partial class MainViewModel
         SaveSettings();
     }
 
-    private void OnBrowseDatMappingFileCommand(object? parameter)
-    {
-        if (parameter is not DatMapRow row)
-            return;
-
-        OnBrowseDatMappingFile(row);
-    }
-
-    private void OnBrowseDatMappingFile(DatMapRow row)
-    {
-        var path = _dialog.BrowseFile(
-            "DAT-Datei auswählen",
-            "DAT-Dateien (*.dat;*.xml)|*.dat;*.xml|Alle Dateien|*.*");
-
-        if (path is null)
-            return;
-
-        row.DatFile = path;
-        SaveSettings();
-    }
-
     private void OnPresetSafeDryRun()
     {
         DryRun = true;
@@ -1270,113 +1248,4 @@ public sealed partial class MainViewModel
         };
     }
 
-    // ═══ CONSOLE KEYS (from consoles.json) ══════════════════════════════
-
-    private string[]? _allConsoleKeys;
-
-    /// <summary>All console keys from consoles.json, lazily loaded.</summary>
-    public string[] AllConsoleKeys => _allConsoleKeys ??= LoadAllConsoleKeys();
-
-    private static string[] LoadAllConsoleKeys()
-    {
-        var dataDir = FeatureService.ResolveDataDirectory()
-                      ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        var consolesPath = Path.Combine(dataDir, "consoles.json");
-        if (!File.Exists(consolesPath))
-            return [];
-
-        try
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllText(consolesPath));
-            if (!doc.RootElement.TryGetProperty("consoles", out var arr) || arr.ValueKind != JsonValueKind.Array)
-                return [];
-
-            var keys = new List<string>();
-            foreach (var item in arr.EnumerateArray())
-            {
-                if (item.TryGetProperty("key", out var k) && k.GetString() is { Length: > 0 } key)
-                    keys.Add(key);
-            }
-            keys.Sort(StringComparer.OrdinalIgnoreCase);
-            return [.. keys];
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    // ═══ DAT-MAPPING AUTO-DETECT ════════════════════════════════════════
-
-    private RelayCommand? _autoDetectDatMappingsCommand;
-    public IRelayCommand AutoDetectDatMappingsCommand
-        => _autoDetectDatMappingsCommand ??= new RelayCommand(OnAutoDetectDatMappings, CanAutoDetectDatMappings);
-
-    private bool CanAutoDetectDatMappings()
-        => !string.IsNullOrWhiteSpace(DatRoot) && Directory.Exists(DatRoot);
-
-    private void OnAutoDetectDatMappings()
-    {
-        if (string.IsNullOrWhiteSpace(DatRoot) || !Directory.Exists(DatRoot))
-        {
-            AddLog(_loc["Log.DatDirNotFound"], "WARN");
-            return;
-        }
-
-        // Load dat-catalog.json for console key → system name mapping
-        var dataDir = FeatureService.ResolveDataDirectory()
-                      ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        var catalogPath = Path.Combine(dataDir, "dat-catalog.json");
-        if (!File.Exists(catalogPath))
-        {
-            AddLog(_loc["Log.DatCatalogNotFound"], "WARN");
-            return;
-        }
-
-        try
-        {
-            // Scan DatRoot for .dat and .xml files
-            var datFiles = Directory.GetFiles(DatRoot, "*.*", SearchOption.AllDirectories)
-                .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                         || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (datFiles.Count == 0)
-            {
-                AddLog(_loc["Log.DatNoDatFiles"], "WARN");
-                return;
-            }
-
-            // Keep existing manual mappings that have a valid DatFile
-            var existingByConsole = DatMappings
-                .Where(m => !string.IsNullOrWhiteSpace(m.Console) && !string.IsNullOrWhiteSpace(m.DatFile))
-                .ToDictionary(m => m.Console, m => m.DatFile, StringComparer.OrdinalIgnoreCase);
-
-            var knownConsoleKeys = new HashSet<string>(AllConsoleKeys, StringComparer.OrdinalIgnoreCase);
-            var detectedMappings = RunEnvironmentBuilder
-                .BuildConsoleMap(dataDir, DatRoot)
-                .Where(kv => knownConsoleKeys.Contains(kv.Key)
-                          && !string.IsNullOrWhiteSpace(kv.Value)
-                          && File.Exists(kv.Value))
-                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-
-            // Merge: keep manual, add detected
-            foreach (var (console, datFile) in existingByConsole)
-            {
-                if (!detectedMappings.ContainsKey(console))
-                    detectedMappings[console] = datFile;
-            }
-
-            DatMappings.Clear();
-            foreach (var (console, datFile) in detectedMappings.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
-                DatMappings.Add(new DatMapRow { Console = console, DatFile = datFile });
-
-            AddLog($"DAT-Mapping: {detectedMappings.Count} Zuordnungen erkannt.", "INFO");
-            SaveSettings();
-        }
-        catch (Exception ex)
-        {
-            AddLog($"DAT-Auto-Erkennung fehlgeschlagen: {ex.Message}", "ERROR");
-        }
-    }
 }

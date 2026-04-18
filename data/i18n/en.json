@@ -460,12 +460,6 @@
   "Settings.HashTypeLabel": "Hash type:",
   "Settings.DatFallbackTip": "If no exact match is found, try alternative DAT mapping.",
   "Settings.CrcVerifyTip": "Basic CRC check at file level (independent of DAT).",
-  "Settings.SectionDatMapping": "DAT MAPPING",
-  "Settings.DatMappingDesc": "Manually assign consoles to their DAT files. Without mapping, auto-detection is used.",
-  "Settings.DatMappingName": "DAT console mapping",
-  "Settings.DatMappingBrowse": "Browse DAT file",
-  "Settings.DatMappingAutoDetect": "Auto-detect DATs",
-  "Settings.DatMappingAutoDetectTip": "Scans the DAT folder and automatically maps detected DAT files to consoles.",
 
   "Settings.ProfileNameLabel": "Profile name:",
   "Settings.ProfileSave": "Save",

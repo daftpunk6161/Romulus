@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romulus.Api", "Romulus.Api\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romulus.UI.Wpf", "Romulus.UI.Wpf\Romulus.UI.Wpf.csproj", "{7F7D2343-C424-418A-BEDB-CF3600397D6B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romulus.UI.Avalonia", "Romulus.UI.Avalonia\Romulus.UI.Avalonia.csproj", "{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{7F7D2343-C424-418A-BEDB-CF3600397D6B}.Release|x64.Build.0 = Release|Any CPU
 		{7F7D2343-C424-418A-BEDB-CF3600397D6B}.Release|x86.ActiveCfg = Release|Any CPU
 		{7F7D2343-C424-418A-BEDB-CF3600397D6B}.Release|x86.Build.0 = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|x64.Build.0 = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Debug|x86.Build.0 = Debug|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|x64.ActiveCfg = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|x64.Build.0 = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|x86.ActiveCfg = Release|Any CPU
+		{F1B98B07-A3EB-48B3-A3B6-421AC8A6C196}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

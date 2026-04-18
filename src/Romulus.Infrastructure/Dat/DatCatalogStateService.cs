@@ -175,6 +175,7 @@ public sealed class DatCatalogStateService
 
     /// <summary>
     /// Build the full catalog status by merging catalog entries with file system state.
+    /// Also discovers uncataloged DAT files on disk so they appear in the UI.
     /// </summary>
     public static List<DatCatalogStatusEntry> BuildCatalogStatus(
         IReadOnlyList<DatCatalogEntry> catalog,
@@ -184,16 +185,21 @@ public sealed class DatCatalogStateService
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(state);
 
-        // Build lookup of local DAT files by filename stem
+        // Build lookup of local DAT files by full path for discovery tracking
+        var allLocalFiles = EnumerateLocalDatFilesSafe(datRoot);
+
+        // Build lookup by filename stem (first match wins with deterministic path ordering)
         var localFiles = new Dictionary<string, (string Path, DateTime LastWriteUtc, long SizeBytes)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in EnumerateLocalDatFilesSafe(datRoot))
+        foreach (var file in allLocalFiles)
         {
             var stem = Path.GetFileNameWithoutExtension(file.Path)!;
-            // First match wins with deterministic path ordering.
             localFiles.TryAdd(stem, (file.Path, file.LastWriteUtc, file.SizeBytes));
         }
 
-        var result = new List<DatCatalogStatusEntry>(catalog.Count);
+        // Track which local file paths get matched to catalog entries
+        var matchedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var result = new List<DatCatalogStatusEntry>(catalog.Count + allLocalFiles.Count);
 
         foreach (var entry in catalog)
         {
@@ -225,6 +231,9 @@ public sealed class DatCatalogStateService
                         localMatch = systemMatch;
                 }
             }
+
+            if (localMatch is not null)
+                matchedPaths.Add(localMatch.Value.Path);
 
             // Also check state for previously tracked info
             state.Entries.TryGetValue(entry.Id, out var trackedInfo);
@@ -279,7 +288,62 @@ public sealed class DatCatalogStateService
             });
         }
 
+        // ── Phase 2: Discover uncataloged DAT files on disk ────────────────
+        if (!string.IsNullOrWhiteSpace(datRoot))
+        {
+            var normalizedDatRoot = Path.GetFullPath(datRoot);
+            foreach (var file in allLocalFiles)
+            {
+                if (matchedPaths.Contains(file.Path))
+                    continue;
+
+                var stem = Path.GetFileNameWithoutExtension(file.Path)!;
+                var group = InferGroupFromPath(file.Path, normalizedDatRoot);
+
+                var daysSinceWrite = (DateTime.UtcNow - file.LastWriteUtc).TotalDays;
+                var fileStatus = daysSinceWrite > StaleThresholdDays
+                    ? DatInstallStatus.Stale
+                    : DatInstallStatus.Installed;
+
+                result.Add(new DatCatalogStatusEntry
+                {
+                    Id = "discovered-" + stem.ToLowerInvariant(),
+                    Group = group,
+                    System = stem,
+                    ConsoleKey = "",
+                    Url = "",
+                    Format = "raw-dat",
+                    Status = fileStatus,
+                    DownloadStrategy = DatDownloadStrategy.ManualLogin,
+                    InstalledDate = file.LastWriteUtc,
+                    LocalPath = file.Path,
+                    FileSizeBytes = file.SizeBytes
+                });
+            }
+        }
+
         return result;
+    }
+
+    /// <summary>
+    /// Infer the DAT group name from the file path relative to datRoot.
+    /// Uses the first subdirectory name (e.g. "No-Intro", "Redump", "TOSEC-ISO").
+    /// Falls back to "Lokal" for files directly in datRoot.
+    /// </summary>
+    internal static string InferGroupFromPath(string filePath, string datRoot)
+    {
+        var fullPath = Path.GetFullPath(filePath);
+        var normalizedRoot = datRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            return "Lokal";
+
+        var relative = fullPath[normalizedRoot.Length..];
+        var sepIndex = relative.IndexOf(Path.DirectorySeparatorChar);
+        if (sepIndex <= 0)
+            return "Lokal";
+
+        return relative[..sepIndex];
     }
 
     /// <summary>

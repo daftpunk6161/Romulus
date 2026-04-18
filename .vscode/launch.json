@@ -5,7 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug: WPF GUI",
+            "name": "Debug: Avalonia GUI (Default)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Romulus.UI.Avalonia/bin/Debug/net10.0/Romulus.Avalonia.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Debug: WPF GUI (Legacy)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",

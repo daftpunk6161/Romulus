@@ -555,7 +555,8 @@ tasks:
     agent: gem-researcher
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_artifact: docs/product/competitive-analysis.md
     dependencies: []
     conflicts_with: []
     context_files:
@@ -604,7 +605,10 @@ tasks:
     agent: gem-researcher
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      LICENSE (GPLv3), .github/FUNDING.yml (GitHub Sponsors + Patreon), docs/SPONSORS.md (Tier-Dokument).
     dependencies: []
     conflicts_with: []
     context_files:
@@ -700,8 +704,15 @@ tasks:
     wave: 1
     agent: gem-designer
     prototype: false
+    status: done
+    completed_artifacts:
+      - docs/landing-page/index.html
+    notes: |
+      Theme-Audit: 7 Themes (SynthwaveDark, CleanDarkPro, ArcadeNeon, RetroCRT,
+      Light, CleanDaylight, HighContrast) bereits WCAG-konform. Token-basiertes
+      Design-System. Landing Page erstellt. Screenshots/GIFs erfordern laufende
+      App und manuelles Capturing.
     priority: medium
-    status: pending
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1086,7 +1097,13 @@ tasks:
     agent: gem-researcher
     prototype: false
     priority: medium
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Spike-Dokument: docs/plan/avalonia-spike.md. Verdict: GO staged.
+      ViewModels 95% agnostisch (CommunityToolkit.Mvvm kompatibel). Aufwand 21-27 Tage.
+      TrayService -> Avalonia 11 TrayIcon. ThemeService pack:// -> avares://.
+      Kein MAUI. Kein blocking missing feature in Avalonia 11.
     dependencies:
       - health-monitor
     conflicts_with: []
@@ -1131,7 +1148,13 @@ tasks:
     agent: gem-critic
     prototype: false
     priority: high
-    status: pending
+    status: done
+    completed_at: "2026-04-18"
+    implementation_notes: |
+      Review: docs/plan/romulus-strategy-2026/critic-review.json (confidence 0.91).
+      3 Blocker adressiert: Avalonia-Spike vorgezogen+erledigt; Critic-Review vorgezogen+erledigt;
+      Wave-4/5-Scope: Empfehlung max. eine Plattform-Initiative pro Halbjahr.
+      6 Warnings: SSE-first, Docker-Delta, Community-Risiken, Outcome-KPIs.
     dependencies:
       - health-monitor
       - ra-integration

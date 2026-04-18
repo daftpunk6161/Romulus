@@ -6,7 +6,13 @@
 
 ## 1. Schnellstart
 
-### GUI (WPF)
+### GUI (Avalonia, Standard)
+
+```bash
+dotnet run --project src/Romulus.UI.Avalonia
+```
+
+### GUI (WPF, Legacy)
 
 ```bash
 dotnet run --project src/Romulus.UI.Wpf
@@ -41,9 +47,9 @@ API läuft auf `http://127.0.0.1:7878` (nur loopback).
 ![Konfiguration](screenshots/configuration.svg)
 ![Log & Dashboard](screenshots/log-dashboard.svg)
 
-## 3. GUI-Übersicht (WPF)
+## 3. GUI-Übersicht
 
-Die WPF-GUI basiert auf MVVM (`MainViewModel.cs`) mit Dark-Theme und Neon-Accent:
+Die Standard-GUI basiert auf Avalonia und folgt dem gleichen DryRun-/Summary-Workflow. Die WPF-GUI bleibt als Legacy-Pfad verfügbar.
 
 | Tab | Inhalt |
 |-----|--------|

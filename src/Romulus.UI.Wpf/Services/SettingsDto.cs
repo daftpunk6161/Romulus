@@ -26,7 +26,6 @@ public sealed record SettingsDto
     public string DatRoot { get; init; } = "";
     public string DatHashType { get; init; } = "SHA1";
     public bool DatFallback { get; init; } = true;
-    public DatMappingEntry[] DatMappings { get; init; } = [];
 
     // Paths
     public string TrashRoot { get; init; } = "";
@@ -59,6 +58,3 @@ public sealed record SettingsDto
     public bool IsSimpleMode { get; init; } = true;
     public int SchedulerIntervalMinutes { get; init; }
 }
-
-/// <summary>Serializable DAT mapping entry (console key → DAT file path).</summary>
-public sealed record DatMappingEntry(string Console, string DatFile);

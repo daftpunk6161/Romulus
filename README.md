@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>GUI</strong> (WPF/XAML) · <strong>CLI</strong> (headless/CI) · <strong>REST API</strong> (ASP.NET Core Minimal API)
+  <strong>GUI</strong> (Avalonia 11, WPF Legacy) · <strong>CLI</strong> (headless/CI) · <strong>REST API</strong> (ASP.NET Core Minimal API)
 </p>
 
 ---
@@ -44,7 +44,13 @@
 
 ## Quick Start
 
-### GUI (WPF)
+### GUI (Avalonia, Standard)
+
+```bash
+dotnet run --project src/Romulus.UI.Avalonia
+```
+
+### GUI (WPF, Legacy)
 
 ```bash
 dotnet run --project src/Romulus.UI.Wpf
@@ -148,6 +154,7 @@ src/
 │   └── Version/                 #   VersionHelper
 ├── Romulus.CLI/              # Headless Entry Point
 ├── Romulus.Api/              # ASP.NET Core Minimal API (REST + SSE)
+├── Romulus.UI.Avalonia/      # Avalonia GUI (Migration Path, net10.0)
 ├── Romulus.UI.Wpf/           # WPF GUI (MVVM, net10.0-windows)
 │   ├── ViewModels/              #   MainViewModel (INotifyPropertyChanged)
 │   ├── Services/                #   ThemeService, DialogService, SettingsService
@@ -183,7 +190,7 @@ Clean Architecture (Ports & Adapters). Abhängigkeiten nur abwärts:
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  Entry Points                                              │
-│  Romulus.CLI │ Romulus.Api │ Romulus.UI.Wpf       │
+│  Romulus.CLI │ Romulus.Api │ Romulus.UI.Avalonia │ Romulus.UI.Wpf (Legacy) │
 ├────────────────────────────────────────────────────────────┤
 │  Infrastructure (I/O-Adapter)                              │
 │  FileSystem │ Audit │ Dat │ Hashing │ Tools │ Conversion   │

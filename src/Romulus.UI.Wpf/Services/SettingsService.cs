@@ -190,20 +190,6 @@ public sealed class SettingsService : ISettingsService
                 dto = dto with { Roots = [.. rootList] };
             }
 
-            if (root.TryGetProperty("datMappings", out var mappings) &&
-                mappings.ValueKind == JsonValueKind.Array)
-            {
-                var mapList = new List<DatMappingEntry>();
-                foreach (var m in mappings.EnumerateArray())
-                {
-                    var console = GetString(m, "console");
-                    var datFile = GetString(m, "datFile");
-                    if (!string.IsNullOrWhiteSpace(console) && !string.IsNullOrWhiteSpace(datFile))
-                        mapList.Add(new DatMappingEntry(console, datFile));
-                }
-                dto = dto with { DatMappings = [.. mapList] };
-            }
-
             // Update service-level state
             LastAuditPath = dto.LastAuditPath;
             LastTheme = dto.Theme;
@@ -329,11 +315,6 @@ public sealed class SettingsService : ISettingsService
         vm.Roots.Clear();
         foreach (var r in dto.Roots)
             vm.Roots.Add(r);
-
-        // DAT Mappings
-        vm.DatMappings.Clear();
-        foreach (var m in dto.DatMappings)
-            vm.DatMappings.Add(new Models.DatMapRow { Console = m.Console, DatFile = m.DatFile });
     }
 
     /// <summary>Save current ViewModel state to disk.</summary>
@@ -372,10 +353,6 @@ public sealed class SettingsService : ISettingsService
                         hashType = vm.DatHashType,
                         datFallback = vm.DatFallback
                     },
-                    datMappings = vm.DatMappings
-                        .Where(m => !string.IsNullOrWhiteSpace(m.Console) && !string.IsNullOrWhiteSpace(m.DatFile))
-                        .Select(m => new { console = m.Console, datFile = m.DatFile })
-                        .ToArray(),
                     paths = new
                     {
                         trashRoot = vm.TrashRoot,

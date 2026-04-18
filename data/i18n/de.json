@@ -462,12 +462,6 @@
   "Settings.HashTypeLabel": "Hash-Typ:",
   "Settings.DatFallbackTip": "Wenn kein exakter Treffer gefunden wird, alternative DAT-Zuordnung versuchen.",
   "Settings.CrcVerifyTip": "Basis-CRC-Prüfung auf Datei-Ebene (unabhängig von DAT).",
-  "Settings.SectionDatMapping": "DAT-MAPPING",
-  "Settings.DatMappingDesc": "Ordnet Konsolen manuell ihren DAT-Dateien zu. Ohne Zuordnung wird Auto-Erkennung verwendet.",
-  "Settings.DatMappingName": "DAT-Konsolen-Zuordnung",
-  "Settings.DatMappingBrowse": "DAT-Datei durchsuchen",
-  "Settings.DatMappingAutoDetect": "DATs auto-erkennen",
-  "Settings.DatMappingAutoDetectTip": "Scannt den DAT-Ordner und ordnet gefundene DAT-Dateien automatisch Konsolen zu.",
 
   "Settings.ProfileNameLabel": "Profilname:",
   "Settings.ProfileSave": "Speichern",

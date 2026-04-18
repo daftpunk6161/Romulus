@@ -180,7 +180,7 @@ phases:
       - id: P2-W01
         title: "FamilyDatStrategy vereinfachen"
         severity: warning
-        status: "[ ]"
+        status: "[x]"
         description: |
           FamilyDatStrategyResolver mit 6 Strategien ist overengineered
           fuer den aktuellen Zustand. RomVault hasht alles und matcht gegen

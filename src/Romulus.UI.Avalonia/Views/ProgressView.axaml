@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Romulus.UI.Avalonia.ViewModels"
+             x:Class="Romulus.UI.Avalonia.Views.ProgressView"
+             x:DataType="vm:ProgressViewModel">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Margin="16">
+    <TextBlock Text="Progress" FontSize="24" FontWeight="SemiBold" />
+
+    <Border Grid.Row="1" Padding="14" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+      <StackPanel Spacing="8">
+        <TextBlock Text="{Binding BusyHint}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding CurrentPhase}" Opacity="0.75" />
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="12" />
+        <TextBlock Text="{Binding ProgressText}" HorizontalAlignment="Right" FontWeight="Bold" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="2" Padding="14" CornerRadius="8" BorderBrush="#D0D7DE" BorderThickness="1">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Live Log" FontWeight="SemiBold" />
+        <ListBox ItemsSource="{Binding LiveLog}" MinHeight="220" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="3" Text="Laufzustand wird live aktualisiert." Opacity="0.7" />
+  </Grid>
+</UserControl>

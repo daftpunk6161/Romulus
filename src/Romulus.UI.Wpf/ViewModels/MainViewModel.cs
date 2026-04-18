@@ -144,8 +144,6 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         // Browse commands (parameter = property name to set)
         BrowseToolPathCommand = new RelayCommand<string>(OnBrowseToolPath);
         BrowseFolderPathCommand = new RelayCommand<string>(OnBrowseFolderPath);
-        BrowseDatMappingFileCommand = new RelayCommand<object?>(OnBrowseDatMappingFileCommand);
-
         // Settings commands
         SaveSettingsCommand = new RelayCommand(OnSaveSettings);
         LoadSettingsCommand = new RelayCommand(OnLoadSettings);
@@ -821,7 +819,6 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public IRelayCommand PresetConvertCommand { get; }
     public IRelayCommand BrowseToolPathCommand { get; }
     public IRelayCommand BrowseFolderPathCommand { get; }
-    public IRelayCommand BrowseDatMappingFileCommand { get; }
     public IRelayCommand QuickPreviewCommand { get; }
     public IRelayCommand ConvertOnlyCommand { get; }
     public IRelayCommand RequestStartMoveCommand { get; }
@@ -852,7 +849,6 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     // ═══ COLLECTIONS ════════════════════════════════════════════════════
     public ObservableCollection<string> Roots { get; } = [];
     public ObservableCollection<LogEntry> LogEntries { get; } = [];
-    public ObservableCollection<DatMapRow> DatMappings { get; } = [];
     public ObservableCollection<UiError> ErrorSummaryItems { get; } = [];
 
     /// <summary>Assigns FeatureCommands to matching ToolItems. Call after FeatureCommandService.RegisterCommands().</summary>
