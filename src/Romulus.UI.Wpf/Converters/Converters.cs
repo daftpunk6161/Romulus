@@ -93,7 +93,8 @@ public sealed class LogLevelToBrushConverter : IValueConverter
     private static readonly SolidColorBrush Danger = Freeze(Color.FromRgb(0xFF, 0x00, 0x44));
     private static readonly SolidColorBrush Warning = Freeze(Color.FromRgb(0xFF, 0xB7, 0x00));
     private static readonly SolidColorBrush Muted = Freeze(Color.FromRgb(0x99, 0x99, 0xCC));
-    private static readonly SolidColorBrush Cyan = Freeze(Color.FromRgb(0x00, 0xF5, 0xFF));
+    // Keep informational log lines readable on light surfaces; avoid neon glare.
+    private static readonly SolidColorBrush Info = Freeze(Color.FromRgb(0x2C, 0x6E, 0x95));
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
@@ -102,8 +103,8 @@ public sealed class LogLevelToBrushConverter : IValueConverter
             "ERROR" => Danger,
             "WARN" or "WARNING" => Warning,
             "DEBUG" => Muted,
-            _ => Cyan
-        } : Cyan;
+            _ => Info
+        } : Info;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -315,6 +315,7 @@ public sealed partial class RunOrchestrator : IDisposable
             result.ExitCode = RunOutcome.Cancelled.ToExitCode();
             result.DurationMs = sw.ElapsedMilliseconds;
             result.PhaseMetrics = metrics.GetMetrics();
+            result.IsPartial = true;
 
             // Preserve partial scan/dedupe output so GUI/CLI can display progress made before cancellation.
             ApplyPartialPipelineState(pipelineState, result);
@@ -329,6 +330,10 @@ public sealed partial class RunOrchestrator : IDisposable
             {
                 _onProgress?.Invoke($"[Audit] Partial sidecar write failed after cancellation: {ex.GetType().Name}: {ex.Message}");
             }
+
+            // On cancellation, still emit a best-effort partial report so already scanned
+            // candidates remain visible in GUI/CLI/API report flows.
+            TryGeneratePartialReport(result, options, "cancelled");
 
             return result.Build();
         }

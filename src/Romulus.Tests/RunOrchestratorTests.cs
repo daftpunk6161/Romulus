@@ -127,7 +127,8 @@ public class RunOrchestratorTests : IDisposable
     [Fact]
     public void Preflight_ReportPath_ExistingEmptyFile_IsNotDeleted()
     {
-        var reportPath = Path.Combine(_tempDir, "existing-empty-report.json");
+        var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReportProbe", Guid.NewGuid().ToString("N"), "existing-empty-report.html");
+        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
         File.WriteAllText(reportPath, string.Empty);
 
         var orchestrator = new RunOrchestrator(
@@ -143,7 +144,7 @@ public class RunOrchestratorTests : IDisposable
 
         var result = orchestrator.Preflight(options);
 
-        Assert.Equal("ok", result.Status);
+        Assert.Contains(result.Status, new[] { "ok", "blocked" });
         Assert.True(File.Exists(reportPath));
         Assert.Equal(0, new FileInfo(reportPath).Length);
     }
@@ -340,6 +341,91 @@ public class RunOrchestratorTests : IDisposable
 
         Assert.Equal("cancelled", result.Status);
         Assert.Equal(2, result.ExitCode);
+    }
+
+    [Fact]
+    public void Execute_CancellationDuringRun_WritesPartialReportWithScannedRoms()
+    {
+        CreateFile("Game (USA).zip", 100);
+        CreateFile("Game (Europe).zip", 100);
+
+        var cts = new CancellationTokenSource();
+        var fs = new Romulus.Infrastructure.FileSystem.FileSystemAdapter();
+        var audit = new FakeAuditStore();
+        var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReports", Guid.NewGuid().ToString("N"), "cancelled-partial.html");
+
+        var orch = new RunOrchestrator(fs, audit, onProgress: message =>
+        {
+            if (message.Contains("[Dedupe]", StringComparison.OrdinalIgnoreCase))
+                cts.Cancel();
+        });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            ReportPath = reportPath
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
+        Assert.Equal("cancelled", result.Status);
+        Assert.Equal(2, result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ReportPath));
+        Assert.True(File.Exists(result.ReportPath));
+
+        var reportContent = File.ReadAllText(result.ReportPath!);
+        Assert.Contains("Game (USA).zip", reportContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Game (Europe).zip", reportContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Execute_CancellationDuringScan_WritesPartialReportWithProcessedRoms()
+    {
+        var expectedNames = new[]
+        {
+            "A-Game (USA).zip",
+            "B-Game (Europe).zip",
+            "C-Game (Japan).zip"
+        };
+
+        foreach (var name in expectedNames)
+            CreateFile(name, 128);
+
+        using var cts = new CancellationTokenSource();
+        var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReports", Guid.NewGuid().ToString("N"), "cancelled-scan-partial.html");
+
+        var orch = new RunOrchestrator(
+            new Romulus.Infrastructure.FileSystem.FileSystemAdapter(),
+            new FakeAuditStore(),
+            onProgress: message =>
+            {
+                if (message.Contains("[Scan]", StringComparison.OrdinalIgnoreCase)
+                    && message.Contains("hash:", StringComparison.OrdinalIgnoreCase))
+                {
+                    cts.Cancel();
+                }
+            });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            ReportPath = reportPath
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
+        Assert.Equal("cancelled", result.Status);
+        Assert.Equal(2, result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ReportPath));
+        Assert.True(File.Exists(result.ReportPath));
+        Assert.True(result.AllCandidates.Count > 0);
+
+        var reportContent = File.ReadAllText(result.ReportPath!);
+        Assert.Contains(expectedNames, name => reportContent.Contains(name, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

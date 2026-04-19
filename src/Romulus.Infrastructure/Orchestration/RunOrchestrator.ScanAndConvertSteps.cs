@@ -37,6 +37,16 @@ public sealed partial class RunOrchestrator
             .EnumerateFilesAsync(options.Roots, options.Extensions, cancellationToken);
 
         var candidates = await MaterializeEnrichedCandidatesAsync(scannedFiles, scanContext, cancellationToken);
+
+        // Preserve already materialized scan output when cancellation is requested mid-scan,
+        // so cancel handling can still produce partial report/audit artifacts.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            result.TotalFilesScanned = candidates.Count;
+            pipelineState.SetScanOutput(candidates, candidates);
+            throw new OperationCanceledException(cancellationToken);
+        }
+
         candidates = await ApplyPersistedReviewApprovalsAsync(candidates, options, cancellationToken);
 
         var unknownReasonCounts = candidates

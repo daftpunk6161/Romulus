@@ -199,7 +199,7 @@ public sealed class ShellViewModel : ObservableObject
         "Batch" => "Batch",
         "ActivityLog" => "Aktivitaet",
         "Appearance" => "Darstellung",
-        "About" => "Info",
+        "About" => "Audit & System",
         _ => "Uebersicht"
     };
 

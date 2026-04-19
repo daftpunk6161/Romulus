@@ -92,10 +92,10 @@
                          Visibility="{Binding Shell.ShowSystemAppearanceTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Appearance}"
                          AutomationProperties.Name="Appearance Settings"/>
-            <RadioButton GroupName="SubTab" Content="About" Style="{StaticResource SubTabPill}"
+            <RadioButton GroupName="SubTab" Content="Audit &amp; System" Style="{StaticResource SubTabPill}"
                          Visibility="{Binding Shell.ShowSystemAboutTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=About}"
-                         AutomationProperties.Name="About and Health"/>
+                         AutomationProperties.Name="Audit and System Settings"/>
           </StackPanel>
         </StackPanel>
       </ScrollViewer>

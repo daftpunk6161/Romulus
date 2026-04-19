@@ -141,6 +141,23 @@ public sealed partial class RunOrchestrator
         return false;
     }
 
+    private bool TryGeneratePartialReport(RunResultBuilder result, RunOptions options, string terminalStatus)
+    {
+        if (string.IsNullOrEmpty(options.ReportPath))
+            return true;
+
+        _onProgress?.Invoke($"[Report] Writing partial report for {terminalStatus} run...");
+        result.ReportPath = GenerateReport(result, options);
+        if (!string.IsNullOrEmpty(result.ReportPath))
+        {
+            _onProgress?.Invoke($"[Report] Partial report written: {result.ReportPath}");
+            return true;
+        }
+
+        _onProgress?.Invoke("[Report] Partial report generation failed.");
+        return false;
+    }
+
     internal static RunOutcome ResolveRunOutcome(RunResultBuilder result)
     {
         var hasErrors = result.ConvertErrorCount > 0
@@ -387,28 +404,48 @@ public sealed partial class RunOrchestrator
         var currentHashType = CollectionIndexCandidateMapper.NormalizeHashType(context.Options.HashType);
         var indexLookupsEnabled = true;
 
-        await foreach (var scannedFile in scannedFiles.WithCancellation(cancellationToken))
+        try
         {
-            scannedFilesByPath[scannedFile.Path] = scannedFile;
-
-            CollectionIndexEntry? persistedEntry = null;
-            if (indexLookupsEnabled)
+            await foreach (var scannedFile in scannedFiles.WithCancellation(cancellationToken))
             {
-                var lookup = await TryGetReusableCollectionIndexEntryAsync(scannedFile, currentHashType, cancellationToken).ConfigureAwait(false);
-                persistedEntry = lookup.Entry;
-                indexLookupsEnabled = !lookup.DisableLookups;
+                scannedFilesByPath[scannedFile.Path] = scannedFile;
+
+                CollectionIndexEntry? persistedEntry = null;
+                if (indexLookupsEnabled)
+                {
+                    var lookup = await TryGetReusableCollectionIndexEntryAsync(scannedFile, currentHashType, cancellationToken).ConfigureAwait(false);
+                    persistedEntry = lookup.Entry;
+                    indexLookupsEnabled = !lookup.DisableLookups;
+                }
+
+                if (persistedEntry is not null)
+                {
+                    FlushChangedBatch(changedBatch, candidates, context, cancellationToken);
+                    candidates.Add(CollectionIndexCandidateMapper.ToCandidate(persistedEntry));
+                    continue;
+                }
+
+                changedBatch.Add(scannedFile);
+                if (changedBatch.Count >= deltaBatchSize)
+                    FlushChangedBatch(changedBatch, candidates, context, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Best-effort: flush buffered scan files so cancellation keeps already discovered ROMs.
+            if (changedBatch.Count > 0)
+            {
+                try
+                {
+                    FlushChangedBatch(changedBatch, candidates, context, CancellationToken.None);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                {
+                    _onProgress?.Invoke($"[Scan] Buffered candidate flush skipped after cancellation: {ex.Message}");
+                }
             }
 
-            if (persistedEntry is not null)
-            {
-                FlushChangedBatch(changedBatch, candidates, context, cancellationToken);
-                candidates.Add(CollectionIndexCandidateMapper.ToCandidate(persistedEntry));
-                continue;
-            }
-
-            changedBatch.Add(scannedFile);
-            if (changedBatch.Count >= deltaBatchSize)
-                FlushChangedBatch(changedBatch, candidates, context, cancellationToken);
+            return candidates;
         }
 
         if (changedBatch.Count > 0)
@@ -432,8 +469,15 @@ public sealed partial class RunOrchestrator
             cancellationToken);
 
         var candidates = new List<RomCandidate>();
-        await foreach (var candidate in enrichedStream.WithCancellation(cancellationToken))
-            candidates.Add(candidate);
+        try
+        {
+            await foreach (var candidate in enrichedStream.WithCancellation(cancellationToken))
+                candidates.Add(candidate);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return candidates;
+        }
 
         return candidates;
     }
