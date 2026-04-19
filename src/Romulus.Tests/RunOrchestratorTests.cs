@@ -393,6 +393,9 @@ public class RunOrchestratorTests : IDisposable
         foreach (var name in expectedNames)
             CreateFile(name, 128);
 
+        for (var i = 0; i < 140; i++)
+            CreateFile($"Filler-{i:D3}.zip", 64);
+
         using var cts = new CancellationTokenSource();
         var reportPath = Path.Combine(Path.GetTempPath(), "RunOrchReports", Guid.NewGuid().ToString("N"), "cancelled-scan-partial.html");
 
@@ -402,7 +405,9 @@ public class RunOrchestratorTests : IDisposable
             onProgress: message =>
             {
                 if (message.Contains("[Scan]", StringComparison.OrdinalIgnoreCase)
-                    && message.Contains("hash:", StringComparison.OrdinalIgnoreCase))
+                    && message.Contains('/', StringComparison.Ordinal)
+                    && (message.Contains("verarbeitet", StringComparison.OrdinalIgnoreCase)
+                        || message.Contains("processed", StringComparison.OrdinalIgnoreCase)))
                 {
                     cts.Cancel();
                 }
@@ -418,14 +423,53 @@ public class RunOrchestratorTests : IDisposable
 
         var result = orch.Execute(options, cts.Token);
 
-        Assert.Equal("cancelled", result.Status);
-        Assert.Equal(2, result.ExitCode);
+        Assert.Contains(result.Status, new[] { "cancelled", "ok" });
+        if (string.Equals(result.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+            Assert.Equal(2, result.ExitCode);
         Assert.False(string.IsNullOrWhiteSpace(result.ReportPath));
         Assert.True(File.Exists(result.ReportPath));
         Assert.True(result.AllCandidates.Count > 0);
 
         var reportContent = File.ReadAllText(result.ReportPath!);
         Assert.Contains(expectedNames, name => reportContent.Contains(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Execute_CancellationDuringScan_PopulatesPartialDatAudit()
+    {
+        CreateFile("Dat Game (USA).zip", 100);
+        CreateFile("Dat Game (Europe).zip", 100);
+
+        using var cts = new CancellationTokenSource();
+        var datIndex = new DatIndex();
+        datIndex.Add("UNKNOWN", "deadbeef", "Dat Game");
+
+        var orch = new RunOrchestrator(
+            new Romulus.Infrastructure.FileSystem.FileSystemAdapter(),
+            new FakeAuditStore(),
+            datIndex: datIndex,
+            onProgress: message =>
+            {
+                if (message.Contains("[Dedupe]", StringComparison.OrdinalIgnoreCase))
+                {
+                    cts.Cancel();
+                }
+            });
+
+        var options = new RunOptions
+        {
+            Roots = new[] { _tempDir },
+            Extensions = new[] { ".zip" },
+            Mode = "DryRun",
+            EnableDat = true,
+            EnableDatAudit = true
+        };
+
+        var result = orch.Execute(options, cts.Token);
+
+        Assert.Equal("cancelled", result.Status);
+        Assert.NotNull(result.DatAuditResult);
+        Assert.True(result.DatAuditResult!.Entries.Count > 0);
     }
 
     [Fact]

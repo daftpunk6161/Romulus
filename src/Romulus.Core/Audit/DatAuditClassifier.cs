@@ -78,6 +78,14 @@ public static partial class DatAuditClassifier
             var inConsole = datIndex.LookupWithFilename(consoleKey!, hash);
             if (inConsole is null)
             {
+                if (TryOpticalNameFallbackForConsole(consoleKey!, actualFileName, datIndex, out var fallbackMatch))
+                {
+                    var fallbackStatus = IsSameFileName(actualFileName, fallbackMatch)
+                        ? DatAuditStatus.Have
+                        : DatAuditStatus.HaveWrongName;
+                    return new(fallbackStatus, fallbackMatch.GameName, fallbackMatch.RomFileName, consoleKey);
+                }
+
                 // Miss = DAT loaded for this console but hash not found
                 // Unknown = no DAT loaded for this console at all
                 var status = datIndex.HasConsole(consoleKey!)
@@ -96,7 +104,17 @@ public static partial class DatAuditClassifier
             .Where(static match => IsRealConsoleKey(match.ConsoleKey))
             .ToArray();
         if (matches.Length == 0)
+        {
+            if (TryOpticalNameFallbackCrossConsole(actualFileName, datIndex, out var fallbackConsole, out var fallbackEntry))
+            {
+                var fallbackStatus = IsSameFileName(actualFileName, fallbackEntry)
+                    ? DatAuditStatus.Have
+                    : DatAuditStatus.HaveWrongName;
+                return new(fallbackStatus, fallbackEntry.GameName, fallbackEntry.RomFileName, fallbackConsole);
+            }
+
             return new(DatAuditStatus.Unknown, null, null, consoleKey);
+        }
 
         if (matches.Length > 1)
             return new(DatAuditStatus.Ambiguous, null, null, consoleKey);
@@ -144,6 +162,82 @@ public static partial class DatAuditClassifier
         return false;
     }
 
+    private static bool TryOpticalNameFallbackForConsole(
+        string consoleKey,
+        string actualFileName,
+        DatIndex datIndex,
+        out DatIndex.DatIndexEntry match)
+    {
+        match = default;
+
+        if (!CanUseOpticalNameFallback(actualFileName) || !datIndex.HasConsole(consoleKey))
+            return false;
+
+        var candidates = datIndex.GetConsoleEntriesDetailed(consoleKey)
+            .Select(static item => item.Entry)
+            .Where(entry => IsSameFileName(actualFileName, entry))
+            .Take(2)
+            .ToArray();
+
+        if (candidates.Length != 1)
+            return false;
+
+        match = candidates[0];
+        return true;
+    }
+
+    private static bool TryOpticalNameFallbackCrossConsole(
+        string actualFileName,
+        DatIndex datIndex,
+        out string resolvedConsoleKey,
+        out DatIndex.DatIndexEntry resolvedEntry)
+    {
+        resolvedConsoleKey = string.Empty;
+        resolvedEntry = default;
+
+        if (!CanUseOpticalNameFallback(actualFileName))
+            return false;
+
+        var candidates = new List<(string ConsoleKey, DatIndex.DatIndexEntry Entry)>();
+        foreach (var console in datIndex.ConsoleKeys.Where(static key => IsRealConsoleKey(key)))
+        {
+            var perConsoleMatches = datIndex.GetConsoleEntriesDetailed(console)
+                .Select(static item => item.Entry)
+                .Where(entry => IsSameFileName(actualFileName, entry))
+                .Take(2)
+                .ToArray();
+
+            if (perConsoleMatches.Length == 1)
+                candidates.Add((console, perConsoleMatches[0]));
+
+            if (candidates.Count > 1)
+                return false;
+        }
+
+        if (candidates.Count != 1)
+            return false;
+
+        resolvedConsoleKey = candidates[0].ConsoleKey;
+        resolvedEntry = candidates[0].Entry;
+        return true;
+    }
+
+    private static bool CanUseOpticalNameFallback(string actualFileName)
+    {
+        if (string.IsNullOrWhiteSpace(actualFileName))
+            return false;
+
+        var extension = Path.GetExtension(actualFileName);
+        if (!OpticalFallbackExtensions.Contains(extension))
+            return false;
+
+        var stem = NormalizeComparableStem(Path.GetFileNameWithoutExtension(actualFileName));
+        if (stem.Length < 6)
+            return false;
+
+        return !GenericNameStemRegex().IsMatch(stem);
+    }
+
     private static IEnumerable<string?> GetComparableNames(DatIndex.DatIndexEntry entry)
     {
         yield return entry.RomFileName;
@@ -167,4 +261,17 @@ public static partial class DatAuditClassifier
 
     [System.Text.RegularExpressions.GeneratedRegex(@"\s*\(track\s*\d+\)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
     private static partial System.Text.RegularExpressions.Regex TrackSuffixRegex();
+
+    private static readonly HashSet<string> OpticalFallbackExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".chd",
+        ".cue",
+        ".ccd",
+        ".iso",
+        ".img",
+        ".mds"
+    };
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(track|disc|disk|cd|dvd|rom)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex GenericNameStemRegex();
 }

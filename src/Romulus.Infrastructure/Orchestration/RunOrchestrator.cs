@@ -333,6 +333,7 @@ public sealed partial class RunOrchestrator : IDisposable
 
             // On cancellation, still emit a best-effort partial report so already scanned
             // candidates remain visible in GUI/CLI/API report flows.
+            TryGeneratePartialDatAudit(result, options, "cancelled");
             TryGeneratePartialReport(result, options, "cancelled");
 
             return result.Build();

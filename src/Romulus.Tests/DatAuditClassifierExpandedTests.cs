@@ -294,6 +294,32 @@ public sealed class DatAuditClassifierExpandedTests
     }
 
     [Fact]
+    public void ClassifyFull_KnownConsole_OpticalMiss_UsesUniqueNameFallback()
+    {
+        var index = new DatIndex();
+        index.Add("PS1", "hash-1", "Game Title", "Game Title (Track 01).bin");
+
+        var result = DatAuditClassifier.ClassifyFull("no-match", null, "Game Title (Disc 1).chd", "PS1", index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("PS1", result.ResolvedConsoleKey);
+        Assert.Equal("Game Title", result.DatGameName);
+    }
+
+    [Fact]
+    public void ClassifyFull_UnknownConsole_OpticalUnknown_UsesUniqueCrossConsoleNameFallback()
+    {
+        var index = new DatIndex();
+        index.Add("PS1", "hash-1", "Ridge Racer", "Ridge Racer (Track 01).bin");
+
+        var result = DatAuditClassifier.ClassifyFull("no-match", null, "Ridge Racer (Disc 1).chd", "UNKNOWN", index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("PS1", result.ResolvedConsoleKey);
+        Assert.Equal("Ridge Racer", result.DatGameName);
+    }
+
+    [Fact]
     public void ClassifyFull_UnknownConsole_SingleMatch_ResolvesConsoleKey()
     {
         var index = new DatIndex();

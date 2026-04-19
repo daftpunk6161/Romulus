@@ -9,6 +9,61 @@ namespace Romulus.Tests;
 public sealed class DatAuditViewModelTests
 {
     [Fact]
+    public void LoadResult_BuildsTopCauseBreakdown_ForMissAndUnknown()
+    {
+        var vm = new DatAuditViewModel(dialog: new RecordingDialogService());
+        vm.LoadResult(new DatAuditResult(
+            Entries:
+            [
+                new DatAuditEntry(@"M:\\roms\\PSP\\game1.cso", "h1", DatAuditStatus.Miss, null, null, "PSP", 90),
+                new DatAuditEntry(@"M:\\roms\\PSP\\game2.cso", "h2", DatAuditStatus.Miss, null, null, "PSP", 90),
+                new DatAuditEntry(@"M:\\roms\\PS1\\disc1.chd", "h3", DatAuditStatus.Miss, null, null, "PS1", 90),
+                new DatAuditEntry(@"M:\\roms\\Unknown\\mystery.bin", "h4", DatAuditStatus.Unknown, null, null, "UNKNOWN", 60),
+                new DatAuditEntry(@"M:\\roms\\Unknown\\mystery2.bin", "h5", DatAuditStatus.Unknown, null, null, "UNKNOWN", 60),
+                new DatAuditEntry(@"N:\\other\\mystery3.iso", "h6", DatAuditStatus.Unknown, null, null, "UNKNOWN", 60)
+            ],
+            HaveCount: 0,
+            HaveWrongNameCount: 0,
+            MissCount: 3,
+            UnknownCount: 3,
+            AmbiguousCount: 0));
+
+        Assert.True(vm.HasCauseBreakdown);
+        Assert.Contains(vm.TopMissByConsole, static item => item.StartsWith("PSP: 2", StringComparison.Ordinal));
+        Assert.Contains(vm.TopUnknownByConsole, static item => item.StartsWith("UNKNOWN: 3", StringComparison.Ordinal));
+        Assert.Contains(vm.TopMissByExtension, static item => item.StartsWith(".cso: 2", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(vm.TopUnknownByExtension, static item => item.StartsWith(".bin: 2", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(vm.TopMissByRoot);
+        Assert.NotEmpty(vm.TopUnknownByRoot);
+    }
+
+    [Fact]
+    public void LoadResult_Empty_ClearsCauseBreakdown()
+    {
+        var vm = new DatAuditViewModel(dialog: new RecordingDialogService());
+        vm.LoadResult(new DatAuditResult(
+            Entries:
+            [
+                new DatAuditEntry(@"C:\\roms\\game.nes", "h", DatAuditStatus.Miss, null, null, "NES", 90)
+            ],
+            HaveCount: 0,
+            HaveWrongNameCount: 0,
+            MissCount: 1,
+            UnknownCount: 0,
+            AmbiguousCount: 0));
+
+        vm.LoadResult(null);
+
+        Assert.False(vm.HasCauseBreakdown);
+        Assert.Empty(vm.TopMissByConsole);
+        Assert.Empty(vm.TopUnknownByConsole);
+        Assert.Empty(vm.TopMissByExtension);
+        Assert.Empty(vm.TopUnknownByExtension);
+        Assert.Empty(vm.TopMissByRoot);
+        Assert.Empty(vm.TopUnknownByRoot);
+    }
+
+    [Fact]
     public void ExportCsvCommand_UsesInjectedDialogService()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "Romulus_DatAuditExport_" + Path.GetRandomFileName());

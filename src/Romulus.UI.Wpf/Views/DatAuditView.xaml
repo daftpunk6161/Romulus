@@ -12,6 +12,7 @@
   <Grid Margin="20,16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>  <!-- Summary bar -->
+      <RowDefinition Height="Auto"/>  <!-- Cause breakdown -->
       <RowDefinition Height="Auto"/>  <!-- Filter bar -->
       <RowDefinition Height="*"/>     <!-- DataGrid -->
     </Grid.RowDefinitions>
@@ -85,8 +86,78 @@
       </Grid>
     </Border>
 
+    <!-- ═══ CAUSE BREAKDOWN ═══════════════════════════════════════════ -->
+    <Border Grid.Row="1"
+            Visibility="{Binding HasCauseBreakdown, Converter={StaticResource BoolToVis}}"
+            Background="{DynamicResource BrushSurface}"
+            CornerRadius="{DynamicResource RadiusMD}"
+            Padding="12,10"
+            Margin="0,0,0,10">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+          <TextBlock Text="Top Konsole" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ItemsControl ItemsSource="{Binding TopMissByConsole}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#FF0044" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding TopUnknownByConsole}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#9999CC" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Margin="0,0,10,0">
+          <TextBlock Text="Top Endung" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ItemsControl ItemsSource="{Binding TopMissByExtension}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#FF0044" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding TopUnknownByExtension}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#9999CC" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2">
+          <TextBlock Text="Top Quelle" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <ItemsControl ItemsSource="{Binding TopMissByRoot}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#FF0044" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding TopUnknownByRoot}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#9999CC" FontSize="11" Margin="0,0,0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Grid>
+    </Border>
+
     <!-- ═══ FILTER BAR ════════════════════════════════════════════════ -->
-    <Grid Grid.Row="1" Margin="0,0,0,8">
+    <Grid Grid.Row="2" Margin="0,0,0,8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
@@ -116,7 +187,7 @@
     </Grid>
 
     <!-- ═══ DATA GRID ════════════════════════════════════════════════ -->
-    <DataGrid Grid.Row="2"
+    <DataGrid Grid.Row="3"
               ItemsSource="{Binding EntriesView}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
@@ -189,7 +260,7 @@
     </DataGrid>
 
     <!-- ═══ EMPTY STATE ══════════════════════════════════════════════ -->
-    <Border Grid.Row="2"
+    <Border Grid.Row="3"
             Visibility="{Binding HasData, Converter={StaticResource InverseBoolToVis}}"
             Background="{DynamicResource BrushSurface}"
             CornerRadius="{DynamicResource RadiusMD}"

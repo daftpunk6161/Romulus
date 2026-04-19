@@ -35,6 +35,12 @@ public sealed partial class DatAuditViewModel : ObservableObject
     // ═══ DATA ════════════════════════════════════════════════════════════
     public ObservableCollection<DatAuditEntry> Entries { get; } = [];
     public ICollectionView EntriesView { get; }
+    public ObservableCollection<string> TopMissByConsole { get; } = [];
+    public ObservableCollection<string> TopUnknownByConsole { get; } = [];
+    public ObservableCollection<string> TopMissByExtension { get; } = [];
+    public ObservableCollection<string> TopUnknownByExtension { get; } = [];
+    public ObservableCollection<string> TopMissByRoot { get; } = [];
+    public ObservableCollection<string> TopUnknownByRoot { get; } = [];
 
     // ═══ SUMMARY COUNTERS ═══════════════════════════════════════════════
     private int _haveCount;
@@ -56,6 +62,12 @@ public sealed partial class DatAuditViewModel : ObservableObject
     public int TotalCount { get => _totalCount; private set => SetProperty(ref _totalCount, value); }
 
     public bool HasData => TotalCount > 0;
+    public bool HasCauseBreakdown => TopMissByConsole.Count > 0
+                                     || TopUnknownByConsole.Count > 0
+                                     || TopMissByExtension.Count > 0
+                                     || TopUnknownByExtension.Count > 0
+                                     || TopMissByRoot.Count > 0
+                                     || TopUnknownByRoot.Count > 0;
 
     // ═══ FILTER ═════════════════════════════════════════════════════════
     public ObservableCollection<string> StatusFilterOptions { get; } = ["Alle", "Have", "Wrong Name", "Miss", "Unknown", "Ambiguous"];
@@ -105,6 +117,7 @@ public sealed partial class DatAuditViewModel : ObservableObject
         Entries.Clear();
         ConsoleFilterOptions.Clear();
         ConsoleFilterOptions.Add("Alle");
+        ClearCauseBreakdown();
 
         if (result is null || result.Entries.Count == 0)
         {
@@ -115,6 +128,7 @@ public sealed partial class DatAuditViewModel : ObservableObject
             AmbiguousCount = 0;
             TotalCount = 0;
             OnPropertyChanged(nameof(HasData));
+            OnPropertyChanged(nameof(HasCauseBreakdown));
             OnPropertyChanged(nameof(HasRenameEligibleEntries));
             return;
         }
@@ -139,11 +153,14 @@ public sealed partial class DatAuditViewModel : ObservableObject
         foreach (var console in consoles)
             ConsoleFilterOptions.Add(console);
 
+        PopulateCauseBreakdown(result.Entries);
+
         SelectedStatusFilter = "Alle";
         SelectedConsoleFilter = "Alle";
         SearchText = "";
 
         OnPropertyChanged(nameof(HasData));
+        OnPropertyChanged(nameof(HasCauseBreakdown));
         OnPropertyChanged(nameof(HasRenameEligibleEntries));
     }
 
@@ -232,4 +249,84 @@ public sealed partial class DatAuditViewModel : ObservableObject
 
     private static string CsvEscape(string value)
         => AuditCsvParser.SanitizeDatAuditCsvField(value);
+
+    private void ClearCauseBreakdown()
+    {
+        TopMissByConsole.Clear();
+        TopUnknownByConsole.Clear();
+        TopMissByExtension.Clear();
+        TopUnknownByExtension.Clear();
+        TopMissByRoot.Clear();
+        TopUnknownByRoot.Clear();
+    }
+
+    private void PopulateCauseBreakdown(IReadOnlyList<DatAuditEntry> entries)
+    {
+        PopulateTopBucket(TopMissByConsole, entries, DatAuditStatus.Miss, static e => NormalizeBucket(e.ConsoleKey, "UNKNOWN"));
+        PopulateTopBucket(TopUnknownByConsole, entries, DatAuditStatus.Unknown, static e => NormalizeBucket(e.ConsoleKey, "UNKNOWN"));
+
+        PopulateTopBucket(TopMissByExtension, entries, DatAuditStatus.Miss, static e => ExtractExtension(e.FilePath));
+        PopulateTopBucket(TopUnknownByExtension, entries, DatAuditStatus.Unknown, static e => ExtractExtension(e.FilePath));
+
+        PopulateTopBucket(TopMissByRoot, entries, DatAuditStatus.Miss, static e => ExtractSourceRoot(e.FilePath));
+        PopulateTopBucket(TopUnknownByRoot, entries, DatAuditStatus.Unknown, static e => ExtractSourceRoot(e.FilePath));
+    }
+
+    private static void PopulateTopBucket(
+        ObservableCollection<string> target,
+        IReadOnlyList<DatAuditEntry> entries,
+        DatAuditStatus status,
+        Func<DatAuditEntry, string> keySelector)
+    {
+        target.Clear();
+
+        var buckets = entries
+            .Where(e => e.Status == status)
+            .GroupBy(keySelector, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new { Bucket = group.Key, Count = group.Count() })
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Bucket, StringComparer.OrdinalIgnoreCase)
+            .Take(5);
+
+        foreach (var bucket in buckets)
+            target.Add($"{bucket.Bucket}: {bucket.Count}");
+    }
+
+    private static string ExtractExtension(string filePath)
+    {
+        var ext = Path.GetExtension(filePath)?.Trim();
+        return string.IsNullOrWhiteSpace(ext) ? "(ohne Endung)" : ext.ToLowerInvariant();
+    }
+
+    private static string ExtractSourceRoot(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return "(unbekannt)";
+
+        try
+        {
+            var full = Path.GetFullPath(filePath);
+            var root = Path.GetPathRoot(full) ?? string.Empty;
+            var relative = full.Substring(root.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (string.IsNullOrWhiteSpace(relative))
+                return NormalizeBucket(root, "(unbekannt)");
+
+            var firstSegment = relative.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(firstSegment))
+                return NormalizeBucket(root, "(unbekannt)");
+
+            if (string.IsNullOrWhiteSpace(root))
+                return firstSegment;
+
+            return Path.Combine(root, firstSegment);
+        }
+        catch (Exception)
+        {
+            return "(unbekannt)";
+        }
+    }
+
+    private static string NormalizeBucket(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }

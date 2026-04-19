@@ -158,6 +158,51 @@ public sealed partial class RunOrchestrator
         return false;
     }
 
+    private bool TryGeneratePartialDatAudit(RunResultBuilder result, RunOptions options, string terminalStatus)
+    {
+        if (!options.EnableDatAudit || _datIndex is null)
+            return false;
+
+        if (result.DatAuditResult is { Entries.Count: > 0 })
+            return true;
+
+        if (result.AllCandidates.Count == 0)
+            return false;
+
+        try
+        {
+            _onProgress?.Invoke($"[DatAudit] Writing partial DAT audit for {terminalStatus} run...");
+
+            var phase = new DatAuditPipelinePhase();
+            var metrics = new PhaseMetricsCollector();
+            metrics.Initialize();
+            var context = new PipelineContext
+            {
+                Options = options,
+                FileSystem = _fs,
+                AuditStore = _audit,
+                Metrics = metrics,
+                OnProgress = _onProgress
+            };
+
+            var datAudit = phase.Execute(new DatAuditInput(result.AllCandidates, _datIndex, options), context, CancellationToken.None);
+            result.DatAuditResult = datAudit;
+            result.DatHaveCount = datAudit.HaveCount;
+            result.DatHaveWrongNameCount = datAudit.HaveWrongNameCount;
+            result.DatMissCount = datAudit.MissCount;
+            result.DatUnknownCount = datAudit.UnknownCount;
+            result.DatAmbiguousCount = datAudit.AmbiguousCount;
+
+            _onProgress?.Invoke($"[DatAudit] Partial DAT audit written: {datAudit.Entries.Count} entries");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _onProgress?.Invoke($"[DatAudit] Partial DAT audit failed: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
+
     internal static RunOutcome ResolveRunOutcome(RunResultBuilder result)
     {
         var hasErrors = result.ConvertErrorCount > 0
