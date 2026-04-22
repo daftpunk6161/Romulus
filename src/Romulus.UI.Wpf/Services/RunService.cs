@@ -109,6 +109,7 @@ public sealed class RunService : IRunService
         var orchestrator = new RunOrchestrator(
             env.FileSystem, env.AuditStore, env.ConsoleDetector, env.HashService, env.Converter, env.DatIndex, onProgress,
             archiveHashService: env.ArchiveHashService,
+            headerlessHasher: env.HeaderlessHasher,
             knownBiosHashes: env.KnownBiosHashes,
             collectionIndex: env.CollectionIndex,
             enrichmentFingerprint: env.EnrichmentFingerprint,

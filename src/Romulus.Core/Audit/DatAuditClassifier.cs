@@ -1,3 +1,4 @@
+using Romulus.Contracts;
 using Romulus.Contracts.Models;
 
 namespace Romulus.Core.Audit;
@@ -228,7 +229,7 @@ public static partial class DatAuditClassifier
             return false;
 
         var extension = Path.GetExtension(actualFileName);
-        if (!OpticalFallbackExtensions.Contains(extension))
+        if (!DiscFormats.IsDatNameOnlyExtensionWithoutBin(extension))
             return false;
 
         var stem = NormalizeComparableStem(Path.GetFileNameWithoutExtension(actualFileName));
@@ -261,16 +262,6 @@ public static partial class DatAuditClassifier
 
     [System.Text.RegularExpressions.GeneratedRegex(@"\s*\(track\s*\d+\)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
     private static partial System.Text.RegularExpressions.Regex TrackSuffixRegex();
-
-    private static readonly HashSet<string> OpticalFallbackExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".chd",
-        ".cue",
-        ".ccd",
-        ".iso",
-        ".img",
-        ".mds"
-    };
 
     [System.Text.RegularExpressions.GeneratedRegex(@"^(track|disc|disk|cd|dvd|rom)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
     private static partial System.Text.RegularExpressions.Regex GenericNameStemRegex();

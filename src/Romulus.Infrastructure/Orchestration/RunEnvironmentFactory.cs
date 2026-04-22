@@ -14,6 +14,7 @@ public interface IRunEnvironment : IDisposable
     ConsoleDetector? ConsoleDetector { get; }
     FileHashService? HashService { get; }
     ArchiveHashService? ArchiveHashService { get; }
+    IHeaderlessHasher? HeaderlessHasher { get; }
     IFormatConverter? Converter { get; }
     DatIndex? DatIndex { get; }
     IReadOnlySet<string>? KnownBiosHashes { get; }

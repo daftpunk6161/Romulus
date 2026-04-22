@@ -133,6 +133,7 @@ public sealed class RunManager : IDisposable, IAsyncDisposable
                 run.ProgressPercent = ProgressEstimator.EstimateFromMessage(msg);
             },
             archiveHashService: env.ArchiveHashService,
+            headerlessHasher: env.HeaderlessHasher,
             knownBiosHashes: env.KnownBiosHashes,
             collectionIndex: env.CollectionIndex,
             enrichmentFingerprint: env.EnrichmentFingerprint,

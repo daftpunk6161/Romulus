@@ -282,6 +282,7 @@ public sealed class RunEnvironmentBuilderTests : IDisposable
 
         Assert.NotNull(env.HashService);
         Assert.True(env.HashService!.IsPersistent);
+        Assert.NotNull(env.HeaderlessHasher);
         Assert.NotNull(env.CollectionIndex);
         Assert.False(string.IsNullOrWhiteSpace(env.EnrichmentFingerprint));
     }

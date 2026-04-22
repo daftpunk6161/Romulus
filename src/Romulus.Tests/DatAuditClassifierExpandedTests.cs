@@ -320,6 +320,42 @@ public sealed class DatAuditClassifierExpandedTests
     }
 
     [Fact]
+    public void ClassifyFull_KnownConsole_CsoMiss_UsesUniqueNameFallback()
+    {
+        var index = new DatIndex();
+        index.Add("PSP", "hash-1", "Ace Combat X", "Ace Combat X - Skies of Deception (USA).iso");
+
+        var result = DatAuditClassifier.ClassifyFull(
+            hash: "no-match",
+            headerlessHash: null,
+            actualFileName: "Ace Combat X - Skies of Deception (USA).cso",
+            consoleKey: "PSP",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("PSP", result.ResolvedConsoleKey);
+        Assert.Equal("Ace Combat X", result.DatGameName);
+    }
+
+    [Fact]
+    public void ClassifyFull_UnknownConsole_CsoUnknown_UsesUniqueCrossConsoleNameFallback()
+    {
+        var index = new DatIndex();
+        index.Add("PSP", "hash-1", "Lumines", "Lumines (Europe).iso");
+
+        var result = DatAuditClassifier.ClassifyFull(
+            hash: "no-match",
+            headerlessHash: null,
+            actualFileName: "Lumines (Europe).cso",
+            consoleKey: "UNKNOWN",
+            datIndex: index);
+
+        Assert.Equal(DatAuditStatus.Have, result.Status);
+        Assert.Equal("PSP", result.ResolvedConsoleKey);
+        Assert.Equal("Lumines", result.DatGameName);
+    }
+
+    [Fact]
     public void ClassifyFull_UnknownConsole_SingleMatch_ResolvesConsoleKey()
     {
         var index = new DatIndex();

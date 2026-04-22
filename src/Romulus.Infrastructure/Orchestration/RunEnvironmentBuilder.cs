@@ -525,6 +525,7 @@ public sealed class RunEnvironmentBuilder
         // DAT
         DatIndex? datIndex = null;
         FileHashService? hashService = null;
+        IHeaderlessHasher? headerlessHasher = null;
         ICollectionIndex? collectionIndex = null;
         var knownBiosHashes = LoadKnownBiosHashes(dataDir, onWarning);
         var datRootResolution = ResolveEffectiveDatRoot(runOptions, settings, dataDir);
@@ -562,6 +563,7 @@ public sealed class RunEnvironmentBuilder
             hashService = collectionIndex is not null
                 ? new FileHashService(collectionIndex: collectionIndex)
                 : new FileHashService(persistentCachePath: FileHashService.ResolveDefaultPersistentCachePath());
+            headerlessHasher = new HeaderlessHasher();
         }
 
         if (runOptions.EnableDat
@@ -642,6 +644,7 @@ public sealed class RunEnvironmentBuilder
             audit,
             consoleDetector,
             hashService,
+            headerlessHasher,
             converter,
             datIndex,
             archiveHashService,
@@ -1567,6 +1570,7 @@ public sealed class RunEnvironment
     public ConsoleDetector? ConsoleDetector { get; }
     public FileHashService? HashService { get; }
     public ArchiveHashService? ArchiveHashService { get; }
+    public IHeaderlessHasher? HeaderlessHasher { get; }
     public IFormatConverter? Converter { get; }
     public DatIndex? DatIndex { get; }
     public IReadOnlySet<string>? KnownBiosHashes { get; }
@@ -1575,6 +1579,7 @@ public sealed class RunEnvironment
 
     public RunEnvironment(FileSystemAdapter fileSystem, AuditCsvStore audit,
         ConsoleDetector? consoleDetector, FileHashService? hashService,
+        IHeaderlessHasher? headerlessHasher,
         FormatConverterAdapter? converter, DatIndex? datIndex,
         ArchiveHashService? archiveHashService = null,
         IReadOnlySet<string>? knownBiosHashes = null,
@@ -1586,6 +1591,7 @@ public sealed class RunEnvironment
         ConsoleDetector = consoleDetector;
         HashService = hashService;
         ArchiveHashService = archiveHashService;
+        HeaderlessHasher = headerlessHasher;
         Converter = converter;
         DatIndex = datIndex;
         KnownBiosHashes = knownBiosHashes;

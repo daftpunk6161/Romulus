@@ -271,6 +271,7 @@ internal static partial class Program
                     env.DatIndex,
                     onProgress: SafeErrorWriteLine,
                     archiveHashService: env.ArchiveHashService,
+                    headerlessHasher: env.HeaderlessHasher,
                     knownBiosHashes: env.KnownBiosHashes,
                     collectionIndex: env.CollectionIndex,
                     enrichmentFingerprint: env.EnrichmentFingerprint,
