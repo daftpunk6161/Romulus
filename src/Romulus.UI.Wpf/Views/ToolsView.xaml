@@ -111,6 +111,21 @@
                        FontSize="10" FontWeight="SemiBold"/>
           </Grid>
         </Button>
+
+        <!-- D7: Info-Button oeffnet Tool-Documentation-Drawer -->
+        <Button Width="24" Height="24"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,8,56,0"
+                Command="{Binding DataContext.ShowToolDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding}"
+                Style="{StaticResource HeaderActionButton}"
+                ToolTip="Werkzeug-Dokumentation anzeigen"
+                AutomationProperties.Name="Werkzeug-Dokumentation anzeigen">
+          <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                     Foreground="{DynamicResource BrushAccentCyan}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
       </Grid>
     </DataTemplate>
 
@@ -445,5 +460,93 @@
         </Grid>
       </ScrollViewer>
     </DockPanel>
+
+    <!-- D7 (UX-Redesign Phase 3): Tool-Documentation-Drawer.
+         Overlay rechts in der Tools-Spalte, sichtbar wenn SelectedToolDoc != null.
+         Single source of truth fuer Tool-Doku (Daten kommen aus dem ToolItem-Modell:
+         Description, MaturityDescription, MaturityBadgeText, RecommendationReason,
+         AvailabilityText). Kein parallel-Datenpfad. -->
+    <Border Grid.Column="2"
+            HorizontalAlignment="Right"
+            Width="380"
+            Background="{DynamicResource BrushSurface}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="1,0,0,0"
+            Visibility="{Binding IsToolDocOpen, Converter={StaticResource BoolToVis}}"
+            DataContext="{Binding SelectedToolDoc}"
+            AutomationProperties.Name="Werkzeug-Dokumentation">
+      <DockPanel LastChildFill="True">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurfaceAlt}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="16,12">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                       Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"
+                       Margin="0,0,12,0"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="14"
+                         Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding Category}" Style="{StaticResource CaptionText}" Margin="0,2,0,0"/>
+            </StackPanel>
+            <Button Grid.Column="2" Width="28" Height="28" MinHeight="28"
+                    Style="{StaticResource HeaderActionButton}"
+                    Command="{Binding DataContext.CloseToolDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    ToolTip="Schliessen"
+                    AutomationProperties.Name="Werkzeug-Dokumentation schliessen">
+              <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="{DynamicResource BrushTextPrimary}"/>
+            </Button>
+          </Grid>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,14">
+          <StackPanel>
+            <Border Background="{DynamicResource BrushSuccessBg}" BorderBrush="{DynamicResource BrushSuccess}"
+                    BorderThickness="1" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,12">
+              <TextBlock Text="{Binding MaturityBadgeText}" FontSize="10" FontWeight="SemiBold"
+                         Foreground="{DynamicResource BrushSuccess}"/>
+            </Border>
+
+            <TextBlock Text="Beschreibung" FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,14"/>
+
+            <TextBlock Text="Reifegrad" FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding MaturityDescription}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,14"/>
+
+            <TextBlock Text="Empfehlung" FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,4"
+                       Visibility="{Binding HasRecommendationReason, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{Binding RecommendationReason}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,14"
+                       Visibility="{Binding HasRecommendationReason, Converter={StaticResource BoolToVis}}"/>
+
+            <TextBlock Text="Verfuegbarkeit" FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource BrushWarning}" Margin="0,0,0,4"
+                       Visibility="{Binding HasAvailabilityText, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{Binding AvailabilityText}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushWarning}" Margin="0,0,0,14"
+                       Visibility="{Binding HasAvailabilityText, Converter={StaticResource BoolToVis}}"/>
+
+            <Button Content="Werkzeug starten" Padding="12,8" MinHeight="40"
+                    Margin="0,8,0,0"
+                    Command="{Binding Command}"
+                    Background="{DynamicResource BrushAccentCyan}"
+                    Foreground="{DynamicResource BrushBackground}"
+                    FontWeight="SemiBold"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="Werkzeug starten"/>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
   </Grid>
 </UserControl>

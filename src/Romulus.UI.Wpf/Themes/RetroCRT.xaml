@@ -38,6 +38,9 @@
     <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#33FF3333"/>
     <!-- GUI-P1: #000000→#0A200A für konsistente Retro-Identität auf #33FF33 -->
     <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#0A200A"/>
+
+    <!-- D6 (UX-Redesign Phase 3): Retro-Glow fuer Akzent-Komponenten. -->
+    <DropShadowEffect x:Key="EffectAccentGlow" Color="#33FF33" BlurRadius="12" ShadowDepth="0" Opacity="0.7"/>
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#33FF3355"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#33FF3377"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#FF222222"/>

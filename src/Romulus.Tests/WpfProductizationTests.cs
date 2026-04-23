@@ -764,6 +764,87 @@ public sealed class WpfProductizationTests : IDisposable
     }
 
     [Fact]
+    public void D6_AllThemes_DefineEffectAccentGlow()
+    {
+        // D6 (UX-Redesign Phase 3): Jedes Theme muss eine EffectAccentGlow-Resource liefern,
+        // damit CommandBar-Logo und andere Akzent-Komponenten uniform via DynamicResource
+        // aufloesen koennen. Retro-Themes liefern echten Neon-DropShadow, Clean/HighContrast
+        // eine transparente Dummy-Effect (kein visueller Unterschied, aber einheitlicher Key).
+        string[] themes =
+        {
+            "SynthwaveDark.xaml",
+            "RetroCRT.xaml",
+            "ArcadeNeon.xaml",
+            "Light.xaml",
+            "CleanDarkPro.xaml",
+            "CleanDaylight.xaml",
+            "HighContrast.xaml",
+        };
+
+        foreach (var theme in themes)
+        {
+            var xaml = File.ReadAllText(FindUiFile("Themes", theme));
+            Assert.Contains("x:Key=\"EffectAccentGlow\"", xaml, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void D6_CommandBar_LogoRespectsReduceMotion()
+    {
+        // D6 (UX-Redesign Phase 3): Das CommandBar-Logo bindet EffectAccentGlow ueber
+        // DynamicResource und muss via ReduceMotion-DataTrigger auf {x:Null} zurueckfallen,
+        // damit Barrierefreiheits-Nutzer keine Glow-Effekte sehen.
+        var commandBarXaml = File.ReadAllText(FindUiFile("Views", "CommandBar.xaml"));
+
+        Assert.Contains("EffectAccentGlow", commandBarXaml, StringComparison.Ordinal);
+        Assert.Contains("Shell.ReduceMotion", commandBarXaml, StringComparison.Ordinal);
+        Assert.Contains("Value=\"{x:Null}\"", commandBarXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D7_ToolsViewModel_HasToolDocCommands()
+    {
+        // D7 (UX-Redesign Phase 3): ToolsViewModel muss SelectedToolDoc / IsToolDocOpen /
+        // ShowToolDocCommand / CloseToolDocCommand exponieren, damit ein Info-Drawer
+        // aus der ToolCard heraus geoeffnet und wieder geschlossen werden kann.
+        var vm = File.ReadAllText(FindUiFile("ViewModels", "ToolsViewModel.cs"));
+
+        Assert.Contains("SelectedToolDoc", vm, StringComparison.Ordinal);
+        Assert.Contains("IsToolDocOpen", vm, StringComparison.Ordinal);
+        Assert.Contains("ShowToolDocCommand", vm, StringComparison.Ordinal);
+        Assert.Contains("CloseToolDocCommand", vm, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D7_ToolsView_HasToolDocDrawer()
+    {
+        // D7 (UX-Redesign Phase 3): ToolsView muss einen Doku-Drawer (rechts, 380px) besitzen,
+        // der SelectedToolDoc anzeigt, ueber IsToolDocOpen sichtbar wird und per Info-Button
+        // aus der ToolCard geoeffnet wird.
+        var toolsViewXaml = File.ReadAllText(FindUiFile("Views", "ToolsView.xaml"));
+
+        Assert.Contains("IsToolDocOpen", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedToolDoc", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowToolDocCommand", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("CloseToolDocCommand", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"380\"", toolsViewXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D7_ExecuteTool_ClosesDrawer()
+    {
+        // D7 (UX-Redesign Phase 3): Wird ein Tool gestartet, dessen Doku gerade offen ist,
+        // muss der Drawer automatisch schliessen, um den Fokus auf die Ausfuehrung zu legen.
+        var vm = File.ReadAllText(FindUiFile("ViewModels", "ToolsViewModel.cs"));
+
+        // ExecuteTool setzt SelectedToolDoc = null, wenn der ausgefuehrte Tool-Key
+        // zum aktuell geoeffneten Drawer passt.
+        Assert.Matches(
+            @"ExecuteTool\s*\([^)]*\)[\s\S]*?SelectedToolDoc\s*=\s*null",
+            vm);
+    }
+
+    [Fact]
     public void D8_SystemArea_OffersTabSeparatedSettings()
     {
         // D8 (UX-Redesign Phase 3): System-Bereich muss Settings nach Sub-Tabs aufteilen

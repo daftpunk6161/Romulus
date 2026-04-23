@@ -36,6 +36,10 @@
     <SolidColorBrush x:Key="BrushBorderHover"     Color="#005A9E"/>
     <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#005A9E"/>
     <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#FFFFFF"/>
+
+    <!-- D6 (UX-Redesign Phase 3): Kein Glow in Clean-Themes. Transparente
+         Dummy-Effect stellt sicher, dass DynamicResource in jedem Theme aufloest. -->
+    <DropShadowEffect x:Key="EffectAccentGlow" Color="Transparent" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#004C8C"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#003D73"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#C6282811"/>

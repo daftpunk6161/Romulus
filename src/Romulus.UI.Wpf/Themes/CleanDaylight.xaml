@@ -29,6 +29,9 @@
     <SolidColorBrush x:Key="BrushBorderHover"     Color="#004F93"/>
     <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#004F93"/>
     <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#FFFFFF"/>
+
+    <!-- D6 (UX-Redesign Phase 3): Kein Glow in Clean-Themes. -->
+    <DropShadowEffect x:Key="EffectAccentGlow" Color="Transparent" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#003F77"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#00315D"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#BE2C2C11"/>

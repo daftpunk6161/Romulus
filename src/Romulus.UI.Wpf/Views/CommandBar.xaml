@@ -17,6 +17,19 @@
         <Border Width="32" Height="32" CornerRadius="9"
                 BorderBrush="{DynamicResource BrushAccentCyan}" BorderThickness="1.5"
                 Background="#0B2230" Margin="0,0,10,0">
+          <!-- D6 (UX-Redesign Phase 3): Retro-Glow via themenspezifischer EffectAccentGlow-Resource.
+               Clean/HighContrast Themes liefern eine transparente Dummy-Effect, Retro-Themes einen
+               Neon-DropShadow. ReduceMotion-Trigger setzt Effect explizit zurueck (Barrierefreiheit). -->
+          <Border.Style>
+            <Style TargetType="Border">
+              <Setter Property="Effect" Value="{DynamicResource EffectAccentGlow}"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Shell.ReduceMotion}" Value="True">
+                  <Setter Property="Effect" Value="{x:Null}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
           <views:RomulusLogoMark Width="26" Height="26"
                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Border>

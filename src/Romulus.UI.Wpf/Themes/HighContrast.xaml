@@ -41,6 +41,9 @@
     <SolidColorBrush x:Key="BrushBorderHover"     Color="#FFFF00"/>
     <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#FFFF00"/>
     <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#000000"/>
+
+    <!-- D6 (UX-Redesign Phase 3): HighContrast ohne Glow (sonst Kontrast-Verwaschung). -->
+    <DropShadowEffect x:Key="EffectAccentGlow" Color="Transparent" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#CCCC00"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#999900"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#FF333333"/>

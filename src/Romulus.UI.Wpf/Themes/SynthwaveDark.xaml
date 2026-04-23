@@ -39,6 +39,11 @@
     <SolidColorBrush x:Key="BrushBorderHover"     Color="#4040A0"/>
     <SolidColorBrush x:Key="BrushPrimaryBg"       Color="#00F5FF33"/>
     <SolidColorBrush x:Key="BrushTextOnAccent"    Color="#FFFFFF"/>
+
+    <!-- D6 (UX-Redesign Phase 3): Retro-Glow fuer Akzent-Komponenten.
+         Wird von CommandBar-Logo via DynamicResource gezogen; Konsument ist
+         fuer ReduceMotion-Respekt zustaendig (DataTrigger auf Shell.ReduceMotion). -->
+    <DropShadowEffect x:Key="EffectAccentGlow" Color="#00F5FF" BlurRadius="14" ShadowDepth="0" Opacity="0.75"/>
     <SolidColorBrush x:Key="BrushPrimaryHover"    Color="#00F5FF55"/>
     <SolidColorBrush x:Key="BrushPrimaryActive"   Color="#00F5FF77"/>
     <SolidColorBrush x:Key="BrushDangerHover"     Color="#FF004422"/>

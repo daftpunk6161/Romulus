@@ -69,6 +69,26 @@ public sealed class ToolsViewModel : ObservableObject
 
     public IRelayCommand<string> ToggleToolPinCommand { get; }
 
+    // ═══ D7 (UX-Redesign Phase 3): TOOL DOCUMENTATION DRAWER ═════════
+    // Single source of truth fuer das aktuell im Drawer angezeigte Tool.
+    // Drawer schliesst sich automatisch, wenn das Tool ausgefuehrt wird
+    // (siehe ExecuteTool) — verhindert verwaiste Doc-Anzeige nach Aktion.
+    private ToolItem? _selectedToolDoc;
+    public ToolItem? SelectedToolDoc
+    {
+        get => _selectedToolDoc;
+        private set
+        {
+            if (SetProperty(ref _selectedToolDoc, value))
+                OnPropertyChanged(nameof(IsToolDocOpen));
+        }
+    }
+
+    public bool IsToolDocOpen => _selectedToolDoc is not null;
+
+    public IRelayCommand<ToolItem> ShowToolDocCommand { get; }
+    public IRelayCommand CloseToolDocCommand { get; }
+
     private string _toolFilterText = "";
     public string ToolFilterText
     {
@@ -133,6 +153,12 @@ public sealed class ToolsViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(toolKey))
                 ToggleToolPin(toolKey);
         });
+        ShowToolDocCommand = new RelayCommand<ToolItem>(item =>
+        {
+            if (item is not null)
+                SelectedToolDoc = item;
+        });
+        CloseToolDocCommand = new RelayCommand(() => SelectedToolDoc = null);
         InitToolItems();
     }
 
@@ -511,6 +537,11 @@ public sealed class ToolsViewModel : ObservableObject
     {
         if (!FeatureCommands.TryGetValue(toolKey, out var command) || !command.CanExecute(null))
             return;
+
+        // D7: Drawer schliesst sich automatisch beim Starten eines Tools,
+        // damit nach der Ausfuehrung kein verwaister Doc-Flyout offen bleibt.
+        if (SelectedToolDoc is not null && string.Equals(SelectedToolDoc.Key, toolKey, StringComparison.Ordinal))
+            SelectedToolDoc = null;
 
         command.Execute(null);
         RecordToolUsage(toolKey);
