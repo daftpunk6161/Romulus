@@ -31,6 +31,9 @@ public enum PlatformFamily
     /// Container-specific handling required.</summary>
     Hybrid,
 
+    /// <summary>Engine-driven platforms (e.g., MUGEN) that are not ROM family bound.</summary>
+    Engine,
+
     /// <summary>Platform family not determined.</summary>
     Unknown,
 }

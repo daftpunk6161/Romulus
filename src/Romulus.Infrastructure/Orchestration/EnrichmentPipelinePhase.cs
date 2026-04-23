@@ -276,7 +276,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         // DAT authority — tier-based decision. DAT remains the highest authority.
         // Derive conflict type from detector result for family-aware escalation.
         var conflictType = detectionResult?.ConflictType ?? ConflictType.None;
-        var datAvailableForConsole = datIndex is not null && datIndex.ConsoleCount > 0;
+        var datAvailableForConsole = IsDatAvailableForConsole(datIndex, consoleKey, detectionResult);
 
         if (datResult.DatMatch && consoleKey is not "")
         {
@@ -473,23 +473,22 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             {
                 computedHash ??= innerHash;
 
-                // DAT-first: always try cross-console lookup first, even when consoleKey is known.
-                // This catches misdetections where Detection assigned the wrong console.
-                var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, innerHash, consoleKey, detectionResult, filePath, consoleDetector, onProgress);
-                if (crossConsoleResult.IsMatch)
+                var policyResult = TryPolicyAwareDatLookup(datIndex, innerHash, consoleKey, datPolicy,
+                    detectionResult, filePath, consoleDetector, onProgress);
+                if (policyResult.IsMatch)
                 {
                     datMatch = true;
                     computedHash = innerHash;
-                    datMatchedBios = crossConsoleResult.IsBios;
-                    datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
-                    datGameName = crossConsoleResult.DatGameName;
+                    datMatchedBios = policyResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
+                    datGameName = policyResult.DatGameName;
                     datMatchKind = MatchKind.ArchiveInnerExactDat;
-                    if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
+                    if (!string.Equals(consoleKey, policyResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
                         && consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                     {
                         datConsoleSwitched = true;
                     }
-                    consoleKey = crossConsoleResult.ConsoleKey!;
+                    consoleKey = policyResult.ConsoleKey!;
                     break;
                 }
             }
@@ -502,29 +501,20 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             computedHeaderlessHash = headerlessHasher.ComputeHeaderlessHash(filePath, consoleKey, context.Options.HashType);
             if (computedHeaderlessHash is not null)
             {
-                if (datIndex.Lookup(consoleKey, computedHeaderlessHash) is not null)
+                var policyResult = TryPolicyAwareDatLookup(datIndex, computedHeaderlessHash, consoleKey, datPolicy,
+                    detectionResult, filePath, consoleDetector, onProgress);
+                if (policyResult.IsMatch)
                 {
                     datMatch = true;
-                    datGameName = datIndex.LookupWithFilename(consoleKey, computedHeaderlessHash)?.GameName;
+                    datMatchedBios = policyResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
+                    datGameName = policyResult.DatGameName;
                     datMatchKind = MatchKind.HeaderlessDatHash;
-                }
-                else
-                {
-                    // Cross-console fallback: headerless hash might match a different console's DAT
-                    var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, computedHeaderlessHash, consoleKey, detectionResult, filePath, consoleDetector, onProgress);
-                    if (crossConsoleResult.IsMatch)
+                    if (!string.Equals(consoleKey, policyResult.ConsoleKey, StringComparison.OrdinalIgnoreCase))
                     {
-                        datMatch = true;
-                        datMatchedBios = crossConsoleResult.IsBios;
-                        datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
-                        datGameName = crossConsoleResult.DatGameName;
-                        datMatchKind = MatchKind.HeaderlessDatHash;
-                        if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            datConsoleSwitched = true;
-                        }
-                        consoleKey = crossConsoleResult.ConsoleKey!;
+                        datConsoleSwitched = true;
                     }
+                    consoleKey = policyResult.ConsoleKey!;
                 }
             }
         }
@@ -537,22 +527,22 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             {
                 computedHash ??= hash;
 
-                // DAT-first: always try cross-console lookup for container hash too
-                var crossConsoleResult = TryCrossConsoleDatLookup(datIndex, hash, consoleKey, detectionResult, filePath, consoleDetector, onProgress);
-                if (crossConsoleResult.IsMatch)
+                var policyResult = TryPolicyAwareDatLookup(datIndex, hash, consoleKey, datPolicy,
+                    detectionResult, filePath, consoleDetector, onProgress);
+                if (policyResult.IsMatch)
                 {
                     datMatch = true;
                     computedHash = hash;
-                    datMatchedBios = crossConsoleResult.IsBios;
-                    datResolvedFromAmbiguousCandidates = crossConsoleResult.ResolvedFromAmbiguousCandidates;
-                    datGameName = crossConsoleResult.DatGameName;
+                    datMatchedBios = policyResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
+                    datGameName = policyResult.DatGameName;
                     datMatchKind = lowerExt == ".chd" ? MatchKind.ChdRawDatHash : MatchKind.ExactDatHash;
-                    if (!string.Equals(consoleKey, crossConsoleResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
+                    if (!string.Equals(consoleKey, policyResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
                         && consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                     {
                         datConsoleSwitched = true;
                     }
-                    consoleKey = crossConsoleResult.ConsoleKey!;
+                    consoleKey = policyResult.ConsoleKey!;
                     break;
                 }
                 else if (consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
@@ -571,21 +561,22 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             var dataSha1 = chdTrackHashExtractor.ExtractDataSha1(filePath);
             if (dataSha1 is not null)
             {
-                var crossResult = TryCrossConsoleDatLookup(datIndex, dataSha1, consoleKey, detectionResult, filePath, consoleDetector, onProgress);
-                if (crossResult.IsMatch)
+                var policyResult = TryPolicyAwareDatLookup(datIndex, dataSha1, consoleKey, datPolicy,
+                    detectionResult, filePath, consoleDetector, onProgress);
+                if (policyResult.IsMatch)
                 {
                     datMatch = true;
                     computedHash = dataSha1;
-                    datMatchedBios = crossResult.IsBios;
-                    datResolvedFromAmbiguousCandidates = crossResult.ResolvedFromAmbiguousCandidates;
-                    datGameName = crossResult.DatGameName;
+                    datMatchedBios = policyResult.IsBios;
+                    datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
+                    datGameName = policyResult.DatGameName;
                     datMatchKind = MatchKind.ChdDataSha1DatHash;
-                    if (!string.Equals(consoleKey, crossResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
+                    if (!string.Equals(consoleKey, policyResult.ConsoleKey, StringComparison.OrdinalIgnoreCase)
                         && consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                     {
                         datConsoleSwitched = true;
                     }
-                    consoleKey = crossResult.ConsoleKey!;
+                    consoleKey = policyResult.ConsoleKey!;
                 }
             }
         }
@@ -603,90 +594,98 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
                 var isUnknownConsole = consoleKey is "UNKNOWN" or "" or "AMBIGUOUS";
                 if (isUnknownConsole)
                 {
-                    if (!DiscFormats.IsDatNameOnlyExtensionWithoutBin(lowerExt))
-                    {
-                        // Unknown-console name-only fallback is intentionally limited to disc-like extensions.
-                    }
-                    else
-                    {
-                    // Conservative guard: unknown-console name-only fallback only with detector context.
-                    // This prevents pre-detection false positives for families where name-only matching is unsafe.
-                    if (detectionResult is null)
+                    if (!datPolicy.EnableCrossConsoleLookup)
                     {
                         onProgress?.Invoke(
-                            $"[DAT] Name-Only-Fallback uebersprungen (kein Detector-Kontext): {Path.GetFileName(filePath)}");
+                            $"[DAT] Name-Only-Fallback uebersprungen (Cross-Console deaktiviert): {Path.GetFileName(filePath)}");
                     }
                     else
                     {
-                        var nameMatches = LookupAllByNames(datIndex, lookupNames);
-                        if (nameMatches.Count == 1)
+                        if (!DiscFormats.IsDatNameOnlyExtensionWithoutBin(lowerExt))
                         {
-                            var candidateConsole = nameMatches[0].ConsoleKey;
-
-                            // Extension plausibility guard for name-only single match
-                            var nameExtConsole = consoleDetector?.DetectByExtension(ext);
-                            if (nameExtConsole is not null
-                                && !string.Equals(nameExtConsole, candidateConsole, StringComparison.OrdinalIgnoreCase))
+                            // Unknown-console name-only fallback is intentionally limited to disc-like extensions.
+                        }
+                        else
+                        {
+                            // Conservative guard: unknown-console name-only fallback only with detector context.
+                            // This prevents pre-detection false positives for families where name-only matching is unsafe.
+                            if (detectionResult is null)
                             {
                                 onProgress?.Invoke(
-                                    $"[DAT] Name-Only Extension-Plausibilitaet verletzt: {Path.GetFileName(filePath)} hat uniqueExt fuer {nameExtConsole}, DAT sagt {candidateConsole} → verworfen");
+                                    $"[DAT] Name-Only-Fallback uebersprungen (kein Detector-Kontext): {Path.GetFileName(filePath)}");
                             }
                             else
                             {
-                                datMatch = true;
-                                datNameOnlyMatch = true;
-                                datMatchKind = MatchKind.DatNameOnlyMatch;
-                                var previousConsole = consoleKey;
-                                consoleKey = candidateConsole;
-                                datMatchedBios = nameMatches[0].Entry.IsBios;
-                                datGameName = nameMatches[0].Entry.GameName;
-                                if (!string.IsNullOrEmpty(previousConsole) &&
-                                    previousConsole != "UNKNOWN" &&
-                                    !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                                var nameMatches = LookupAllByNames(datIndex, lookupNames);
+                                if (nameMatches.Count == 1)
                                 {
-                                    datConsoleSwitched = true;
-                                }
+                                    var candidateConsole = nameMatches[0].ConsoleKey;
 
-                                onProgress?.Invoke(
-                                    $"[DAT] Konsole via DAT-Name erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
-                            }
-                        }
-                        else if (nameMatches.Count > 1)
-                        {
-                            var resolution = ResolveUnknownDatNameMatch(nameMatches, detectionResult);
-                            if (resolution.IsMatch)
-                            {
-                                // Extension plausibility guard for name-only multi match
-                                var nameMultiExtConsole = consoleDetector?.DetectByExtension(ext);
-                                if (nameMultiExtConsole is not null
-                                    && !string.Equals(nameMultiExtConsole, resolution.ConsoleKey, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    onProgress?.Invoke(
-                                        $"[DAT] Name-Only Extension-Plausibilitaet verletzt: {Path.GetFileName(filePath)} hat uniqueExt fuer {nameMultiExtConsole}, DAT sagt {resolution.ConsoleKey} → verworfen");
-                                }
-                                else
-                                {
-                                    datMatch = true;
-                                    datNameOnlyMatch = true;
-                                    datMatchKind = MatchKind.DatNameOnlyMatch;
-                                    datMatchedBios = resolution.IsBios;
-                                    datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
-                                    datGameName = resolution.DatGameName;
-                                    var previousConsole = consoleKey;
-                                    consoleKey = resolution.ConsoleKey!;
-                                    if (!string.IsNullOrEmpty(previousConsole) &&
-                                        previousConsole != "UNKNOWN" &&
-                                        !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                                    // Extension plausibility guard for name-only single match
+                                    var nameExtConsole = consoleDetector?.DetectByExtension(ext);
+                                    if (nameExtConsole is not null
+                                        && !string.Equals(nameExtConsole, candidateConsole, StringComparison.OrdinalIgnoreCase))
                                     {
-                                        datConsoleSwitched = true;
+                                        onProgress?.Invoke(
+                                            $"[DAT] Name-Only Extension-Plausibilitaet verletzt: {Path.GetFileName(filePath)} hat uniqueExt fuer {nameExtConsole}, DAT sagt {candidateConsole} → verworfen");
                                     }
+                                    else
+                                    {
+                                        datMatch = true;
+                                        datNameOnlyMatch = true;
+                                        datMatchKind = MatchKind.DatNameOnlyMatch;
+                                        var previousConsole = consoleKey;
+                                        consoleKey = candidateConsole;
+                                        datMatchedBios = nameMatches[0].Entry.IsBios;
+                                        datGameName = nameMatches[0].Entry.GameName;
+                                        if (!string.IsNullOrEmpty(previousConsole) &&
+                                            previousConsole != "UNKNOWN" &&
+                                            !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            datConsoleSwitched = true;
+                                        }
 
-                                    onProgress?.Invoke(
-                                        $"[DAT] Mehrdeutigen Name via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                                        onProgress?.Invoke(
+                                            $"[DAT] Konsole via DAT-Name erkannt: {Path.GetFileName(filePath)} → {consoleKey}");
+                                    }
+                                }
+                                else if (nameMatches.Count > 1)
+                                {
+                                    var resolution = ResolveUnknownDatNameMatch(nameMatches, detectionResult);
+                                    if (resolution.IsMatch)
+                                    {
+                                        // Extension plausibility guard for name-only multi match
+                                        var nameMultiExtConsole = consoleDetector?.DetectByExtension(ext);
+                                        if (nameMultiExtConsole is not null
+                                            && !string.Equals(nameMultiExtConsole, resolution.ConsoleKey, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            onProgress?.Invoke(
+                                                $"[DAT] Name-Only Extension-Plausibilitaet verletzt: {Path.GetFileName(filePath)} hat uniqueExt fuer {nameMultiExtConsole}, DAT sagt {resolution.ConsoleKey} → verworfen");
+                                        }
+                                        else
+                                        {
+                                            datMatch = true;
+                                            datNameOnlyMatch = true;
+                                            datMatchKind = MatchKind.DatNameOnlyMatch;
+                                            datMatchedBios = resolution.IsBios;
+                                            datResolvedFromAmbiguousCandidates = resolution.ResolvedFromAmbiguousCandidates;
+                                            datGameName = resolution.DatGameName;
+                                            var previousConsole = consoleKey;
+                                            consoleKey = resolution.ConsoleKey!;
+                                            if (!string.IsNullOrEmpty(previousConsole) &&
+                                                previousConsole != "UNKNOWN" &&
+                                                !string.Equals(previousConsole, consoleKey, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                datConsoleSwitched = true;
+                                            }
+
+                                            onProgress?.Invoke(
+                                                $"[DAT] Mehrdeutigen Name via Hypothesen aufgeloest: {Path.GetFileName(filePath)} → {consoleKey}");
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
                     }
                 }
                 else
@@ -708,6 +707,66 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
 
         return new DatLookupResult(datMatch, datMatchedBios, datResolvedFromAmbiguousCandidates,
             datNameOnlyMatch, computedHash, computedHeaderlessHash, datGameName, consoleKey, datConsoleSwitched, datMatchKind);
+    }
+
+    private static bool IsDatAvailableForConsole(
+        DatIndex? datIndex,
+        string consoleKey,
+        ConsoleDetectionResult? detectionResult)
+    {
+        if (datIndex is null)
+            return false;
+
+        if (IsUsableResolvedConsoleKey(consoleKey))
+            return datIndex.HasConsole(consoleKey);
+
+        if (detectionResult is null)
+            return false;
+
+        foreach (var hypothesis in detectionResult.Hypotheses
+                     .OrderByDescending(h => h.Confidence)
+                     .ThenBy(h => h.ConsoleKey, StringComparer.OrdinalIgnoreCase))
+        {
+            if (IsUsableResolvedConsoleKey(hypothesis.ConsoleKey)
+                && datIndex.HasConsole(hypothesis.ConsoleKey))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static DatUnknownResolution TryPolicyAwareDatLookup(
+        DatIndex datIndex,
+        string hash,
+        string consoleKey,
+        FamilyDatPolicy datPolicy,
+        ConsoleDetectionResult? detectionResult,
+        string filePath,
+        ConsoleDetector? consoleDetector,
+        Action<string>? onProgress)
+    {
+        if (datPolicy.EnableCrossConsoleLookup)
+        {
+            return TryCrossConsoleDatLookup(
+                datIndex,
+                hash,
+                consoleKey,
+                detectionResult,
+                filePath,
+                consoleDetector,
+                onProgress);
+        }
+
+        if (IsUsableResolvedConsoleKey(consoleKey))
+        {
+            var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
+            if (byConsole is not null)
+                return new DatUnknownResolution(true, consoleKey, byConsole.Value.IsBios, false, byConsole.Value.GameName);
+        }
+
+        return DatUnknownResolution.NoMatch;
     }
 
     internal static IReadOnlyList<string> GetFileLookupHashes(

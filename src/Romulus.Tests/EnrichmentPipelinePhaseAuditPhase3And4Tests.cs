@@ -364,6 +364,107 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         Assert.Equal(MatchKind.DatNameOnlyMatch, candidate.PrimaryMatchKind);
     }
 
+    [Fact]
+    public void Execute_CrossConsoleLookupDisabled_DoesNotSwitchConsoleOnDatHashMatch()
+    {
+        var root = Path.Combine(_tempDir, "phase4_cross_lookup_disabled");
+        var snesFolder = Path.Combine(root, "SNES");
+        Directory.CreateDirectory(snesFolder);
+        var filePath = CreateFile(snesFolder, "mystery.bin", 96);
+
+        var hashService = new FileHashService();
+        var hash = hashService.GetHash(filePath, "SHA1");
+        Assert.False(string.IsNullOrWhiteSpace(hash));
+
+        var datIndex = new DatIndex();
+        datIndex.Add("PS1", hash!, "Actual PS1 Game", "actual.bin", isBios: false);
+
+        var detector = new ConsoleDetector([
+            new ConsoleInfo(
+                Key: "SNES",
+                DisplayName: "Super Nintendo",
+                DiscBased: false,
+                UniqueExts: ["sfc"],
+                AmbigExts: ["bin"],
+                FolderAliases: ["SNES"],
+                Family: PlatformFamily.NoIntroCartridge),
+            new ConsoleInfo(
+                Key: "PS1",
+                DisplayName: "PlayStation",
+                DiscBased: true,
+                UniqueExts: ["cue"],
+                AmbigExts: ["bin"],
+                FolderAliases: ["PS1"],
+                Family: PlatformFamily.RedumpDisc)
+        ]);
+
+        var phase = new EnrichmentPipelinePhase();
+        var result = phase.Execute(
+            new EnrichmentPhaseInput(
+                [new ScannedFileEntry(root, filePath, ".bin")],
+                detector,
+                hashService,
+                null,
+                datIndex,
+                FamilyDatStrategyResolver: new FixedPolicyResolver(new FamilyDatPolicy(
+                    PreferArchiveInnerHash: true,
+                    UseHeaderlessHash: false,
+                    UseContainerHash: true,
+                    AllowNameOnlyDatMatch: false,
+                    RequireStrictNameForNameOnly: false,
+                    EnableCrossConsoleLookup: false))),
+            CreateContext(new RunOptions
+            {
+                Roots = [root],
+                Extensions = [".bin"],
+                Mode = "DryRun",
+                HashType = "SHA1"
+            }),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(result);
+        Assert.False(candidate.DatMatch);
+        Assert.Equal("SNES", candidate.ConsoleKey);
+    }
+
+    [Fact]
+    public void Execute_Tier1HardEvidence_WithDatIndexForOtherConsole_RemainsSort()
+    {
+        var root = Path.Combine(_tempDir, "phase4_console_specific_dat_available");
+        Directory.CreateDirectory(root);
+        var filePath = CreateFile(root, "SLUS-00123 Game.bin", 120);
+
+        var hashService = new FileHashService();
+        var datIndex = new DatIndex();
+        datIndex.Add("NES", "deadbeef", "Unrelated NES Game", "game.nes", isBios: false);
+
+        var detector = new ConsoleDetector([]);
+
+        var phase = new EnrichmentPipelinePhase();
+        var result = phase.Execute(
+            new EnrichmentPhaseInput(
+                [new ScannedFileEntry(root, filePath, ".bin")],
+                detector,
+                hashService,
+                null,
+                datIndex),
+            CreateContext(new RunOptions
+            {
+                Roots = [root],
+                Extensions = [".bin"],
+                Mode = "DryRun",
+                HashType = "SHA1"
+            }),
+            CancellationToken.None);
+
+        var candidate = Assert.Single(result);
+        Assert.False(candidate.DatMatch);
+        Assert.Equal("PS1", candidate.ConsoleKey);
+        Assert.True(candidate.HasHardEvidence);
+        Assert.Equal(SortDecision.Sort, candidate.SortDecision);
+        Assert.Equal(DecisionClass.Sort, candidate.DecisionClass);
+    }
+
     private PipelineContext CreateContext(RunOptions options)
     {
         var metrics = new PhaseMetricsCollector();
@@ -383,5 +484,11 @@ public class EnrichmentPipelinePhaseAuditPhase3And4Tests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, Enumerable.Range(1, sizeBytes).Select(static i => (byte)(i % 251)).ToArray());
         return path;
+    }
+
+    private sealed class FixedPolicyResolver(FamilyDatPolicy policy) : IFamilyDatStrategyResolver
+    {
+        public FamilyDatPolicy ResolvePolicy(PlatformFamily family, string extension, string? hashStrategy)
+            => policy;
     }
 }

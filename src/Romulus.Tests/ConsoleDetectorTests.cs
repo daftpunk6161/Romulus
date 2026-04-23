@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using Romulus.Contracts.Models;
 using Romulus.Core.Classification;
 using Xunit;
 
@@ -318,6 +319,28 @@ public class ConsoleDetectorTests
         Assert.True(detector.IsKnownConsole("TEST"));
         Assert.Equal("TEST", detector.DetectByExtension(".tst"));
         Assert.Equal("TEST", detector.DetectByFolder(@"C:\roms\test\game.bin", @"C:\roms"));
+    }
+
+    [Fact]
+    public void LoadFromJson_ParsesEngineFamily()
+    {
+        var json = @"{
+            ""consoles"": [
+                {
+                    ""key"": ""MUGEN"",
+                    ""displayName"": ""M.U.G.E.N"",
+                    ""discBased"": false,
+                    ""uniqueExts"": [],
+                    ""ambigExts"": [""zip""],
+                    ""folderAliases"": [""mugen""],
+                    ""family"": ""Engine""
+                }
+            ]
+        }";
+
+        var detector = ConsoleDetector.LoadFromJson(json);
+
+        Assert.Equal(PlatformFamily.Engine, detector.GetPlatformFamily("MUGEN"));
     }
 
     [Fact]

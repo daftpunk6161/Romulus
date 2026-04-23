@@ -1,8 +1,8 @@
 {
   "_meta": {
     "description": "Machine-readable coverage gate thresholds. Used by CoverageValidator to enforce minimum coverage.",
-    "version": "1.1",
-    "updated": "2026-03-22",
+    "version": "1.2",
+    "updated": "2026-04-22",
     "note": "Calibrated against 2073-entry ground-truth dataset. hardFail ≈ 80% of actual, target ≈ actual or slightly above."
   },
   "s1": {
@@ -72,13 +72,13 @@
       "biosErrorModes":                { "target": 25, "hardFail": 18 },
       "arcadeConfusion":               { "target": 25, "hardFail": 16 },
       "arcadeGameChd":                 { "target": 8,  "hardFail": 5 },
-      "cueBin":                        { "target": 20, "hardFail": 0 },
-      "gdiTracks":                     { "target": 8,  "hardFail": 0 },
-      "ccdMds":                        { "target": 10, "hardFail": 0 },
-      "m3uPlaylist":                   { "target": 8,  "hardFail": 0 },
-      "serialNumber":                  { "target": 15, "hardFail": 0 },
+      "cueBin":                        { "target": 20, "hardFail": 8 },
+      "gdiTracks":                     { "target": 8,  "hardFail": 3 },
+      "ccdMds":                        { "target": 10, "hardFail": 4 },
+      "m3uPlaylist":                   { "target": 8,  "hardFail": 3 },
+      "serialNumber":                  { "target": 15, "hardFail": 6 },
       "headerVsHeaderlessPairs":       { "target": 25, "hardFail": 10 },
-      "containerVariants":             { "target": 20, "hardFail": 0 },
+      "containerVariants":             { "target": 20, "hardFail": 8 },
       "keywordOnly":                   { "target": 20, "hardFail": 12 },
       "satDcDisambiguation":           { "target": 10, "hardFail": 5 },
       "pcePcecdDisambiguation":        { "target": 8,  "hardFail": 3 }
