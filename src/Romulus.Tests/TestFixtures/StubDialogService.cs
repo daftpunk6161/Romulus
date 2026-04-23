@@ -20,19 +20,28 @@ internal sealed class StubDialogService : IDialogService
     public List<string> InfoMessages { get; } = [];
     public List<string> ErrorMessages { get; } = [];
     public List<string> TextMessages { get; } = [];
+    public List<string> ConfirmCalls { get; } = [];
+    public List<string> DangerConfirmCalls { get; } = [];
 
     public string? BrowseFolder(string title = "Ordner auswählen") => BrowseFolderResult;
     public string? BrowseFile(string title = "Datei auswählen", string filter = "Alle Dateien|*.*") => BrowseFileResult;
     public string? SaveFile(string title = "Speichern unter", string filter = "Alle Dateien|*.*", string? defaultFileName = null)
         => SaveFileResult;
-    public bool Confirm(string message, string title = "Bestätigung") => ConfirmResult;
+    public bool Confirm(string message, string title = "Bestätigung")
+    {
+        ConfirmCalls.Add(title);
+        return ConfirmResult;
+    }
     public void Info(string message, string title = "Information") => InfoMessages.Add(message);
     public void Error(string message, string title = "Fehler") => ErrorMessages.Add(message);
     public ConfirmResult YesNoCancel(string message, string title = "Frage") => YesNoCancelResult;
     public string ShowInputBox(string prompt, string title = "Eingabe", string defaultValue = "") => InputBoxResult;
     public void ShowText(string title, string content) => TextMessages.Add(content);
     public bool DangerConfirm(string title, string message, string confirmText, string buttonLabel = "Bestätigen")
-        => DangerConfirmResult;
+    {
+        DangerConfirmCalls.Add(title);
+        return DangerConfirmResult;
+    }
     public bool ConfirmConversionReview(string title, string summary, IReadOnlyList<ConversionReviewEntry> entries)
         => ConfirmResult;
     public bool ConfirmDatRenamePreview(IReadOnlyList<DatAuditEntry> renameProposals) => ConfirmDatRenameResult;

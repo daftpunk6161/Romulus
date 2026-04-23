@@ -1,0 +1,25 @@
+<UserControl x:Class="Romulus.UI.Wpf.Views.MetricKpi"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Name="Root">
+  <!--
+    D1 (UX-Redesign Phase 3): Deduplizierte KPI-Kachel fuer ResultView.
+    Ersetzt 8 identische Icon+Value+Label-Bloecke. Keine Businesslogik,
+    rein visuelle Komposition ueber DependencyProperties.
+    Loading-Reihenfolge respektiert _DesignTokens -> _ControlTemplates -> Theme.
+  -->
+  <Border Style="{StaticResource MetricCard}" MinHeight="100" Focusable="True"
+          AutomationProperties.Name="{Binding Label, ElementName=Root}">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="{Binding Icon, ElementName=Root}"
+                 FontFamily="Segoe MDL2 Assets" FontSize="22"
+                 Foreground="{Binding Accent, ElementName=Root}"
+                 HorizontalAlignment="Center" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding Value, ElementName=Root}"
+                 Foreground="{Binding Accent, ElementName=Root}"
+                 FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"/>
+      <TextBlock Text="{Binding Label, ElementName=Root}"
+                 Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+    </StackPanel>
+  </Border>
+</UserControl>

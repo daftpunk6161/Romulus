@@ -22,7 +22,8 @@
 
     <!-- ── Text ───────────────────────────────────────────────────────── -->
     <SolidColorBrush x:Key="BrushTextPrimary"  Color="#F0E8FF"/>
-    <SolidColorBrush x:Key="BrushTextMuted"    Color="#9988CC"/>
+    <!-- Q2 (UX-Redesign Phase 1): #9988CC→#A89FD4 für WCAG AA ≥ 4.5:1 auf #0A0A1E -->
+    <SolidColorBrush x:Key="BrushTextMuted"    Color="#A89FD4"/>
     <SolidColorBrush x:Key="BrushBorder"       Color="#2A2A5E"/>
 
     <!-- ── Semantic Backgrounds ──────────────────────────────────────── -->

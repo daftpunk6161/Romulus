@@ -155,7 +155,7 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
             () => { DryRun = true; RunCommand.Execute(null); },
             () => Roots.Count > 0 && !IsBusy && !HasBlockingValidationErrors);
         ConvertOnlyCommand = new RelayCommand(
-            () => { ConvertOnly = true; DryRun = false; RunCommand.Execute(null); },
+            OnConvertOnlyRequested,
             () => Roots.Count > 0 && !IsBusy && !HasBlockingValidationErrors);
 
         // GUI-063: Navigation history commands (delegate to Shell)
@@ -205,6 +205,19 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
                 {
                     AddLog(MoveApplyGateText, "WARN");
                     _dialog.Info(MoveApplyGateText, "Move gesperrt");
+                    return;
+                }
+
+                // M6 (UX-Redesign Phase 2): Review-Gate. Wenn das letzte DryRun
+                // blockierte oder Review-pflichtige Items aufweist, vor dem realen
+                // Move zusaetzlich bestaetigen lassen. Bricht der Nutzer ab, bleibt
+                // DryRun aktiv und der Move wird nicht angestossen.
+                if (!Services.MoveReviewGate.EvaluateBeforeMove(
+                        LastRunResult,
+                        _dialog,
+                        key => _loc[key],
+                        AddLog))
+                {
                     return;
                 }
 
@@ -271,6 +284,27 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         OnPropertyChanged(nameof(CanExecuteInlineStartMove));
         OnPropertyChanged(nameof(InlineMoveConfirmHint));
         DeferCommandRequery();
+    }
+
+    /// <summary>
+    /// Phase-2 Safety (Pragmatic): ConvertOnly schreibt unmittelbar Daten und ist destruktiv,
+    /// wenn Source-Cleanup aktiv ist. Vor Start eine Konsequenz-Bestaetigung einholen.
+    /// Bestehender Move-Pfad bleibt unangetastet (eigenes Inline-Confirm + Time-Lock).
+    /// </summary>
+    private void OnConvertOnlyRequested()
+    {
+        var title = _loc["Dialog.ConvertOnly.ConfirmTitle"];
+        var message = _loc["Dialog.ConvertOnly.ConfirmMessage"];
+
+        if (!_dialog.Confirm(message, title))
+        {
+            AddLog(_loc["Log.ConvertOnlyCancelled"], "INFO");
+            return;
+        }
+
+        ConvertOnly = true;
+        DryRun = false;
+        RunCommand.Execute(null);
     }
 
     /// <summary>GUI-115: Named handler for proper unsubscription in CleanupWatchers.</summary>

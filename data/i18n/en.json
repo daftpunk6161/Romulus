@@ -989,8 +989,22 @@
   "Dialog.Info.StartBlocked": "Start blocked",
   "Dialog.Info.MoveBlocked": "Move blocked",
   "Dialog.BrowseFolder.RomTitle": "Select ROM folder",
+  "Dialog.ConvertOnly.ConfirmTitle": "Start conversion now?",
+  "Dialog.ConvertOnly.ConfirmMessage": "This action starts the conversion pipeline and writes result files to the target folders. After successful verification, source files are moved to the conversion trash (rollback via _TRASH_CONVERTED is possible). Continue?",
+  "Dialog.ConvertOnly.ConfirmText": "CONVERT",
+  "Dialog.ConvertOnly.ConfirmButton": "Start conversion",
+
+  "Dialog.MoveReviewGate.BlockedTitle": "Move despite blocked items?",
+  "Dialog.MoveReviewGate.BlockedMessage": "The last run flagged {0} item(s) as BLOCKED. They will be skipped or left untouched during the move. Continue anyway?",
+  "Dialog.MoveReviewGate.BlockedConfirmText": "MOVE",
+  "Dialog.MoveReviewGate.BlockedButton": "Run anyway",
+  "Dialog.MoveReviewGate.ReviewTitle": "Move despite review items?",
+  "Dialog.MoveReviewGate.ReviewMessage": "The last run flagged {0} item(s) for review. These should be inspected before a real move. Continue anyway?",
+
+  "Log.MoveReviewGate.Cancelled": "Move cancelled: review gate not confirmed.",
 
   "Log.ConversionCancelled": "Conversion cancelled: ManualOnly/Risky review not confirmed.",
+  "Log.ConvertOnlyCancelled": "Conversion cancelled: confirmation not granted.",
   "Log.DatRenameCancelled": "DAT rename cancelled: Preview was not confirmed.",
   "Log.Initializing": "Initializing…",
   "Log.RunCancelled": "Run cancelled.",

@@ -148,6 +148,7 @@ NEU: Drei-Zonen-Layout mit adaptivem Kontext
 ### 3.4 Sub-Tab-Struktur
 
 **Mission Control:**
+
 | Tab | Simple | Expert |
 |-----|--------|--------|
 | Dashboard | ✓ | ✓ |
@@ -157,6 +158,7 @@ NEU: Drei-Zonen-Layout mit adaptivem Kontext
 | Profiles | ✗ | ✓ |
 
 **Library:**
+
 | Tab | Simple | Expert |
 |-----|--------|--------|
 | Results | ✓ | ✓ |
@@ -166,6 +168,7 @@ NEU: Drei-Zonen-Layout mit adaptivem Kontext
 | Report | ✓ | ✓ |
 
 **Pipeline:**
+
 | Tab | Simple | Expert |
 |-----|--------|--------|
 | Conversion | ✗ | ✓ |
@@ -173,6 +176,7 @@ NEU: Drei-Zonen-Layout mit adaptivem Kontext
 | Batch | ✗ | ✓ |
 
 **Toolbox:**
+
 | Tab | Simple | Expert |
 |-----|--------|--------|
 | Features | ✗ | ✓ |
@@ -180,6 +184,7 @@ NEU: Drei-Zonen-Layout mit adaptivem Kontext
 | DAT Management | ✗ | ✓ |
 
 **System:**
+
 | Tab | Simple | Expert |
 |-----|--------|--------|
 | Appearance | ✓ | ✓ |
@@ -987,7 +992,7 @@ STATUS MAP
 
 ### 7.5 Design Tokens (WPF ResourceDictionary)
 
-**Konsolidierung:** Aktuell gibt es _DesignTokens.xaml UND _Tokens.xaml mit widersprüchlichen Werten.
+**Konsolidierung:** Aktuell gibt es `_DesignTokens.xaml` UND `_Tokens.xaml` mit widersprüchlichen Werten.
 
 **Empfehlung: Einheitliche Token-Datei**
 
@@ -1468,7 +1473,7 @@ Jeder Nutzer bekommt seinen optimalen Modus durch Kombination:
 | C2 | Move-Buttons | ShowActionBarMoveButton + ShowResultMoveButton | Ein Button, ein Ort (ActionBar) | Hoch |
 | C3 | Config Warning | Banner + separater State | Einheitlicher Config-Changed-Banner | Mittel |
 | C4 | KPI-Karten | In StartView + ResultView + ProgressView dupliziert | Shared MetricCard Template | Mittel |
-| C5 | Token-Dateien | _DesignTokens.xaml vs _Tokens.xaml | Vereinigen, Widersprüche auflösen | Hoch |
+| C5 | Token-Dateien | `_DesignTokens.xaml` vs `_Tokens.xaml` | Vereinigen, Widersprüche auflösen | Hoch |
 
 ### 10.7 Überflüssiges identifizieren
 
@@ -1555,7 +1560,7 @@ Status-Änderungen als Live Regions:
 
 | # | Maßnahme | Impact | Aufwand |
 |---|----------|--------|---------|
-| Q1 | Token-Dateien konsolidieren (_Tokens.xaml → _DesignTokens.xaml) | Konsistenz | Niedrig |
+| Q1 | Token-Dateien konsolidieren (`_Tokens.xaml` → `_DesignTokens.xaml`) | Konsistenz | Niedrig |
 | Q2 | TextMuted WCAG-Fixes in 3 Themes | Accessibility | Niedrig |
 | Q3 | Status Triple-Encoding (Icon+Farbe+Text) überall | Accessibility | Mittel |
 | Q4 | Status-Chip-Redundanz entfernen (nur CommandBar + ContextWing) | Klarheit | Mittel |
