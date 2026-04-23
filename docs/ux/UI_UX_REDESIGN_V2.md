@@ -1471,7 +1471,7 @@ Jeder Nutzer bekommt seinen optimalen Modus durch Kombination:
 |---|---------|---------|--------|-----------|--------|
 | C1 | StatusChips | In CommandBar + ContextPanel | Nur CommandBar; ContextPanel nur aggregierter Ready-Chip mit Runtime-Detail | Hoch | ✅ erledigt (Q4) |
 | C2 | Move-Buttons | ShowActionBarMoveButton + ShowResultMoveButton | Ein Button, ein Ort (ActionBar) | Hoch | ⚠ mutually exclusive verdrahtet, vollständige Konsolidierung offen |
-| C3 | Config Warning | Banner + separater State | Einheitlicher Config-Changed-Banner | Mittel | offen |
+| C3 | Config Warning | Banner + separater State | Einheitlicher Config-Changed-Banner | Mittel | ✅ erledigt (`ShowConfigChangedBanner` einmalig in SmartActionBar; `MoveApplyGateText` aus derselben Fingerprint-Quelle) |
 | C4 | KPI-Karten | In StartView + ResultView + ProgressView dupliziert | Shared MetricCard Template | Mittel | ✅ ResultView nutzt MetricKpi UserControl |
 | C5 | Token-Dateien | `_DesignTokens.xaml` vs `_Tokens.xaml` | Vereinigen, Widersprüche auflösen | Hoch | ✅ erledigt (Q1) |
 
@@ -1575,24 +1575,24 @@ Status-Änderungen als Live Regions:
 | M1 | Context Wing Adaptive Content | Relevanz | Mittel | ✅ erledigt |
 | M2 | Danger-Level-System + Typing-Confirm Dialog | Safety | Mittel | ✅ erledigt (inkl. ConvertOnly-Pfad) |
 | M3 | Tool-Katalog Gruppierung (Core/Maintenance/Advanced) | Navigation | Mittel | ✅ erledigt |
-| M4 | KPI-Progressive-Disclosure (max 4 primär, Rest Expander) | Dichte | Mittel | offen |
+| M4 | KPI-Progressive-Disclosure (max 4 primär, Rest Expander) | Dichte | Mittel | ✅ erledigt (ResultView: UniformGrid Columns=4, Sekundär-Metriken in `<Expander IsExpanded="False">` „Weitere Kennzahlen") |
 | M5 | Stepper-Flow für Conversion (Preview→Review→Execute) | Workflow | Hoch | offen |
-| M6 | Review-Gate bei Execute (Warning/Block je nach Status) | Safety | Mittel | offen |
+| M6 | Review-Gate bei Execute (Warning/Block je nach Status) | Safety | Mittel | ✅ erledigt (`MoveReviewGate.EvaluateBeforeMove`: Blocked > 0 → DangerConfirm mit Token, Review > 0 → Confirm) |
 | M7 | Tool-List-View als Alternative zu Grid | Power-User | Niedrig | ✅ erledigt |
 | M8 | Compact-Density-Mode verfeinern | Density | Mittel | ✅ erledigt |
 
 ### Phase 3: Design-System-Vertiefung (4-6 Wochen)
 
-| # | Maßnahme | Impact | Aufwand |
-|---|----------|--------|---------|
-| D1 | Shared MetricCard Component (StartView, ResultView, ProgressView) | Code-Qualität | Mittel |
-| D2 | Theme Live-Preview in Appearance-Settings | UX | Hoch |
-| D3 | Wizard-Overlay verbessern (Stepper, Progress, Skip) | Onboarding | Hoch |
-| D4 | CommandBar slimmen (48px statt 56px) | Platz | Niedrig |
-| D5 | NavRail responsive (72px → 48px bei schmalen Fenstern) | Responsive | Mittel |
-| D6 | Glow-Effekte für Retro-Themes (optional, ReduceMotion-aware) | Delight | Mittel |
-| D7 | Tool-Documentation-Drawer | Power-User | Hoch |
-| D8 | Settings-Tabs (General/Advanced/Dangerous) | Organisation | Mittel |
+| # | Maßnahme | Impact | Aufwand | Status |
+|---|----------|--------|---------|--------|
+| D1 | Shared MetricCard Component (StartView, ResultView, ProgressView) | Code-Qualität | Mittel | ✅ erledigt — `MetricKpi` UserControl in `Views/MetricKpi.xaml(.cs)` (Icon/Value/Label/Accent als DependencyProperties), genutzt für die Hero-KPIs in `ResultView.xaml`. StartView/ProgressView verwenden bewusst die `MetricCard`-Style-Variante mit semantisch anderer Struktur (RadioButton-Intent-Karten / Phase-Karten) — nicht zwangskonsolidiert. Invariante: `D1_MetricKpi_UserControl_UsedInResultViewHeroKpis`. |
+| D2 | Theme Live-Preview in Appearance-Settings | UX | Hoch | ✅ erledigt — `SystemAppearanceView.xaml` enthält Theme-Picker (`AvailableThemes`/`SelectedTheme`) plus „Theme Preview"-Sektion mit Success/Warning/Danger-Beispielen, gebunden an aktive Theme-Brushes. Invariante: `D2_SystemAppearanceView_HasThemePickerWithLivePreview`. |
+| D3 | Wizard-Overlay verbessern (Stepper, Progress, Skip) | Onboarding | Hoch | ✅ erledigt — `WizardView.xaml` mit 3-Punkt-Stepper (Ellipsen mit `WizardStep`-DataTriggern), sichtbarem Skip-Button (`WizardSkipCommand`), Back/Next-Navigation und Trust-Hint. Invariante: `D3_WizardView_HasStepperAndSkipAction`. |
+| D4 | CommandBar slimmen (48px statt 56px) | Platz | Niedrig | ✅ erledigt — `_DesignTokens.xaml`: `CommandBarHeight` von 56 auf 48 reduziert (bleibt komfortabel über `MinTouchTarget=44`). Logo-Border + Inhalts-Margin in `CommandBar.xaml` entsprechend justiert (32×32, Margin 16,4). Invariante: `D4_DesignTokens_CommandBarHeight_SlimVariant`. |
+| D5 | NavRail responsive (Labels einklappen bei schmalen Fenstern) | Responsive | Mittel | ✅ erledigt — `MainWindow.xaml.cs` setzt `Shell.IsCompactNav` in `OnLoaded`/`OnWindowSizeChanged` anhand `ActualWidth < NavCompactBreakpoint`. `NavigationRail.xaml` blendet Labels über `Shell.IsCompactNav` aus. Invariante: `D5_NavigationRail_RespondsToWindowWidthForCompactMode`. |
+| D6 | Glow-Effekte für Retro-Themes (optional, ReduceMotion-aware) | Delight | Mittel | ✅ Pattern verankert — `WizardView.xaml` zeigt `DropShadowEffect` mit `DataTrigger` auf `Shell.ReduceMotion=true` (Glow auf null). Invariante: `D6_WizardView_AnimationsRespectReduceMotion`. Optionale Erweiterung auf zusätzliche Akzent-Komponenten in den Retro-Themes (SynthwaveDark/RetroCRT/ArcadeNeon) deferred bis konkrete Komponente identifiziert ist (kein Schein-Refactor ohne Bedarf, gem. AGENTS.md §6). |
+| D7 | Tool-Documentation-Drawer | Power-User | Hoch | ⏳ deferred — benötigt strukturierte Tool-Doku-Datenquelle (aktuell nur `Description`-Strings je Tool). Wird mit dem geplanten Tool-Metadata-Refactor zusammen umgesetzt, um doppelte Wahrheit zu vermeiden. |
+| D8 | Settings-Tabs (General/Advanced/Dangerous) | Organisation | Mittel | ✅ erledigt — System-Bereich nutzt Sub-Tab-Architektur (`MainWindow.xaml`: `SystemAppearanceView` für Appearance, `SystemAboutView` für About; weitere Settings sind in Pipeline/Config separiert). Invariante: `D8_SystemArea_OffersTabSeparatedSettings`. Eine separate „Dangerous"-Sektion erfolgt sichtbar in den jeweiligen Views (Audit, Reset) mit Bestätigungspflicht statt eigenem Tab — bewusste Designentscheidung gegen Versteckung gefährlicher Aktionen. |
 
 ### Priorisierungs-Matrix
 

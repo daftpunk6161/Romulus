@@ -614,6 +614,169 @@ public sealed class WpfProductizationTests : IDisposable
     }
 
     [Fact]
+    public void M4_ResultView_HeroKpis_LimitedToFour_SecondaryInExpander()
+    {
+        var resultViewXaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
+
+        // Hero KPI rows must be exactly 4 columns (progressive disclosure cap)
+        // Both dedupe and convert dashboards use UniformGrid Columns="4"
+        var dedupeMatch = System.Text.RegularExpressions.Regex.Matches(
+            resultViewXaml,
+            @"UniformGrid\s+Columns=""4""[^>]*ShowDedupeDashboard");
+        var convertMatch = System.Text.RegularExpressions.Regex.Matches(
+            resultViewXaml,
+            @"UniformGrid\s+Columns=""4""[^>]*IsConvertOnlyDashboard");
+        Assert.True(dedupeMatch.Count >= 1, "Dedupe dashboard must use UniformGrid Columns=4");
+        Assert.True(convertMatch.Count >= 1, "Convert dashboard must use UniformGrid Columns=4");
+
+        // Secondary metrics (Mode/Winners/Duration/Verified/DedupeRate, DAT Rename) must
+        // live behind a collapsed Expander to keep primary KPI cap of 4.
+        Assert.Contains("<Expander IsExpanded=\"False\"", resultViewXaml, StringComparison.Ordinal);
+        Assert.Contains("Weitere Kennzahlen", resultViewXaml, StringComparison.Ordinal);
+
+        // None of the secondary metrics may appear above the Expander block
+        var expanderIdx = resultViewXaml.IndexOf("<Expander IsExpanded=\"False\"", StringComparison.Ordinal);
+        Assert.True(expanderIdx > 0, "Expander must exist");
+        var headSlice = resultViewXaml.Substring(0, expanderIdx);
+        Assert.DoesNotContain("Run.DashWinners", headSlice, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run.DashDuration", headSlice, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run.DedupeRate", headSlice, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run.DashDatRenameProposed", headSlice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void C3_ConfigChangedBanner_SingleSourceOfTruth()
+    {
+        // The visible config-changed banner must exist exactly once across all views.
+        // (Source of truth: SmartActionBar, bound to ShowConfigChangedBanner.)
+        var viewsDir = Path.GetDirectoryName(FindUiFile("Views", "SmartActionBar.xaml"))!;
+        var xamlFiles = Directory.GetFiles(viewsDir, "*.xaml", SearchOption.AllDirectories);
+
+        int bindingCount = 0;
+        string? owner = null;
+        foreach (var file in xamlFiles)
+        {
+            var text = File.ReadAllText(file);
+            if (text.Contains("ShowConfigChangedBanner", StringComparison.Ordinal))
+            {
+                bindingCount++;
+                owner = Path.GetFileName(file);
+            }
+        }
+
+        Assert.Equal(1, bindingCount);
+        Assert.Equal("SmartActionBar.xaml", owner);
+    }
+
+    [Fact]
+    public void D1_MetricKpi_UserControl_UsedInResultViewHeroKpis()
+    {
+        // D1 (UX-Redesign Phase 3): MetricKpi UserControl muss als wiederverwendbare
+        // Hero-KPI-Komponente in ResultView verwendet werden (Single Source of Truth fuer KPI-Layout).
+        var resultViewXaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
+        Assert.Contains("views:MetricKpi", resultViewXaml, StringComparison.Ordinal);
+
+        // UserControl-Datei muss existieren mit Icon/Value/Label/Accent DependencyProperties.
+        var metricKpiPath = FindUiFile("Views", "MetricKpi.xaml.cs");
+        Assert.True(File.Exists(metricKpiPath), "MetricKpi.xaml.cs muss existieren");
+        var metricKpiCs = File.ReadAllText(metricKpiPath);
+        Assert.Contains("IconProperty", metricKpiCs, StringComparison.Ordinal);
+        Assert.Contains("ValueProperty", metricKpiCs, StringComparison.Ordinal);
+        Assert.Contains("LabelProperty", metricKpiCs, StringComparison.Ordinal);
+        Assert.Contains("AccentProperty", metricKpiCs, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D2_SystemAppearanceView_HasThemePickerWithLivePreview()
+    {
+        // D2 (UX-Redesign Phase 3): Theme-Auswahl muss in den Settings ueber ein
+        // sichtbares Steuerelement mit Live-Vorschau angeboten werden.
+        var appearanceXaml = File.ReadAllText(FindUiFile("Views", "SystemAppearanceView.xaml"));
+
+        // Theme-Picker (gebunden an AvailableThemes / SelectedTheme).
+        Assert.Contains("AvailableThemes", appearanceXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedTheme", appearanceXaml, StringComparison.Ordinal);
+
+        // Live-Preview-Sektion mit Success/Warning/Danger-Beispielen.
+        Assert.Contains("Theme Preview", appearanceXaml, StringComparison.Ordinal);
+        Assert.Contains("BrushSuccess", appearanceXaml, StringComparison.Ordinal);
+        Assert.Contains("BrushWarning", appearanceXaml, StringComparison.Ordinal);
+        Assert.Contains("BrushDanger", appearanceXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D3_WizardView_HasStepperAndSkipAction()
+    {
+        // D3 (UX-Redesign Phase 3): First-Run-Wizard muss visuellen Step-Indikator,
+        // Skip-Aktion und Back/Next-Navigation bereitstellen.
+        var wizardXaml = File.ReadAllText(FindUiFile("Views", "WizardView.xaml"));
+
+        // Stepper-Indikator (Ellipsen mit WizardStep-Triggern).
+        Assert.Contains("WizardStep", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("Ellipse", wizardXaml, StringComparison.Ordinal);
+
+        // Navigation-Commands.
+        Assert.Contains("WizardSkipCommand", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("WizardBackCommand", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("WizardNextCommand", wizardXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D4_DesignTokens_CommandBarHeight_SlimVariant()
+    {
+        // D4 (UX-Redesign Phase 3): CommandBar wurde von 56 auf 48 px verschlankt
+        // (bleibt komfortabel ueber MinTouchTarget=44, spart vertikalen Platz).
+        var tokensXaml = File.ReadAllText(FindUiFile("Themes", "_DesignTokens.xaml"));
+
+        Assert.Contains("<sys:Double x:Key=\"CommandBarHeight\">48</sys:Double>", tokensXaml, StringComparison.Ordinal);
+
+        // CommandBar darf keine harte Pixel-Hoehe setzen, sondern muss das Token nutzen.
+        var commandBarXaml = File.ReadAllText(FindUiFile("Views", "CommandBar.xaml"));
+        Assert.Contains("Height=\"{DynamicResource CommandBarHeight}\"", commandBarXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D5_NavigationRail_RespondsToWindowWidthForCompactMode()
+    {
+        // D5 (UX-Redesign Phase 3): NavigationRail-Labels muessen unter einer Breakpoint-
+        // Schwelle automatisch eingeklappt werden (responsive Layout).
+        var mainWindowCs = File.ReadAllText(FindUiFile("", "MainWindow.xaml.cs"));
+
+        // OnWindowSizeChanged muss IsCompactNav anhand ActualWidth setzen.
+        Assert.Contains("OnWindowSizeChanged", mainWindowCs, StringComparison.Ordinal);
+        Assert.Contains("IsCompactNav = ActualWidth <", mainWindowCs, StringComparison.Ordinal);
+
+        // NavigationRail bindet Label-Sichtbarkeit an Shell.IsCompactNav.
+        var navRailXaml = File.ReadAllText(FindUiFile("Views", "NavigationRail.xaml"));
+        Assert.Contains("Shell.IsCompactNav", navRailXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D6_WizardView_AnimationsRespectReduceMotion()
+    {
+        // D6 (UX-Redesign Phase 3): Optische Effekte (z.B. DropShadow/Glow) muessen
+        // ueber ReduceMotion deaktivierbar sein. WizardView dient als Referenz-Implementierung
+        // dieses Patterns; Retro-Themes koennen darauf aufbauen.
+        var wizardXaml = File.ReadAllText(FindUiFile("Views", "WizardView.xaml"));
+
+        Assert.Contains("DropShadowEffect", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("Shell.ReduceMotion", wizardXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void D8_SystemArea_OffersTabSeparatedSettings()
+    {
+        // D8 (UX-Redesign Phase 3): System-Bereich muss Settings nach Sub-Tabs aufteilen
+        // (Appearance / About statt Monolith), damit Konfiguration nicht ueberladen wirkt.
+        var mainWindowXaml = File.ReadAllText(FindUiFile("", "MainWindow.xaml"));
+
+        Assert.Contains("SystemAppearanceView", mainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemAboutView", mainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Appearance", mainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=About", mainWindowXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OpenItem_ToolsView_HasViewModeToggle()
     {
         var toolsViewXaml = File.ReadAllText(FindUiFile("Views", "ToolsView.xaml"));
