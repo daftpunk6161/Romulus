@@ -60,6 +60,19 @@
       </Setter>
     </Style>
 
+    <!-- ═══ HC OVERRIDE: NavFocusRing 3 px in TextPrimary ═════════════ -->
+    <Style x:Key="NavFocusRing">
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Border BorderBrush="{DynamicResource BrushTextPrimary}"
+                    BorderThickness="3" CornerRadius="6"
+                    Margin="-4" SnapsToDevicePixels="True"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- ═══ HC OVERRIDE: Button 2 px border, 3 px focus, no shadow ═══ -->
     <Style TargetType="Button">
       <Setter Property="Background"       Value="{DynamicResource BrushSurface}"/>

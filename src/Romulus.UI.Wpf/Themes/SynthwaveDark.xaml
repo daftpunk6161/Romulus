@@ -21,8 +21,10 @@
 
     <!-- ── Text ───────────────────────────────────────────────────────── -->
     <SolidColorBrush x:Key="BrushTextPrimary"  Color="#E8E8F8"/>
-    <!-- GUI-22: #8888BB→#9999CC für WCAG AA 4.5:1 Kontrast auf #0D0D1F -->
-    <SolidColorBrush x:Key="BrushTextMuted"    Color="#9999CC"/>
+    <!-- UX-Q2: #9999CC→#A0A0D0. Hebt Muted-Kontrast auf SurfaceLight #252550
+         von 5.14:1 auf 5.6:1 (WCAG AA bei kleinen Schriftgroessen sicherer).
+         Auf Background #0D0D1F bleibt Ratio bei 7.5:1 (AAA). -->
+    <SolidColorBrush x:Key="BrushTextMuted"    Color="#A0A0D0"/>
     <SolidColorBrush x:Key="BrushBorder"       Color="#2D2D5A"/>
 
     <!-- ── Semantic Backgrounds ──────────────────────────────────────── -->

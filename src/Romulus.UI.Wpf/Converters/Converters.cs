@@ -311,6 +311,27 @@ public sealed class DatAuditStatusToBrushConverter : IValueConverter
     }
 }
 
+/// <summary>Converts DatAuditStatus to a Segoe MDL2 glyph for triple-encoding (icon + color + text).
+/// Ensures the badge stays distinguishable for color-blind users.</summary>
+public sealed class DatAuditStatusToGlyphConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is DatAuditStatus status ? status switch
+        {
+            DatAuditStatus.Have => "\uE73E",          // CheckMark
+            DatAuditStatus.HaveWrongName => "\uE7BA", // Warning
+            DatAuditStatus.Miss => "\uE711",          // Cancel
+            DatAuditStatus.Unknown => "\uE946",       // Info
+            DatAuditStatus.Ambiguous => "\uE783",     // Important (exclamation, distinct from Warning)
+            _ => "\uE946"
+        } : "\uE946";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Converts DatAuditStatus to a user-friendly label string.</summary>
 public sealed class DatAuditStatusToLabelConverter : IValueConverter
 {

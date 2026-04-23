@@ -287,16 +287,21 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     }
 
     /// <summary>
-    /// Phase-2 Safety (Pragmatic): ConvertOnly schreibt unmittelbar Daten und ist destruktiv,
-    /// wenn Source-Cleanup aktiv ist. Vor Start eine Konsequenz-Bestaetigung einholen.
+    /// M2 Danger-Level (High): ConvertOnly verschiebt verifizierte Quell-Dateien
+    /// nach erfolgreicher Konvertierung in <c>_TRASH_CONVERTED</c>. Das ist eine
+    /// destruktive Folgeoperation auf jeder konvertierten Datei und damit auf
+    /// gleichem Risiko-Niveau wie Move. Daher: <see cref="IDialogService.DangerConfirm"/>
+    /// mit getipptem Bestaetigungs-Token (analog Move-Gate, MoveReviewGate).
     /// Bestehender Move-Pfad bleibt unangetastet (eigenes Inline-Confirm + Time-Lock).
     /// </summary>
     private void OnConvertOnlyRequested()
     {
         var title = _loc["Dialog.ConvertOnly.ConfirmTitle"];
         var message = _loc["Dialog.ConvertOnly.ConfirmMessage"];
+        var confirmText = _loc["Dialog.ConvertOnly.ConfirmText"];
+        var buttonLabel = _loc["Dialog.ConvertOnly.ConfirmButton"];
 
-        if (!_dialog.Confirm(message, title))
+        if (!_dialog.DangerConfirm(title, message, confirmText, buttonLabel))
         {
             AddLog(_loc["Log.ConvertOnlyCancelled"], "INFO");
             return;

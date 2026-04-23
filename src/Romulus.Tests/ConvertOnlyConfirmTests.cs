@@ -5,17 +5,18 @@ using Xunit;
 namespace Romulus.Tests;
 
 /// <summary>
-/// Phase-2 Safety (Pragmatic): ConvertOnly muss vor dem Start eine Konsequenz-Bestaetigung
-/// einholen (IDialogService.Confirm), da die Konvertierungs-Pipeline destruktive Folge-
-/// operationen ausloesen kann (Source-Cleanup nach Verifizierung). Lehnt der Nutzer ab,
-/// darf weder ConvertOnly noch DryRun=false gesetzt werden, und es darf kein Run starten.
+/// M2 Danger-Level (High): ConvertOnly verschiebt verifizierte Quell-Dateien nach
+/// erfolgreicher Konvertierung in <c>_TRASH_CONVERTED</c>. Vor dem Start muss daher
+/// eine harte DangerConfirm mit getipptem Bestaetigungs-Token eingeholt werden
+/// (analog Move). Lehnt der Nutzer ab oder verweigert die Tipp-Bestaetigung, darf
+/// weder ConvertOnly noch DryRun=false gesetzt werden, und es darf kein Run starten.
 /// </summary>
 public class ConvertOnlyConfirmTests
 {
     [Fact]
-    public void ConvertOnly_AbortsWhenUserDeclinesConfirmation()
+    public void ConvertOnly_AbortsWhenUserDeclinesDangerConfirmation()
     {
-        var dialog = new StubDialogService { ConfirmResult = false };
+        var dialog = new StubDialogService { DangerConfirmResult = false };
         var vm = new MainViewModel(new StubThemeService(), dialog);
         vm.Roots.Add(@"C:\TestRoot");
 
@@ -28,22 +29,44 @@ public class ConvertOnlyConfirmTests
         vm.ConvertOnlyCommand.Execute(null);
 
         Assert.False(vm.ConvertOnly,
-            "Bei abgelehnter Bestaetigung darf ConvertOnly nicht aktiviert werden");
+            "Bei abgelehnter DangerConfirm-Bestaetigung darf ConvertOnly nicht aktiviert werden");
         Assert.Equal(dryRunBefore, vm.DryRun);
+        Assert.Single(dialog.DangerConfirmCalls);
+        Assert.Empty(dialog.ConfirmCalls);
     }
 
     [Fact]
-    public void ConvertOnly_ProceedsWhenUserConfirms()
+    public void ConvertOnly_ProceedsWhenUserConfirmsDanger()
     {
-        var dialog = new StubDialogService { ConfirmResult = true };
+        var dialog = new StubDialogService { DangerConfirmResult = true };
         var vm = new MainViewModel(new StubThemeService(), dialog);
         vm.Roots.Add(@"C:\TestRoot");
 
         vm.ConvertOnlyCommand.Execute(null);
 
         Assert.True(vm.ConvertOnly,
-            "Nach bestaetigter Konsequenz muss ConvertOnly aktiviert sein");
+            "Nach bestaetigter DangerConfirm muss ConvertOnly aktiviert sein");
         Assert.False(vm.DryRun,
-            "Nach bestaetigter Konsequenz muss DryRun deaktiviert sein, damit der reale Lauf startet");
+            "Nach bestaetigter DangerConfirm muss DryRun deaktiviert sein, damit der reale Lauf startet");
+        Assert.Single(dialog.DangerConfirmCalls);
+    }
+
+    [Fact]
+    public void ConvertOnly_DoesNotFallbackToPlainConfirm_WhenDangerConfirmDeclined()
+    {
+        // Schutz gegen still-Regression: einmal DangerConfirm = false darf nicht
+        // durch eine Plain-Confirm umgangen werden.
+        var dialog = new StubDialogService
+        {
+            DangerConfirmResult = false,
+            ConfirmResult = true, // wuerde plain-Confirm durchwinken, falls aufgerufen
+        };
+        var vm = new MainViewModel(new StubThemeService(), dialog);
+        vm.Roots.Add(@"C:\TestRoot");
+
+        vm.ConvertOnlyCommand.Execute(null);
+
+        Assert.False(vm.ConvertOnly);
+        Assert.Empty(dialog.ConfirmCalls);
     }
 }

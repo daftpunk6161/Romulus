@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
+using Romulus.Contracts.Models;
 using Romulus.UI.Wpf.Converters;
 using Romulus.UI.Wpf.Models;
 using Xunit;
@@ -229,28 +230,30 @@ public sealed class ConverterTests
         Assert.Equal(Color.FromRgb(0x99, 0x99, 0xCC), brush.Color);
     }
 
+    // Info-Brush wurde bewusst von Neon-Cyan auf einen WCAG-tauglichen Ton (#2C6E95)
+    // umgestellt, damit informative Logzeilen auf hellen Surfaces lesbar bleiben.
     [Fact]
-    public void LogLevelToBrush_Info_ReturnsCyan()
+    public void LogLevelToBrush_Info_ReturnsReadableInfoTone()
     {
         var c = new LogLevelToBrushConverter();
         var brush = (SolidColorBrush)c.Convert("INFO", typeof(Brush), null!, Culture);
-        Assert.Equal(Color.FromRgb(0x00, 0xF5, 0xFF), brush.Color);
+        Assert.Equal(Color.FromRgb(0x2C, 0x6E, 0x95), brush.Color);
     }
 
     [Fact]
-    public void LogLevelToBrush_Null_ReturnsCyan()
+    public void LogLevelToBrush_Null_ReturnsReadableInfoTone()
     {
         var c = new LogLevelToBrushConverter();
         var brush = (SolidColorBrush)c.Convert(null!, typeof(Brush), null!, Culture);
-        Assert.Equal(Color.FromRgb(0x00, 0xF5, 0xFF), brush.Color);
+        Assert.Equal(Color.FromRgb(0x2C, 0x6E, 0x95), brush.Color);
     }
 
     [Fact]
-    public void LogLevelToBrush_NonString_ReturnsCyan()
+    public void LogLevelToBrush_NonString_ReturnsReadableInfoTone()
     {
         var c = new LogLevelToBrushConverter();
         var brush = (SolidColorBrush)c.Convert(42, typeof(Brush), null!, Culture);
-        Assert.Equal(Color.FromRgb(0x00, 0xF5, 0xFF), brush.Color);
+        Assert.Equal(Color.FromRgb(0x2C, 0x6E, 0x95), brush.Color);
     }
 
     [Fact]
@@ -509,5 +512,50 @@ public sealed class ConverterTests
         var c = new PhaseDetailConverter();
         Assert.Throws<NotSupportedException>(() =>
             c.ConvertBack("", typeof(RunState), null!, Culture));
+    }
+
+    // ═══ DatAuditStatusToGlyphConverter ══════════════════════════════════
+    // Triple-encoding badge (icon + color + text) for color-blind accessibility.
+
+    [Theory]
+    [InlineData(DatAuditStatus.Have, "\uE73E")]          // CheckMark
+    [InlineData(DatAuditStatus.HaveWrongName, "\uE7BA")] // Warning
+    [InlineData(DatAuditStatus.Miss, "\uE711")]          // Cancel
+    [InlineData(DatAuditStatus.Unknown, "\uE946")]       // Info
+    [InlineData(DatAuditStatus.Ambiguous, "\uE783")]     // Important (distinct from Warning)
+    public void DatAuditStatusToGlyph_KnownStatus_ReturnsExpectedGlyph(DatAuditStatus status, string expected)
+    {
+        var c = new DatAuditStatusToGlyphConverter();
+        Assert.Equal(expected, c.Convert(status, typeof(string), null!, Culture));
+    }
+
+    [Fact]
+    public void DatAuditStatusToGlyph_NonStatusValue_ReturnsInfoFallback()
+    {
+        var c = new DatAuditStatusToGlyphConverter();
+        Assert.Equal("\uE946", c.Convert("not-a-status", typeof(string), null!, Culture));
+    }
+
+    [Fact]
+    public void DatAuditStatusToGlyph_AllGlyphsAreUniquePerStatus()
+    {
+        var c = new DatAuditStatusToGlyphConverter();
+        var glyphs = new[]
+        {
+            (string)c.Convert(DatAuditStatus.Have, typeof(string), null!, Culture),
+            (string)c.Convert(DatAuditStatus.HaveWrongName, typeof(string), null!, Culture),
+            (string)c.Convert(DatAuditStatus.Miss, typeof(string), null!, Culture),
+            (string)c.Convert(DatAuditStatus.Unknown, typeof(string), null!, Culture),
+            (string)c.Convert(DatAuditStatus.Ambiguous, typeof(string), null!, Culture),
+        };
+        Assert.Equal(glyphs.Length, glyphs.Distinct().Count());
+    }
+
+    [Fact]
+    public void DatAuditStatusToGlyph_ConvertBack_Throws()
+    {
+        var c = new DatAuditStatusToGlyphConverter();
+        Assert.Throws<NotSupportedException>(() =>
+            c.ConvertBack("\uE73E", typeof(DatAuditStatus), null!, Culture));
     }
 }

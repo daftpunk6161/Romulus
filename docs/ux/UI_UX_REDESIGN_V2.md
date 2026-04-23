@@ -1467,13 +1467,13 @@ Jeder Nutzer bekommt seinen optimalen Modus durch Kombination:
 
 ### 10.6 UI-Elemente konsolidieren
 
-| # | Element | Problem | Lösung | Priorität |
-|---|---------|---------|--------|-----------|
-| C1 | StatusChips | In CommandBar + ContextPanel + Inspector | Nur CommandBar + Context Wing | Hoch |
-| C2 | Move-Buttons | ShowActionBarMoveButton + ShowResultMoveButton | Ein Button, ein Ort (ActionBar) | Hoch |
-| C3 | Config Warning | Banner + separater State | Einheitlicher Config-Changed-Banner | Mittel |
-| C4 | KPI-Karten | In StartView + ResultView + ProgressView dupliziert | Shared MetricCard Template | Mittel |
-| C5 | Token-Dateien | `_DesignTokens.xaml` vs `_Tokens.xaml` | Vereinigen, Widersprüche auflösen | Hoch |
+| # | Element | Problem | Lösung | Priorität | Status |
+|---|---------|---------|--------|-----------|--------|
+| C1 | StatusChips | In CommandBar + ContextPanel | Nur CommandBar; ContextPanel nur aggregierter Ready-Chip mit Runtime-Detail | Hoch | ✅ erledigt (Q4) |
+| C2 | Move-Buttons | ShowActionBarMoveButton + ShowResultMoveButton | Ein Button, ein Ort (ActionBar) | Hoch | ⚠ mutually exclusive verdrahtet, vollständige Konsolidierung offen |
+| C3 | Config Warning | Banner + separater State | Einheitlicher Config-Changed-Banner | Mittel | offen |
+| C4 | KPI-Karten | In StartView + ResultView + ProgressView dupliziert | Shared MetricCard Template | Mittel | ✅ ResultView nutzt MetricKpi UserControl |
+| C5 | Token-Dateien | `_DesignTokens.xaml` vs `_Tokens.xaml` | Vereinigen, Widersprüche auflösen | Hoch | ✅ erledigt (Q1) |
 
 ### 10.7 Überflüssiges identifizieren
 
@@ -1502,22 +1502,22 @@ Jeder Nutzer bekommt seinen optimalen Modus durch Kombination:
 
 | Anforderung | Status | Handlungsbedarf |
 |------------|--------|-----------------|
-| **Kontrast Text** ≥ 4.5:1 | ⚠ 2 Themes mit Problemen | ArcadeNeon TextMuted, SynthwaveDark TextMuted prüfen |
+| **Kontrast Text** ≥ 4.5:1 | ✅ alle Themes gefixt (Q2) | — |
 | **Kontrast Large Text** ≥ 3:1 | ✅ OK in allen Themes | — |
-| **Focus Indicators** | ⚠ NavRail fehlt | Focus-Ring für alle interaktiven Elemente |
+| **Focus Indicators** | ✅ NavFocusRing (Q6) | — |
 | **Keyboard Navigation** | ⚠ Partiell | TabIndex-Reihenfolge prüfen, NavRail-Traversierung |
 | **Screen Reader** | ⚠ AutomationProperties teilweise | Alle Buttons brauchen Name + Description |
 | **Touch Targets** ≥ 44×44px | ✅ MinTouchTarget definiert | In HighContrast auf 48×44 erhöht |
-| **Status Triple-Encoding** | ⚠ Teilweise nur Farbe | Alle Status: Icon + Farbe + Text |
+| **Status Triple-Encoding** | ✅ erledigt (Q3) | CommandBar/ContextPanel + DatAuditView |
 | **Reduce Motion** | ✅ ReduceMotion-Preference | Storyboards respektieren Setting |
 
 ### 11.2 Kontrast-Fixes nötig
 
-| Theme | Token | Aktuell | Fix | Ratio |
-|-------|-------|---------|-----|-------|
-| ArcadeNeon | TextMuted | #9988CC | #A89FD4 | 4.5:1 auf #0A0A1E |
-| SynthwaveDark | TextMuted | #9999CC | #A0A0D0 | 4.5:1 auf #0D0D1F |
-| RetroCRT | TextMuted | #66AA66 | #5A9A5A | Prüfen auf #050A05 |
+| Theme | Token | Aktuell | Fix | Ratio | Status |
+|-------|-------|---------|-----|-------|--------|
+| ArcadeNeon | TextMuted | #9988CC | #A89FD4 | 4.5:1 auf #0A0A1E | ✅ |
+| SynthwaveDark | TextMuted | #9999CC | #A0A0D0 | 4.5:1 auf #0D0D1F | ✅ |
+| RetroCRT | TextMuted | #66AA66 | #5A9A5A | geprüft auf #050A05 | ✅ |
 
 ### 11.3 Keyboard-Navigation
 
@@ -1558,28 +1558,28 @@ Status-Änderungen als Live Regions:
 
 ### Phase 1: Quick Wins (1-2 Wochen)
 
-| # | Maßnahme | Impact | Aufwand |
-|---|----------|--------|---------|
-| Q1 | Token-Dateien konsolidieren (`_Tokens.xaml` → `_DesignTokens.xaml`) | Konsistenz | Niedrig |
-| Q2 | TextMuted WCAG-Fixes in 3 Themes | Accessibility | Niedrig |
-| Q3 | Status Triple-Encoding (Icon+Farbe+Text) überall | Accessibility | Mittel |
-| Q4 | Status-Chip-Redundanz entfernen (nur CommandBar + ContextWing) | Klarheit | Mittel |
-| Q5 | Move-Button konsolidieren (nur ActionBar) | Konsistenz | Niedrig |
-| Q6 | NavRail Focus-Ring hinzufügen | Accessibility | Niedrig |
-| Q7 | Unused Sub-Tabs entfernen (GameKeyLab, leere Conversion) | Hygiene | Niedrig |
+| # | Maßnahme | Impact | Aufwand | Status |
+|---|----------|--------|---------|--------|
+| Q1 | Token-Dateien konsolidieren (`_Tokens.xaml` → `_DesignTokens.xaml`) | Konsistenz | Niedrig | ✅ erledigt |
+| Q2 | TextMuted WCAG-Fixes in 3 Themes | Accessibility | Niedrig | ✅ erledigt (ArcadeNeon, RetroCRT, SynthwaveDark) |
+| Q3 | Status Triple-Encoding (Icon+Farbe+Text) überall | Accessibility | Mittel | ✅ erledigt (CommandBar/ContextPanel + DatAuditView) |
+| Q4 | Status-Chip-Redundanz entfernen (nur CommandBar + ContextWing) | Klarheit | Mittel | ✅ erledigt (Roots/Tools/Dat-Chips aus ContextPanel entfernt) |
+| Q5 | Move-Button konsolidieren (nur ActionBar) | Konsistenz | Niedrig | ⚠ offen — mutually exclusive Verdrahtung; vollständiges Entfernen aus ResultView verlangt `ShowSmartActionBar`-Logikänderung |
+| Q6 | NavRail Focus-Ring hinzufügen | Accessibility | Niedrig | ✅ erledigt (NavFocusRing in TextPrimary, HC 3px Override) |
+| Q7 | Unused Sub-Tabs entfernen (GameKeyLab, leere Conversion) | Hygiene | Niedrig | ✅ erledigt |
 
 ### Phase 2: Mittlere Umbauten (2-4 Wochen)
 
-| # | Maßnahme | Impact | Aufwand |
-|---|----------|--------|---------|
-| M1 | Context Wing Adaptive Content | Relevanz | Mittel |
-| M2 | Danger-Level-System + Typing-Confirm Dialog | Safety | Mittel |
-| M3 | Tool-Katalog Gruppierung (Core/Maintenance/Advanced) | Navigation | Mittel |
-| M4 | KPI-Progressive-Disclosure (max 4 primär, Rest Expander) | Dichte | Mittel |
-| M5 | Stepper-Flow für Conversion (Preview→Review→Execute) | Workflow | Hoch |
-| M6 | Review-Gate bei Execute (Warning/Block je nach Status) | Safety | Mittel |
-| M7 | Tool-List-View als Alternative zu Grid | Power-User | Niedrig |
-| M8 | Compact-Density-Mode verfeinern | Density | Mittel |
+| # | Maßnahme | Impact | Aufwand | Status |
+|---|----------|--------|---------|--------|
+| M1 | Context Wing Adaptive Content | Relevanz | Mittel | ✅ erledigt |
+| M2 | Danger-Level-System + Typing-Confirm Dialog | Safety | Mittel | ✅ erledigt (inkl. ConvertOnly-Pfad) |
+| M3 | Tool-Katalog Gruppierung (Core/Maintenance/Advanced) | Navigation | Mittel | ✅ erledigt |
+| M4 | KPI-Progressive-Disclosure (max 4 primär, Rest Expander) | Dichte | Mittel | offen |
+| M5 | Stepper-Flow für Conversion (Preview→Review→Execute) | Workflow | Hoch | offen |
+| M6 | Review-Gate bei Execute (Warning/Block je nach Status) | Safety | Mittel | offen |
+| M7 | Tool-List-View als Alternative zu Grid | Power-User | Niedrig | ✅ erledigt |
+| M8 | Compact-Density-Mode verfeinern | Density | Mittel | ✅ erledigt |
 
 ### Phase 3: Design-System-Vertiefung (4-6 Wochen)
 

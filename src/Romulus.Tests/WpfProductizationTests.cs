@@ -587,6 +587,32 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("AutomationProperties.LiveSetting", contextPanelXaml, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Q4 (Redesign V2): ContextPanel must not duplicate the Roots/Tools/Dat status chips
+    /// that CommandBar already renders globally. Only the aggregated Ready chip with Runtime
+    /// detail (which CommandBar lacks) may stay. Prevents regression of the chip duplication.
+    /// </summary>
+    [Fact]
+    public void Q4_ContextPanel_DoesNotDuplicateCommandBarStatusChips()
+    {
+        var contextPanelXaml = File.ReadAllText(FindUiFile("Views", "ContextPanel.xaml"));
+        var commandBarXaml = File.ReadAllText(FindUiFile("Views", "CommandBar.xaml"));
+
+        // CommandBar must keep the chips (single source of truth)
+        Assert.Contains("RootsStatusLevel", commandBarXaml, StringComparison.Ordinal);
+        Assert.Contains("ToolsStatusLevel", commandBarXaml, StringComparison.Ordinal);
+        Assert.Contains("DatStatusLevel", commandBarXaml, StringComparison.Ordinal);
+
+        // ContextPanel must not re-bind them
+        Assert.DoesNotContain("RootsStatusLevel", contextPanelXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToolsStatusLevel", contextPanelXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("DatStatusLevel", contextPanelXaml, StringComparison.Ordinal);
+
+        // Aggregated Ready chip with Runtime detail stays (provides info CommandBar omits in compact mode)
+        Assert.Contains("ReadyStatusLevel", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("StatusRuntime", contextPanelXaml, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void OpenItem_ToolsView_HasViewModeToggle()
     {

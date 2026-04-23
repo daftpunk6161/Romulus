@@ -41,7 +41,7 @@
           <StackPanel>
             <TextBlock Text="Status" FontWeight="SemiBold"
                        Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
-            <Border Style="{StaticResource AccentHeaderChip}" Margin="0,0,0,8"
+            <Border Style="{StaticResource AccentHeaderChip}"
                     AutomationProperties.LiveSetting="Polite">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding ReadyStatusLevel, Converter={StaticResource StatusToGlyph}}"
@@ -56,32 +56,8 @@
                 </StackPanel>
               </StackPanel>
             </Border>
-            <WrapPanel>
-              <Border Style="{StaticResource HeaderChip}">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="{Binding RootsStatusLevel, Converter={StaticResource StatusToGlyph}}"
-                             FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"
-                             Foreground="{Binding RootsStatusLevel, Converter={StaticResource StatusToBrush}}"/>
-                  <TextBlock Text="{Binding StatusRoots}" Foreground="{DynamicResource BrushTextPrimary}"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource HeaderChip}">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="{Binding ToolsStatusLevel, Converter={StaticResource StatusToGlyph}}"
-                             FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"
-                             Foreground="{Binding ToolsStatusLevel, Converter={StaticResource StatusToBrush}}"/>
-                  <TextBlock Text="{Binding StatusTools}" Foreground="{DynamicResource BrushTextPrimary}"/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource HeaderChip}">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="{Binding DatStatusLevel, Converter={StaticResource StatusToGlyph}}"
-                             FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"
-                             Foreground="{Binding DatStatusLevel, Converter={StaticResource StatusToBrush}}"/>
-                  <TextBlock Text="{Binding StatusDat}" Foreground="{DynamicResource BrushTextPrimary}"/>
-                </StackPanel>
-              </Border>
-            </WrapPanel>
+            <!-- Q4: Roots/Tools/Dat-Chips bewusst entfernt — werden bereits in CommandBar gezeigt.
+                 Vermeidet Doppelung; ContextPanel ergänzt nur Detail (Runtime). -->
           </StackPanel>
         </Border>
 

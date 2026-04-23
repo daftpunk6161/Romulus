@@ -20,6 +20,24 @@
       </Setter>
     </Style>
 
+    <!-- ═══ NAV FOCUS RING (UX-Q6) ════════════════════════════════════
+         Eigener Focus-Indikator fuer NavButton, weil dessen Selected-State
+         bereits eine 2px Cyan-Border traegt. Ein zweiter Cyan-Ring waere auf
+         dem ausgewaehlten Item praktisch unsichtbar. Wir verwenden daher den
+         hellen Primary-Text-Farbton mit groesserem Abstand, damit Tastatur-
+         Fokus immer eindeutig vom aktiven Item unterscheidbar bleibt. -->
+    <Style x:Key="NavFocusRing">
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Border BorderBrush="{DynamicResource BrushTextPrimary}"
+                    BorderThickness="2" CornerRadius="6"
+                    Margin="-4" SnapsToDevicePixels="True"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- ═══ BUTTON ════════════════════════════════════════════════════ -->
     <Style TargetType="Button">
       <Setter Property="Background"        Value="{DynamicResource BrushSurface}"/>
@@ -920,7 +938,9 @@
       <Setter Property="Margin" Value="8,4"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-      <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+      <!-- UX-Q6: NavFocusRing statt FocusRing, damit der Tastatur-Fokus auf
+           einem bereits ausgewaehlten Nav-Item sichtbar bleibt. -->
+      <Setter Property="FocusVisualStyle" Value="{StaticResource NavFocusRing}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
