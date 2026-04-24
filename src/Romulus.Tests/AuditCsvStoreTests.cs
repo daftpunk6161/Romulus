@@ -1,5 +1,6 @@
 using Romulus.Infrastructure.Audit;
 using Romulus.Contracts.Models;
+using Romulus.Infrastructure.FileSystem;
 using Xunit;
 
 namespace Romulus.Tests;
@@ -76,6 +77,124 @@ public class AuditCsvStoreTests : IDisposable
         File.AppendAllText(csvPath, "tampered\n");
 
         Assert.False(_audit.TestMetadataSidecar(csvPath));
+    }
+
+    [Fact]
+    public void AppendAuditRow_SanitizesUncPathsForSpreadsheetConsumers()
+    {
+        var csvPath = Path.Combine(_tempDir, "audit-unc.csv");
+
+        _audit.AppendAuditRow(
+            csvPath,
+            _tempDir,
+            @"\\nas\roms\game.zip",
+            Path.Combine(_tempDir, "game.zip"),
+            "MOVE");
+
+        var row = File.ReadLines(csvPath).Skip(1).Single();
+        var fields = AuditCsvParser.ParseCsvLine(row);
+
+        Assert.StartsWith(@"'\\nas\roms", fields[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CountAuditRows_CountsLogicalCsvRowsWithQuotedNewlines()
+    {
+        var csvPath = Path.Combine(_tempDir, "audit-multiline.csv");
+        File.WriteAllText(
+            csvPath,
+            "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n" +
+            $"{_tempDir},old,new,MOVE,GAME,,\"line 1\nline 2\",2026-04-24T00:00:00Z\n");
+
+        var count = AuditCsvStore.CountAuditRows(csvPath);
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void AuditSigningService_CorruptPersistedKey_QuarantinesAndThrows()
+    {
+        var keyPath = Path.Combine(_tempDir, "corrupt.key");
+        File.WriteAllText(keyPath, "not-hex");
+        var service = new AuditSigningService(new FileSystemAdapter(), keyFilePath: keyPath);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => service.ComputeHmacSha256("payload"));
+
+        Assert.Contains("HMAC key file", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(keyPath));
+        Assert.True(Directory.Exists(Path.Combine(_tempDir, "quarantine")));
+        Assert.Single(Directory.GetFiles(Path.Combine(_tempDir, "quarantine"), "*.bad"));
+    }
+
+    [Fact]
+    public void VerifyMetadataSidecar_ReplayedOlderCheckpoint_IsRejected()
+    {
+        var keyPath = Path.Combine(_tempDir, "replay.key");
+        var service = new AuditSigningService(new FileSystemAdapter(), keyFilePath: keyPath);
+        var csvPath = Path.Combine(_tempDir, "replay.csv");
+        var oldPath = Path.Combine(_tempDir, "old.rom");
+        var newPath = Path.Combine(_tempDir, "new.rom");
+
+        File.WriteAllText(
+            csvPath,
+            "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n" +
+            $"{_tempDir},{oldPath},{newPath},Move,GAME,abc,first,2026-04-24T00:00:00Z\n");
+        service.WriteMetadataSidecar(csvPath, 1);
+        var replayCsv = File.ReadAllText(csvPath);
+        var replayMeta = File.ReadAllText(csvPath + ".meta.json");
+
+        File.AppendAllText(csvPath, $"{_tempDir},{oldPath}2,{newPath}2,Move,GAME,abc,second,2026-04-24T00:00:01Z\n");
+        service.WriteMetadataSidecar(csvPath, 2);
+
+        File.WriteAllText(csvPath, replayCsv);
+        File.WriteAllText(csvPath + ".meta.json", replayMeta);
+
+        var ex = Assert.Throws<InvalidDataException>(() => service.VerifyMetadataSidecar(csvPath));
+        Assert.Contains("replay", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Rollback_WithMissingCsvAndPresentSidecar_ReportsTampered()
+    {
+        var keyPath = Path.Combine(_tempDir, "missing-csv.key");
+        var service = new AuditSigningService(new FileSystemAdapter(), keyFilePath: keyPath);
+        var csvPath = Path.Combine(_tempDir, "missing-csv.csv");
+        File.WriteAllText(
+            csvPath,
+            "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n" +
+            $"{_tempDir},{Path.Combine(_tempDir, "old.rom")},{Path.Combine(_tempDir, "new.rom")},Move,GAME,abc,reason,2026-04-24T00:00:00Z\n");
+        service.WriteMetadataSidecar(csvPath, 1);
+        File.Delete(csvPath);
+
+        var result = service.Rollback(csvPath, [_tempDir], [_tempDir], dryRun: true);
+
+        Assert.True(result.Tampered);
+        Assert.Equal("AUDIT_CSV_MISSING_WITH_SIDECAR", result.IntegrityError);
+        Assert.Equal(1, result.Failed);
+    }
+
+    [Fact]
+    public void AppendAuditRow_WritesImmediateCheckpoint_AndDetectsTailTampering()
+    {
+        var auditPath = Path.Combine(_tempDir, "tail-protected.csv");
+
+        _audit.AppendAuditRow(
+            auditPath,
+            _tempDir,
+            Path.Combine(_tempDir, "old.zip"),
+            Path.Combine(_tempDir, "trash", "old.zip"),
+            "MOVE",
+            "Game",
+            "hash",
+            "tail-checkpoint");
+
+        Assert.True(_audit.TestMetadataSidecar(auditPath));
+
+        File.AppendAllText(
+            auditPath,
+            $"{_tempDir},{Path.Combine(_tempDir, "evil.zip")},{Path.Combine(_tempDir, "trash", "evil.zip")},MOVE,Game,,tampered,{DateTimeOffset.UtcNow:O}\n");
+
+        Assert.False(_audit.TestMetadataSidecar(auditPath));
     }
 
     [Fact]

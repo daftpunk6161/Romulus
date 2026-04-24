@@ -1,6 +1,7 @@
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Analysis;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 
 namespace Romulus.Infrastructure.Conversion;
@@ -13,16 +14,19 @@ public sealed class StandaloneConversionService : IDisposable
 {
     private readonly IFormatConverter _converter;
     private readonly ICollectionIndex? _collectionIndex;
+    private readonly IFileSystem _fileSystem;
     private readonly IDisposable? _lifetime;
     private bool _disposed;
 
     public StandaloneConversionService(
         IFormatConverter converter,
         ICollectionIndex? collectionIndex = null,
+        IFileSystem? fileSystem = null,
         IDisposable? lifetime = null)
     {
         _converter = converter ?? throw new ArgumentNullException(nameof(converter));
         _collectionIndex = collectionIndex;
+        _fileSystem = fileSystem ?? new FileSystemAdapter();
         _lifetime = lifetime;
     }
 
@@ -48,7 +52,7 @@ public sealed class StandaloneConversionService : IDisposable
             return null;
         }
 
-        return new StandaloneConversionService(env.Converter, env.CollectionIndex, env);
+        return new StandaloneConversionService(env.Converter, env.CollectionIndex, env.FileSystem, env);
     }
 
     /// <summary>
@@ -113,8 +117,22 @@ public sealed class StandaloneConversionService : IDisposable
         if (!Directory.Exists(directoryPath))
             return new StandaloneConversionReport([], 0, 0, 0);
 
-        var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.GetFiles(directoryPath, "*", searchOption);
+        var files = recursive
+            ? _fileSystem.GetFilesSafe(directoryPath, allowedExtensions: null, cancellationToken)
+            : Directory.GetFiles(directoryPath, "*", SearchOption.TopDirectoryOnly)
+                .Where(static file =>
+                {
+                    try
+                    {
+                        return (File.GetAttributes(file) & FileAttributes.ReparsePoint) == 0;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        return false;
+                    }
+                })
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
         var results = new List<ConversionResult>();
         int converted = 0, skipped = 0, errors = 0;

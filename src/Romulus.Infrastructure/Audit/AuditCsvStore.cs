@@ -15,11 +15,13 @@ namespace Romulus.Infrastructure.Audit;
 public sealed class AuditCsvStore : IAuditStore
 {
     private readonly AuditSigningService _signingService;
+    private readonly Action<string>? _log;
     private static readonly ConcurrentDictionary<string, FileLockHandle> FileLocks = new(StringComparer.OrdinalIgnoreCase);
     private const string AuditCsvHeader = "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n";
 
     public AuditCsvStore(IFileSystem? fs = null, Action<string>? log = null, string? keyFilePath = null)
     {
+        _log = log;
         _signingService = new AuditSigningService(fs ?? new FileSystemAdapter(), log, keyFilePath);
     }
 
@@ -38,7 +40,7 @@ public sealed class AuditCsvStore : IAuditStore
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            File.WriteAllText(auditCsvPath, AuditCsvHeader, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(auditCsvPath, AuditCsvHeader, Encoding.UTF8);
         }
 
         var rowCount = CountAuditRows(auditCsvPath);
@@ -83,30 +85,7 @@ public sealed class AuditCsvStore : IAuditStore
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var lockHandle = AcquireFileLock(auditCsvPath);
-        using var crossProcessMutex = AcquireCrossProcessMutex(auditCsvPath);
-        try
-        {
-            lock (lockHandle.Sync)
-            {
-                bool writeHeader = !File.Exists(auditCsvPath);
-
-                // REC-03: Use explicit file stream + Flush(true) for crash-safe durability.
-                using var fs = new FileStream(auditCsvPath, FileMode.Append, FileAccess.Write, FileShare.Read);
-                using var sw = new StreamWriter(fs, Encoding.UTF8);
-                if (writeHeader)
-                    sw.WriteLine("RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp");
-
-                WriteAuditRowCore(sw, new AuditAppendRow(rootPath, oldPath, newPath, action, category, hash, reason));
-                sw.Flush();
-                fs.Flush(flushToDisk: true);
-            }
-        }
-        finally
-        {
-            crossProcessMutex.ReleaseMutex();
-            ReleaseFileLock(auditCsvPath, lockHandle);
-        }
+        AppendAuditRows(auditCsvPath, [new AuditAppendRow(rootPath, oldPath, newPath, action, category, hash, reason)]);
     }
 
     public void AppendAuditRows(string auditCsvPath, IReadOnlyList<AuditAppendRow> rows)
@@ -123,9 +102,10 @@ public sealed class AuditCsvStore : IAuditStore
             Directory.CreateDirectory(dir);
 
         var lockHandle = AcquireFileLock(auditCsvPath);
-        using var crossProcessMutex = AcquireCrossProcessMutex(auditCsvPath);
+        Mutex? crossProcessMutex = null;
         try
         {
+            crossProcessMutex = AcquireCrossProcessMutex(auditCsvPath, _log);
             lock (lockHandle.Sync)
             {
                 var tempPath = auditCsvPath + $".append.{Guid.NewGuid():N}.tmp";
@@ -138,7 +118,7 @@ public sealed class AuditCsvStore : IAuditStore
                     }
                     else
                     {
-                        File.WriteAllText(tempPath, AuditCsvHeader, Encoding.UTF8);
+                        AtomicFileWriter.WriteAllText(tempPath, AuditCsvHeader, Encoding.UTF8);
                     }
 
                     using (var fs = new FileStream(tempPath, FileMode.Append, FileAccess.Write, FileShare.None))
@@ -152,6 +132,7 @@ public sealed class AuditCsvStore : IAuditStore
                     }
 
                     File.Move(tempPath, auditCsvPath, overwrite: true);
+                    _signingService.WriteMetadataSidecar(auditCsvPath, CountAuditRows(auditCsvPath));
                 }
                 finally
                 {
@@ -169,7 +150,11 @@ public sealed class AuditCsvStore : IAuditStore
         }
         finally
         {
-            crossProcessMutex.ReleaseMutex();
+            if (crossProcessMutex is not null)
+            {
+                crossProcessMutex.ReleaseMutex();
+                crossProcessMutex.Dispose();
+            }
             ReleaseFileLock(auditCsvPath, lockHandle);
         }
     }
@@ -181,13 +166,53 @@ public sealed class AuditCsvStore : IAuditStore
         return dryRun ? detailed.PlannedPaths : detailed.RestoredPaths;
     }
 
-    private static int CountAuditRows(string auditCsvPath)
+    internal static int CountAuditRows(string auditCsvPath)
     {
         if (!File.Exists(auditCsvPath))
             return 0;
 
-        var lineCount = File.ReadLines(auditCsvPath, Encoding.UTF8).Count();
-        return Math.Max(0, lineCount - 1);
+        var logicalRows = 0;
+        var current = new StringBuilder();
+        var inQuotes = false;
+
+        using var reader = new StreamReader(auditCsvPath, Encoding.UTF8);
+        int value;
+        while ((value = reader.Read()) >= 0)
+        {
+            var c = (char)value;
+            current.Append(c);
+
+            if (c == '"')
+            {
+                if (inQuotes && reader.Peek() == '"')
+                {
+                    current.Append((char)reader.Read());
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+            }
+
+            if ((c == '\n' || c == '\r') && !inQuotes)
+            {
+                var row = current.ToString().TrimEnd('\r', '\n');
+                current.Clear();
+                if (row.Length > 0)
+                {
+                    _ = AuditCsvParser.ParseCsvLine(row);
+                    logicalRows++;
+                }
+            }
+        }
+
+        if (current.Length > 0)
+        {
+            var row = current.ToString();
+            _ = AuditCsvParser.ParseCsvLine(row);
+            logicalRows++;
+        }
+
+        return Math.Max(0, logicalRows - 1);
     }
 
     private static void WriteAuditRowCore(TextWriter writer, AuditAppendRow row)
@@ -195,13 +220,13 @@ public sealed class AuditCsvStore : IAuditStore
         // V2-L07: Consistent UTC timestamps across CLI and API
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
         writer.WriteLine(string.Join(",",
-            SanitizeCsvField(row.RootPath),
-            SanitizeCsvField(row.OldPath),
-            SanitizeCsvField(row.NewPath),
-            SanitizeCsvField(row.Action),
-            SanitizeCsvField(row.Category),
-            SanitizeCsvField(row.Hash),
-            SanitizeCsvField(row.Reason),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.RootPath),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.OldPath),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.NewPath),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.Action),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.Category),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.Hash),
+            AuditCsvParser.SanitizeSpreadsheetCsvField(row.Reason),
             SanitizeCsvField(timestamp)));
     }
 
@@ -222,7 +247,7 @@ public sealed class AuditCsvStore : IAuditStore
         throw new InvalidOperationException($"Failed to acquire file lock for '{auditCsvPath}' after {maxRetries} retries.");
     }
 
-    private static Mutex AcquireCrossProcessMutex(string auditCsvPath)
+    private static Mutex AcquireCrossProcessMutex(string auditCsvPath, Action<string>? log)
     {
         var mutex = new Mutex(false, BuildCrossProcessMutexName(auditCsvPath));
         try
@@ -233,9 +258,28 @@ public sealed class AuditCsvStore : IAuditStore
         {
             // Previous process terminated while holding the mutex.
             // The current process now owns it and can safely continue.
+            log?.Invoke($"Audit mutex was abandoned for '{auditCsvPath}'. Verifying CSV tail before writing.");
+            EnsureAuditFileEndsWithNewline(auditCsvPath);
         }
 
         return mutex;
+    }
+
+    private static void EnsureAuditFileEndsWithNewline(string auditCsvPath)
+    {
+        if (!File.Exists(auditCsvPath))
+            return;
+
+        using var stream = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        if (stream.Length == 0)
+            return;
+
+        stream.Seek(-1, SeekOrigin.End);
+        var last = stream.ReadByte();
+        if (last is '\n' or '\r')
+            return;
+
+        throw new InvalidDataException("Audit CSV appears to end with a partial row after an abandoned mutex.");
     }
 
     private static string BuildCrossProcessMutexName(string auditCsvPath)

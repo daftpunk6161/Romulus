@@ -122,10 +122,14 @@ public static class AuditCsvParser
             return "\"\"";
 
         var sanitized = value;
-        if (sanitized.Length > 0 && sanitized[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+        if (sanitized.Length > 0
+            && (sanitized[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+                || sanitized.StartsWith(@"\\")))
+        {
             sanitized = "'" + sanitized;
+        }
 
-        if (sanitized.Contains('"') || sanitized.Contains(',') || sanitized.Contains('\n'))
+        if (sanitized.Contains('"') || sanitized.Contains(',') || sanitized.Contains('\n') || sanitized.Contains('\r'))
             return "\"" + sanitized.Replace("\"", "\"\"") + "\"";
 
         return sanitized;

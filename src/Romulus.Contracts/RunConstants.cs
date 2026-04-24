@@ -144,6 +144,7 @@ public static class RunConstants
     {
         public const string Copy = "COPY";
         public const string CopyPending = "COPY_PENDING";
+        public const string CopyFailed = "COPY_FAILED";
         public const string Move = "MOVE";
         public const string MovePending = "MOVE_PENDING";
         public const string Moved = "MOVED";

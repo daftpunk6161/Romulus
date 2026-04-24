@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
 using Romulus.UI.Wpf.ViewModels;
@@ -68,9 +69,12 @@ public sealed partial class FeatureCommandService
     {
         var dir = _dialog.BrowseFolder("Konvertierte Dateien prüfen");
         if (dir is null) return;
-        var files = Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories)
+        var fileSystem = new FileSystemAdapter();
+        var files = fileSystem.GetFilesSafe(dir)
             .Where(f => DiscFormats.IsConversionVerificationExtension(Path.GetExtension(f).ToLowerInvariant()))
             .ToList();
+        foreach (var warning in fileSystem.ConsumeScanWarnings())
+            _vm.AddLog(warning, "WARN");
         var (passed, failed, missing) = FeatureService.VerifyConversions(files);
         _dialog.ShowText("Konvertierung verifizieren", $"Verifizierung: {dir}\n\n" +
             $"Bestanden: {passed}\nFehlgeschlagen: {failed}\nFehlend: {missing}\nGesamt: {files.Count}");

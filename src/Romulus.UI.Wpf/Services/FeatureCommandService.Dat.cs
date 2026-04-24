@@ -8,6 +8,7 @@ using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Dat;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
 using Romulus.UI.Wpf.ViewModels;
@@ -38,10 +39,10 @@ public sealed partial class FeatureCommandService
         { _vm.AddLog(_vm.Loc["Cmd.DatAutoUpdate.EmptyCatalog"], "WARN"); return; }
 
         // ── Lokale DATs scannen (ein Durchlauf) ────────────────────────
-        var localDats = Directory.GetFiles(_vm.DatRoot, "*.*", SearchOption.AllDirectories)
-            .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                     || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var datFileSystem = new FileSystemAdapter();
+        var localDats = datFileSystem.GetFilesSafe(_vm.DatRoot, [".dat", ".xml"]).ToList();
+        foreach (var warning in datFileSystem.ConsumeScanWarnings())
+            _vm.AddLog(warning, "WARN");
         var localNames = new HashSet<string>(
             localDats.Select(d => Path.GetFileNameWithoutExtension(d)!.ToUpperInvariant()),
             StringComparer.OrdinalIgnoreCase);
@@ -312,30 +313,7 @@ public sealed partial class FeatureCommandService
                 if (!TryResolveSafeOutputPath(customDatPath, "Custom-DAT", out var safeCustomDatPath))
                     return;
 
-                if (File.Exists(safeCustomDatPath))
-                {
-                    var content = File.ReadAllText(safeCustomDatPath);
-                    var closeTag = "</datafile>";
-                    var idx = content.LastIndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
-                    if (idx >= 0) content = content[..idx] + xmlEntry + "\n" + closeTag;
-                    else content += "\n" + xmlEntry;
-                    var tempPath = safeCustomDatPath + ".tmp";
-                    if (!TryResolveSafeOutputPath(tempPath, "Custom-DAT", out var safeTempPath))
-                        return;
-
-                    File.WriteAllText(safeTempPath, content);
-                    File.Move(safeTempPath, safeCustomDatPath, overwrite: true);
-                }
-                else
-                {
-                    var customDatDescription = System.Security.SecurityElement.Escape(_vm.Loc["Cmd.CustomDat.Description"]);
-                    var fullXml = "<?xml version=\"1.0\"?>\n" +
-                                  "<!DOCTYPE datafile SYSTEM \"http://www.logiqx.com/Dats/datafile.dtd\">\n" +
-                                  "<datafile>\n  <header>\n    <name>Custom DAT</name>\n" +
-                                  $"    <description>{customDatDescription}</description>\n  </header>\n" +
-                                  xmlEntry + "\n</datafile>";
-                    File.WriteAllText(safeCustomDatPath, fullXml);
-                }
+                FeatureService.AppendCustomDatEntry(Path.GetDirectoryName(safeCustomDatPath)!, xmlEntry, _vm.Loc["Cmd.CustomDat.Description"]);
                 _vm.AddLog(_vm.Loc.Format("Cmd.CustomDatEditor.EntrySaved", safeCustomDatPath), "INFO");
             }
             catch (Exception ex) { LogError("DAT-CUSTOM", _vm.Loc.Format("Cmd.CustomDatEditor.Error", ex.Message)); }
@@ -352,7 +330,7 @@ public sealed partial class FeatureCommandService
         var path = _dialog.SaveFile(_vm.Loc["Cmd.HashDatabaseExport.Title"], _vm.Loc["Cmd.HashDatabaseExport.Filter"], "hash-database.json");
         if (!TryResolveSafeOutputPath(path, "Hash-Datenbank-Export", out var safePath)) return;
         var entries = _vm.LastCandidates.Select(c => new { c.MainPath, c.GameKey, c.Extension, c.Region, c.DatMatch, c.SizeBytes }).ToList();
-        File.WriteAllText(safePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
+        AtomicFileWriter.WriteAllText(safePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
         _vm.AddLog(_vm.Loc.Format("Cmd.HashDatabaseExport.Done", safePath, entries.Count), "INFO");
     }
 

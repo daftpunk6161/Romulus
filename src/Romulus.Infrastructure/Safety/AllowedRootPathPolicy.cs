@@ -12,7 +12,9 @@ public sealed class AllowedRootPathPolicy
     {
         _allowedRoots = (allowedRoots ?? Array.Empty<string>())
             .Where(static root => !string.IsNullOrWhiteSpace(root))
-            .Select(NormalizeRoot)
+            .Select(static root => SafetyValidator.NormalizePath(root))
+            .Where(static root => !string.IsNullOrWhiteSpace(root))
+            .Select(static root => root!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -29,23 +31,11 @@ public sealed class AllowedRootPathPolicy
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
-        string fullPath;
-        try
-        {
-            fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch (ArgumentException)
-        {
+        var normalized = SafetyValidator.NormalizePath(path);
+        if (normalized is null)
             return false;
-        }
-        catch (PathTooLongException)
-        {
-            return false;
-        }
-        catch (NotSupportedException)
-        {
-            return false;
-        }
+
+        var fullPath = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
         // R2-005 FIX: Reject paths containing reparse points (symlinks/junctions)
         // to prevent symlink-based root-escape attacks.
@@ -72,12 +62,6 @@ public sealed class AllowedRootPathPolicy
     {
         var policy = new AllowedRootPathPolicy(roots ?? Array.Empty<string>());
         return policy.IsPathAllowed(path);
-    }
-
-    private static string NormalizeRoot(string root)
-    {
-        var fullPath = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return fullPath;
     }
 
     /// <summary>

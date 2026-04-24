@@ -24,11 +24,11 @@
 
 | Severity | Round 1+2 | Round 3 | Round 4 | Round 5 | Round 6 | Round 7 | Round 8 | Gesamt | Erledigt |
 |----------|----------:|--------:|--------:|--------:|--------:|--------:|--------:|-------:|---------:|
-| **P0** (Release-Blocker)         |  8 |  1 |  9 |  1 |  0 |  0 |  0 |  19 | 0 |
-| **P1** (Hohe Risiken)            | 22 | 15 | 17 | 11 |  6 |  3 |  0 |  74 | 0 |
-| **P2** (Mittlere Risiken)        | 26 | 22 | 22 | 19 | 18 |  6 |  0 | 113 | 0 |
-| **P3** (Wartbarkeit / niedrig)   | 12 |  6 | 13 |  9 | 12 |  3 |  0 |  55 | 0 |
-| **Gesamt**                       | 68 | 44 | 61 | 40 | 36 | 12 |  0 | 261 | 0 |
+| **P0** (Release-Blocker)         |  8 |  1 |  9 |  1 |  0 |  0 |  0 |  19 | 6 |
+| **P1** (Hohe Risiken)            | 22 | 15 | 17 | 11 |  6 |  3 |  0 |  74 | 13 |
+| **P2** (Mittlere Risiken)        | 26 | 22 | 22 | 19 | 18 |  6 |  0 | 113 | 7 |
+| **P3** (Wartbarkeit / niedrig)   | 12 |  6 | 13 |  9 | 12 |  3 |  0 |  55 | 2 |
+| **Gesamt**                       | 68 | 44 | 61 | 40 | 36 | 12 |  0 | 261 | 28 |
 
 > Bitte beim Abhaken die Tabelle hier oben mit aktualisieren.
 > Round-3-Funde: `R3-A-*` (DAT/Hash/Tools), `R3-B-*` (Settings/Loc/UI), `R3-C-*` (API/CLI/Reports/Logging).
@@ -92,7 +92,7 @@
 
 ### P0-04 — Cross-Volume-Move nicht atomar (Cancel/IO-Fehler hinterlaesst Partials)
 **Tags:** Release-Blocker · Data-Integrity Risk
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs](../../src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs#L393-L465)
 - **Problem:** .NET `File.Move` zwischen Volumes = Copy+Delete. Bei Cancel/IOException bleibt halbe Zieldatei + ganze Source -> Trash-Inflation, korrupte Files, Audit verweist auf abgeschnittene Datei.
 - **Fix:** Stage-File `{dest}.tmpmv` schreiben -> atomarer `File.Move` innerhalb Zielvolume -> Source loeschen. `try/catch/finally` mit Tempfile-Cleanup.
@@ -102,7 +102,7 @@
 
 ### P0-05 — Audit-Sidecar `meta.json` nicht atomar geschrieben
 **Tags:** Release-Blocker · Data-Integrity Risk · Audit Integrity Risk
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [src/Romulus.Infrastructure/Audit/AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L177-L181)
 - **Problem:** `File.WriteAllText(metaPath, json, Encoding.UTF8)` direkt auf Zielpfad. Crash mitten im Schreiben -> Sidecar halb-geschrieben/leer -> `VerifyMetadataSidecar` wirft `JsonException` -> Rollback dauerhaft blockiert. Inkonsistent zur Key-Datei (die ist atomar via tmp+Move).
 - **Fix:** Schreiben ueber `metaPath + ".tmp"` mit `File.Move(tmp, metaPath, overwrite:true)`.
@@ -111,7 +111,7 @@
 
 ### P0-06 — HMAC-Signing-Key wird aus leerer / korrupter Datei stillschweigend regeneriert
 **Tags:** Release-Blocker · Security Risk · Critical (OWASP A08)
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [src/Romulus.Infrastructure/Audit/AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L42-L60)
 - **Problem:** Bei leerer Datei (`Convert.FromHexString("") == byte[0]`) oder `FormatException` wird neuer Key generiert ohne Laengenpruefung. Alle bestehenden Sidecars werden ab sofort als „tampered" abgelehnt -> Denial-of-Rollback. Angreifer mit Schreibrecht kann durch Byte-Flip jeden Rollback blockieren.
 - **Fix:** Nach `Convert.FromHexString` validieren `Length == 32`, sonst fail-closed (`InvalidOperationException`). Korrupten Key in `quarantine/<utc>.bad` verschieben statt ueberschreiben. Niemals stillschweigend rotieren.
@@ -121,7 +121,7 @@
 
 ### P0-07 — Audit-Rollback liefert leeres Ergebnis bei geloeschter CSV
 **Tags:** Release-Blocker · Audit Integrity Risk
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [src/Romulus.Infrastructure/Audit/AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L222)
 - **Problem:** Frueher Exit-Branch behandelt fehlende CSV als „nichts zu tun". Sidecar-Existenz wird nicht gegengeprueft. UI zeigt „Rollback erfolgreich, 0 Dateien" obwohl Tampering vorliegt.
 - **Fix:** Wenn `File.Exists(metaPath) && !File.Exists(auditCsvPath)` -> `Failed = metadata.RowCount, Tampered=true`. Result-Felder `Tampered` ergaenzen.
@@ -131,7 +131,7 @@
 
 ### P0-08 — Run/Snapshot mit leerem `OwnerClientId` ist fuer alle API-Keys offen
 **Tags:** Release-Blocker · Security Risk · Broken Access Control (OWASP A01)
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [src/Romulus.Api/ProgramHelpers.cs](../../src/Romulus.Api/ProgramHelpers.cs#L181-L190)
 - **Problem:** `CanAccessRun`/`CanAccessSnapshot` geben `true` zurueck, sobald `OwnerClientId` `null/whitespace` ist. Legacy-/importierte Records ohne Owner sind fuer jeden gueltigen Key sichtbar UND steuerbar (inkl. `/runs/{id}/rollback`, `/export/frontend`, `/collections/merge/apply`).
 - **Fix:** `OwnerClientId` zur Pflicht. Records ohne Owner als „system-locked" -> eigener Admin-Scope. `CanAccessRun` defaultet auf `false`.
@@ -164,7 +164,7 @@
 
 ### P1-04 — Doppelte CSV-Sanitizer (DAT-Audit fehlt UNC-Schutz)
 **Tags:** Security Risk · Parity Risk · Duplicate Logic
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [AuditCsvParser.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvParser.cs#L119-L138), [DatAuditViewModel.cs](../../src/Romulus.UI.Wpf/ViewModels/DatAuditViewModel.cs#L188-L251)
 - **Problem:** `SanitizeDatAuditCsvField` neutralisiert nicht `\\`-Prefix (UNC). Excel oeffnet UNC-Verbindung beim CSV-Open. R5-011-Fix existiert nur in `SanitizeSpreadsheetCsvField`.
 - **Fix:** Auf gemeinsamen Helper konsolidieren.
@@ -208,7 +208,7 @@
 
 ### P1-09 — Reparse-Point-Check ignoriert NTFS-Hardlinks
 **Tags:** Data-Integrity Risk · KPI-Luege
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** `MoveItemSafely`/`EnsureNoReparsePointInExistingAncestry` in `FileSystemAdapter.cs`
 - **Problem:** Hardlink-Loser geht in Trash, Winner-Pfad ist identisch -> KPI „Saved bytes" lügt.
 - **Fix:** `BY_HANDLE_FILE_INFORMATION.NumberOfLinks > 1` per `GetFileInformationByHandle` pruefen, Audit ehrlich markieren.
@@ -230,7 +230,7 @@
 
 ### P1-12 — Audit-CSV bricht bei Newlines im `Reason`-Feld
 **Tags:** Data-Integrity Risk
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [DatRenamePipelinePhase.cs](../../src/Romulus.Infrastructure/Orchestration/DatRenamePipelinePhase.cs#L107-L116), [AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L645-L688)
 - **Problem:** DAT-XML kann mehrzeilige Werte enthalten. `ReadAuditRowsReverse` liest zeilenweise -> Felder mit `\n` zerlegt -> Eintrag wird `skippedUnsafe` -> Rollback ueberspringt.
 - **Fix:** In `WriteAuditRowCore` `\r\n` aus Werten entfernen vor Quoting; ODER echten CSV-Reader (TextFieldParser/CsvHelper) nutzen.
@@ -257,7 +257,7 @@
 
 ### P1-15 — SSRF ueber DAT-Katalog (keine Host-Allowlist)
 **Tags:** Security Risk · OWASP A10
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [DatSourceService.cs](../../src/Romulus.Infrastructure/Dat/DatSourceService.cs#L62-L72), [DatSourceService.cs](../../src/Romulus.Infrastructure/Dat/DatSourceService.cs#L116-L124)
 - **Problem:** `IsSecureUrl` prueft nur HTTPS. Keine Host-Allowlist, kein Private-IP/Loopback-Block, AutoRedirect ohne Re-Validation. Praeparierter Katalog kann interne HTTPS-Dienste probaen.
 - **Fix:** Statische Allowlist (github.com, raw.githubusercontent.com, datomatic.no-intro.org, redump.org). Redirects manuell folgen + jeden Hop validieren. Loopback/RFC1918/Link-Local IPs hart blocken.
@@ -266,7 +266,7 @@
 
 ### P1-16 — HMAC-Tempfile ohne ACL beim Schreiben (Race)
 **Tags:** Security Risk · OWASP A02
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L67-L97)
 - **Problem:** Tempfile mit Default-ACL geschrieben, ACL-Haertung erst nach `File.Move`. Race-Fenster fuer fremden Prozess.
 - **Fix:** Tempfile direkt mit restriktiver ACL erzeugen (Windows: `FileSecurity` ueber `FileSystemAclExtensions.Create`. Unix: `File.Create` ohne Inhalt + `File.SetUnixFileMode(0600)` + Schluessel schreiben).
@@ -275,7 +275,7 @@
 
 ### P1-17 — Kein Hash-Chain / Replay-Schutz zwischen Audit-Sidecars
 **Tags:** Audit Integrity Risk · Security · OWASP A04/A08
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L131-L138), [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L19)
 - **Problem:** Payload `v1|<file>|<csv-sha>|<rows>|<utc>` enthaelt weder `keyId` noch Verweis auf vorherige Datei. Aelteres Sidecar+CSV kann an neuen Pfad kopiert werden -> akzeptiert.
 - **Fix:** Payload um `previousSidecarHmac` und `keyId` erweitern. Append-only `audit-ledger`.
@@ -284,7 +284,7 @@
 
 ### P1-18 — Audit-Rows zwischen Checkpoints sind ungeschuetzt
 **Tags:** Audit Integrity Risk
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L82)
 - **Problem:** Sidecar deckt nur Stand zum letzten Checkpoint. Tail-Rows sind unverankert -> Angreifer kann sie modifizieren bevor naechster Checkpoint laeuft.
 - **Fix:** Spalten `Seq` (monoton) und `PrevRowSha256`. Verify prueft Luecken und Hash-Kette.
@@ -883,7 +883,7 @@
 
 #### R3-C-03 — `ReportGenerator.WriteHtmlToFile` / `WriteJsonToFile` nicht atomar (P1)
 **Tags:** Reporting · Data-Integrity · Atomicity
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [ReportGenerator.cs](../../src/Romulus.Infrastructure/Reporting/ReportGenerator.cs#L188-L214), [RunReportWriter.cs](../../src/Romulus.Infrastructure/Reporting/RunReportWriter.cs#L155-L165)
 - **Fix:** Tmp-Write + atomic-Rename Muster wie bei P0-05.
 
@@ -909,7 +909,7 @@
 
 #### R3-C-07 — `AuditCsvStore.CountAuditRows` zaehlt physische Zeilen (False-Positive TAMPERED) (P2)
 **Tags:** Audit · Data-Integrity · CSV-Parsing
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L170-L195)
 - **Problem:** `File.ReadLines.Count() - 1` zaehlt physische Zeilen. Quoted multi-line Field -> Sidecar-Count != Reader-Count -> falscher TAMPERED-Alarm.
 - **Fix:** Ueber `AuditCsvParser.ParseCsvLine` mit Quote-State zaehlen.
@@ -1276,7 +1276,7 @@
 
 #### R4-C-01 — HMAC-Schluessel ephemer: Rollback nach Neustart permanent blockiert (P0)
 **Tags:** Release-Blocker · Audit · Rollback Blocked · Data-Integrity
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L36)
 - **Problem:** HMAC-Signing-Key wird nur im Speicher gehalten wenn kein `keyFilePath` konfiguriert. Nach Neustart: neuer Key, alle bestehenden `.meta.json`-Sidecars koennen nicht mehr verifiziert werden → `Rollback()` dauerhaft blockiert.
 - **Fix:** `keyFilePath` in allen produktiven Entry Points zwingend konfigurieren. Im Konstruktor bei `keyFilePath==null` mindestens Warning loggen und idealerweise Exception werfen.
@@ -1301,7 +1301,7 @@
 
 #### R4-C-04 — `AllowedRootPathPolicy`: keine Extended-Path/ADS-Abwehr (P1)
 **Tags:** Security · Path Traversal · OWASP A01 · Safety Divergenz
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AllowedRootPathPolicy.cs](../../src/Romulus.Infrastructure/Safety/AllowedRootPathPolicy.cs#L30)
 - **Problem:** `IsPathAllowed()` nutzt `Path.GetFullPath()` direkt ohne `SafetyValidator.NormalizePath()`-Guards. `\\?\`/`\\.\`/ADS-Pfade werden von `AllowedRootPathPolicy` anders behandelt als von `SafetyValidator` → divergierende Sicherheitspfade.
 - **Fix:** `AllowedRootPathPolicy.IsPathAllowed()` muss `SafetyValidator.NormalizePath(path)` aufrufen; bei `null`-Rueckgabe sofort `false`.
@@ -1310,7 +1310,7 @@
 
 #### R4-C-05 — `WriteMetadataSidecar` schreibt nicht-atomar (Sidecar korrupt bei Crash) (P1)
 **Tags:** Audit · Atomicity · Data-Integrity
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditSigningService.cs](../../src/Romulus.Infrastructure/Audit/AuditSigningService.cs#L171)
 - **Problem:** `File.WriteAllText(metaPath, ...)` nicht-atomar. Crash erzeugt leeres/korruptes `.meta.json` → `Rollback()` dauerhaft blockiert. Schluesseldatei-Schreiben ist korrekt atomar (Zeile 74) — Sidecar nicht.
 - **Fix:** `tmpPath = metaPath + ".tmp"` + `File.WriteAllText(tmp)` + `File.Move(tmp, meta, overwrite: true)`.
@@ -1319,7 +1319,7 @@
 
 #### R4-C-06 — `AbandonedMutexException` in `AcquireCrossProcessMutex` lautlos geschluckt (P1)
 **Tags:** Audit · Data-Integrity · Mutex · Recovery
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L237)
 - **Problem:** `AbandonedMutexException` still gefangen → kein Log, kein Integritaets-Check. Halbgeschriebene CSV-Zeile moeglich. Naechster Write koennte korrupte Zeile anhaengen.
 - **Fix:** Exception loggen; letzte Zeile der CSV auf Vollstaendigkeit pruefen (endet mit `\n`?).
@@ -1354,7 +1354,7 @@
 
 #### R4-C-11 — `AuditCsvStore`: UNC-Pfade ohne Spreadsheet-Schutz (CSV-Injection via SMB) (P2)
 **Tags:** Security · CSV-Injection · Audit · OWASP A03
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L204)
 - **Problem:** `WriteAuditRowCore` nutzt `SanitizeCsvField` statt `SanitizeSpreadsheetCsvField`. UNC-Pfade (`\\NAS\ROMs\...`) koennen in Excel SMB-Auto-Resolution ausloesen.
 - **Fix:** `SanitizeSpreadsheetCsvField` in `WriteAuditRowCore` verwenden.
@@ -1363,7 +1363,7 @@
 
 #### R4-C-12 — `AppendAuditRow`: Einzelzeilen-Write nicht atomar (P2)
 **Tags:** Audit · Atomicity · Data-Integrity
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [AuditCsvStore.cs](../../src/Romulus.Infrastructure/Audit/AuditCsvStore.cs#L96)
 - **Problem:** `AppendAuditRow` oeffnet mit `FileMode.Append` + direktem Write. `AppendAuditRows` nutzt korrekt Temp+Rename. Crash kann unvollstaendige Zeile hinterlassen.
 - **Fix:** `AppendAuditRow` auf `AppendAuditRows([row])` delegieren.
@@ -2207,7 +2207,7 @@
 
 ### R7-A-01 — Standalone-Directory-Conversion folgt Reparse-Points und konvertiert ausserhalb der gewaehlten Root
 **Tags:** `security` `reparse-point` `conversion` `P1`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [StandaloneConversionService.cs](../../src/Romulus.Infrastructure/Conversion/StandaloneConversionService.cs#L117), [FileSystemAdapter.cs](../../src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs#L113)
 - **Problem:** `ConvertDirectory(... recursive: true)` nutzt `Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories)`. Damit wird die zentrale sichere Scan-Policy umgangen, die Reparse-Point-Verzeichnisse und Datei-Reparse-Points ueberspringt und deterministisch sortiert. Eine Junction/Symlink unterhalb der gewaehlten Root kann Dateien ausserhalb der erlaubten Root in den mutierenden Conversion-Pfad bringen.
 - **Impact:** Mutierende Conversion kann an Dateien ausserhalb des vom Nutzer gewaehlten Bereichs arbeiten. Preview/Execute-Safety wird durch einen Entry-Point-spezifischen Scanner umgangen.
@@ -2218,7 +2218,7 @@
 
 ### R7-A-02 — Completeness-Filesystem-Fallback zaehlt Dateien ausserhalb der Scan-Policy
 **Tags:** `report-parity` `reparse-point` `filesystem` `P2`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [CompletenessReportService.cs](../../src/Romulus.Infrastructure/Analysis/CompletenessReportService.cs#L147), [FileSystemAdapter.cs](../../src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs#L113)
 - **Problem:** `BuildFromFileSystem` nutzt `Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)` statt des sicheren Scanners. Reparse-Points, deterministische NFC-Sortierung und Scan-Warnings aus `FileSystemAdapter.GetFilesSafe` greifen hier nicht.
 - **Impact:** Completeness-Reports koennen andere Dateien zaehlen als Preview/Execute. Bei Junctions kann ein Report Besitz/Fehlen fuer Inhalte ausserhalb der Collection ableiten.
@@ -2229,7 +2229,7 @@
 
 ### R7-A-03 — CLI-Integrity-Baseline bypassed sichere Root-Enumeration
 **Tags:** `cli` `integrity` `reparse-point` `P2`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [Program.cs](../../src/Romulus.CLI/Program.cs#L578)
 - **Problem:** `SubcommandIntegrityBaselineAsync` sammelt Baseline-Dateien mit `Directory.EnumerateFiles(... AllDirectories)`. Damit gelten weder Reparse-Point-Blockade noch deterministische Normalisierung noch Scan-Warnings aus dem zentralen Filesystem-Adapter.
 - **Impact:** Eine Integrity-Baseline kann Dateien ausserhalb der angegebenen Roots aufnehmen. Spaetere Drift-/Bitrot-Warnungen basieren dann auf einer anderen fachlichen Wahrheit als der normale Scan.
@@ -2240,7 +2240,7 @@
 
 ### R7-A-04 — WPF-Helfer-Scans umgehen zentrale Scanner-Policy
 **Tags:** `gui` `scanner-parity` `reparse-point` `P2`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [FeatureCommandService.Conversion.cs](../../src/Romulus.UI.Wpf/Services/FeatureCommandService.Conversion.cs#L71), [FeatureCommandService.cs](../../src/Romulus.UI.Wpf/Services/FeatureCommandService.cs#L670), [MainViewModel.Productization.cs](../../src/Romulus.UI.Wpf/ViewModels/MainViewModel.Productization.cs#L737)
 - **Problem:** `ConversionVerify`, `AutoProfile` und Wizard-Scan verwenden direkte rekursive `Directory.GetFiles`/`Directory.EnumerateFiles`-Aufrufe. Diese GUI-Flows haben dadurch andere Root-/Reparse-/Sortierregeln als Core/Infrastructure-Scans.
 - **Impact:** GUI-Vorschauen und Profil-/Wizard-Ausgaben koennen andere Dateien sehen als CLI/API/Run. Das verletzt GUI-CLI-API-Paritaet und erzeugt Fehlbedienungsrisiko bei Junctions.
@@ -2262,7 +2262,7 @@
 
 ### R7-B-02 — Report- und Frontend-Export-Writer schreiben direkt auf finale Pfade
 **Tags:** `data-integrity` `partial-output` `reports` `P2`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [RunReportWriter.cs](../../src/Romulus.Infrastructure/Reporting/RunReportWriter.cs#L172), [ReportGenerator.cs](../../src/Romulus.Infrastructure/Reporting/ReportGenerator.cs#L205), [ReportGenerator.cs](../../src/Romulus.Infrastructure/Reporting/ReportGenerator.cs#L224), [FrontendExportService.cs](../../src/Romulus.Infrastructure/Export/FrontendExportService.cs#L157), [FrontendExportService.cs](../../src/Romulus.Infrastructure/Export/FrontendExportService.cs#L677)
 - **Problem:** CSV/JSON/HTML/Frontend-Exports werden mit `File.WriteAllText`/`File.Create` direkt auf dem Zielpfad erzeugt. Mehrdatei-Exports haben keinen Staging-Ordner, keine atomare Promotion und keinen Cleanup bei Fehler/Cancel.
 - **Impact:** Bei IO-Fehler, Cancel oder Crash bleiben teilgeschriebene Dateien oder halb aktualisierte Export-Sets liegen. Nachfolgende Tools koennen diese Artefakte als gueltig interpretieren.
@@ -2295,7 +2295,7 @@
 
 ### R7-C-02 — Collection-Merge verschluckt fehlgeschlagene Rollback-/Cleanup-Operationen
 **Tags:** `data-integrity` `rollback` `audit` `P1`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [CollectionMergeService.cs](../../src/Romulus.Infrastructure/Analysis/CollectionMergeService.cs#L556)
 - **Problem:** Nach einem Apply-Fehler ruft `ExecuteMutatingEntryAsync` `TryRevertFailedMutation` auf. Diese Methode loescht Copy-Ziele oder bewegt Move-Ziele zurueck, verschluckt aber jede Exception vollstaendig. Das Apply-Result enthaelt nur `apply-failed`, keine Information, ob Cleanup/Rollback selbst scheiterte.
 - **Impact:** Operator und Report koennen nicht unterscheiden zwischen "Mutation fehlgeschlagen und sauber zurueckgerollt" und "Mutation fehlgeschlagen, Ziel/Quelle in unbekanntem Zustand". Das ist ein Datenintegritaets- und Audit-Risiko.
@@ -2306,7 +2306,7 @@
 
 ### R7-C-03 — Collection-Merge-Default-Auditpfad kollidiert bei zwei Runs in derselben Sekunde
 **Tags:** `audit` `determinism` `P3`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **File:** [CollectionMergeService.cs](../../src/Romulus.Infrastructure/Analysis/CollectionMergeService.cs#L19)
 - **Problem:** `CreateDefaultAuditPath` erzeugt `collection-merge-{yyyyMMdd-HHmmss}.csv`. Zwei Merge-Applies auf dieselbe Target-Root innerhalb einer Sekunde schreiben denselben Auditpfad.
 - **Impact:** Audit-Dateien koennen kollidieren oder ueberschrieben/vermengt werden, je nach `IAuditStore`-Verhalten. Parallele GUI/CLI/API-Nutzung ist dadurch nicht sauber getrennt.
@@ -2317,7 +2317,7 @@
 
 ### R7-C-04 — Custom-DAT-Editor dupliziert Append-Logik und hat einen nicht-atomaren Create-Pfad
 **Tags:** `duplicate-logic` `dat` `gui` `P3`
-- [ ] **Fix umsetzen**
+- [x] **Fix umsetzen**
 - **Files:** [FeatureCommandService.Dat.cs](../../src/Romulus.UI.Wpf/Services/FeatureCommandService.Dat.cs#L287), [FeatureService.Dat.cs](../../src/Romulus.UI.Wpf/Services/FeatureService.Dat.cs#L52)
 - **Problem:** `CustomDatEditor` baut XML und Append/Create-Logik inline nach, obwohl `FeatureService.Dat.AppendCustomDatEntry` und `BuildCustomDatXmlEntry` existieren. Der Existing-File-Pfad nutzt temp+move, der Create-Pfad schreibt `custom.dat` direkt.
 - **Impact:** Zwei DAT-Append-Wahrheiten koennen bei Header, Description, Escaping und Atomicity auseinanderlaufen. Ein Crash beim erstmaligen Erstellen laesst eine partielle `custom.dat` liegen.
@@ -2387,11 +2387,11 @@ Damit bleiben nach dieser Abschlussrunde keine neuen, belegbaren und nicht-dupli
 - [ ] P0-01 Conversion-Verify fail-closed
 - [ ] P0-02 Test invertieren
 - [ ] P0-03 GameKey-Whitespace-Hash
-- [ ] P0-04 Cross-Volume-Move atomar
-- [ ] P0-05 Sidecar atomar
-- [ ] P0-06 HMAC-Key fail-closed
-- [ ] P0-07 Rollback-Tampering-Detection
-- [ ] P0-08 OwnerClientId-Enforcement
+- [x] P0-04 Cross-Volume-Move atomar
+- [x] P0-05 Sidecar atomar
+- [x] P0-06 HMAC-Key fail-closed
+- [x] P0-07 Rollback-Tampering-Detection
+- [x] P0-08 OwnerClientId-Enforcement
 
 ### Vor Release
 - [ ] Alle P1-Funde abarbeiten

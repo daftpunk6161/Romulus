@@ -193,8 +193,8 @@ public static class JsonlLogRotation
 
         var dir = fi.DirectoryName ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(fi.Name);
-        var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var archiveName = $"{baseName}-{stamp}.jsonl";
+        var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff");
+        var archiveName = $"{baseName}-{stamp}-{Guid.NewGuid():N}.jsonl";
         var archivePath = Path.Combine(dir, archiveName);
 
         try
@@ -210,12 +210,14 @@ public static class JsonlLogRotation
         if (gzip)
         {
             var gzPath = archivePath + ".gz";
+            var gzTempPath = gzPath + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
             using (var sourceStream = File.OpenRead(archivePath))
-            using (var targetStream = File.Create(gzPath))
+            using (var targetStream = new FileStream(gzTempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             using (var gzStream = new GZipStream(targetStream, CompressionLevel.Optimal))
             {
                 sourceStream.CopyTo(gzStream);
             }
+            File.Move(gzTempPath, gzPath, overwrite: false);
             File.Delete(archivePath);
         }
 

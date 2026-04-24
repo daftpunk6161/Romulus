@@ -20,6 +20,14 @@ public sealed class AuditCsvParserRegressionTests : IDisposable
     }
 
     [Fact]
+    public void SanitizeDatAuditCsvField_PrefixesUncPath()
+    {
+        var sanitized = AuditCsvParser.SanitizeDatAuditCsvField(@"\\evil\share\rom.zip");
+
+        Assert.StartsWith(@"'\\evil\share", sanitized, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VerifyTrashIntegrity_MalformedQuotedActionRow_IsSkippedAsCorrupt()
     {
         var auditPath = Path.Combine(_tempDir, "audit.csv");

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Metrics;
 
@@ -212,5 +213,5 @@ public sealed class PhaseMetricsCollector
 internal static class MetricsFileWriter
 {
     internal static void Write(string path, string content)
-        => System.IO.File.WriteAllText(path, content, System.Text.Encoding.UTF8);
+        => AtomicFileWriter.WriteAllText(path, content, System.Text.Encoding.UTF8);
 }

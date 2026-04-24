@@ -16,7 +16,7 @@ public static class CollectionMergeService
         var normalizedTargetRoot = ArtifactPathResolver.NormalizeRoot(targetRoot);
         var auditDirectory = ArtifactPathResolver.GetSiblingDirectory(normalizedTargetRoot, AppIdentity.ArtifactDirectories.AuditLogs);
         Directory.CreateDirectory(auditDirectory);
-        return Path.Combine(auditDirectory, $"collection-merge-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+        return Path.Combine(auditDirectory, $"collection-merge-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}.csv");
     }
 
     public static async ValueTask<CollectionMergePlanBuildResult> BuildPlanAsync(
@@ -413,7 +413,8 @@ public static class CollectionMergeService
     private static CollectionMergeApplyEntryResult ToApplyResult(
         CollectionMergePlanEntry entry,
         CollectionMergeApplyOutcome outcome,
-        string reasonCode)
+        string reasonCode,
+        CollectionMergeRollbackCleanupResult? rollbackCleanup = null)
         => new()
         {
             PlanEntryId = entry.PlanEntryId,
@@ -423,7 +424,10 @@ public static class CollectionMergeService
             SourceSide = entry.SourceSide,
             ReasonCode = reasonCode,
             SourcePath = entry.Source?.Path,
-            TargetPath = entry.TargetPath
+            TargetPath = entry.TargetPath,
+            RollbackAttempted = rollbackCleanup?.Attempted ?? false,
+            RollbackSucceeded = rollbackCleanup?.Succeeded ?? false,
+            RollbackError = rollbackCleanup?.Error
         };
 
     private static async ValueTask<CollectionMergeApplyEntryResult> ExecuteMutatingEntryAsync(
@@ -499,10 +503,36 @@ public static class CollectionMergeService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FileNotFoundException)
         {
-            TryRevertFailedMutation(fileSystem, source.Path, targetPath, entry.Decision);
+            var rollbackCleanup = TryRevertFailedMutation(fileSystem, source.Path, targetPath, entry.Decision);
             if (collectionIndex is not null)
                 await TryRevertIndexMutationAsync(collectionIndex, source, targetPath, entry.Decision, ct).ConfigureAwait(false);
-            return ToApplyResult(entry, CollectionMergeApplyOutcome.Failed, $"{entry.ReasonCode}:apply-failed");
+
+            var failureReason = $"{entry.ReasonCode}:apply-failed;rollbackAttempted={rollbackCleanup.Attempted};rollbackSucceeded={rollbackCleanup.Succeeded}";
+            if (!string.IsNullOrWhiteSpace(rollbackCleanup.Error))
+                failureReason += $";rollbackError={rollbackCleanup.Error}";
+            try
+            {
+                auditStore.AppendAuditRow(
+                    auditPath,
+                    rootPath,
+                    source.Path,
+                    targetPath,
+                    entry.Decision == CollectionMergeDecision.CopyToTarget ? RunConstants.AuditActions.CopyFailed : RunConstants.AuditActions.MoveFailed,
+                    category,
+                    hash,
+                    failureReason);
+            }
+            catch (Exception auditEx) when (auditEx is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                rollbackCleanup = rollbackCleanup with
+                {
+                    Error = string.IsNullOrWhiteSpace(rollbackCleanup.Error)
+                        ? $"audit-failure-row-write-failed:{auditEx.Message}"
+                        : rollbackCleanup.Error + $";audit-failure-row-write-failed:{auditEx.Message}"
+                };
+            }
+
+            return ToApplyResult(entry, CollectionMergeApplyOutcome.Failed, $"{entry.ReasonCode}:apply-failed", rollbackCleanup);
         }
     }
 
@@ -553,29 +583,42 @@ public static class CollectionMergeService
         }
     }
 
-    private static void TryRevertFailedMutation(
+    private static CollectionMergeRollbackCleanupResult TryRevertFailedMutation(
         IFileSystem fileSystem,
         string sourcePath,
         string targetPath,
         CollectionMergeDecision decision)
     {
+        var attempted = false;
         try
         {
             if (decision == CollectionMergeDecision.CopyToTarget)
             {
                 if (fileSystem.TestPath(targetPath, "Leaf"))
+                {
+                    attempted = true;
                     fileSystem.DeleteFile(targetPath);
-                return;
+                }
+                return new CollectionMergeRollbackCleanupResult(attempted, true, null);
             }
 
             if (fileSystem.TestPath(targetPath, "Leaf") && !fileSystem.TestPath(sourcePath, "Leaf"))
-                _ = fileSystem.MoveItemSafely(targetPath, sourcePath);
+            {
+                attempted = true;
+                var restoredPath = fileSystem.MoveItemSafely(targetPath, sourcePath);
+                if (string.IsNullOrWhiteSpace(restoredPath) || !fileSystem.TestPath(sourcePath, "Leaf"))
+                    return new CollectionMergeRollbackCleanupResult(true, false, "rollback-cleanup-move-failed");
+            }
+
+            return new CollectionMergeRollbackCleanupResult(attempted, true, null);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or FileNotFoundException)
         {
-            // Best effort cleanup only; the caller already reports a failed apply result.
+            return new CollectionMergeRollbackCleanupResult(attempted, false, ex.Message);
         }
     }
+
+    private sealed record CollectionMergeRollbackCleanupResult(bool Attempted, bool Succeeded, string? Error);
 
     private static IDictionary<string, object> BuildAuditMetadata(
         CollectionMergePlan plan,

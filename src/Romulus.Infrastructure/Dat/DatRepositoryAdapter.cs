@@ -3,6 +3,7 @@ using System.Text;
 using System.Xml;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Dat;
 
@@ -536,13 +537,7 @@ public sealed class DatRepositoryAdapter
                                  + Path.DirectorySeparatorChar;
 
             // Find the first .dat or .xml file inside the extracted contents
-            var extractedFiles = Directory.GetFiles(tempDir, "*.*", SearchOption.AllDirectories)
-                .Where(f =>
-                {
-                    var ext = Path.GetExtension(f);
-                    return ext.Equals(".dat", StringComparison.OrdinalIgnoreCase)
-                        || ext.Equals(".xml", StringComparison.OrdinalIgnoreCase);
-                })
+            var extractedFiles = new FileSystemAdapter().GetFilesSafe(tempDir, [".dat", ".xml"])
                 .Where(f => Path.GetFullPath(f).StartsWith(normalizedTemp, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .ToList();

@@ -10,6 +10,7 @@ using Romulus.Contracts.Ports;
 using Romulus.Api;
 using Romulus.Infrastructure.Analysis;
 using Romulus.Infrastructure.Dat;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Review;
@@ -177,7 +178,7 @@ public partial class Program
     internal static bool CanAccessRun(RunRecord run, string requesterClientId)
     {
         if (string.IsNullOrWhiteSpace(run.OwnerClientId))
-            return true;
+            return false;
 
         return string.Equals(run.OwnerClientId, requesterClientId, StringComparison.Ordinal);
     }
@@ -185,7 +186,7 @@ public partial class Program
     internal static bool CanAccessSnapshot(CollectionRunSnapshot snapshot, string requesterClientId)
     {
         if (string.IsNullOrWhiteSpace(snapshot.OwnerClientId))
-            return true;
+            return false;
 
         return string.Equals(snapshot.OwnerClientId, requesterClientId, StringComparison.Ordinal);
     }
@@ -530,7 +531,8 @@ public partial class Program
             run.CoreRunResult is { } frontendExportRunResult
                 ? RunArtifactProjection.Project(frontendExportRunResult).AllCandidates
                 : null,
-            ct);
+            ct,
+            env.FileSystem);
 
         return Results.Ok(new
         {
@@ -633,7 +635,8 @@ public partial class Program
             run.CoreRunResult is { } fixDatRunResult
                 ? RunArtifactProjection.Project(fixDatRunResult).AllCandidates
                 : null,
-            ct);
+            ct,
+            env.FileSystem);
 
         var generatedUtc = DateTime.UtcNow;
         var trimmedName = name?.Trim();
@@ -658,7 +661,8 @@ public partial class Program
         if (!string.IsNullOrWhiteSpace(directory))
             Directory.CreateDirectory(directory);
 
-        await File.WriteAllTextAsync(safeOutputPath, fixDat.XmlContent, Encoding.UTF8, ct);
+        ct.ThrowIfCancellationRequested();
+        AtomicFileWriter.WriteAllText(safeOutputPath, fixDat.XmlContent, Encoding.UTF8);
 
         return Results.Ok(new
         {

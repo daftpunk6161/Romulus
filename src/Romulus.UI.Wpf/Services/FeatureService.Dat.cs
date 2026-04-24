@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Analysis;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Tools;
 using Romulus.Infrastructure.Reporting;
@@ -49,7 +50,7 @@ public static partial class FeatureService
     /// Append a custom DAT entry (Logiqx XML fragment) to <paramref name="datRoot"/>/custom.dat.
     /// Creates the file if it doesn't exist. Atomic write via temp+move.
     /// </summary>
-    public static void AppendCustomDatEntry(string datRoot, string xmlEntry)
+    public static void AppendCustomDatEntry(string datRoot, string xmlEntry, string description = "Benutzerdefinierte DAT-Einträge")
     {
         var customDatPath = Path.Combine(datRoot, "custom.dat");
         if (File.Exists(customDatPath))
@@ -60,22 +61,21 @@ public static partial class FeatureService
             content = idx >= 0
                 ? content[..idx] + xmlEntry + "\n" + closeTag
                 : content + "\n" + xmlEntry;
-            var tempPath = customDatPath + ".tmp";
-            File.WriteAllText(tempPath, content);
-            File.Move(tempPath, customDatPath, overwrite: true);
+            AtomicFileWriter.WriteAllText(customDatPath, content, Encoding.UTF8);
         }
         else
         {
+            var escapedDescription = SecurityElement.Escape(description);
             var fullXml = "<?xml version=\"1.0\"?>\n" +
                           "<!DOCTYPE datafile SYSTEM \"http://www.logiqx.com/Dats/datafile.dtd\">\n" +
                           "<datafile>\n" +
                           "  <header>\n" +
                           "    <name>Custom DAT</name>\n" +
-                          "    <description>Benutzerdefinierte DAT-Einträge</description>\n" +
+                          $"    <description>{escapedDescription}</description>\n" +
                           "  </header>\n" +
                           xmlEntry + "\n" +
                           "</datafile>";
-            File.WriteAllText(customDatPath, fullXml);
+            AtomicFileWriter.WriteAllText(customDatPath, fullXml, Encoding.UTF8);
         }
     }
 
@@ -195,7 +195,7 @@ public static partial class FeatureService
         var targetPath = Path.GetFullPath(Path.Combine(datRoot, safeName));
         if (!targetPath.StartsWith(Path.GetFullPath(datRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Pfad außerhalb des DatRoot.");
-        File.Copy(sourcePath, targetPath, overwrite: true);
+        AtomicFileWriter.CopyFile(sourcePath, targetPath, overwrite: true);
         return targetPath;
     }
 

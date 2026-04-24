@@ -2,6 +2,7 @@ using System.Text;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Core.Audit;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 
 namespace Romulus.Infrastructure.Analysis;
@@ -18,7 +19,8 @@ public static class CompletenessReportService
         ICollectionIndex? collectionIndex = null,
         IReadOnlyCollection<string>? extensions = null,
         IReadOnlyList<RomCandidate>? candidates = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IFileSystem? fileSystem = null)
     {
         ArgumentNullException.ThrowIfNull(datIndex);
         ArgumentNullException.ThrowIfNull(roots);
@@ -34,7 +36,7 @@ public static class CompletenessReportService
                 return BuildFromCollectionIndex(datIndex, indexEntries);
         }
 
-        return BuildFromFileSystem(datIndex, roots, normalizedExtensions);
+        return BuildFromFileSystem(datIndex, roots, normalizedExtensions, fileSystem ?? new FileSystemAdapter(), ct);
     }
 
     /// <summary>
@@ -42,7 +44,7 @@ public static class CompletenessReportService
     /// </summary>
     public static CompletenessReport Build(DatIndex datIndex, IReadOnlyList<string> roots)
     {
-        return BuildFromFileSystem(datIndex, roots, allowedExtensions: null);
+        return BuildFromFileSystem(datIndex, roots, allowedExtensions: null, new FileSystemAdapter(), CancellationToken.None);
     }
 
     /// <summary>
@@ -134,21 +136,23 @@ public static class CompletenessReportService
     private static CompletenessReport BuildFromFileSystem(
         DatIndex datIndex,
         IReadOnlyList<string> roots,
-        IReadOnlyCollection<string>? allowedExtensions)
+        IReadOnlyCollection<string>? allowedExtensions,
+        IFileSystem fileSystem,
+        CancellationToken ct)
     {
         var filesByConsole = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var scannedFiles = 0;
 
         foreach (var root in roots)
         {
-            if (!Directory.Exists(root))
+            ct.ThrowIfCancellationRequested();
+
+            if (!fileSystem.DirectoryExists(root))
                 continue;
 
-            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+            foreach (var file in fileSystem.GetFilesSafe(root, allowedExtensions, ct))
             {
-                if (!ShouldIncludeFile(file, allowedExtensions))
-                    continue;
-
+                ct.ThrowIfCancellationRequested();
                 scannedFiles++;
                 var consoleKey = CollectionAnalysisService.DetectConsoleFromPath(file);
                 if (!filesByConsole.TryGetValue(consoleKey, out var set))

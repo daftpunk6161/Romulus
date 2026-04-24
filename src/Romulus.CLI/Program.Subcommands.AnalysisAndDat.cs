@@ -178,7 +178,8 @@ internal static partial class Program
                 env.DatIndex,
                 runOptions.Roots,
                 env.CollectionIndex,
-                runOptions.Extensions).ConfigureAwait(false);
+                runOptions.Extensions,
+                fileSystem: env.FileSystem).ConfigureAwait(false);
 
             var generatedUtc = DateTime.UtcNow;
             var datName = string.IsNullOrWhiteSpace(opts.DatName)
@@ -284,7 +285,8 @@ internal static partial class Program
                 env.DatIndex,
                 runOptions.Roots,
                 env.CollectionIndex,
-                runOptions.Extensions).ConfigureAwait(false);
+                runOptions.Extensions,
+                fileSystem: env.FileSystem).ConfigureAwait(false);
             SafeStandardWriteLine(CompletenessReportService.FormatReport(report));
 
             // Also output JSON summary for machine consumption

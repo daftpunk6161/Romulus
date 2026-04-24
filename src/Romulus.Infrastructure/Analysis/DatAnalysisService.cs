@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Dat;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Analysis;
 
@@ -190,8 +191,8 @@ public static class DatAnalysisService
         sb.AppendLine(new string('=', 50));
         sb.AppendLine($"\n  DAT root: {datRoot}");
 
-        var localDats = Directory.GetFiles(datRoot, "*.dat", SearchOption.AllDirectories)
-            .Concat(Directory.GetFiles(datRoot, "*.xml", SearchOption.AllDirectories))
+        var fileSystem = new FileSystemAdapter();
+        var localDats = fileSystem.GetFilesSafe(datRoot, [".dat", ".xml"])
             .ToList();
 
         sb.AppendLine($"  Local DAT files: {localDats.Count}\n");
@@ -300,7 +301,7 @@ public static class DatAnalysisService
         var targetPath = Path.GetFullPath(Path.Combine(datRoot, safeName));
         if (!targetPath.StartsWith(Path.GetFullPath(datRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Path outside of DatRoot.");
-        File.Copy(sourcePath, targetPath, overwrite: true);
+        AtomicFileWriter.CopyFile(sourcePath, targetPath, overwrite: true);
         return targetPath;
     }
 

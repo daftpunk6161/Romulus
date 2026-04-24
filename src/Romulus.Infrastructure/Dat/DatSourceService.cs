@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -6,6 +7,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Romulus.Contracts;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Dat;
 
@@ -30,6 +32,16 @@ public sealed class DatSourceService : IDisposable
 
     /// <summary>Maximum catalog file size to load (100 MB).</summary>
     private const long MaxCatalogFileSizeBytes = 100 * 1024 * 1024;
+    private static readonly string[] AllowedDownloadHosts =
+    [
+        "github.com",
+        "raw.githubusercontent.com",
+        "datomatic.no-intro.org",
+        "redump.org",
+        "www.redump.org",
+        // Reserved non-routable host used by injected test handlers.
+        "example.invalid"
+    ];
 
     public DatSourceService(
         string datRoot,
@@ -56,18 +68,55 @@ public sealed class DatSourceService : IDisposable
 
     public static HttpClient CreateConfiguredHttpClient()
     {
-        var handler = new HttpClientHandler { AllowAutoRedirect = true };
+        var handler = new HttpClientHandler { AllowAutoRedirect = false };
         var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Romulus/2.0 (DAT-Updater)");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/zip, application/octet-stream, application/xml, text/xml, */*");
         return client;
     }
 
-    /// <summary>Validates that a URL uses HTTPS scheme. Returns false for http/file/ftp/etc.</summary>
+    /// <summary>Validates that a URL uses HTTPS and an explicit trusted public DAT host.</summary>
     private static bool IsSecureUrl(string url)
     {
         return Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            && string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase);
+            && IsAllowedDatSourceUri(uri);
+    }
+
+    private static bool IsAllowedDatSourceUri(Uri uri)
+    {
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(uri.Host))
+            return false;
+
+        if (IPAddress.TryParse(uri.Host, out var ip))
+            return IsAllowedPublicAddress(ip);
+
+        return AllowedDownloadHosts.Any(host =>
+            string.Equals(uri.Host, host, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsAllowedPublicAddress(IPAddress ip)
+    {
+        if (IPAddress.IsLoopback(ip))
+            return false;
+
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            var b = ip.GetAddressBytes();
+            return !(b[0] == 10
+                     || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+                     || (b[0] == 192 && b[1] == 168)
+                     || (b[0] == 169 && b[1] == 254)
+                     || b[0] == 0
+                     || b[0] >= 224);
+        }
+
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+            return !(ip.IsIPv6LinkLocal || ip.IsIPv6Multicast || ip.IsIPv6SiteLocal);
+
+        return false;
     }
 
     /// <summary>
@@ -121,7 +170,7 @@ public sealed class DatSourceService : IDisposable
         {
             // Download ZIP to temp
             using var response = await ExecuteHttpWithRetryAsync(
-                token => _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token),
+                token => GetWithValidatedRedirectsAsync(url, "zip-dat download", token),
                 operationName: "zip-dat download",
                 ct);
             response.EnsureSuccessStatusCode();
@@ -189,8 +238,10 @@ public sealed class DatSourceService : IDisposable
             }
 
             // Find first .dat or .xml file in extracted contents
-            var datFile = Directory.GetFiles(tempExtract, "*.dat", SearchOption.AllDirectories).Order(StringComparer.Ordinal).FirstOrDefault()
-                       ?? Directory.GetFiles(tempExtract, "*.xml", SearchOption.AllDirectories).Order(StringComparer.Ordinal).FirstOrDefault();
+            var datFile = new FileSystemAdapter()
+                .GetFilesSafe(tempExtract, [".dat", ".xml"])
+                .Order(StringComparer.Ordinal)
+                .FirstOrDefault();
             if (datFile is null)
                 return null;
 
@@ -246,7 +297,7 @@ public sealed class DatSourceService : IDisposable
         try
         {
             using var response = await ExecuteHttpWithRetryAsync(
-                token => _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token),
+                token => GetWithValidatedRedirectsAsync(url, "dat download", token),
                 operationName: "dat download",
                 ct);
             response.EnsureSuccessStatusCode();
@@ -375,8 +426,7 @@ public sealed class DatSourceService : IDisposable
             using var response = await ExecuteHttpWithRetryAsync(
                 async token =>
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, shaUrl);
-                    return await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                    return await GetWithValidatedRedirectsAsync(shaUrl, "dat sidecar download", token).ConfigureAwait(false);
                 },
                 operationName: "dat sidecar download",
                 ct);
@@ -432,6 +482,45 @@ public sealed class DatSourceService : IDisposable
         }
     }
 
+    private async Task<HttpResponseMessage> GetWithValidatedRedirectsAsync(
+        string url,
+        string operationName,
+        CancellationToken ct)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var currentUri)
+            || !IsAllowedDatSourceUri(currentUri))
+        {
+            throw new HttpRequestException($"Blocked unsafe DAT source URL for {operationName}.");
+        }
+
+        const int maxRedirects = 5;
+        for (var redirect = 0; redirect <= maxRedirects; redirect++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
+            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!IsRedirectStatus(response.StatusCode))
+                return response;
+
+            var location = response.Headers.Location;
+            response.Dispose();
+            if (location is null)
+                throw new HttpRequestException($"DAT source redirect without Location for {operationName}.");
+
+            currentUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
+            if (!IsAllowedDatSourceUri(currentUri))
+                throw new HttpRequestException($"Blocked unsafe DAT source redirect for {operationName}.");
+        }
+
+        throw new HttpRequestException($"Too many DAT source redirects for {operationName}.");
+    }
+
+    private static bool IsRedirectStatus(HttpStatusCode statusCode)
+        => statusCode is HttpStatusCode.Moved
+            or HttpStatusCode.Found
+            or HttpStatusCode.RedirectMethod
+            or HttpStatusCode.TemporaryRedirect
+            or HttpStatusCode.PermanentRedirect;
+
     /// <summary>
     /// Scan a local directory for DAT files matching No-Intro pack patterns from the catalog.
     /// Copies matching files into datRoot. Returns number of DATs imported.
@@ -452,9 +541,7 @@ public sealed class DatSourceService : IDisposable
         if (packEntries.Count == 0)
             return 0;
 
-        var sourceFiles = Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories)
-            .Where(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                     || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        var sourceFiles = new FileSystemAdapter().GetFilesSafe(sourceDir, [".dat", ".xml"])
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -496,11 +583,6 @@ public sealed class DatSourceService : IDisposable
             ReplaceWithBackup(match, targetPath);
             imported++;
 
-            // Clean up .bak after successful copy
-            var bakPath = targetPath + ".bak";
-            try { if (File.Exists(bakPath)) File.Delete(bakPath); }
-            catch (IOException) { /* non-fatal — .bak locked or permission denied */ }
-            catch (UnauthorizedAccessException) { /* non-fatal */ }
         }
 
         return imported;
@@ -546,20 +628,15 @@ public sealed class DatSourceService : IDisposable
         if (string.IsNullOrWhiteSpace(destinationPath))
             throw new ArgumentException("Destination path must not be empty.", nameof(destinationPath));
 
-        var backupPath = destinationPath + ".bak";
+        var backupPath = destinationPath + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak";
         var hadExistingTarget = File.Exists(destinationPath);
 
         if (hadExistingTarget)
-        {
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
-
-            File.Move(destinationPath, backupPath, overwrite: true);
-        }
+            AtomicFileWriter.CopyFile(destinationPath, backupPath, overwrite: false);
 
         try
         {
-            File.Copy(sourcePath, destinationPath, overwrite: false);
+            AtomicFileWriter.CopyFile(sourcePath, destinationPath, overwrite: true);
             // Touch timestamp so staleness check reflects import time, not source file age
             File.SetLastWriteTimeUtc(destinationPath, DateTime.UtcNow);
         }
@@ -608,7 +685,7 @@ public sealed class DatSourceService : IDisposable
     {
         try
         {
-            File.Move(backupPath, destinationPath, overwrite: true);
+            AtomicFileWriter.CopyFile(backupPath, destinationPath, overwrite: true);
         }
         catch (IOException)
         {

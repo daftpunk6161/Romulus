@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
@@ -236,7 +237,7 @@ public sealed partial class FeatureCommandService
                 return;
 
             var normalizedJson = JsonSerializer.Serialize(normalizedDocument, CustomJunkRulesWriteOptions);
-            File.WriteAllText(rulesPath, normalizedJson, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(rulesPath, normalizedJson, Encoding.UTF8);
             _vm.AddLog(_vm.Loc.Format("Cmd.CustomJunkRules.Saved", rulesPath, normalizedDocument.Rules.Count), "INFO");
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException or JsonException)
@@ -530,8 +531,8 @@ public sealed partial class FeatureCommandService
                         "Bytes 12-15 auf 0x00 setzen?\n(Backup wird erstellt)", "Header-Reparatur");
                     if (confirm)
                     {
-                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
-                        File.Copy(path, backupPath, overwrite: false);
+                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak";
+                        AtomicFileWriter.CopyFile(path, backupPath, overwrite: false);
                         _vm.AddLog(_vm.Loc.Format("Cmd.HeaderRepair.BackupCreated", backupPath), "INFO");
                         try
                         {
@@ -542,7 +543,7 @@ public sealed partial class FeatureCommandService
                         }
                         catch
                         {
-                            File.Copy(backupPath, path, overwrite: true);
+                            AtomicFileWriter.CopyFile(backupPath, path, overwrite: true);
                             _vm.AddLog(_vm.Loc["Cmd.HeaderRepair.RestoreFromBackupFailedFix"], "ERROR");
                             throw;
                         }
@@ -569,19 +570,19 @@ public sealed partial class FeatureCommandService
                         "Copier-Header (erste 512 Bytes) entfernen?\n(Backup wird erstellt)", "Header-Reparatur");
                     if (confirm)
                     {
-                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
-                        File.Copy(path, backupPath, overwrite: false);
+                        var backupPath = path + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak";
+                        AtomicFileWriter.CopyFile(path, backupPath, overwrite: false);
                         _vm.AddLog(_vm.Loc.Format("Cmd.HeaderRepair.BackupCreated", backupPath), "INFO");
                         try
                         {
                             var data = File.ReadAllBytes(path);
                             var trimmed = data[512..];
-                            File.WriteAllBytes(path, trimmed);
+                            AtomicFileWriter.WriteAllBytes(path, trimmed);
                             _vm.AddLog(_vm.Loc.Format("Cmd.HeaderRepair.SnesHeaderRemoved", fileInfo.Length, trimmed.Length), "INFO");
                         }
                         catch
                         {
-                            File.Copy(backupPath, path, overwrite: true);
+                            AtomicFileWriter.CopyFile(backupPath, path, overwrite: true);
                             _vm.AddLog(_vm.Loc["Cmd.HeaderRepair.RestoreFromBackupFailedFix"], "ERROR");
                             throw;
                         }

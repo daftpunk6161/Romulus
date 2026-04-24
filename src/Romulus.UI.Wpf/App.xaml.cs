@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.State;
 using Romulus.UI.Wpf.Services;
@@ -25,7 +26,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         // Single-instance guard: prevent zombie processes from multiple launches
-        const string mutexName = "Global\\Romulus_SingleInstance";
+        const string mutexName = "Local\\Romulus_SingleInstance";
         _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -138,7 +139,7 @@ public partial class App : Application
             var logDir = AppStoragePathResolver.ResolveRoamingAppDirectory();
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "crash.log");
-            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] {ex}\n\n");
+            AtomicFileWriter.AppendText(logPath, $"[{DateTime.UtcNow:O}] {ex}\n\n");
         }
         catch { /* best effort — don't throw during crash handling */ }
     }

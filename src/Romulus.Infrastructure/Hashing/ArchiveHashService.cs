@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Romulus.Contracts.Ports;
 using Romulus.Core.Caching;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Hashing;
 
@@ -262,7 +263,7 @@ public sealed class ArchiveHashService
 
             // Check directories for junctions/reparse points
             var dirIndex = 0;
-            foreach (var dir in Directory.GetDirectories(tempDir, "*", SearchOption.AllDirectories))
+            foreach (var dir in EnumerateDirectoriesWithoutFollowingReparsePoints(tempDir))
             {
                 if (++dirIndex % 100 == 0) ct.ThrowIfCancellationRequested();
                 var dirInfo = new DirectoryInfo(dir);
@@ -273,9 +274,7 @@ public sealed class ArchiveHashService
             }
 
             ct.ThrowIfCancellationRequested();
-            var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
-            // TASK-150: Sort extracted files alphabetically for deterministic hash order
-            Array.Sort(extractedFiles, StringComparer.OrdinalIgnoreCase);
+            var extractedFiles = new FileSystemAdapter().GetFilesSafe(tempDir);
             var hashes = new List<string>();
 
             foreach (var file in extractedFiles)
@@ -364,6 +363,43 @@ public sealed class ArchiveHashService
             if (RxDotDotTraversal.IsMatch(p)) return false;
         }
         return true;
+    }
+
+    private static IEnumerable<string> EnumerateDirectoriesWithoutFollowingReparsePoints(string root)
+    {
+        var stack = new Stack<string>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            string[] children;
+            try
+            {
+                children = Directory.GetDirectories(current);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                yield break;
+            }
+
+            Array.Sort(children, StringComparer.OrdinalIgnoreCase);
+            foreach (var child in children)
+            {
+                yield return child;
+                FileAttributes attrs;
+                try
+                {
+                    attrs = File.GetAttributes(child);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                if ((attrs & FileAttributes.ReparsePoint) == 0)
+                    stack.Push(child);
+            }
+        }
     }
 
     private static string? HashStream(Stream stream, string hashType)

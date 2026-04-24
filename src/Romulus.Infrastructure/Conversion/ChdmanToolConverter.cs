@@ -2,6 +2,7 @@ using System.IO.Compression;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Conversion;
 
@@ -112,8 +113,8 @@ internal sealed class ChdmanToolConverter
                 if (!ValidateExtractedContents(extractDir))
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-path-traversal-detected");
 
-                var extractedFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories);
-                if (extractedFiles.Length > MaxZipEntryCount)
+                var extractedFiles = new FileSystemAdapter().GetFilesSafe(extractDir);
+                if (extractedFiles.Count > MaxZipEntryCount)
                     return new ConversionResult(sourcePath, null, ConversionOutcome.Error, "archive-too-many-entries");
 
                 long totalExtractedSize = 0;
@@ -126,14 +127,10 @@ internal sealed class ChdmanToolConverter
             }
 
             // Step 2: Find the .cue file (preferred) or .gdi, or fall back to .iso/.bin
-            var cueFiles = Directory.GetFiles(extractDir, "*.cue", SearchOption.AllDirectories);
-            var gdiFiles = Directory.GetFiles(extractDir, "*.gdi", SearchOption.AllDirectories);
-            var isoFiles = Directory.GetFiles(extractDir, "*.iso", SearchOption.AllDirectories);
-
-            // TASK-012/TASK-149: Deterministic CUE selection — sort alphabetically before selecting.
-            Array.Sort(cueFiles, StringComparer.OrdinalIgnoreCase);
-            Array.Sort(gdiFiles, StringComparer.OrdinalIgnoreCase);
-            Array.Sort(isoFiles, StringComparer.OrdinalIgnoreCase);
+            var extractedDiscFiles = new FileSystemAdapter().GetFilesSafe(extractDir, [".cue", ".gdi", ".iso"]);
+            var cueFiles = extractedDiscFiles.Where(static file => file.EndsWith(".cue", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var gdiFiles = extractedDiscFiles.Where(static file => file.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var isoFiles = extractedDiscFiles.Where(static file => file.EndsWith(".iso", StringComparison.OrdinalIgnoreCase)).ToArray();
 
             // Path traversal guard: Ensure selected files are within extractDir
             static bool IsWithinDir(string filePath, string baseDir)
@@ -307,7 +304,7 @@ internal sealed class ChdmanToolConverter
     {
         var normalizedBase = Path.GetFullPath(extractDir) + Path.DirectorySeparatorChar;
 
-        foreach (var dir in Directory.GetDirectories(extractDir, "*", SearchOption.AllDirectories))
+        foreach (var dir in EnumerateDirectoriesWithoutFollowingReparsePoints(extractDir))
         {
             if (!Path.GetFullPath(dir).StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
                 return false;
@@ -316,7 +313,7 @@ internal sealed class ChdmanToolConverter
                 return false;
         }
 
-        foreach (var file in Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories))
+        foreach (var file in new FileSystemAdapter().GetFilesSafe(extractDir))
         {
             if (!Path.GetFullPath(file).StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
                 return false;
@@ -326,6 +323,43 @@ internal sealed class ChdmanToolConverter
         }
 
         return true;
+    }
+
+    private static IEnumerable<string> EnumerateDirectoriesWithoutFollowingReparsePoints(string root)
+    {
+        var stack = new Stack<string>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            string[] children;
+            try
+            {
+                children = Directory.GetDirectories(current);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                yield break;
+            }
+
+            Array.Sort(children, StringComparer.OrdinalIgnoreCase);
+            foreach (var child in children)
+            {
+                yield return child;
+                FileAttributes attrs;
+                try
+                {
+                    attrs = File.GetAttributes(child);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                if ((attrs & FileAttributes.ReparsePoint) == 0)
+                    stack.Push(child);
+            }
+        }
     }
 
     internal static void CleanupPartialOutput(string path)

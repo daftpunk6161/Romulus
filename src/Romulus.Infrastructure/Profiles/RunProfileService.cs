@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 
 namespace Romulus.Infrastructure.Profiles;
@@ -128,7 +129,8 @@ public sealed class RunProfileService
             Directory.CreateDirectory(directory);
 
         var json = JsonSerializer.Serialize(profile, SerializerOptions);
-        await File.WriteAllTextAsync(fullTargetPath, json, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        AtomicFileWriter.WriteAllText(fullTargetPath, json);
         return fullTargetPath;
     }
 

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 
 namespace Romulus.Infrastructure.Dat;
@@ -83,29 +84,10 @@ public sealed class DatCatalogStateService
 
         var json = JsonSerializer.Serialize(state, JsonOpts);
 
-        // Atomic write with backup
-        var bakPath = statePath + ".bak";
         if (File.Exists(statePath))
-        {
-            if (File.Exists(bakPath))
-                File.Delete(bakPath);
-            File.Move(statePath, bakPath, overwrite: true);
-        }
+            AtomicFileWriter.CopyFile(statePath, statePath + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak", overwrite: false);
 
-        try
-        {
-            File.WriteAllText(statePath, json);
-        }
-        catch
-        {
-            // Restore backup on failure
-            if (File.Exists(bakPath) && !File.Exists(statePath))
-            {
-                try { File.Move(bakPath, statePath, overwrite: true); }
-                catch (IOException) { /* best-effort restore */ }
-            }
-            throw;
-        }
+        AtomicFileWriter.WriteAllText(statePath, json);
     }
 
     /// <summary>
@@ -117,44 +99,8 @@ public sealed class DatCatalogStateService
         if (string.IsNullOrWhiteSpace(datRoot) || !Directory.Exists(datRoot))
             return Array.Empty<(string Path, DateTime LastWriteUtc, long SizeBytes)>();
 
-        var collectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        static void AddPattern(HashSet<string> target, string root, string pattern, SearchOption searchOption)
-        {
-            foreach (var file in Directory.GetFiles(root, pattern, searchOption))
-                target.Add(file);
-        }
-
-        try
-        {
-            AddPattern(collectedPaths, datRoot, "*.dat", SearchOption.AllDirectories);
-            AddPattern(collectedPaths, datRoot, "*.xml", SearchOption.AllDirectories);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-        {
-            try
-            {
-                foreach (var dir in Directory.GetDirectories(datRoot))
-                {
-                    try
-                    {
-                        AddPattern(collectedPaths, dir, "*.dat", SearchOption.AllDirectories);
-                        AddPattern(collectedPaths, dir, "*.xml", SearchOption.AllDirectories);
-                    }
-                    catch (Exception inner) when (inner is UnauthorizedAccessException or IOException)
-                    {
-                        // Skip inaccessible subdirectory and continue.
-                    }
-                }
-
-                AddPattern(collectedPaths, datRoot, "*.dat", SearchOption.TopDirectoryOnly);
-                AddPattern(collectedPaths, datRoot, "*.xml", SearchOption.TopDirectoryOnly);
-            }
-            catch (Exception outer) when (outer is UnauthorizedAccessException or IOException)
-            {
-                return Array.Empty<(string Path, DateTime LastWriteUtc, long SizeBytes)>();
-            }
-        }
+        var fileSystem = new FileSystemAdapter();
+        var collectedPaths = fileSystem.GetFilesSafe(datRoot, [".dat", ".xml"]);
 
         var entries = new List<(string Path, DateTime LastWriteUtc, long SizeBytes)>(collectedPaths.Count);
         foreach (var path in collectedPaths.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))

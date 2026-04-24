@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Profiles;
 
@@ -78,21 +79,11 @@ public sealed class JsonRunProfileStore : IRunProfileStore, ISynchronousRunProfi
         Directory.CreateDirectory(_profileDirectory);
 
         var filePath = Path.Combine(_profileDirectory, profile.Id + ".json");
-        var tempPath = filePath + ".tmp";
         var normalizedProfile = profile with { BuiltIn = false };
         var json = JsonSerializer.Serialize(normalizedProfile, SerializerOptions);
 
-        await File.WriteAllTextAsync(tempPath, json, ct).ConfigureAwait(false);
-        // R6-003 FIX: Clean up temp file if Move fails.
-        try
-        {
-            File.Move(tempPath, filePath, overwrite: true);
-        }
-        catch
-        {
-            try { File.Delete(tempPath); } catch { /* best-effort cleanup */ }
-            throw;
-        }
+        ct.ThrowIfCancellationRequested();
+        AtomicFileWriter.WriteAllText(filePath, json);
     }
 
     public ValueTask<bool> DeleteAsync(string id, CancellationToken ct = default)

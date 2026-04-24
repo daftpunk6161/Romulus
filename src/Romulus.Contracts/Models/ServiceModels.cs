@@ -71,9 +71,12 @@ public sealed class AuditMetadata
 {
     public string Version { get; init; } = "v1";
     public string AuditFileName { get; init; } = "";
+    public string? AuditPathSha256 { get; init; }
     public string CsvSha256 { get; init; } = "";
     public int RowCount { get; init; }
     public string CreatedUtc { get; init; } = "";
+    public string? KeyId { get; init; }
+    public string? PreviousSidecarHmac { get; init; }
     public string? HmacSha256 { get; init; }
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalMetadata { get; init; }
@@ -85,6 +88,8 @@ public sealed class AuditMetadata
 public sealed class AuditRollbackResult
 {
     public string AuditCsvPath { get; init; } = "";
+    public bool Tampered { get; init; }
+    public string? IntegrityError { get; init; }
     public int TotalRows { get; init; }
     public int EligibleRows { get; init; }
     public int SkippedUnsafe { get; init; }

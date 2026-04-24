@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Analysis;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Reporting;
@@ -109,7 +110,8 @@ public sealed partial class FeatureCommandService
                 materialized.Options.Roots.ToArray(),
                 environment.CollectionIndex,
                 materialized.Options.Extensions.ToArray(),
-                _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null);
+                _vm.LastCandidates.Count > 0 ? _vm.LastCandidates.ToArray() : null,
+                fileSystem: environment.FileSystem);
 
             _dialog.ShowText("Vollstaendigkeit", CompletenessReportService.FormatReport(report));
 
@@ -132,7 +134,7 @@ public sealed partial class FeatureCommandService
                 if (!TryResolveSafeOutputPath(savePath, "FixDAT-Export", out var safePath))
                     return;
 
-                await File.WriteAllTextAsync(safePath, fixDat.XmlContent, Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(safePath, fixDat.XmlContent, Encoding.UTF8);
                 _vm.AddLog($"FixDAT exportiert: {safePath} (Spiele={fixDat.MissingGames}, ROMs={fixDat.MissingRoms})", "INFO");
             }
             catch (OperationCanceledException)

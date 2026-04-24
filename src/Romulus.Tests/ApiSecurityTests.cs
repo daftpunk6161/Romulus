@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Romulus.Api;
 using Romulus.Contracts;
 using Romulus.Contracts.Errors;
+using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Audit;
 using Romulus.Infrastructure.FileSystem;
 using Xunit;
@@ -33,6 +34,22 @@ public sealed class ApiSecurityTests : IDisposable
     // ═══════════════════════════════════════════════════════════════════
     //  SEC-1: Path Traversal — TrashRoot must be validated
     // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void CanAccessRun_BlankOwner_IsSystemLocked()
+    {
+        var run = new RunRecord { OwnerClientId = "" };
+
+        Assert.False(Program.CanAccessRun(run, "client-a"));
+    }
+
+    [Fact]
+    public void CanAccessSnapshot_BlankOwner_IsSystemLocked()
+    {
+        var snapshot = new CollectionRunSnapshot { OwnerClientId = "" };
+
+        Assert.False(Program.CanAccessSnapshot(snapshot, "client-a"));
+    }
 
     [Fact]
     public async Task TrashRoot_SystemDirectory_IsRejected()

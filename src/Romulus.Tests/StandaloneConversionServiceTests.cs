@@ -215,6 +215,25 @@ public sealed class StandaloneConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public void ConvertDirectory_Recursive_UsesSafeFileSystemEnumeration()
+    {
+        var dir = Path.Combine(_tempDir, "PSX");
+        var included = CreateFile(Path.Combine(dir, "game1.bin"));
+        _ = CreateFile(Path.Combine(dir, "junction-target", "outside.bin"));
+
+        var converter = new FakeFormatConverter(("PSX", ".bin"), new ConversionTarget(".chd", "chdman", "createcd"));
+        var fileSystem = new FakeSafeFileSystem([included]);
+        using var service = new StandaloneConversionService(converter, fileSystem: fileSystem);
+
+        var report = service.ConvertDirectory(dir, consoleKey: "PSX", recursive: true);
+
+        Assert.True(fileSystem.GetFilesSafeCalled);
+        Assert.Single(report.Results);
+        Assert.Equal(included, report.Results[0].SourcePath);
+    }
+
+
+    [Fact]
     public void ConvertDirectory_NonRecursive_ExcludesSubdirs()
     {
         var dir = Path.Combine(_tempDir, "PSX");
@@ -404,5 +423,43 @@ public sealed class StandaloneConversionServiceTests : IDisposable
     {
         public bool Disposed { get; private set; }
         public void Dispose() => Disposed = true;
+    }
+
+    private sealed class FakeSafeFileSystem : IFileSystem
+    {
+        private readonly IReadOnlyList<string> _files;
+
+        public FakeSafeFileSystem(IReadOnlyList<string> files)
+        {
+            _files = files;
+        }
+
+        public bool GetFilesSafeCalled { get; private set; }
+
+        public bool TestPath(string literalPath, string pathType = "Any")
+            => pathType switch
+            {
+                "Container" => Directory.Exists(literalPath),
+                "Leaf" => File.Exists(literalPath),
+                _ => Directory.Exists(literalPath) || File.Exists(literalPath)
+            };
+
+        public string EnsureDirectory(string path)
+        {
+            Directory.CreateDirectory(path);
+            return Path.GetFullPath(path);
+        }
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+        {
+            GetFilesSafeCalled = true;
+            return _files;
+        }
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath) => null;
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath) => Path.Combine(rootPath, relativePath);
+        public bool IsReparsePoint(string path) => false;
+        public void DeleteFile(string path) => File.Delete(path);
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false) => File.Copy(sourcePath, destinationPath, overwrite);
     }
 }

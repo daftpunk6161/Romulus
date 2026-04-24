@@ -9,6 +9,8 @@ public interface IFileSystem
     bool TestPath(string literalPath, string pathType = "Any");
     string EnsureDirectory(string path);
     IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null);
+    IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions, CancellationToken cancellationToken)
+        => GetFilesSafe(root, allowedExtensions);
 
     /// <summary>
     /// Returns scan warnings collected during the last GetFilesSafe call.

@@ -19,34 +19,13 @@ public static class RollbackService
 
         try
         {
-            using var stream = new FileStream(auditPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream);
-
-            // Skip CSV header row if present.
-            _ = reader.ReadLine();
-
-            var count = 0;
-            while (!reader.EndOfStream)
-            {
-                var line = reader.ReadLine();
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-
-                try
-                {
-                    var fields = AuditCsvParser.ParseCsvLine(line);
-                    if (fields.Length >= 4)
-                        count++;
-                }
-                catch (InvalidDataException)
-                {
-                    // Corrupt rows are ignored for affected-row counting.
-                }
-            }
-
             // R6-006 FIX: Return actual count — Math.Max(1, 0) returned 1 for empty
             // audit files, displaying misleading "1 Failed" in rollback results.
-            return count;
+            return AuditCsvStore.CountAuditRows(auditPath);
+        }
+        catch (InvalidDataException)
+        {
+            return 0;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -93,7 +72,9 @@ public static class RollbackService
                 {
                     AuditCsvPath = auditPath,
                     Failed = CountAffectedRollbackRows(auditPath),
-                    DryRun = false
+                    DryRun = false,
+                    Tampered = true,
+                    IntegrityError = "AUDIT_INTEGRITY_BROKEN"
                 };
             }
         }

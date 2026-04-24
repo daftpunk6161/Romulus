@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Configuration;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.UI.Wpf.Models;
 using Romulus.UI.Wpf.ViewModels;
@@ -385,16 +386,12 @@ public sealed class SettingsService : ISettingsService
                 };
 
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                var tmpPath = SettingsPath + ".tmp";
-                File.WriteAllText(tmpPath, json);
-                File.Move(tmpPath, SettingsPath, overwrite: true);
+                AtomicFileWriter.WriteAllText(SettingsPath, json);
             }
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            // Clean up temp file on failure
-            try { File.Delete(SettingsPath + ".tmp"); } catch { /* best effort */ }
             return false;
         }
     }

@@ -1,6 +1,7 @@
 using LiteDB;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Review;
 
@@ -144,9 +145,10 @@ public sealed class LiteDbReviewDecisionStore : IReviewDecisionStore, IDisposabl
 
         var backupPath = Path.Combine(
             directory,
-            $"{Path.GetFileName(_databasePath)}.{reason}.{DateTime.UtcNow:yyyyMMddHHmmssfff}.bak");
+            $"{Path.GetFileName(_databasePath)}.{reason}.{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak");
 
-        File.Move(_databasePath, backupPath, overwrite: true);
+        AtomicFileWriter.CopyFile(_databasePath, backupPath, overwrite: false);
+        File.Delete(_databasePath);
     }
 
     private void ThrowIfDisposed()

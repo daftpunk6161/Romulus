@@ -1,4 +1,5 @@
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Hashing;
 
@@ -21,13 +22,11 @@ public sealed class HeaderRepairService : IHeaderRepairService
 
         try
         {
-            var header = new byte[16];
-            using (var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                var read = fs.Read(header, 0, header.Length);
-                if (read < 16)
-                    return false;
-            }
+            var data = File.ReadAllBytes(path);
+            if (data.Length < 16)
+                return false;
+
+            var header = data.AsSpan(0, 16);
 
             if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 || header[3] != 0x1A)
                 return false;
@@ -45,35 +44,13 @@ public sealed class HeaderRepairService : IHeaderRepairService
             if (!dirty)
                 return false;
 
-            // Crash-safe: write repaired version to .tmp, then rename
-            _fileSystem.CopyFile(path, path + ".bak", overwrite: true);
+            var backupPath = BuildBackupPath(path, "nes-header");
+            _fileSystem.CopyFile(path, backupPath, overwrite: false);
 
-            var tmpPath = path + ".tmp";
-            using (var source = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (var target = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                var buffer = new byte[81920];
-                long absoluteOffset = 0;
-                int read;
+            for (var i = 12; i <= 15; i++)
+                data[i] = 0x00;
 
-                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    var zeroStart = (int)Math.Max(0, 12 - absoluteOffset);
-                    var zeroEnd = (int)Math.Min(read - 1, 15 - absoluteOffset);
-                    if (zeroStart <= zeroEnd)
-                    {
-                        for (var i = zeroStart; i <= zeroEnd; i++)
-                            buffer[i] = 0x00;
-                    }
-
-                    target.Write(buffer, 0, read);
-                    absoluteOffset += read;
-                }
-
-                target.Flush();
-            }
-
-            File.Move(tmpPath, path, overwrite: true);
+            AtomicFileWriter.WriteAllBytes(path, data);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -93,19 +70,9 @@ public sealed class HeaderRepairService : IHeaderRepairService
             if (fi.Length < 512 || fi.Length % 1024 != 512)
                 return false;
 
-            _fileSystem.CopyFile(path, path + ".bak", overwrite: true);
-
-            // Crash-safe: write to .tmp, then rename
-            var tmpPath = path + ".tmp";
-            using (var source = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (var target = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                source.Seek(512, SeekOrigin.Begin);
-                source.CopyTo(target);
-                target.Flush();
-            }
-
-            File.Move(tmpPath, path, overwrite: true);
+            var data = File.ReadAllBytes(path);
+            _fileSystem.CopyFile(path, BuildBackupPath(path, "snes-copier"), overwrite: false);
+            AtomicFileWriter.WriteAllBytes(path, data[512..]);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -113,4 +80,7 @@ public sealed class HeaderRepairService : IHeaderRepairService
             return false;
         }
     }
+
+    private static string BuildBackupPath(string path, string reason)
+        => path + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.{reason}.bak";
 }

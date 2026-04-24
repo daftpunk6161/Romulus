@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Globalization;
 using Romulus.Contracts;
 using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Safety;
 
 namespace Romulus.Infrastructure.Reporting;
@@ -202,7 +203,7 @@ public static class ReportGenerator
             Directory.CreateDirectory(dir);
 
         var json = GenerateJson(summary, entries);
-        File.WriteAllText(fullPath, json, Encoding.UTF8);
+        AtomicFileWriter.WriteAllText(fullPath, json, Encoding.UTF8);
     }
 
     /// <summary>
@@ -221,7 +222,7 @@ public static class ReportGenerator
             Directory.CreateDirectory(dir);
 
         var html = GenerateHtml(summary, entries);
-        File.WriteAllText(fullPath, html, Encoding.UTF8);
+        AtomicFileWriter.WriteAllText(fullPath, html, Encoding.UTF8);
     }
 
     private static void AppendCss(StringBuilder sb)

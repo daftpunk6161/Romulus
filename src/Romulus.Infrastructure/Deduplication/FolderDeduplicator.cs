@@ -4,6 +4,7 @@ using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Core.GameKeys;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Deduplication;
 
@@ -440,8 +441,9 @@ public sealed class FolderDeduplicator
     {
         try
         {
-            var newest = dir.EnumerateFiles("*", SearchOption.AllDirectories)
-                .Select(f => f.LastWriteTimeUtc)
+            var fs = new FileSystemAdapter();
+            var newest = fs.GetFilesSafe(dir.FullName)
+                .Select(File.GetLastWriteTimeUtc)
                 .DefaultIfEmpty(dir.LastWriteTimeUtc)
                 .Max();
             return newest;
@@ -456,7 +458,7 @@ public sealed class FolderDeduplicator
     {
         try
         {
-            return Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Count();
+            return new FileSystemAdapter().GetFilesSafe(path).Count;
         }
         catch (IOException)
         {
@@ -472,7 +474,8 @@ public sealed class FolderDeduplicator
     {
         try
         {
-            return Directory.EnumerateFiles(folderPath, fileName, SearchOption.AllDirectories)
+            return new FileSystemAdapter().GetFilesSafe(folderPath)
+                .Where(path => string.Equals(Path.GetFileName(path), fileName, StringComparison.OrdinalIgnoreCase))
                 .FirstOrDefault();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

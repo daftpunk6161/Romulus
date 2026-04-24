@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
 using Romulus.UI.Wpf.ViewModels;
@@ -116,7 +117,7 @@ public sealed partial class FeatureCommandService
             { _dialog.Info(_vm.Loc["Cmd.RulePackSharing.ExportNotFound"], _vm.Loc["Cmd.RulePackSharing.ExportTitle"]); return; }
             var savePath = _dialog.SaveFile(_vm.Loc["Cmd.RulePackSharing.ExportTitle"], _vm.Loc["Cmd.RulePackSharing.JsonFilter"], "rules-export.json");
             if (!TryResolveSafeOutputPath(savePath, "Regel-Export", out var safeSavePath)) return;
-            try { File.Copy(rulesPath, safeSavePath, overwrite: true); _vm.AddLog(_vm.Loc.Format("Cmd.RulePackSharing.ExportDone", safeSavePath), "INFO"); }
+            try { AtomicFileWriter.CopyFile(rulesPath, safeSavePath, overwrite: true); _vm.AddLog(_vm.Loc.Format("Cmd.RulePackSharing.ExportDone", safeSavePath), "INFO"); }
             catch (Exception ex) { LogError("IO-EXPORT", _vm.Loc.Format("Cmd.RulePackSharing.ExportFailed", ex.Message)); }
         }
         else
@@ -131,7 +132,7 @@ public sealed partial class FeatureCommandService
                 if (!TryResolveSafeOutputPath(rulesPath, "Regel-Import", out var safeRulesPath))
                     return;
 
-                File.Copy(importPath, safeRulesPath, overwrite: true);
+                AtomicFileWriter.CopyFile(importPath, safeRulesPath, overwrite: true);
                 _vm.AddLog(_vm.Loc.Format("Cmd.RulePackSharing.ImportDone", Path.GetFileName(importPath), safeRulesPath), "INFO");
             }
             catch (JsonException) { LogError("GUI-IMPORT", _vm.Loc["Cmd.RulePackSharing.ImportInvalidJson"], _vm.Loc["Cmd.RulePackSharing.ImportJsonHint"]); }

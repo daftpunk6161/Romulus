@@ -3,6 +3,7 @@ using Romulus.Contracts.Models;
 using Romulus.Core.Classification;
 using Romulus.Core.Deduplication;
 using Romulus.Infrastructure.Deduplication;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Hashing;
 using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Linking;
@@ -268,11 +269,9 @@ public sealed partial class RunOrchestrator
             var auditDir = Path.GetDirectoryName(options.AuditPath);
             if (!string.IsNullOrEmpty(auditDir))
                 Directory.CreateDirectory(auditDir);
-            var tempAuditPath = options.AuditPath + ".tmp";
-            File.WriteAllText(tempAuditPath,
+            AtomicFileWriter.WriteAllText(options.AuditPath,
                 "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp\n",
                 System.Text.Encoding.UTF8);
-            File.Move(tempAuditPath, options.AuditPath, overwrite: true);
         }
         _audit.WriteMetadataSidecar(options.AuditPath, Romulus.Infrastructure.Audit.AuditRollbackRootMetadata.WithAllowedRoots(options, new Dictionary<string, object>
         {

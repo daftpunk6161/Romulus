@@ -6,6 +6,7 @@ using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using System.Text.RegularExpressions;
 using Romulus.Infrastructure.Analysis;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Safety;
 
 namespace Romulus.Infrastructure.Export;
@@ -154,7 +155,7 @@ public static class FrontendExportService
         {
             var fallbackFileName = SanitizeFileNameSegment(collectionName) + ".m3u";
             var fallbackPath = EnsureChildPath(root, fallbackFileName);
-            File.WriteAllText(fallbackPath, BuildM3uContent(collectionName, OrderPlaylistEntries(games)), Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(fallbackPath, BuildM3uContent(collectionName, OrderPlaylistEntries(games)), Encoding.UTF8);
             return [new FrontendExportArtifact(fallbackPath, collectionName, games.Count)];
         }
 
@@ -167,7 +168,7 @@ public static class FrontendExportService
                 var fileName = SanitizeFileNameSegment(playlist.PlaylistName) + ".m3u";
                 var targetPath = EnsureChildPath(consoleRoot, fileName);
 
-                File.WriteAllText(targetPath, BuildM3uContent(playlist.PlaylistName, playlist.Entries), Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(targetPath, BuildM3uContent(playlist.PlaylistName, playlist.Entries), Encoding.UTF8);
                 return new FrontendExportArtifact(targetPath, $"{playlist.ConsoleLabel}: {playlist.PlaylistName}", playlist.Entries.Count);
             })
             .ToArray();
@@ -364,7 +365,7 @@ public static class FrontendExportService
             {
                 var safeName = SanitizeFileNameSegment(group.Key) + ".lpl";
                 var targetPath = EnsureChildPath(root, safeName);
-                File.WriteAllText(targetPath, BuildRetroArchContent(group, group.Key), Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(targetPath, BuildRetroArchContent(group, group.Key), Encoding.UTF8);
                 return new FrontendExportArtifact(targetPath, group.Key, group.Count());
             })
             .ToArray();
@@ -463,7 +464,7 @@ public static class FrontendExportService
             var fileName = SanitizeFileNameSegment(BuildStableId(game)) + ".json";
             var targetPath = EnsureChildPath(root, fileName);
             var payload = JsonSerializer.Serialize(BuildPlaynitePayload(game), new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(targetPath, payload, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(targetPath, payload, Encoding.UTF8);
             artifacts.Add(new FrontendExportArtifact(targetPath, game.DisplayName, 1));
         }
 
@@ -499,7 +500,7 @@ public static class FrontendExportService
                 var consoleRoot = EnsureChildPath(root, SanitizeFileNameSegment(group.Key));
                 Directory.CreateDirectory(consoleRoot);
                 var targetPath = EnsureChildPath(consoleRoot, "_romulus-index.json");
-                File.WriteAllText(targetPath, SerializeIndented(BuildMiSTerSystemPayload(group.Key, group)), Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(targetPath, SerializeIndented(BuildMiSTerSystemPayload(group.Key, group)), Encoding.UTF8);
                 return new FrontendExportArtifact(targetPath, group.Key, group.Count());
             })
             .ToArray();
@@ -535,7 +536,7 @@ public static class FrontendExportService
                     system = group.Key,
                     games = group.Select(BuildAnaloguePocketGamePayload).ToArray()
                 });
-                File.WriteAllText(targetPath, payload, Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(targetPath, payload, Encoding.UTF8);
                 return new FrontendExportArtifact(targetPath, group.Key, group.Count());
             })
             .ToArray();
@@ -571,7 +572,7 @@ public static class FrontendExportService
                     system = group.Key,
                     roms = group.Select(BuildOnionOsGamePayload).ToArray()
                 });
-                File.WriteAllText(targetPath, payload, Encoding.UTF8);
+                AtomicFileWriter.WriteAllText(targetPath, payload, Encoding.UTF8);
                 return new FrontendExportArtifact(targetPath, group.Key, group.Count());
             })
             .ToArray();
@@ -674,8 +675,9 @@ public static class FrontendExportService
         if (!string.IsNullOrWhiteSpace(directory))
             Directory.CreateDirectory(directory);
 
-        using var stream = File.Create(fullOutputPath);
+        using var stream = new MemoryStream();
         doc.Save(stream);
+        AtomicFileWriter.WriteAllBytes(fullOutputPath, stream.ToArray());
     }
 
     private static IReadOnlyList<FrontendExportArtifact> WriteSingleArtifact(string outputPath, string label, string content)
@@ -685,7 +687,7 @@ public static class FrontendExportService
         if (!string.IsNullOrWhiteSpace(directory))
             Directory.CreateDirectory(directory);
 
-        File.WriteAllText(fullOutputPath, content, Encoding.UTF8);
+        AtomicFileWriter.WriteAllText(fullOutputPath, content, Encoding.UTF8);
         return [new FrontendExportArtifact(fullOutputPath, label, 1)];
     }
 

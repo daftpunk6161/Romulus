@@ -514,7 +514,7 @@ public static class IntegrityService
                 output[offset + i] = patchData[i];
         }
 
-        File.WriteAllBytes(outputPath, output.ToArray());
+        AtomicFileWriter.WriteAllBytes(outputPath, output.ToArray());
     }
 
     internal static int ReadUInt16BigEndian(BinaryReader reader)

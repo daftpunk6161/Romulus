@@ -1,11 +1,15 @@
 using System.Globalization;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Audit;
 
@@ -15,6 +19,10 @@ namespace Romulus.Infrastructure.Audit;
 /// </summary>
 public sealed class AuditSigningService
 {
+    private const int HmacKeyLengthBytes = 32;
+    private const string CurrentMetadataVersion = "v2";
+    private static readonly object LedgerLock = new();
+
     private byte[]? _persistedKey;
     private readonly object _keyLock = new();
     private readonly IFileSystem _fs;
@@ -39,64 +47,20 @@ public sealed class AuditSigningService
             if (_persistedKey is not null)
                 return _persistedKey;
 
-            // Try to load from file
             if (!string.IsNullOrEmpty(_keyFilePath) && File.Exists(_keyFilePath))
-            {
-                try
-                {
-                    var hex = File.ReadAllText(_keyFilePath, Encoding.UTF8).Trim();
-                    _persistedKey = Convert.FromHexString(hex);
-                    return _persistedKey;
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException)
-                {
-                    _log?.Invoke("Failed to load HMAC key file, generating new key");
-                }
-            }
+                return _persistedKey = LoadExistingSigningKey(_keyFilePath);
 
-            // Generate new key
             var key = new byte[32];
             RandomNumberGenerator.Fill(key);
-            _persistedKey = key;
 
-            // Persist to file if path configured
             if (!string.IsNullOrEmpty(_keyFilePath))
             {
                 try
                 {
-                    var dir = Path.GetDirectoryName(_keyFilePath);
-                    if (!string.IsNullOrEmpty(dir))
-                        Directory.CreateDirectory(dir);
-                    // V2-SEC-H01: Atomic write via temp+rename to prevent corrupt key on crash
-                    var tmpPath = _keyFilePath + ".tmp";
-                    File.WriteAllText(tmpPath, Convert.ToHexStringLower(key), Encoding.UTF8);
-                    File.Move(tmpPath, _keyFilePath, overwrite: true);
-
-                    // Restrict file permissions to current user only (Windows-only API)
-                    if (OperatingSystem.IsWindows())
-                    {
-                        var fi = new FileInfo(_keyFilePath);
-                        var security = fi.GetAccessControl();
-                        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-                        var currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().User
-                                          ?? throw new InvalidOperationException("Could not resolve current Windows identity SID.");
-                        security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                            currentUser,
-                            System.Security.AccessControl.FileSystemRights.FullControl,
-                            System.Security.AccessControl.InheritanceFlags.None,
-                            System.Security.AccessControl.PropagationFlags.None,
-                            System.Security.AccessControl.AccessControlType.Allow));
-                        fi.SetAccessControl(security);
-                    }
-                    // V2-SEC-M02: Set Unix file permissions to owner-only (0600)
-                    else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-                    {
-                        File.SetUnixFileMode(_keyFilePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-                    }
+                    WriteNewSigningKeyFileSecurely(_keyFilePath, key);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
                 {
-                    // Security hardening: never keep or use an unsecured persisted key file.
                     try { if (File.Exists(_keyFilePath)) File.Delete(_keyFilePath); }
                     catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException) { }
                     try
@@ -112,8 +76,163 @@ public sealed class AuditSigningService
                 }
             }
 
+            _persistedKey = key;
             return _persistedKey;
         }
+    }
+
+    private byte[] LoadExistingSigningKey(string keyFilePath)
+    {
+        try
+        {
+            EnsureSigningKeyFileSecurity(keyFilePath);
+            var hex = File.ReadAllText(keyFilePath, Encoding.UTF8).Trim();
+            var key = Convert.FromHexString(hex);
+            if (key.Length != HmacKeyLengthBytes)
+                throw new InvalidDataException($"HMAC key must be {HmacKeyLengthBytes} bytes.");
+
+            return key;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or InvalidDataException)
+        {
+            QuarantineInvalidKeyFile(keyFilePath);
+            throw new InvalidOperationException("HMAC key file is missing, corrupt, or has unsafe permissions.", ex);
+        }
+    }
+
+    private static void WriteNewSigningKeyFileSecurely(string keyFilePath, byte[] key)
+    {
+        var dir = Path.GetDirectoryName(keyFilePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var tempPath = Path.Combine(
+            string.IsNullOrWhiteSpace(dir) ? Directory.GetCurrentDirectory() : dir,
+            $".{Path.GetFileName(keyFilePath)}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            var content = Encoding.UTF8.GetBytes(Convert.ToHexStringLower(key));
+            if (OperatingSystem.IsWindows())
+            {
+                var security = BuildCurrentUserOnlyFileSecurity();
+                using var stream = System.IO.FileSystemAclExtensions.Create(
+                    new FileInfo(tempPath),
+                    FileMode.CreateNew,
+                    FileSystemRights.Read | FileSystemRights.Write,
+                    FileShare.None,
+                    4096,
+                    FileOptions.WriteThrough,
+                    security);
+                stream.Write(content);
+                stream.Flush(flushToDisk: true);
+            }
+            else
+            {
+                using var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough);
+                if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+                    File.SetUnixFileMode(tempPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                stream.Write(content);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(tempPath, keyFilePath, overwrite: false);
+            EnsureSigningKeyFileSecurity(keyFilePath);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static FileSecurity BuildCurrentUserOnlyFileSecurity()
+    {
+        var currentUser = WindowsIdentity.GetCurrent().User
+                          ?? throw new InvalidOperationException("Could not resolve current Windows identity SID.");
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.AddAccessRule(new FileSystemAccessRule(
+            currentUser,
+            FileSystemRights.FullControl,
+            InheritanceFlags.None,
+            PropagationFlags.None,
+            AccessControlType.Allow));
+        return security;
+    }
+
+    private static void EnsureSigningKeyFileSecurity(string keyFilePath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var fileInfo = new FileInfo(keyFilePath);
+            var security = fileInfo.GetAccessControl();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            var currentUser = WindowsIdentity.GetCurrent().User
+                              ?? throw new InvalidOperationException("Could not resolve current Windows identity SID.");
+
+            var rules = security.GetAccessRules(includeExplicit: true, includeInherited: false, typeof(SecurityIdentifier));
+            var hasCurrentUserRule = false;
+            foreach (FileSystemAccessRule rule in rules)
+            {
+                if (rule.IdentityReference.Equals(currentUser)
+                    && rule.AccessControlType == AccessControlType.Allow
+                    && (rule.FileSystemRights & FileSystemRights.Read) != 0
+                    && (rule.FileSystemRights & FileSystemRights.Write) != 0)
+                {
+                    hasCurrentUserRule = true;
+                }
+            }
+
+            if (!hasCurrentUserRule)
+            {
+                security.AddAccessRule(new FileSystemAccessRule(
+                    currentUser,
+                    FileSystemRights.FullControl,
+                    InheritanceFlags.None,
+                    PropagationFlags.None,
+                    AccessControlType.Allow));
+            }
+
+            fileInfo.SetAccessControl(security);
+            return;
+        }
+
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            var mode = File.GetUnixFileMode(keyFilePath);
+            var unsafeBits =
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+            if ((mode & unsafeBits) != 0)
+            {
+                File.SetUnixFileMode(keyFilePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                mode = File.GetUnixFileMode(keyFilePath);
+                if ((mode & unsafeBits) != 0)
+                    throw new UnauthorizedAccessException("HMAC key file is readable or writable by group/other.");
+            }
+        }
+    }
+
+    private static void QuarantineInvalidKeyFile(string keyFilePath)
+    {
+        if (!File.Exists(keyFilePath))
+            return;
+
+        var dir = Path.GetDirectoryName(keyFilePath) ?? Directory.GetCurrentDirectory();
+        var quarantineDir = Path.Combine(dir, "quarantine");
+        Directory.CreateDirectory(quarantineDir);
+        var quarantinePath = Path.Combine(
+            quarantineDir,
+            $"{Path.GetFileName(keyFilePath)}.{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bad");
+        File.Move(keyFilePath, quarantinePath, overwrite: false);
     }
 
     /// <summary>
@@ -126,11 +245,158 @@ public sealed class AuditSigningService
         return Convert.ToHexStringLower(hash);
     }
 
+    private static string ComputeAuditPathSha256(string auditCsvPath)
+    {
+        var normalizedPath = Path.GetFullPath(auditCsvPath).Normalize(NormalizationForm.FormC);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedPath));
+        return Convert.ToHexStringLower(hash);
+    }
+
+    private static string ComputeKeyId(byte[] key)
+    {
+        var hash = SHA256.HashData(key);
+        return Convert.ToHexStringLower(hash.AsSpan(0, 16));
+    }
+
+    private string? GetLedgerPath()
+    {
+        if (string.IsNullOrWhiteSpace(_keyFilePath))
+            return null;
+
+        return _keyFilePath + ".ledger.jsonl";
+    }
+
+    private string? ReadLatestLedgerHmac(string auditPathSha256)
+    {
+        var ledgerPath = GetLedgerPath();
+        if (ledgerPath is null || !File.Exists(ledgerPath))
+            return null;
+
+        lock (LedgerLock)
+        {
+            string? latest = null;
+            foreach (var line in File.ReadLines(ledgerPath, Encoding.UTF8))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var entry = JsonSerializer.Deserialize<AuditLedgerEntry>(line);
+                if (entry is not null
+                    && string.Equals(entry.AuditPathSha256, auditPathSha256, StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(entry.CurrentSidecarHmac))
+                {
+                    latest = entry.CurrentSidecarHmac;
+                }
+            }
+
+            return latest;
+        }
+    }
+
+    private void AppendLedgerEntry(
+        string auditPathSha256,
+        string currentSidecarHmac,
+        string previousSidecarHmac,
+        string keyId,
+        string createdUtc)
+    {
+        var ledgerPath = GetLedgerPath();
+        if (ledgerPath is null)
+            return;
+
+        var ledgerDir = Path.GetDirectoryName(ledgerPath);
+        if (!string.IsNullOrWhiteSpace(ledgerDir))
+            Directory.CreateDirectory(ledgerDir);
+
+        var entry = new AuditLedgerEntry(
+            Version: CurrentMetadataVersion,
+            AuditPathSha256: auditPathSha256,
+            CurrentSidecarHmac: currentSidecarHmac,
+            PreviousSidecarHmac: previousSidecarHmac,
+            KeyId: keyId,
+            CreatedUtc: createdUtc);
+        var line = JsonSerializer.Serialize(entry) + "\n";
+
+        lock (LedgerLock)
+        {
+            AtomicFileWriter.AppendText(ledgerPath, line, Encoding.UTF8);
+        }
+    }
+
+    private void VerifyLedgerLatestEntry(AuditMetadata metadata)
+    {
+        var ledgerPath = GetLedgerPath();
+        if (ledgerPath is null)
+            return;
+
+        if (!File.Exists(ledgerPath))
+            throw new InvalidDataException("Audit ledger is missing.");
+
+        AuditLedgerEntry? latestForAudit = null;
+        lock (LedgerLock)
+        {
+            foreach (var line in File.ReadLines(ledgerPath, Encoding.UTF8))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var entry = JsonSerializer.Deserialize<AuditLedgerEntry>(line);
+                if (entry is not null
+                    && string.Equals(entry.AuditPathSha256, metadata.AuditPathSha256, StringComparison.Ordinal))
+                {
+                    latestForAudit = entry;
+                }
+            }
+        }
+
+        if (latestForAudit is null)
+            throw new InvalidDataException("Audit sidecar is not present in the append-only ledger.");
+
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(latestForAudit.CurrentSidecarHmac),
+                Encoding.UTF8.GetBytes(metadata.HmacSha256 ?? "")))
+        {
+            throw new InvalidDataException("Audit sidecar replay detected: ledger contains a newer checkpoint.");
+        }
+
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(latestForAudit.PreviousSidecarHmac),
+                Encoding.UTF8.GetBytes(metadata.PreviousSidecarHmac ?? "")))
+        {
+            throw new InvalidDataException("Audit ledger predecessor mismatch.");
+        }
+
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(latestForAudit.KeyId),
+                Encoding.UTF8.GetBytes(metadata.KeyId ?? "")))
+        {
+            throw new InvalidDataException("Audit ledger key id mismatch.");
+        }
+    }
+
+    private sealed record AuditLedgerEntry(
+        string Version,
+        string AuditPathSha256,
+        string CurrentSidecarHmac,
+        string PreviousSidecarHmac,
+        string KeyId,
+        string CreatedUtc);
+
     /// <summary>
     /// Build the signature payload string in the canonical format.
     /// </summary>
     public static string BuildSignaturePayload(string auditFileName, string csvSha256, int rowCount, string createdUtc)
         => $"v1|{auditFileName}|{csvSha256}|{rowCount}|{createdUtc}";
+
+    public static string BuildSignaturePayloadV2(
+        string auditFileName,
+        string auditPathSha256,
+        string csvSha256,
+        int rowCount,
+        string createdUtc,
+        string keyId,
+        string previousSidecarHmac)
+        => $"v2|{auditFileName}|{auditPathSha256}|{csvSha256}|{rowCount}|{createdUtc}|{keyId}|{previousSidecarHmac}";
 
     /// <summary>
     /// Compute HMAC-SHA256 of a text string using the persisted signing key.
@@ -159,24 +425,39 @@ public sealed class AuditSigningService
         {
             var csvSha256 = ComputeFileSha256(auditCsvPath);
             var auditFileName = Path.GetFileName(auditCsvPath);
+            var auditPathSha256 = ComputeAuditPathSha256(auditCsvPath);
             var createdUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            var payload = BuildSignaturePayload(auditFileName, csvSha256, rowCount, createdUtc);
+            var key = GetSigningKey();
+            var keyId = ComputeKeyId(key);
+            var previousSidecarHmac = ReadLatestLedgerHmac(auditPathSha256) ?? "";
+            var payload = BuildSignaturePayloadV2(
+                auditFileName,
+                auditPathSha256,
+                csvSha256,
+                rowCount,
+                createdUtc,
+                keyId,
+                previousSidecarHmac);
             var hmac = ComputeHmacSha256(payload);
 
             var auditMetadata = new AuditMetadata
             {
-                Version = "v1",
+                Version = CurrentMetadataVersion,
                 AuditFileName = auditFileName,
+                AuditPathSha256 = auditPathSha256,
                 CsvSha256 = csvSha256,
                 RowCount = rowCount,
                 CreatedUtc = createdUtc,
+                KeyId = keyId,
+                PreviousSidecarHmac = previousSidecarHmac,
                 HmacSha256 = hmac,
                 AdditionalMetadata = ToJsonExtensionData(metadata)
             };
 
             var metaPath = auditCsvPath + ".meta.json";
             var json = JsonSerializer.Serialize(auditMetadata, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(metaPath, json, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(metaPath, json, Encoding.UTF8);
+            AppendLedgerEntry(auditPathSha256, hmac, previousSidecarHmac, keyId, createdUtc);
 
             _log?.Invoke($"Audit sidecar written: {metaPath}");
             return metaPath;
@@ -203,6 +484,29 @@ public sealed class AuditSigningService
         if (metadata is null)
             throw new InvalidDataException("Failed to deserialize audit sidecar");
 
+        if (!string.Equals(metadata.Version, CurrentMetadataVersion, StringComparison.Ordinal))
+            throw new InvalidDataException("Unsupported audit sidecar version. Regenerate the audit checkpoint.");
+
+        var expectedAuditPathSha256 = ComputeAuditPathSha256(auditCsvPath);
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expectedAuditPathSha256),
+                Encoding.UTF8.GetBytes(metadata.AuditPathSha256 ?? "")))
+        {
+            throw new InvalidDataException("Audit sidecar path binding mismatch.");
+        }
+
+        if (!string.Equals(metadata.AuditFileName, Path.GetFileName(auditCsvPath), StringComparison.Ordinal))
+            throw new InvalidDataException("Audit sidecar file name mismatch.");
+
+        var key = GetSigningKey();
+        var expectedKeyId = ComputeKeyId(key);
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expectedKeyId),
+                Encoding.UTF8.GetBytes(metadata.KeyId ?? "")))
+        {
+            throw new InvalidDataException("Audit sidecar key id mismatch.");
+        }
+
         // Verify CSV hash (constant-time comparison to prevent timing attacks — SEC-AUDIT-01)
         var actualSha256 = ComputeFileSha256(auditCsvPath);
         var actualBytes = Encoding.UTF8.GetBytes(actualSha256.ToLowerInvariant());
@@ -211,12 +515,21 @@ public sealed class AuditSigningService
             throw new InvalidDataException($"CSV hash mismatch: expected {metadata.CsvSha256}, got {actualSha256}");
 
         // Verify HMAC (constant-time comparison to prevent timing attacks)
-        var payload = BuildSignaturePayload(metadata.AuditFileName, metadata.CsvSha256 ?? "", metadata.RowCount, metadata.CreatedUtc);
+        var payload = BuildSignaturePayloadV2(
+            metadata.AuditFileName,
+            metadata.AuditPathSha256 ?? "",
+            metadata.CsvSha256 ?? "",
+            metadata.RowCount,
+            metadata.CreatedUtc,
+            metadata.KeyId ?? "",
+            metadata.PreviousSidecarHmac ?? "");
         var expectedHmac = ComputeHmacSha256(payload);
         if (!CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(expectedHmac),
                 Encoding.UTF8.GetBytes(metadata.HmacSha256 ?? "")))
             throw new InvalidDataException("HMAC signature verification failed — audit file may have been tampered with");
+
+        VerifyLedgerLatestEntry(metadata);
 
         _log?.Invoke($"Audit sidecar verified: {metaPath}");
         return true;
@@ -232,18 +545,32 @@ public sealed class AuditSigningService
         IReadOnlyList<string> allowedCurrentRoots,
         bool dryRun = true)
     {
+        var metaPath = auditCsvPath + ".meta.json";
         if (!File.Exists(auditCsvPath))
         {
+            if (File.Exists(metaPath))
+            {
+                var metadata = ReadMetadataForFailure(metaPath);
+                return new AuditRollbackResult
+                {
+                    AuditCsvPath = auditCsvPath,
+                    DryRun = dryRun,
+                    Failed = Math.Max(1, metadata?.RowCount ?? 0),
+                    Tampered = true,
+                    IntegrityError = "AUDIT_CSV_MISSING_WITH_SIDECAR"
+                };
+            }
+
             return new AuditRollbackResult
             {
                 AuditCsvPath = auditCsvPath,
-                DryRun = dryRun
+                DryRun = dryRun,
+                IntegrityError = "AUDIT_CSV_MISSING"
             };
         }
 
         // SEC-ROLLBACK-03: Verify audit file integrity before rollback (dry-run and execute).
         // Preview/Execute must make the same safety decision to keep parity deterministic.
-        var metaPath = auditCsvPath + ".meta.json";
         if (File.Exists(metaPath))
         {
             try
@@ -257,7 +584,9 @@ public sealed class AuditSigningService
                 {
                     AuditCsvPath = auditCsvPath,
                     DryRun = dryRun,
-                    Failed = CountAuditDataRows(auditCsvPath)
+                    Failed = CountAuditDataRows(auditCsvPath),
+                    Tampered = true,
+                    IntegrityError = "AUDIT_INTEGRITY_BROKEN"
                 };
             }
         }
@@ -268,7 +597,9 @@ public sealed class AuditSigningService
             {
                 AuditCsvPath = auditCsvPath,
                 DryRun = dryRun,
-                Failed = CountAuditDataRows(auditCsvPath)
+                Failed = CountAuditDataRows(auditCsvPath),
+                Tampered = true,
+                IntegrityError = "AUDIT_SIDECAR_MISSING"
             };
         }
 
@@ -295,10 +626,10 @@ public sealed class AuditSigningService
         if (!dryRun)
         {
             rollbackAuditPath = Path.ChangeExtension(auditCsvPath, ".rollback-audit.csv");
-            File.WriteAllText(rollbackAuditPath, "Timestamp,Action,OldPath,NewPath,Status\n", Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(rollbackAuditPath, "Timestamp,Action,OldPath,NewPath,Status\n", Encoding.UTF8);
 
             rollbackTrailPath = Path.ChangeExtension(auditCsvPath, ".rollback-trail.csv");
-            File.WriteAllText(rollbackTrailPath, "RestoredPath,RestoredFrom,OriginalAction,Timestamp\n", Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(rollbackTrailPath, "RestoredPath,RestoredFrom,OriginalAction,Timestamp\n", Encoding.UTF8);
         }
 
         // Pre-cache normalized root paths to avoid Path.GetFullPath per root per row (expensive on UNC)
@@ -340,6 +671,12 @@ public sealed class AuditSigningService
             if (string.Equals(action, RunConstants.AuditActions.MoveFailed, StringComparison.OrdinalIgnoreCase))
             {
                 suppressedPendingOperationKeys.Add(BuildPendingOperationKey(RunConstants.AuditActions.Move, oldPath, newPath));
+                continue;
+            }
+
+            if (string.Equals(action, RunConstants.AuditActions.CopyFailed, StringComparison.OrdinalIgnoreCase))
+            {
+                suppressedPendingOperationKeys.Add(BuildPendingOperationKey(RunConstants.AuditActions.Copy, oldPath, newPath));
                 continue;
             }
 
@@ -583,16 +920,9 @@ public sealed class AuditSigningService
 
     private static bool HasAuditDataRows(string auditCsvPath)
     {
-        using var stream = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-
-        // Skip header.
-        _ = reader.ReadLine();
-
-        while (!reader.EndOfStream)
+        foreach (var row in ReadLogicalCsvRecords(auditCsvPath).Skip(1))
         {
-            var line = reader.ReadLine();
-            if (!string.IsNullOrWhiteSpace(line))
+            if (!string.IsNullOrWhiteSpace(row))
                 return true;
         }
 
@@ -601,32 +931,44 @@ public sealed class AuditSigningService
 
     private static int CountAuditDataRows(string auditCsvPath)
     {
-        using var stream = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-
-        // Skip header row.
-        _ = reader.ReadLine();
-
-        var count = 0;
-        while (!reader.EndOfStream)
+        try
         {
-            var line = reader.ReadLine();
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            try
-            {
-                var fields = AuditCsvParser.ParseCsvLine(line);
-                if (fields.Length >= 4)
-                    count++;
-            }
-            catch (InvalidDataException)
-            {
-                // Corrupt rows are intentionally skipped.
-            }
+            return AuditCsvStore.CountAuditRows(auditCsvPath);
         }
+        catch (InvalidDataException)
+        {
+            var count = 0;
+            foreach (var line in File.ReadLines(auditCsvPath, Encoding.UTF8).Skip(1))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
 
-        return count;
+                try
+                {
+                    if (AuditCsvParser.ParseCsvLine(line).Length >= 4)
+                        count++;
+                }
+                catch (InvalidDataException)
+                {
+                    // Corrupt rows are not roll-backable and are not counted as actionable rows.
+                }
+            }
+
+            return count;
+        }
+    }
+
+    private static AuditMetadata? ReadMetadataForFailure(string metaPath)
+    {
+        try
+        {
+            var json = File.ReadAllText(metaPath, Encoding.UTF8);
+            return JsonSerializer.Deserialize<AuditMetadata>(json);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
     }
 
     private static IEnumerable<string> ReadAuditRowsReverse(string auditCsvPath)
@@ -635,17 +977,11 @@ public sealed class AuditSigningService
 
         try
         {
-            using (var input = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            using (var reader = new StreamReader(input, Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
             using (var spool = new FileStream(spoolPath, FileMode.Create, FileAccess.Write, FileShare.None))
             using (var writer = new BinaryWriter(spool, Encoding.UTF8, leaveOpen: true))
             {
-                // Skip header.
-                _ = reader.ReadLine();
-
-                while (!reader.EndOfStream)
+                foreach (var line in ReadLogicalCsvRecords(auditCsvPath).Skip(1))
                 {
-                    var line = reader.ReadLine();
                     if (string.IsNullOrWhiteSpace(line))
                         continue;
 
@@ -694,6 +1030,45 @@ public sealed class AuditSigningService
                 // Best effort cleanup.
             }
         }
+    }
+
+    private static IEnumerable<string> ReadLogicalCsvRecords(string auditCsvPath)
+    {
+        using var input = new FileStream(auditCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(input, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        var current = new StringBuilder();
+        var inQuotes = false;
+        while (reader.Read() is var value && value >= 0)
+        {
+            var c = (char)value;
+            current.Append(c);
+
+            if (c == '"')
+            {
+                if (inQuotes && reader.Peek() == '"')
+                {
+                    current.Append((char)reader.Read());
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+            }
+
+            if ((c == '\n' || c == '\r') && !inQuotes)
+            {
+                var row = current.ToString().TrimEnd('\r', '\n');
+                current.Clear();
+                if (row.Length > 0)
+                    yield return row;
+            }
+        }
+
+        if (inQuotes)
+            throw new InvalidDataException("Malformed CSV row: unclosed quoted field.");
+
+        if (current.Length > 0)
+            yield return current.ToString();
     }
 
     internal static string? NormalizeRollbackAction(string action)
@@ -752,13 +1127,13 @@ public sealed class AuditSigningService
     {
         var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var line = $"{SanitizeCsvField(timestamp)},{SanitizeCsvField(action)},{SanitizeCsvField(from)},{SanitizeCsvField(to)},{SanitizeCsvField(status)}\n";
-        File.AppendAllText(path, line, Encoding.UTF8);
+        AtomicFileWriter.AppendText(path, line, Encoding.UTF8);
     }
 
     private static void AppendRollbackTrailRow(string path, string restoredPath, string restoredFrom, string originalAction)
     {
         var timestamp = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         var line = $"{SanitizeCsvField(restoredPath)},{SanitizeCsvField(restoredFrom)},{SanitizeCsvField(originalAction)},{SanitizeCsvField(timestamp)}\n";
-        File.AppendAllText(path, line, Encoding.UTF8);
+        AtomicFileWriter.AppendText(path, line, Encoding.UTF8);
     }
 }

@@ -67,7 +67,7 @@ public sealed class SettingsLoaderCoverageBoostTests : IDisposable
 
         Assert.True(result.WasCorrupt);
         Assert.NotNull(result.CorruptionMessage);
-        Assert.True(File.Exists(path + ".bak"));
+        Assert.Single(Directory.GetFiles(_tempDir, "corrupt.json.*.bak"));
     }
 
     [Fact]
@@ -370,6 +370,6 @@ public sealed class SettingsLoaderCoverageBoostTests : IDisposable
         var settings = SettingsLoader.LoadWithExplicitUserPath(defaultsPath, userPath);
 
         Assert.Equal("Warning", settings.General.LogLevel);
-        Assert.True(File.Exists(userPath + ".bak"));
+        Assert.Single(Directory.GetFiles(_tempDir, "user-corrupt-f23.json.*.bak"));
     }
 }

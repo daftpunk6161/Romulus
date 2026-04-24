@@ -592,10 +592,8 @@ public sealed class RunEnvironmentBuilder
                 BridgeDatSourceAliases(datConsoleMap, consoleDetector, dataDir);
 
             // Diagnostic: show what BuildConsoleMap found.
-            var datFileCount = Directory.Exists(effectiveDatRoot)
-                ? Directory.GetFiles(effectiveDatRoot, "*.*", SearchOption.AllDirectories)
-                    .Count(f => f.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                             || f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            var datFileCount = fs.TestPath(effectiveDatRoot, "Container")
+                ? fs.GetFilesSafe(effectiveDatRoot, [".dat", ".xml"]).Count
                 : 0;
             var supplementalCount = supplementalDats.Values.Sum(l => l.Count);
             onWarning?.Invoke($"[DAT] DatRoot '{effectiveDatRoot}': {datFileCount} DAT/XML-Dateien gefunden, {datConsoleMap.Count} Konsolen gemappt, {supplementalCount} ergaenzende DATs");
@@ -1329,9 +1327,7 @@ public sealed class RunEnvironmentBuilder
         if (!Directory.Exists(datRoot))
             return [];
 
-        return Directory.GetFiles(datRoot, "*.*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".dat", StringComparison.OrdinalIgnoreCase)
-                || path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        return new FileSystemAdapter().GetFilesSafe(datRoot, [".dat", ".xml"])
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

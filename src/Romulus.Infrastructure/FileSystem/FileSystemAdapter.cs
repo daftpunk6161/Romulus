@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 using Romulus.Contracts.Ports;
@@ -55,9 +56,9 @@ public sealed class FileSystemAdapter : IFileSystem
     internal static string NormalizePathNfc(string path)
         => _nfcCache.GetOrAdd(path, static p => Path.GetFullPath(p).Normalize(NormalizationForm.FormC));
 
-    private static bool TryGetFileIdentity(string path, out FileIdentity identity)
+    private static bool TryGetFileInformation(string path, out ByHandleFileInformation info)
     {
-        identity = default;
+        info = default;
         if (!OperatingSystem.IsWindows())
             return false;
 
@@ -69,18 +70,29 @@ public sealed class FileSystemAdapter : IFileSystem
                 FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete);
 
-            if (!GetFileInformationByHandle(handle, out var info))
-                return false;
-
-            var fileIndex = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
-            identity = new FileIdentity(info.VolumeSerialNumber, fileIndex);
-            return true;
+            return GetFileInformationByHandle(handle, out info);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return false;
         }
     }
+
+    private static bool TryGetFileIdentity(string path, out FileIdentity identity)
+    {
+        identity = default;
+        if (!TryGetFileInformation(path, out var info))
+            return false;
+
+        var fileIndex = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
+        identity = new FileIdentity(info.VolumeSerialNumber, fileIndex);
+        return true;
+    }
+
+    private static bool HasMultipleHardLinks(string path)
+        => OperatingSystem.IsWindows()
+        && TryGetFileInformation(path, out var info)
+        && info.NumberOfLinks > 1;
 
     private static bool ValidateSourceSnapshotBeforeMove(string fullSource, out FileIdentity sourceIdentity)
         => TryGetFileIdentity(fullSource, out sourceIdentity);
@@ -107,8 +119,13 @@ public sealed class FileSystemAdapter : IFileSystem
     }
 
     public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+        => GetFilesSafe(root, allowedExtensions, CancellationToken.None);
+
+    public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions, CancellationToken cancellationToken)
     {
         ClearScanWarnings();
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (string.IsNullOrWhiteSpace(root))
             return Array.Empty<string>();
@@ -130,6 +147,8 @@ public sealed class FileSystemAdapter : IFileSystem
 
         while (stack.Count > 0)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var dir = stack.Pop();
 
             if (!visited.Add(dir))
@@ -142,7 +161,10 @@ public sealed class FileSystemAdapter : IFileSystem
                 {
                     var dirInfo = new DirectoryInfo(dir);
                     if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    {
+                        RecordScanWarning($"Skipped reparse-point directory '{dir}'");
                         continue;
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -169,12 +191,17 @@ public sealed class FileSystemAdapter : IFileSystem
 
             foreach (var file in files)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Skip file-level symlinks/reparse points
                 try
                 {
                     var attrs = File.GetAttributes(file);
                     if ((attrs & FileAttributes.ReparsePoint) != 0)
+                    {
+                        RecordScanWarning($"Skipped reparse-point file '{file}'");
                         continue;
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -286,6 +313,8 @@ public sealed class FileSystemAdapter : IFileSystem
         var sourceAttrs = File.GetAttributes(fullSource);
         if ((sourceAttrs & FileAttributes.ReparsePoint) != 0)
             throw new InvalidOperationException("Blocked: Source is a reparse point.");
+        if (HasMultipleHardLinks(fullSource))
+            throw new InvalidOperationException("Blocked: Source has multiple hard links.");
 
         // Ensure destination directory exists
         var destDir = Path.GetDirectoryName(fullDest);
@@ -364,6 +393,8 @@ public sealed class FileSystemAdapter : IFileSystem
         var sourceAttrs = File.GetAttributes(fullSource);
         if ((sourceAttrs & FileAttributes.ReparsePoint) != 0)
             throw new InvalidOperationException("Blocked: Source is a reparse point.");
+        if (HasMultipleHardLinks(fullSource))
+            throw new InvalidOperationException("Blocked: Source has multiple hard links.");
 
         var sourceDir = Path.GetDirectoryName(fullSource)
                         ?? throw new InvalidOperationException("Blocked: Source has no parent directory.");
@@ -394,7 +425,7 @@ public sealed class FileSystemAdapter : IFileSystem
     {
         if (overwrite)
         {
-            File.Move(fullSource, fullDest, overwrite: true);
+            MoveFileVerified(fullSource, fullDest, overwrite: true);
             return fullDest;
         }
 
@@ -412,7 +443,7 @@ public sealed class FileSystemAdapter : IFileSystem
                 finalDest = Path.Combine(dir, $"{baseName}__DUP{i}{ext}");
                 try
                 {
-                    File.Move(fullSource, finalDest, overwrite: false);
+                    MoveFileVerified(fullSource, finalDest, overwrite: false);
                     moved = true;
                     break;
                 }
@@ -429,7 +460,7 @@ public sealed class FileSystemAdapter : IFileSystem
         {
             try
             {
-                File.Move(fullSource, finalDest, overwrite: false);
+                MoveFileVerified(fullSource, finalDest, overwrite: false);
             }
             catch (IOException) when (File.Exists(finalDest))
             {
@@ -445,7 +476,7 @@ public sealed class FileSystemAdapter : IFileSystem
                     finalDest = Path.Combine(dir, $"{baseName}__DUP{i}{ext}");
                     try
                     {
-                        File.Move(fullSource, finalDest, overwrite: false);
+                        MoveFileVerified(fullSource, finalDest, overwrite: false);
                         moved = true;
                         break;
                     }
@@ -461,6 +492,88 @@ public sealed class FileSystemAdapter : IFileSystem
         }
 
         return finalDest;
+    }
+
+    private static void MoveFileVerified(string fullSource, string fullDest, bool overwrite)
+    {
+        if (IsSameVolume(fullSource, fullDest))
+        {
+            File.Move(fullSource, fullDest, overwrite);
+            return;
+        }
+
+        CopyAcrossVolumesThenRemoveSource(fullSource, fullDest, overwrite);
+    }
+
+    private static bool IsSameVolume(string leftPath, string rightPath)
+        => string.Equals(
+            Path.GetPathRoot(Path.GetFullPath(leftPath)),
+            Path.GetPathRoot(Path.GetFullPath(rightPath)),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static void CopyAcrossVolumesThenRemoveSource(string fullSource, string fullDest, bool overwrite)
+    {
+        if (!overwrite && File.Exists(fullDest))
+            throw new IOException($"Destination already exists: {fullDest}");
+
+        var destDir = Path.GetDirectoryName(fullDest);
+        if (!string.IsNullOrWhiteSpace(destDir))
+            Directory.CreateDirectory(destDir);
+
+        var tempDest = Path.Combine(
+            destDir ?? Directory.GetCurrentDirectory(),
+            $".{Path.GetFileName(fullDest)}.{Environment.ProcessId}.{Guid.NewGuid():N}.move.tmp");
+
+        try
+        {
+            File.Copy(fullSource, tempDest, overwrite: false);
+            VerifyCopiedFile(fullSource, tempDest);
+
+            File.Move(tempDest, fullDest, overwrite);
+            VerifyCopiedFile(fullSource, fullDest);
+
+            File.Delete(fullSource);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(tempDest))
+                    File.Delete(tempDest);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Preserve the original exception; temp cleanup is best effort.
+            }
+
+            throw;
+        }
+    }
+
+    private static void VerifyCopiedFile(string sourcePath, string copiedPath)
+    {
+        var sourceInfo = new FileInfo(sourcePath);
+        var copiedInfo = new FileInfo(copiedPath);
+        if (!copiedInfo.Exists)
+            throw new IOException($"Verified copy missing: {copiedPath}");
+
+        if (sourceInfo.Length != copiedInfo.Length)
+            throw new IOException($"Verified copy length mismatch: {sourcePath} -> {copiedPath}");
+
+        var sourceHash = ComputeFileSha256(sourcePath);
+        var copiedHash = ComputeFileSha256(copiedPath);
+        if (!CryptographicOperations.FixedTimeEquals(
+                Convert.FromHexString(sourceHash),
+                Convert.FromHexString(copiedHash)))
+        {
+            throw new IOException($"Verified copy hash mismatch: {sourcePath} -> {copiedPath}");
+        }
+    }
+
+    private static string ComputeFileSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     public long? GetAvailableFreeSpace(string path)
@@ -746,7 +859,7 @@ public sealed class FileSystemAdapter : IFileSystem
         if (!string.IsNullOrWhiteSpace(directory))
             Directory.CreateDirectory(directory);
 
-        File.WriteAllText(fullPath, content, System.Text.Encoding.UTF8);
+        AtomicFileWriter.WriteAllText(fullPath, content, System.Text.Encoding.UTF8);
     }
 
     public string[] ReadAllLines(string path)
@@ -801,6 +914,6 @@ public sealed class FileSystemAdapter : IFileSystem
             Directory.CreateDirectory(destDir);
         }
 
-        File.Copy(fullSource, fullDest, overwrite);
+        AtomicFileWriter.CopyFile(fullSource, fullDest, overwrite);
     }
 }

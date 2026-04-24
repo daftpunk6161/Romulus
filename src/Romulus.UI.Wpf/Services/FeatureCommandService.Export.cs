@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Export;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Reporting;
 using Romulus.Infrastructure.Tools;
 using Romulus.UI.Wpf.ViewModels;
@@ -82,7 +83,7 @@ public sealed partial class FeatureCommandService
             if (!TryResolveSafeOutputPath(targetPath, "DAT-Import", out var safeTargetPath))
                 return;
 
-            File.Copy(path, safeTargetPath, overwrite: true);
+            AtomicFileWriter.CopyFile(path, safeTargetPath, overwrite: true);
             _vm.AddLog($"DAT importiert nach: {safeTargetPath}", "INFO");
             _dialog.Info($"DAT erfolgreich importiert:\n\n  Quelle: {path}\n  Ziel: {safeTargetPath}", "DAT-Import");
         }
@@ -178,7 +179,7 @@ public sealed partial class FeatureCommandService
 
         var losers = _vm.LastDedupeGroups.SelectMany(static group => group.Losers).ToList();
         var dupeCsv = FeatureService.ExportCollectionCsv(losers);
-        File.WriteAllText(safePath, dupeCsv, Encoding.UTF8);
+        AtomicFileWriter.WriteAllText(safePath, dupeCsv, Encoding.UTF8);
         _vm.AddLog(_vm.Loc.Format("Cmd.DupeExported", safePath, losers.Count), "INFO");
     }
 

@@ -3,6 +3,7 @@ using System.Text;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.Infrastructure.Index;
 
@@ -569,9 +570,10 @@ public sealed class LiteDbCollectionIndex : ICollectionIndex, IDisposable
 
         var backupPath = Path.Combine(
             directory,
-            $"{Path.GetFileName(_databasePath)}.{reason}.{DateTime.UtcNow:yyyyMMddHHmmssfff}.bak");
+            $"{Path.GetFileName(_databasePath)}.{reason}.{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak");
 
-        File.Move(_databasePath, backupPath, overwrite: true);
+        AtomicFileWriter.CopyFile(_databasePath, backupPath, overwrite: false);
+        File.Delete(_databasePath);
     }
 
     private void ThrowIfDisposed()

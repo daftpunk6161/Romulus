@@ -664,15 +664,19 @@ public sealed partial class FeatureCommandService
         { _vm.AddLog(_vm.Loc["Cmd.AutoProfileNoRoots"], "WARN"); return; }
         var hasDisc = false;
         var hasCartridge = false;
+        var fileSystem = new FileSystemAdapter();
         foreach (var root in _vm.Roots)
         {
-            if (!Directory.Exists(root)) continue;
-            foreach (var f in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Take(200))
+            if (!fileSystem.TestPath(root, "Container")) continue;
+            foreach (var f in fileSystem.GetFilesSafe(root).Take(200))
             {
                 var ext = Path.GetExtension(f).ToLowerInvariant();
                 if (DiscFormats.IsAutoProfileDiscExtension(ext)) hasDisc = true;
                 if (ext is ".nes" or ".sfc" or ".gba" or ".nds" or ".z64" or ".gb") hasCartridge = true;
             }
+
+            foreach (var warning in fileSystem.ConsumeScanWarnings())
+                _vm.AddLog(warning, "WARN");
         }
         var profile = (hasDisc, hasCartridge) switch
         {

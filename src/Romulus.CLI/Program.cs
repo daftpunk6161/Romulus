@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text;
 using System.Security.Cryptography;
+using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.DependencyInjection;
 using Romulus.Contracts;
 using Romulus.Contracts.Errors;
@@ -166,8 +167,8 @@ internal static partial class Program
         }
     }
 
-    private static Task<int> RunAsync(CliRunOptions cliOpts)
-        => ExecuteRunCoreAsync(cliOpts, CancellationToken.None, wireConsoleCancel: true);
+    private static Task<int> RunAsync(CliRunOptions cliOpts, bool wireConsoleCancel = true)
+        => ExecuteRunCoreAsync(cliOpts, CancellationToken.None, wireConsoleCancel);
 
     private static PersistedReviewDecisionService? CreateReviewDecisionService(Action<string>? onWarning)
         => ReviewDecisionServiceFactory.TryCreate(onWarning);
@@ -250,6 +251,13 @@ internal static partial class Program
                 return 3;
             }
 
+            var missingRoot = runOptions.Roots.FirstOrDefault(static root => !Directory.Exists(root));
+            if (!string.IsNullOrWhiteSpace(missingRoot))
+            {
+                SafeErrorWriteLine($"[Error] Root directory not found: {missingRoot}");
+                return 3;
+            }
+
             if (!string.IsNullOrWhiteSpace(cliOpts.ConvertFormat))
                 log?.Info("CLI", "convert-init", $"Format conversion enabled: {cliOpts.ConvertFormat}", "init");
 
@@ -282,23 +290,26 @@ internal static partial class Program
                 var runCompletedUtc = TimeProvider.UtcNow.UtcDateTime;
                 var projection = RunProjectionFactory.Create(result);
 
-            try
-            {
-                using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
-                await CollectionRunSnapshotWriter.TryPersistAsync(
-                    collectionIndex,
-                    runOptions,
-                    result,
-                    runStartedUtc,
-                    runCompletedUtc,
-                    // SYNC-JUSTIFIED: CLI run pipeline is synchronous here; snapshot write must complete
-                    // before process exit to preserve deterministic history artifacts.
-                    SafeErrorWriteLine).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-            {
-                SafeErrorWriteLine($"[CollectionIndex] Run snapshot persist skipped: {ex.Message}");
-            }
+                if (result.ExitCode != 3)
+                {
+                    try
+                    {
+                        using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
+                        await CollectionRunSnapshotWriter.TryPersistAsync(
+                            collectionIndex,
+                            runOptions,
+                            result,
+                            runStartedUtc,
+                            runCompletedUtc,
+                            // SYNC-JUSTIFIED: CLI run pipeline is synchronous here; snapshot write must complete
+                            // before process exit to preserve deterministic history artifacts.
+                            SafeErrorWriteLine).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                    {
+                        SafeErrorWriteLine($"[CollectionIndex] Run snapshot persist skipped: {ex.Message}");
+                    }
+                }
 
                 log?.Info("CLI", "scan-complete", $"{result.TotalFilesScanned} files scanned", "scan");
                 log?.Info("CLI", "dedupe-complete",
@@ -568,14 +579,18 @@ internal static partial class Program
     {
         SafeErrorWriteLine($"[Integrity] Creating baseline from {opts.Roots.Length} root(s)...");
         var files = new List<string>();
+        var fileSystem = new FileSystemAdapter();
         foreach (var root in opts.Roots)
         {
-            if (!Directory.Exists(root))
+            if (!fileSystem.TestPath(root, "Container"))
             {
                 SafeErrorWriteLine($"[Warning] Root not found: {root}");
                 continue;
             }
-            files.AddRange(Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories));
+
+            files.AddRange(fileSystem.GetFilesSafe(root));
+            foreach (var warning in fileSystem.ConsumeScanWarnings())
+                SafeErrorWriteLine($"[Warning] {warning}");
         }
 
         if (files.Count == 0)
@@ -749,7 +764,7 @@ internal static partial class Program
 
         using var collectionIndex = new LiteDbCollectionIndex(CollectionIndexPaths.ResolveDefaultDatabasePath(), SafeErrorWriteLine);
         var fileSystem = new FileSystemAdapter();
-        var auditStore = new AuditCsvStore(fileSystem, SafeErrorWriteLine);
+        var auditStore = new AuditCsvStore(fileSystem, SafeErrorWriteLine, AuditSecurityPaths.GetDefaultSigningKeyPath());
         return await WriteCollectionMergeAsync(opts, collectionIndex, fileSystem, auditStore).ConfigureAwait(false);
     }
 
@@ -1115,9 +1130,36 @@ internal static partial class Program
 
         try
         {
-            var runTask = Task.Run(async () => await RunAsync(opts).ConfigureAwait(false));
-            runTask.Wait();
-            return runTask.Result;
+            int exitCode = 1;
+            ExceptionDispatchInfo? capturedException = null;
+            var stdoutOverride = StdoutOverride.Value;
+            var stderrOverride = StderrOverride.Value;
+            var overrideEnabled = ConsoleOverrideEnabled.Value;
+
+            var worker = new Thread(() =>
+            {
+                StdoutOverride.Value = stdoutOverride;
+                StderrOverride.Value = stderrOverride;
+                ConsoleOverrideEnabled.Value = overrideEnabled;
+
+                try
+                {
+                    exitCode = RunAsync(opts).ConfigureAwait(false).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    capturedException = ExceptionDispatchInfo.Capture(ex);
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "Romulus.CLI.RunForTests"
+            };
+
+            worker.Start();
+            worker.Join();
+            capturedException?.Throw();
+            return exitCode;
         }
         finally
         {
@@ -1245,7 +1287,7 @@ internal static partial class Program
             if (!string.IsNullOrWhiteSpace(outputDirectory))
                 Directory.CreateDirectory(outputDirectory);
 
-            File.WriteAllText(safeOutputPath, content, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(safeOutputPath, content, Encoding.UTF8);
             return true;
         }
         catch (InvalidOperationException ex)
@@ -1342,7 +1384,7 @@ internal static partial class Program
         services.AddSingleton<IFileSystem, FileSystemAdapter>();
         services.AddSingleton<IRunEnvironmentFactory, RunEnvironmentFactory>();
         services.AddSingleton<IAuditStore>(sp =>
-            new AuditCsvStore(sp.GetRequiredService<IFileSystem>(), onWarning));
+            new AuditCsvStore(sp.GetRequiredService<IFileSystem>(), onWarning, AuditSecurityPaths.GetDefaultSigningKeyPath()));
         return services.BuildServiceProvider();
     }
 

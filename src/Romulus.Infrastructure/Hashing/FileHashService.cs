@@ -6,6 +6,7 @@ using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Core.Caching;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 
 namespace Romulus.Infrastructure.Hashing;
@@ -169,17 +170,7 @@ public sealed class FileHashService : IDisposable
                     .ToList()
             };
 
-            var tempPath = _persistentCachePath + "." + Environment.ProcessId + ".tmp";
-            try
-            {
-                File.WriteAllText(tempPath, JsonSerializer.Serialize(document, PersistentJsonOptions));
-                File.Move(tempPath, _persistentCachePath, overwrite: true);
-            }
-            finally
-            {
-                // R6-009: Clean up .tmp on partial failure
-                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* best-effort */ }
-            }
+            AtomicFileWriter.WriteAllText(_persistentCachePath, JsonSerializer.Serialize(document, PersistentJsonOptions), Encoding.UTF8);
             _persistentDirty = false;
         }
     }

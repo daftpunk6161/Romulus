@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 
 namespace Romulus.Infrastructure.Configuration;
@@ -160,7 +161,7 @@ public sealed class SettingsLoader
             // TASK-173: Create .bak backup of corrupt file before resetting
             try
             {
-                File.Copy(path, path + ".bak", overwrite: true);
+                AtomicFileWriter.CopyFile(path, path + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak", overwrite: false);
             }
             catch (IOException)
             {
@@ -414,7 +415,7 @@ public sealed class SettingsLoader
     {
         try
         {
-            File.Copy(path, path + ".bak", overwrite: true);
+            AtomicFileWriter.CopyFile(path, path + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak", overwrite: false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

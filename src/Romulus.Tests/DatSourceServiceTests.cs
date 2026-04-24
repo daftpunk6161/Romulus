@@ -476,8 +476,9 @@ public class DatSourceServiceTests : IDisposable
 
         Assert.Equal(targetPath, result);
         Assert.Equal(newContent, File.ReadAllText(targetPath));
-        Assert.True(File.Exists(targetPath + ".bak"));
-        Assert.Equal(oldContent, File.ReadAllText(targetPath + ".bak"));
+        var backups = Directory.GetFiles(_tempDir, "redump-ps1.dat.*.bak");
+        var backup = Assert.Single(backups);
+        Assert.Equal(oldContent, File.ReadAllText(backup));
     }
 
     [Fact]

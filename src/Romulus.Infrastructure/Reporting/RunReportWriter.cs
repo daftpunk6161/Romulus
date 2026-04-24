@@ -1,6 +1,7 @@
 using System.Text;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Safety;
 
@@ -169,7 +170,7 @@ public static class RunReportWriter
         if (fullPath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
         {
             var csv = ReportGenerator.GenerateCsv(entries);
-            File.WriteAllText(fullPath, csv, Encoding.UTF8);
+            AtomicFileWriter.WriteAllText(fullPath, csv, Encoding.UTF8);
         }
         else if (fullPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {

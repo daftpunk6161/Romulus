@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using Microsoft.Win32;
+using Romulus.Infrastructure.Audit;
+using Romulus.Infrastructure.FileSystem;
 
 namespace Romulus.UI.Wpf;
 
@@ -97,8 +99,10 @@ public partial class ResultDialog : Window
 
         if (dialog.ShowDialog(this) == true)
         {
-            var text = GetCurrentText();
-            File.WriteAllText(dialog.FileName, text);
+            var text = string.Equals(Path.GetExtension(dialog.FileName), ".csv", StringComparison.OrdinalIgnoreCase)
+                ? GetCurrentCsvText()
+                : GetCurrentText();
+            AtomicFileWriter.WriteAllText(dialog.FileName, text);
         }
     }
 
@@ -119,6 +123,20 @@ public partial class ResultDialog : Window
             return DataGridToText();
         }
         return _plainText;
+    }
+
+    private string GetCurrentCsvText()
+    {
+        if (tabContent.SelectedItem == tabTable && gridContent.ItemsSource is not null)
+            return DataGridToCsv();
+
+        return string.Join(
+            Environment.NewLine,
+            _plainText
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
+                .Select(line => AuditCsvParser.SanitizeSpreadsheetCsvField(line)));
     }
 
     private string DataGridToText()
@@ -151,6 +169,36 @@ public partial class ResultDialog : Window
             }
             sb.AppendLine();
         }
+        return sb.ToString();
+    }
+
+    private string DataGridToCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        var columns = gridContent.Columns;
+        sb.AppendLine(string.Join(",", columns.Select(col => AuditCsvParser.SanitizeSpreadsheetCsvField(col.Header?.ToString() ?? ""))));
+
+        foreach (var item in gridContent.ItemsSource)
+        {
+            var cells = new List<string>();
+            foreach (var col in columns)
+            {
+                if (col is DataGridBoundColumn boundCol
+                    && boundCol.Binding is Binding binding
+                    && binding.Path?.Path is string path)
+                {
+                    var prop = item.GetType().GetProperty(path);
+                    cells.Add(AuditCsvParser.SanitizeSpreadsheetCsvField(prop?.GetValue(item)?.ToString() ?? ""));
+                }
+                else
+                {
+                    cells.Add(string.Empty);
+                }
+            }
+
+            sb.AppendLine(string.Join(",", cells));
+        }
+
         return sb.ToString();
     }
 

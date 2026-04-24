@@ -147,8 +147,8 @@ public class DatCatalogStateServiceTests : IDisposable
         state.Entries["test-id"] = new DatLocalInfo { LocalPath = "second.dat" };
         DatCatalogStateService.SaveState(_statePath, state);
 
-        // Backup should exist
-        Assert.True(File.Exists(_statePath + ".bak"));
+        // Backup should exist with a collision-resistant suffix.
+        Assert.Single(Directory.GetFiles(_tempDir, "dat-catalog-state.json.*.bak"));
     }
 
     // ═══ BUILD CATALOG STATUS TESTS ═════════════════════════════════════

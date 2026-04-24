@@ -309,6 +309,9 @@ public sealed record CollectionMergeApplyEntryResult
     public string ReasonCode { get; init; } = string.Empty;
     public string? SourcePath { get; init; }
     public string? TargetPath { get; init; }
+    public bool RollbackAttempted { get; init; }
+    public bool RollbackSucceeded { get; init; }
+    public string? RollbackError { get; init; }
 }
 
 /// <summary>

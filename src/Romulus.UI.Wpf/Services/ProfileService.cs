@@ -2,6 +2,7 @@ using System.IO;
 using System.Threading;
 using System.Text.Json;
 using Romulus.Infrastructure.Configuration;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
 using Romulus.Infrastructure.Safety;
 
@@ -97,18 +98,18 @@ public sealed class ProfileService
         Directory.CreateDirectory(SettingsDir);
         if (File.Exists(SettingsPath))
         {
-            var backupPath = SettingsPath + $".{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
-            File.Copy(SettingsPath, backupPath, overwrite: false);
+            var backupPath = SettingsPath + $".{DateTime.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.bak";
+            AtomicFileWriter.CopyFile(SettingsPath, backupPath, overwrite: false);
         }
 
-        File.Copy(sourcePath, SettingsPath, overwrite: true);
+        AtomicFileWriter.CopyFile(sourcePath, SettingsPath, overwrite: true);
     }
 
     /// <summary>Export current config map to a JSON file.</summary>
     public static void Export(string targetPath, Dictionary<string, string> configMap)
     {
         var safeTargetPath = SafetyValidator.EnsureSafeOutputPath(targetPath);
-        File.WriteAllText(safeTargetPath, JsonSerializer.Serialize(configMap, new JsonSerializerOptions { WriteIndented = true }));
+        AtomicFileWriter.WriteAllText(safeTargetPath, JsonSerializer.Serialize(configMap, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     /// <summary>Get the saved config as a flattened key-value dictionary. Returns null if not found.</summary>

@@ -8,6 +8,7 @@ using Romulus.Core.Classification;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Analysis;
+using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Profiles;
 using Romulus.Infrastructure.Workflow;
@@ -725,32 +726,21 @@ public sealed partial class MainViewModel
         var junkFiles = 0;
         var hasDiscLikeFormats = false;
         var hasCartridgeFormats = false;
+        var fileSystem = new FileSystemAdapter();
 
         foreach (var root in roots)
         {
-            if (!Directory.Exists(root))
+            if (!fileSystem.TestPath(root, "Container"))
                 continue;
 
-            IEnumerable<string> files;
-            try
-            {
-                files = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories);
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
-            }
+            var files = fileSystem.GetFilesSafe(root, extensionSet, cancellationToken);
 
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var extension = Path.GetExtension(file);
-                if (string.IsNullOrWhiteSpace(extension) || !extensionSet.Contains(extension))
+                if (string.IsNullOrWhiteSpace(extension))
                     continue;
 
                 long sizeBytes;
