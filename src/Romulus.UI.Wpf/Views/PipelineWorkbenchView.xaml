@@ -11,11 +11,64 @@
               Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Conversion}">
         <StackPanel>
           <TextBlock Text="Conversion" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
-          <TextBlock Text="Plane und starte formatbezogene Conversion-Laeufe." Style="{StaticResource CaptionText}" Margin="0,6,0,12"/>
-          <WrapPanel>
-            <Button Command="{Binding PresetConvertCommand}" Content="Preset: Convert" Margin="0,0,8,8" MinWidth="160"/>
-            <Button Command="{Binding ConvertOnlyCommand}" Content="Convert Only starten" Margin="0,0,8,8" MinWidth="170"/>
-          </WrapPanel>
+          <TextBlock Text="Stepper-Flow: Preview -> Review -> Execute" Style="{StaticResource CaptionText}" Margin="0,6,0,12"/>
+
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <Border Style="{StaticResource HeaderChip}">
+              <StackPanel Orientation="Horizontal">
+                <Border Width="18" Height="18" CornerRadius="3" Background="{DynamicResource BrushAccentCyan}" Margin="0,0,6,0">
+                  <TextBlock Text="1" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
+                </Border>
+                <TextBlock Text="Preview" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource HeaderChip}">
+              <StackPanel Orientation="Horizontal">
+                <Border Width="18" Height="18" CornerRadius="3" Background="{DynamicResource BrushWarning}" Margin="0,0,6,0">
+                  <TextBlock Text="2" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
+                </Border>
+                <TextBlock Text="Review" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource HeaderChip}">
+              <StackPanel Orientation="Horizontal">
+                <Border Width="18" Height="18" CornerRadius="3" Background="{DynamicResource BrushDanger}" Margin="0,0,6,0">
+                  <TextBlock Text="3" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
+                </Border>
+                <TextBlock Text="Execute" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <Expander Header="1) Preview: Plan aufbauen" IsExpanded="True" Margin="0,0,0,8">
+            <StackPanel Margin="0,10,0,0">
+              <TextBlock Text="Empfehlung: zuerst Safe Preview starten, um Risiko und Umfang zu sehen."
+                         Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+              <Button Command="{Binding QuickPreviewCommand}" Content="Safe Preview starten" MinWidth="180"/>
+            </StackPanel>
+          </Expander>
+
+          <Expander Header="2) Review: Entscheidungen pruefen" IsExpanded="False" Margin="0,0,0,8">
+            <StackPanel Margin="0,10,0,0">
+              <TextBlock Text="Pruefe im Library-Bereich Decisions und Safety, bevor du execute ausloest."
+                         Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+              <WrapPanel>
+                <Button Command="{Binding GoToLibraryCommand}" Content="Library oeffnen" Margin="0,0,8,0" MinWidth="140"/>
+                <Button Command="{Binding OpenReportCommand}" Content="Report oeffnen" MinWidth="140"/>
+              </WrapPanel>
+            </StackPanel>
+          </Expander>
+
+          <Expander Header="3) Execute: Conversion anwenden" IsExpanded="False">
+            <StackPanel Margin="0,10,0,0">
+              <TextBlock Text="Execute verwendet einen Danger-Dialog mit Tipp-Bestaetigung."
+                         Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+              <WrapPanel>
+                <Button Command="{Binding PresetConvertCommand}" Content="Preset: Convert" Margin="0,0,8,8" MinWidth="160"/>
+                <Button Command="{Binding ConvertOnlyCommand}" Content="Convert Only starten" Margin="0,0,8,8" MinWidth="170"/>
+              </WrapPanel>
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </Border>
 

@@ -221,6 +221,18 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
                     return;
                 }
 
+                const string moveConfirmToken = "MOVE";
+                var moveConfirmAccepted = _dialog.DangerConfirm(
+                    title: "Move bestaetigen",
+                    message: "Diese Aktion verschiebt Dateien in den Zielpfad.\n\nTippe MOVE zur Bestaetigung.",
+                    confirmText: moveConfirmToken,
+                    buttonLabel: "Move ausfuehren");
+                if (!moveConfirmAccepted)
+                {
+                    AddLog("Move durch Sicherheitsdialog abgebrochen.", "INFO");
+                    return;
+                }
+
                 DryRun = false;
                 RunCommand.Execute(null);
             },
@@ -708,12 +720,18 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public bool IsToolSearchActive => Tools.IsToolSearchActive;
     public bool HasRecommendedTools => Tools.HasRecommendedTools;
 
-    // Tool view mode: Grid (card tiles) or List (compact rows)
-    private string _toolViewMode = "Grid";
+    // Tool view mode is owned by ToolsViewModel (single source of truth).
     public string ToolViewMode
     {
-        get => _toolViewMode;
-        set => SetProperty(ref _toolViewMode, value);
+        get => Tools.ToolViewMode;
+        set
+        {
+            if (string.Equals(Tools.ToolViewMode, value, StringComparison.Ordinal))
+                return;
+
+            Tools.ToolViewMode = value;
+            OnPropertyChanged();
+        }
     }
 
     public string ToolFilterText

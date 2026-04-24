@@ -37,7 +37,7 @@
             </StackPanel>
 
             <WrapPanel Margin="0,8,0,0">
-              <Border CornerRadius="3" Padding="4,1" Margin="0,0,6,0">
+              <Border CornerRadius="3" Padding="5,2" Margin="0,0,6,0">
                 <Border.Style>
                   <Style TargetType="Border">
                     <Setter Property="Background" Value="{DynamicResource BrushSuccessBg}"/>
@@ -45,38 +45,64 @@
                     <Setter Property="BorderThickness" Value="1"/>
                     <Style.Triggers>
                       <DataTrigger Binding="{Binding IsGuided}" Value="True">
-                        <Setter Property="Background" Value="#1A00F5FF"/>
-                        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}"/>
-                      </DataTrigger>
-                      <DataTrigger Binding="{Binding IsExperimental}" Value="True">
                         <Setter Property="Background" Value="{DynamicResource BrushWarningBg}"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding IsExperimental}" Value="True">
+                        <Setter Property="Background" Value="#1A6B21A8"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentPurple}"/>
                       </DataTrigger>
                     </Style.Triggers>
                   </Style>
                 </Border.Style>
-                <TextBlock Text="{Binding MaturityBadgeText}" FontSize="9" FontWeight="SemiBold">
-                  <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                      <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
-                      <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsGuided}" Value="True">
-                          <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsExperimental}" Value="True">
-                          <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </TextBlock.Style>
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                  <Ellipse Width="6" Height="6" Margin="0,0,5,0" VerticalAlignment="Center">
+                    <Ellipse.Style>
+                      <Style TargetType="Ellipse">
+                        <Setter Property="Fill" Value="{DynamicResource BrushSuccess}"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsGuided}" Value="True">
+                            <Setter Property="Fill" Value="{DynamicResource BrushWarning}"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding IsExperimental}" Value="True">
+                            <Setter Property="Fill" Value="{DynamicResource BrushAccentPurple}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Ellipse.Style>
+                  </Ellipse>
+                  <TextBlock Text="{Binding MaturityBadgeText}" FontSize="9" FontWeight="SemiBold">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsGuided}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding IsExperimental}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushAccentPurple}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </StackPanel>
+              </Border>
+
+              <Border Background="#1A6B21A8" BorderBrush="{DynamicResource BrushAccentPurple}"
+                      BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,6,0"
+                      Visibility="{Binding IsAdvancedFeature, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Advanced"
+                           FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentPurple}"/>
               </Border>
 
               <Border Background="{DynamicResource BrushWarningBg}" BorderBrush="{DynamicResource BrushWarning}"
                       BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,6,0"
-                      Visibility="{Binding IsPlanned, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="{Binding DataContext.Loc[Tools.BadgePlanned], RelativeSource={RelativeSource AncestorType=Window}}"
-                           FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
+                      Visibility="{Binding ShowPlannedBadge, Converter={StaticResource BoolToVis}}">
+                <TextBlock FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}">
+                  <Run Text="{Binding DataContext.Loc[Tools.BadgePlanned], RelativeSource={RelativeSource AncestorType=Window}}"/>
+                  <Run Text=" · Roadmap"/>
+                </TextBlock>
               </Border>
 
               <Border Background="{DynamicResource BrushSurfaceAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -89,7 +115,7 @@
           </StackPanel>
         </Button>
 
-        <Button Width="44" Height="24"
+        <Button Width="30" Height="30"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Margin="0,8,8,0"
@@ -99,24 +125,37 @@
                 ToolTip="{Binding DataContext.Loc[Tools.PinTip], RelativeSource={RelativeSource AncestorType=Window}}"
                 AutomationProperties.Name="{Binding DataContext.Loc[Tools.PinTip], RelativeSource={RelativeSource AncestorType=Window}}">
           <Grid>
-            <TextBlock Text="{Binding DataContext.Loc[Tools.Pin], RelativeSource={RelativeSource AncestorType=Window}}"
+            <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                        Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVis}}"
                        Foreground="{DynamicResource BrushTextPrimary}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontSize="10" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding DataContext.Loc[Tools.Unpin], RelativeSource={RelativeSource AncestorType=Window}}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Text="&#xE735;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                        Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
                        Foreground="{DynamicResource BrushAccentCyan}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontSize="10" FontWeight="SemiBold"/>
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
+        </Button>
+
+        <Button Width="24" Height="24"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,8,80,0"
+                Visibility="{Binding ShowPlannedBadge, Converter={StaticResource BoolToVis}}"
+                Command="{Binding DataContext.OpenRoadmapLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding RoadmapLink}"
+                Style="{StaticResource HeaderActionButton}"
+                ToolTip="Roadmap oeffnen"
+                AutomationProperties.Name="Roadmap oeffnen">
+          <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                     Foreground="{DynamicResource BrushWarning}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Button>
 
         <!-- D7: Info-Button oeffnet Tool-Documentation-Drawer -->
         <Button Width="24" Height="24"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Margin="0,8,56,0"
+                Margin="0,8,44,0"
                 Command="{Binding DataContext.ShowToolDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                 CommandParameter="{Binding}"
                 Style="{StaticResource HeaderActionButton}"
@@ -130,31 +169,117 @@
     </DataTemplate>
 
     <DataTemplate x:Key="ToolListTemplate">
-      <Button Padding="8,6" Margin="0,0,0,2"
-              HorizontalContentAlignment="Stretch"
-              Command="{Binding Command}"
-              ToolTip="{Binding MaturityDescription}"
-              AutomationProperties.Name="{Binding DisplayName}">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="24"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                     Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"/>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
-                       Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
-            <TextBlock Text=" — " Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11"/>
-            <TextBlock Text="{Binding Description}" Style="{StaticResource CaptionText}"
-                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="400"/>
-          </StackPanel>
-          <TextBlock Grid.Column="2" Text="{Binding MaturityBadgeText}" FontSize="9" FontWeight="SemiBold"
-                     Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
-        </Grid>
-      </Button>
+      <Grid Margin="0,0,0,2">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Button Grid.Column="0"
+                Padding="8,6"
+                HorizontalContentAlignment="Stretch"
+                Command="{Binding Command}"
+                ToolTip="{Binding MaturityDescription}"
+                AutomationProperties.Name="{Binding DisplayName}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                       Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
+                <TextBlock Text=" — " Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" FontSize="11"/>
+                <TextBlock Text="{Binding Description}" Style="{StaticResource CaptionText}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="400"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <Ellipse Width="6" Height="6" Margin="0,0,5,0" VerticalAlignment="Center">
+                  <Ellipse.Style>
+                    <Style TargetType="Ellipse">
+                      <Setter Property="Fill" Value="{DynamicResource BrushSuccess}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsGuided}" Value="True">
+                          <Setter Property="Fill" Value="{DynamicResource BrushWarning}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsExperimental}" Value="True">
+                          <Setter Property="Fill" Value="{DynamicResource BrushAccentPurple}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Ellipse.Style>
+                </Ellipse>
+                <TextBlock Text="{Binding MaturityBadgeText}" FontSize="9" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Advanced" FontSize="9" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushAccentPurple}" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Visibility="{Binding IsAdvancedFeature, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"
+                           Visibility="{Binding ShowPlannedBadge, Converter={StaticResource BoolToVis}}">
+                  <Run Text="{Binding DataContext.Loc[Tools.BadgePlanned], RelativeSource={RelativeSource AncestorType=Window}}"/>
+                  <Run Text=" · Roadmap"/>
+                </TextBlock>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Button>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0" VerticalAlignment="Center">
+          <Button Width="24" Height="24"
+                  Command="{Binding DataContext.OpenRoadmapLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                  CommandParameter="{Binding RoadmapLink}"
+                  Style="{StaticResource HeaderActionButton}"
+                  Visibility="{Binding ShowPlannedBadge, Converter={StaticResource BoolToVis}}"
+                  ToolTip="Roadmap oeffnen"
+                  AutomationProperties.Name="Roadmap oeffnen">
+            <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                       Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+          <Button Width="24" Height="24"
+                  Margin="4,0,0,0"
+                  Command="{Binding DataContext.ToggleToolPinCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                  CommandParameter="{Binding Key}"
+                  Style="{StaticResource HeaderActionButton}"
+                  ToolTip="{Binding DataContext.Loc[Tools.PinTip], RelativeSource={RelativeSource AncestorType=Window}}"
+                  AutomationProperties.Name="{Binding DataContext.Loc[Tools.PinTip], RelativeSource={RelativeSource AncestorType=Window}}">
+            <Grid>
+              <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                         Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVis}}"
+                         Foreground="{DynamicResource BrushTextPrimary}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE735;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                         Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
+                         Foreground="{DynamicResource BrushAccentCyan}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+          </Button>
+        </StackPanel>
+      </Grid>
     </DataTemplate>
+
+    <Style x:Key="ToolItemsControlStyle" TargetType="ItemsControl">
+      <Setter Property="ItemTemplate" Value="{StaticResource ToolCardTemplate}"/>
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <WrapPanel/>
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ToolViewMode}" Value="List">
+          <Setter Property="ItemTemplate" Value="{StaticResource ToolListTemplate}"/>
+          <Setter Property="ItemsPanel">
+            <Setter.Value>
+              <ItemsPanelTemplate>
+                <StackPanel/>
+              </ItemsPanelTemplate>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
   </UserControl.Resources>
 
   <Grid>
@@ -210,10 +335,6 @@
                    MinWidth="200" VerticalAlignment="Center"
                    ToolTip="{Binding DataContext.Loc[Tools.FilterTip], RelativeSource={RelativeSource AncestorType=Window}}"
                    AutomationProperties.Name="{Binding DataContext.Loc[Tools.FilterLabel], RelativeSource={RelativeSource AncestorType=Window}}"/>
-          <TextBlock Grid.Column="2"
-                     Text="{Binding ToolCountLabel}"
-                     Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"
-                     Margin="{DynamicResource SpaceLeftSM}" FontSize="11"/>
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                       Margin="{DynamicResource SpaceLeftSM}">
             <TextBlock Text="{Binding ToolCountLabel}"
@@ -237,7 +358,7 @@
 
       <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16"
                     Visibility="{Binding IsToolSearchActive, Converter={StaticResource BoolToVis}}">
-        <ItemsControl ItemsSource="{Binding ToolItemsView}" ItemTemplate="{StaticResource ToolCardTemplate}">
+        <ItemsControl ItemsSource="{Binding ToolItemsView}" Style="{StaticResource ToolItemsControlStyle}">
           <ItemsControl.GroupStyle>
             <GroupStyle>
               <GroupStyle.HeaderTemplate>
@@ -247,11 +368,6 @@
               </GroupStyle.HeaderTemplate>
             </GroupStyle>
           </ItemsControl.GroupStyle>
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <WrapPanel/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
         </ItemsControl>
       </ScrollViewer>
 
@@ -320,19 +436,24 @@
               </DockPanel>
             </Border>
 
+            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"
+                    Visibility="{Binding IsSimpleMode, Converter={StaticResource InverseBoolToVis}}">
+              <StackPanel>
+                <TextBlock Text="{Binding DataContext.Loc[Tools.SectionQuickAccess], RelativeSource={RelativeSource AncestorType=Window}}"
+                           Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                <TextBlock Text="{Binding DataContext.Loc[Tools.SectionQuickAccessDesc], RelativeSource={RelativeSource AncestorType=Window}}"
+                           Style="{StaticResource CaptionText}" Margin="0,0,0,10"/>
+                <ItemsControl ItemsSource="{Binding QuickAccessItems}" Style="{StaticResource ToolItemsControlStyle}"/>
+              </StackPanel>
+            </Border>
+
             <StackPanel Visibility="{Binding SelectedToolsSection, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Empfohlen}">
               <TextBlock Text="{Binding DataContext.Loc[Tools.SectionRecommended], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
               <TextBlock Text="{Binding DataContext.Loc[Tools.SectionRecommendedDesc], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource CaptionText}" Margin="0,0,0,12"/>
               <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasRecommendedTools, Converter={StaticResource BoolToVis}}">
-                <ItemsControl ItemsSource="{Binding RecommendedToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel/>
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding RecommendedToolItems}" Style="{StaticResource ToolItemsControlStyle}"/>
               </Border>
               <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasRecommendedTools, Converter={StaticResource InverseBoolToVis}}">
                 <TextBlock Text="{Binding DataContext.Loc[Tools.NoRecommended], RelativeSource={RelativeSource AncestorType=Window}}"
@@ -346,13 +467,7 @@
               <TextBlock Text="{Binding DataContext.Loc[Tools.SectionQuickAccessDesc], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource CaptionText}" Margin="0,0,0,12"/>
               <Border Style="{StaticResource SectionCard}">
-                <ItemsControl ItemsSource="{Binding QuickAccessItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel/>
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding QuickAccessItems}" Style="{StaticResource ToolItemsControlStyle}"/>
               </Border>
             </StackPanel>
 
@@ -362,13 +477,7 @@
               <TextBlock Text="{Binding DataContext.Loc[Tools.SectionRecentDesc], RelativeSource={RelativeSource AncestorType=Window}}"
                          Style="{StaticResource CaptionText}" Margin="0,0,0,12"/>
               <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasRecentTools, Converter={StaticResource BoolToVis}}">
-                <ItemsControl ItemsSource="{Binding RecentToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel/>
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding RecentToolItems}" Style="{StaticResource ToolItemsControlStyle}"/>
               </Border>
               <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasRecentTools, Converter={StaticResource InverseBoolToVis}}">
                 <TextBlock Text="{Binding DataContext.Loc[Tools.NoRecent], RelativeSource={RelativeSource AncestorType=Window}}"
@@ -383,13 +492,7 @@
                 <StackPanel>
                   <TextBlock Text="Core Workflows" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
                   <TextBlock Text="Empfohlene Kernabläufe für tägliche Arbeit." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
-                  <ItemsControl ItemsSource="{Binding CoreWorkflowItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel/>
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                  </ItemsControl>
+                  <ItemsControl ItemsSource="{Binding CoreWorkflowItems}" Style="{StaticResource ToolItemsControlStyle}"/>
                 </StackPanel>
               </Border>
 
@@ -397,13 +500,7 @@
                 <StackPanel>
                   <TextBlock Text="Maintenance" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
                   <TextBlock Text="Pflege, Verifikation und Recovery-Werkzeuge." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
-                  <ItemsControl ItemsSource="{Binding MaintenanceToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel/>
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                  </ItemsControl>
+                  <ItemsControl ItemsSource="{Binding MaintenanceToolItems}" Style="{StaticResource ToolItemsControlStyle}"/>
                 </StackPanel>
               </Border>
 
@@ -412,13 +509,7 @@
                 <StackPanel>
                   <TextBlock Text="Advanced" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}"/>
                   <TextBlock Text="Expertenfunktionen, Automatisierung und Infrastruktur." Style="{StaticResource CaptionText}" Margin="0,2,0,10"/>
-                  <ItemsControl ItemsSource="{Binding AdvancedToolItems}" ItemTemplate="{StaticResource ToolCardTemplate}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel/>
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                  </ItemsControl>
+                  <ItemsControl ItemsSource="{Binding AdvancedToolItems}" Style="{StaticResource ToolItemsControlStyle}"/>
                 </StackPanel>
               </Border>
 

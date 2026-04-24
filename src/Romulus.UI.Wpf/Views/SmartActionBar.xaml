@@ -76,44 +76,15 @@
         </Button>
 
         <StackPanel Orientation="Horizontal" Visibility="{Binding ShowActionBarMoveButton, Converter={StaticResource BoolToVis}}">
-          <Button Command="{Binding RequestStartMoveCommand}"
-              Width="120" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
-                  BorderBrush="{DynamicResource BrushDanger}" Foreground="{DynamicResource BrushDanger}"
-                  Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
-                  ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move bestätigen anfordern" TabIndex="4"
-                  Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource InverseBoolToVis}}">
+          <Button Command="{Binding StartMoveCommand}" Style="{StaticResource DangerButton}"
+              Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                  ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move ausfuehren" TabIndex="4">
             <StackPanel HorizontalAlignment="Center">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" FontSize="20" HorizontalAlignment="Center"/>
               <TextBlock Text="{Binding Loc[Result.BtnCleanup]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             </StackPanel>
           </Button>
-
-          <StackPanel Orientation="Horizontal" Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource BoolToVis}}">
-            <Button Command="{Binding StartMoveCommand}"
-              IsEnabled="{Binding CanExecuteInlineStartMove}"
-                  Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
-                    BorderBrush="{DynamicResource BrushDanger}" Foreground="{DynamicResource BrushDanger}"
-                    Background="{DynamicResource BrushDangerBg}" BorderThickness="2"
-                    ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move jetzt ausführen" TabIndex="4">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" FontSize="20" HorizontalAlignment="Center"/>
-                <TextBlock Text="Jetzt ausführen" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-              </StackPanel>
-            </Button>
-            <Button Command="{Binding CancelStartMoveCommand}"
-                  Width="80" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
-                    ToolTip="Move abbrechen" AutomationProperties.Name="Move abbrechen" TabIndex="4">
-              <StackPanel HorizontalAlignment="Center">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="Abbruch" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-              </StackPanel>
-            </Button>
-          </StackPanel>
         </StackPanel>
-
-        <TextBlock Text="{Binding InlineMoveConfirmHint}" Style="{StaticResource CaptionText}"
-                   Foreground="{DynamicResource BrushWarning}" VerticalAlignment="Center" Margin="4,0"
-                   Visibility="{Binding Shell.ShowMoveInlineConfirm, Converter={StaticResource BoolToVis}}"/>
 
         <Button Command="{Binding RollbackCommand}"
           Width="110" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
@@ -141,12 +112,6 @@
           <TextBlock Text="{Binding Loc[Config.Changed.MoveGate]}" Foreground="{DynamicResource BrushDanger}"
                      FontSize="11" TextWrapping="Wrap" MaxWidth="340" VerticalAlignment="Center"/>
         </Border>
-
-        <!-- TASK-115: RunState status label -->
-        <TextBlock Text="{Binding RunStateDisplayText}" Foreground="{DynamicResource BrushTextMuted}"
-                   FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0"
-                   AutomationProperties.Name="RunState" AutomationProperties.LiveSetting="Polite"
-                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
 
         <TextBlock Text="{Binding BusyHint}" Style="{StaticResource CaptionText}"
                    VerticalAlignment="Center" Margin="4,0"/>

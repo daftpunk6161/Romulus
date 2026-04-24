@@ -189,9 +189,11 @@ public sealed partial class MainViewModel
 
     public bool ShowStartMoveButton => CanStartMoveWithCurrentPreview;
 
-    public bool ShowResultMoveButton => ShowStartMoveButton && !ShowSmartActionBar;
+    // Retained for backward-compatibility with older bindings; move action is now
+    // rendered exclusively in SmartActionBar.
+    public bool ShowResultMoveButton => false;
 
-    public bool ShowActionBarMoveButton => ShowStartMoveButton && ShowSmartActionBar;
+    public bool ShowActionBarMoveButton => ShowStartMoveButton;
 
     public bool CanExecuteInlineStartMove =>
         Shell.ShowMoveInlineConfirm && _timeProvider.UtcNow.UtcDateTime >= _inlineMoveUnlockAtUtc;
@@ -205,6 +207,7 @@ public sealed partial class MainViewModel
 
     public bool ShowSmartActionBar =>
         IsBusy ||
+        ShowStartMoveButton ||
         (string.Equals(Shell.SelectedNavTag, NavTagMissionControl, StringComparison.Ordinal)
             ? !(string.Equals(Shell.SelectedSubTab, "Dashboard", StringComparison.Ordinal)
                 || string.Equals(Shell.SelectedSubTab, "RecentRuns", StringComparison.Ordinal))
@@ -1626,6 +1629,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(ShowStartMoveButton));
         OnPropertyChanged(nameof(ShowResultMoveButton));
         OnPropertyChanged(nameof(ShowActionBarMoveButton));
+        OnPropertyChanged(nameof(ShowSmartActionBar));
         OnPropertyChanged(nameof(MoveApplyGateText));
         OnPropertyChanged(nameof(ShowConfigChangedBanner));
         OnPropertyChanged(nameof(RollbackActionHint));

@@ -12,8 +12,8 @@
           <Button DockPanel.Dock="Right" Content="✕" Padding="6,2"
                   Command="{Binding Shell.ToggleContextWingCommand}"
                   Style="{StaticResource HeaderActionButton}"
-                  ToolTip="Inspector schließen (Ctrl+I)"
-                  AutomationProperties.Name="Inspector schließen"
+                  ToolTip="Inspector schliessen (Ctrl+I)"
+                  AutomationProperties.Name="Inspector schliessen"
                   VerticalAlignment="Top"/>
           <StackPanel>
             <TextBlock Text="Inspector" Style="{StaticResource SectionHeader}"/>
@@ -37,6 +37,7 @@
           </StackPanel>
         </Border>
 
+        <!-- C1: status detail is allowed only in CommandBar + Context Wing -->
         <Border Style="{StaticResource SectionCard}">
           <StackPanel>
             <TextBlock Text="Status" FontWeight="SemiBold"
@@ -56,8 +57,6 @@
                 </StackPanel>
               </StackPanel>
             </Border>
-            <!-- Q4: Roots/Tools/Dat-Chips bewusst entfernt — werden bereits in CommandBar gezeigt.
-                 Vermeidet Doppelung; ContextPanel ergänzt nur Detail (Runtime). -->
           </StackPanel>
         </Border>
 
@@ -92,21 +91,6 @@
                           <TextBlock Text="{Binding RecommendationReason}" Style="{StaticResource CaptionText}" TextWrapping="Wrap"/>
                         </StackPanel>
                       </StackPanel>
-                      <TextBlock Text="{Binding MaturityBadgeText}" FontSize="10" FontWeight="SemiBold" Margin="22,6,0,0">
-                        <TextBlock.Style>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
-                            <Style.Triggers>
-                              <DataTrigger Binding="{Binding IsGuided}" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}"/>
-                              </DataTrigger>
-                              <DataTrigger Binding="{Binding IsExperimental}" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </TextBlock.Style>
-                      </TextBlock>
                     </StackPanel>
                   </Button>
                 </DataTemplate>
@@ -115,94 +99,160 @@
           </StackPanel>
         </Border>
 
+        <!-- Mission Control / Dashboard -->
         <Border Style="{StaticResource SectionCard}"
-                Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=MissionControl}">
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Dashboard}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-              <TextBlock Text="&#xE8FC;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                         Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="Nächster sinnvoller Schritt" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushTextMuted}"/>
-            </StackPanel>
+            <TextBlock Text="Naechster sinnvoller Schritt" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+              <Run Text="System Health: "/><Run Text="{Binding Run.HealthScore}"/>
+            </TextBlock>
             <TextBlock Text="{Binding Loc[Context.StartHint1]}" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
-            <TextBlock Text="{Binding Loc[Context.StartHint2]}" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
-            <TextBlock Text="{Binding Loc[Context.StartHint3]}" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,10"/>
+            <TextBlock Text="{Binding Loc[Context.StartHint2]}" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,8"/>
             <Button Content="{Binding Loc[Context.RunPreview]}" Command="{Binding QuickPreviewCommand}"
                     AutomationProperties.Name="{Binding Loc[Context.RunPreview]}"/>
           </StackPanel>
         </Border>
 
+        <!-- Mission Control / Roots/Setup -->
         <Border Style="{StaticResource SectionCard}"
-                Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Library}">
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Regions}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                         Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="Analyse-Fokus" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushTextMuted}"/>
-            </StackPanel>
-            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
-              <Run Text="Modus: "/><Run Text="{Binding Run.DashMode}"/>
+            <TextBlock Text="Root-Detail" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap">
+              <Run Text="Ausgewaehlter Root: "/>
+              <Run Text="{Binding SelectedRoot}"/>
             </TextBlock>
-            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
-              <Run Text="Duplikate: "/><Run Text="{Binding Run.DashDupes}"/>
+            <TextBlock Foreground="{DynamicResource BrushTextMuted}" Style="{StaticResource CaptionText}" Margin="0,6,0,0">
+              <Run Text="Konfigurierte Roots: "/><Run Text="{Binding Roots.Count}"/>
             </TextBlock>
-            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,10">
-              <Run Text="Junk: "/><Run Text="{Binding Run.DashJunk}"/>
-            </TextBlock>
-            <Button Content="{Binding Loc[Report.OpenReportLog]}" Command="{Binding OpenReportCommand}"
+          </StackPanel>
+        </Border>
+
+        <!-- Library / Results -->
+        <Border Style="{StaticResource SectionCard}"
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Results}">
+          <StackPanel>
+            <TextBlock Text="Score-Breakdown" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <Expander Header="Run-Score aufklappen" IsExpanded="False">
+              <StackPanel Margin="0,8,0,0">
+                <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+                  <Run Text="Winners: "/><Run Text="{Binding Run.KeepCount}"/>
+                </TextBlock>
+                <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+                  <Run Text="Dupes: "/><Run Text="{Binding Run.MoveCount}"/>
+                </TextBlock>
+                <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,8">
+                  <Run Text="Junk: "/><Run Text="{Binding Run.JunkCount}"/>
+                </TextBlock>
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Run.KeepFraction}" Height="8" Margin="0,0,0,4"/>
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Run.MoveFraction}" Height="8" Margin="0,0,0,4"/>
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Run.JunkFraction}" Height="8"/>
+              </StackPanel>
+            </Expander>
+            <Button Content="{Binding Loc[Report.OpenReportLog]}" Command="{Binding OpenReportCommand}" Margin="0,10,0,0"
                     AutomationProperties.Name="{Binding Loc[Report.OpenReportLog]}"/>
           </StackPanel>
         </Border>
 
+        <!-- Library / Decisions -->
         <Border Style="{StaticResource SectionCard}"
-                Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Config}">
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Decisions}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-              <TextBlock Text="&#xE8D7;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                         Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="Sicherheits-Check" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushTextMuted}"/>
-            </StackPanel>
-            <TextBlock Text="{Binding MoveApplyGateText}" TextWrapping="Wrap"
-                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,10"/>
-            <Button Content="{Binding Loc[Context.RunPreview]}" Command="{Binding QuickPreviewCommand}"
-                    AutomationProperties.Name="{Binding Loc[Context.RunPreview]}"/>
+            <TextBlock Text="Winner-Vergleich" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+              <Run Text="Winner insgesamt: "/><Run Text="{Binding Run.DashWinners}"/>
+            </TextBlock>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+              <Run Text="Dupe-Gruppen: "/><Run Text="{Binding Run.DedupeGroupItems.Count}"/>
+            </TextBlock>
+            <TextBlock Text="Status-Legende" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,8,0,6"/>
+            <TextBlock Text="Clear: eindeutiger Winner" Style="{StaticResource CaptionText}"/>
+            <TextBlock Text="Review: manuelle Pruefung empfohlen" Style="{StaticResource CaptionText}"/>
+            <TextBlock Text="Blocked/Unknown: keine sichere Auto-Entscheidung" Style="{StaticResource CaptionText}"/>
           </StackPanel>
         </Border>
 
+        <!-- Library / Safety -->
         <Border Style="{StaticResource SectionCard}"
-                Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Tools}">
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Safety}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-              <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                         Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="Tool-Zustand" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushTextMuted}"/>
-            </StackPanel>
-            <TextBlock Text="{Binding StatusTools}" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
-            <TextBlock Text="{Binding StatusDat}" Foreground="{DynamicResource BrushTextPrimary}"/>
+            <TextBlock Text="Safety-Detail" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+              <Run Text="Blockiert: "/><Run Text="{Binding SafetyBlockedCount}"/>
+            </TextBlock>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
+              <Run Text="Review: "/><Run Text="{Binding SafetyReviewCount}"/>
+            </TextBlock>
+            <TextBlock Foreground="{DynamicResource BrushTextPrimary}">
+              <Run Text="Unknown: "/><Run Text="{Binding SafetyUnknownCount}"/>
+            </TextBlock>
+            <TextBlock Text="Empfehlung: erst Decisions pruefen, dann Move bestaetigen."
+                       Style="{StaticResource CaptionText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
           </StackPanel>
         </Border>
 
+        <!-- Library / DAT Audit -->
         <Border Style="{StaticResource SectionCard}"
-                Visibility="{Binding Shell.SelectedNavTag, Converter={StaticResource StrEqualsToVis}, ConverterParameter=System}">
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=DatAudit}">
           <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-              <TextBlock Text="&#xE770;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                         Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="System-Aktionen" FontWeight="SemiBold"
-                         Foreground="{DynamicResource BrushTextMuted}"/>
-            </StackPanel>
-            <Button Content="{Binding Loc[Start.FlowOpenSetup]}" Command="{Binding GoToConfigCommand}" Margin="0,0,0,6"
-                    AutomationProperties.Name="{Binding Loc[Start.FlowOpenSetup]}"/>
-            <Button Content="{Binding Loc[Start.FlowOpenAnalyse]}" Command="{Binding GoToLibraryCommand}" Margin="0,0,0,6"
-                    AutomationProperties.Name="{Binding Loc[Start.FlowOpenAnalyse]}"/>
-            <Button Content="{Binding Loc[Report.OpenReportLog]}" Command="{Binding OpenReportCommand}"
-                    AutomationProperties.Name="{Binding Loc[Report.OpenReportLog]}"/>
+            <TextBlock Text="DAT Audit Ursachen" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <ItemsControl ItemsSource="{Binding DatAudit.TopMissByConsole}" Visibility="{Binding DatAudit.HasCauseBreakdown, Converter={StaticResource BoolToVis}}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" Style="{StaticResource CaptionText}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Keine Ursachen-Details verfuegbar." Style="{StaticResource CaptionText}"
+                       Visibility="{Binding DatAudit.HasCauseBreakdown, Converter={StaticResource InverseBoolToVis}}"/>
           </StackPanel>
         </Border>
 
+        <!-- Pipeline / Conversion -->
+        <Border Style="{StaticResource SectionCard}"
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Conversion}">
+          <StackPanel>
+            <TextBlock Text="Conversion-Context" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Text="Flow: Preview -> Review -> Execute" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"/>
+            <TextBlock Text="Risiko: Source-Dateien werden erst nach erfolgreicher Verifikation entfernt."
+                       Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <WrapPanel>
+              <Button Content="Preview" Command="{Binding QuickPreviewCommand}" Margin="0,0,6,6"/>
+              <Button Content="Convert Only" Command="{Binding ConvertOnlyCommand}" Margin="0,0,6,6"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Toolbox / Features -->
+        <Border Style="{StaticResource SectionCard}"
+                Visibility="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToVis}, ConverterParameter=Features}">
+          <StackPanel>
+            <TextBlock Text="Tool-Doku" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding Tools.SelectedToolDoc.DisplayName}" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4"
+                       Visibility="{Binding Tools.IsToolDocOpen, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{Binding Tools.SelectedToolDoc.MaturityDescription}" TextWrapping="Wrap"
+                       Style="{StaticResource CaptionText}" Margin="0,0,0,6"
+                       Visibility="{Binding Tools.IsToolDocOpen, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="Waehle im Tool-Katalog ein Werkzeug und oeffne die Doku (Info-Button)."
+                       Style="{StaticResource CaptionText}"
+                       Visibility="{Binding Tools.IsToolDocOpen, Converter={StaticResource InverseBoolToVis}}"/>
+            <Button Content="{Binding Loc[Tools.OpenCatalog]}" Command="{Binding GoToToolsCommand}" Margin="0,8,0,0"
+                    AutomationProperties.Name="{Binding Loc[Tools.OpenCatalog]}"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Global safety hint -->
         <Border Style="{StaticResource SectionCard}">
           <StackPanel>
             <TextBlock Text="Move-Sicherheit" FontWeight="SemiBold"

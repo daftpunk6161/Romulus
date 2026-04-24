@@ -6,7 +6,13 @@
           BorderThickness="0,0,0,1"
           Height="{DynamicResource TabBarHeight}">
     <Grid Margin="12,4,12,4">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <ScrollViewer Grid.Column="0"
+                    HorizontalScrollBarVisibility="Auto"
                     VerticalScrollBarVisibility="Disabled"
                     CanContentScroll="False">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -99,6 +105,23 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  VerticalAlignment="Center"
+                  Margin="12,0,0,0"
+                  Visibility="{Binding Shell.IsCompactNav, Converter={StaticResource InverseBoolToVis}}">
+        <TextBlock Text="{Binding Shell.CurrentWorkspaceBreadcrumb}"
+                   Foreground="{DynamicResource BrushTextMuted}"
+                   FontSize="11"
+                   VerticalAlignment="Center"/>
+        <TextBlock Text=" • " Foreground="{DynamicResource BrushTextMuted}" Margin="6,0,6,0" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding StatusReady}"
+                   Foreground="{DynamicResource BrushTextPrimary}"
+                   FontSize="11"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"/>
+      </StackPanel>
     </Grid>
   </Border>
 </UserControl>

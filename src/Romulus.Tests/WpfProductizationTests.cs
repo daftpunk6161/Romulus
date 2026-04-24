@@ -875,6 +875,79 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.Contains("ToolListTemplate", toolsViewXaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OpenItem_MoveAction_IsRenderedOnlyInSmartActionBar()
+    {
+        var smartActionBarXaml = File.ReadAllText(FindUiFile("Views", "SmartActionBar.xaml"));
+        var resultViewXaml = File.ReadAllText(FindUiFile("Views", "ResultView.xaml"));
+
+        Assert.Contains("ShowActionBarMoveButton", smartActionBarXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowResultMoveButton", resultViewXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequestStartMoveCommand", smartActionBarXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_MoveExecute_UsesTypingDangerConfirm()
+    {
+        var mainVm = File.ReadAllText(FindUiFile("ViewModels", "MainViewModel.cs"));
+
+        Assert.Contains("const string moveConfirmToken = \"MOVE\"", mainVm, StringComparison.Ordinal);
+        Assert.Contains("DangerConfirm(", mainVm, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_ActionRail_UsesCompact72Token()
+    {
+        var tokensXaml = File.ReadAllText(FindUiFile("Themes", "_DesignTokens.xaml"));
+        Assert.Contains("<sys:Double x:Key=\"ActionRailHeight\">72</sys:Double>", tokensXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_ToolsView_WiresModeSwitchAndRoadmapBadge()
+    {
+        var toolsViewXaml = File.ReadAllText(FindUiFile("Views", "ToolsView.xaml"));
+        var toolsVm = File.ReadAllText(FindUiFile("ViewModels", "ToolsViewModel.cs"));
+
+        Assert.Contains("ToolItemsControlStyle", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowPlannedBadge", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("OpenRoadmapLinkCommand", toolsViewXaml, StringComparison.Ordinal);
+        Assert.Contains("public string ToolViewMode", toolsVm, StringComparison.Ordinal);
+        Assert.Contains("OpenRoadmapLinkCommand", toolsVm, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_SubTabBar_HasRightSideBreadcrumbAndStatus()
+    {
+        var subTabBarXaml = File.ReadAllText(FindUiFile("Views", "SubTabBar.xaml"));
+
+        Assert.Contains("Shell.CurrentWorkspaceBreadcrumb", subTabBarXaml, StringComparison.Ordinal);
+        Assert.Contains("StatusReady", subTabBarXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_ContextWing_ContainsAdaptiveSubTabContent()
+    {
+        var contextPanelXaml = File.ReadAllText(FindUiFile("Views", "ContextPanel.xaml"));
+
+        Assert.Contains("ConverterParameter=Dashboard", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Results", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Decisions", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Safety", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Conversion", contextPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("ConverterParameter=Features", contextPanelXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenItem_PipelineConversion_UsesStepperFlow()
+    {
+        var pipelineXaml = File.ReadAllText(FindUiFile("Views", "PipelineWorkbenchView.xaml"));
+
+        Assert.Contains("Preview -> Review -> Execute", pipelineXaml, StringComparison.Ordinal);
+        Assert.Contains("Expander Header=\"1) Preview: Plan aufbauen\"", pipelineXaml, StringComparison.Ordinal);
+        Assert.Contains("Expander Header=\"2) Review: Entscheidungen pruefen\"", pipelineXaml, StringComparison.Ordinal);
+        Assert.Contains("Expander Header=\"3) Execute: Conversion anwenden\"", pipelineXaml, StringComparison.Ordinal);
+    }
+
     private static async Task ExecuteCommandAsync(ICommand command)
     {
         command.Execute(null);

@@ -46,7 +46,7 @@
     <!-- ═══ SIZING ════════════════════════════════════════════════════ -->
     <sys:Double x:Key="NavRailWidth">84</sys:Double>
     <sys:Double x:Key="ContextWingWidth">320</sys:Double>
-    <sys:Double x:Key="ActionRailHeight">88</sys:Double>
+    <sys:Double x:Key="ActionRailHeight">72</sys:Double>
     <!-- D4 (UX-Redesign Phase 3): CommandBar von 56 auf 48 px verschlankt.
          Bleibt komfortabel ueber MinTouchTarget=44; spart vertikalen Platz
          fuer Hauptinhalt. Ueberschreibbar in HighContrast.xaml falls noetig. -->

@@ -57,6 +57,7 @@ public sealed partial class ToolItem : ObservableObject
     public string MaturityDescription { get; init; } = string.Empty;
     public string UnlockRequirementText { get; init; } = string.Empty;
     public string UnavailableText { get; init; } = string.Empty;
+    public string RoadmapLink { get; init; } = string.Empty;
 
     /// <summary>Bound to the templated Button in the Werkzeuge tab. Set after FeatureCommands are registered.</summary>
     public System.Windows.Input.ICommand? Command { get; set; }
@@ -87,6 +88,9 @@ public sealed partial class ToolItem : ObservableObject
 
     /// <summary>P1-004: True for features that are planned but not yet fully implemented.</summary>
     public bool IsPlanned { get; init; }
+    public bool HasRoadmapLink => !string.IsNullOrWhiteSpace(RoadmapLink);
+    public bool ShowPlannedBadge => IsPlanned && HasRoadmapLink;
+    public bool IsAdvancedFeature => CatalogGroup == ToolCatalogGroup.Advanced;
 
     public bool IsProductionReady => Maturity == ToolMaturity.Production;
     public bool IsGuided => Maturity == ToolMaturity.Guided;

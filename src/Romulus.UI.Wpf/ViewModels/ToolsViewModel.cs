@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Windows.Data;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -68,6 +70,7 @@ public sealed class ToolsViewModel : ObservableObject
     public string ToolCountLabel => _loc.Format("Tools.CountFormat", ToolItems.Count);
 
     public IRelayCommand<string> ToggleToolPinCommand { get; }
+    public IRelayCommand<string> OpenRoadmapLinkCommand { get; }
 
     // ═══ D7 (UX-Redesign Phase 3): TOOL DOCUMENTATION DRAWER ═════════
     // Single source of truth fuer das aktuell im Drawer angezeigte Tool.
@@ -100,6 +103,17 @@ public sealed class ToolsViewModel : ObservableObject
                 ToolItemsView?.Refresh();
                 OnPropertyChanged(nameof(IsToolSearchActive));
             }
+        }
+    }
+
+    private string _toolViewMode = "Grid";
+    public string ToolViewMode
+    {
+        get => _toolViewMode;
+        set
+        {
+            var normalized = string.Equals(value, "List", StringComparison.Ordinal) ? "List" : "Grid";
+            SetProperty(ref _toolViewMode, normalized);
         }
     }
 
@@ -153,6 +167,7 @@ public sealed class ToolsViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(toolKey))
                 ToggleToolPin(toolKey);
         });
+        OpenRoadmapLinkCommand = new RelayCommand<string>(OpenRoadmapLink);
         ShowToolDocCommand = new RelayCommand<ToolItem>(item =>
         {
             if (item is not null)
@@ -287,7 +302,10 @@ public sealed class ToolsViewModel : ObservableObject
                 IsPinned = DefaultPinnedKeys.Contains(entry.Key),
                 IsLocked = entry.RequiresRunResult,
                 IsUnavailable = true,
-                IsPlanned = false
+                IsPlanned = entry.Maturity == ToolMaturity.Experimental,
+                RoadmapLink = entry.Maturity == ToolMaturity.Experimental
+                    ? "docs/ux/UI_UX_REDESIGN_PROPOSAL.md#phase-4-polish--delight-ongoing"
+                    : string.Empty
             };
             ToolItems.Add(item);
         }
@@ -623,6 +641,59 @@ public sealed class ToolsViewModel : ObservableObject
                 break;
 
             dir = parent;
+        }
+
+        return null;
+    }
+
+    private static void OpenRoadmapLink(string? rawLink)
+    {
+        if (string.IsNullOrWhiteSpace(rawLink))
+            return;
+
+        try
+        {
+            var target = ResolveRoadmapTarget(rawLink);
+            if (string.IsNullOrWhiteSpace(target))
+                return;
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = target,
+                UseShellExecute = true
+            };
+            Process.Start(startInfo);
+        }
+        catch
+        {
+            // Intentionally best-effort: missing shell association or blocked policy
+            // must not break the Tool catalog workflow.
+        }
+    }
+
+    private static string? ResolveRoadmapTarget(string rawLink)
+    {
+        if (Uri.TryCreate(rawLink, UriKind.Absolute, out var absoluteUri))
+            return absoluteUri.ToString();
+
+        var localPathPart = rawLink;
+        var fragmentIndex = rawLink.IndexOf('#');
+        if (fragmentIndex >= 0)
+            localPathPart = rawLink[..fragmentIndex];
+
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var probe = baseDir;
+        for (var i = 0; i < 8; i++)
+        {
+            var candidate = Path.GetFullPath(Path.Combine(probe, localPathPart));
+            if (File.Exists(candidate))
+                return candidate;
+
+            var parent = Directory.GetParent(probe)?.FullName;
+            if (string.IsNullOrWhiteSpace(parent) || string.Equals(parent, probe, StringComparison.Ordinal))
+                break;
+
+            probe = parent;
         }
 
         return null;

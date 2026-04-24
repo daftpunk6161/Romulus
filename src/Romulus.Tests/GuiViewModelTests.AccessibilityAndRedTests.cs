@@ -1838,10 +1838,10 @@ public partial class GuiViewModelTests
     public void SmartActionBarXaml_HasRunStateBindings()
     {
         var xaml = File.ReadAllText(FindUiFile("Views", "SmartActionBar.xaml"));
-        // RunState-derived properties must be used in SmartActionBar
-        Assert.Contains("RunStateDisplayText", xaml);
+        // RunState-derived visibility bindings must still drive action bar controls.
         Assert.Contains("IsIdle", xaml);
         Assert.Contains("IsBusy", xaml);
+        Assert.DoesNotContain("RunStateDisplayText", xaml);
     }
 
     [Fact]
@@ -1870,10 +1870,10 @@ public partial class GuiViewModelTests
     }
 
     [Fact]
-    public void SmartActionBarXaml_HasRunStateStatusLabel()
+    public void SmartActionBarXaml_DoesNotDuplicateCommandBarStatusLabel()
     {
         var xaml = File.ReadAllText(FindUiFile("Views", "SmartActionBar.xaml"));
-        Assert.Contains("RunStateDisplayText", xaml);
+        Assert.DoesNotContain("RunStateDisplayText", xaml);
     }
 
     [Theory]
@@ -2032,10 +2032,10 @@ public partial class GuiViewModelTests
         Assert.False(MainViewModel.IsValidTransition(RunState.Idle, RunState.Completed));
     }
 
-    // ═══ BUG-FIX: ActionRailHeight too small (buttons clipped) ══════════
+    // ═══ UI-UX V2: ActionRail compact height token (72px) ═══════════════
 
     [Fact]
-    public void DesignTokens_ActionRailHeight_IsAtLeast84()
+    public void DesignTokens_ActionRailHeight_IsAtLeast72()
     {
         var tokensPath = FindUiFile("Themes", "_DesignTokens.xaml");
         var content = File.ReadAllText(tokensPath);
@@ -2043,8 +2043,8 @@ public partial class GuiViewModelTests
             content, @"x:Key=""ActionRailHeight"">(\d+)<");
         Assert.True(match.Success, "ActionRailHeight token not found in _DesignTokens.xaml");
         var value = int.Parse(match.Groups[1].Value);
-        Assert.True(value >= 84,
-            $"ActionRailHeight is {value}px but must be ≥ 84px to avoid button clipping (44px buttons + 12+6 padding)");
+        Assert.True(value >= 72,
+            $"ActionRailHeight is {value}px but must be >= 72px for compact action rail layout.");
     }
 
     [Fact]

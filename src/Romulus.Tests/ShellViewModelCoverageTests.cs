@@ -690,7 +690,7 @@ public sealed class ShellViewModelCoverageTests
     [InlineData("Features", "Werkzeuge & Features")]
     [InlineData("DatManagement", "DAT-Verwaltung")]
     [InlineData("Appearance", "Darstellung")]
-    [InlineData("About", "Info")]
+    [InlineData("About", "Audit & System")]
     public void CurrentWorkspaceSection_MatchesSubTab(string subTab, string expectedSection)
     {
         var vm = Create();
