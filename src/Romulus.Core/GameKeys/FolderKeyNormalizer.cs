@@ -47,22 +47,22 @@ public static class FolderKeyNormalizer
         var preserved = new List<string>();
         foreach (Match m in ParenthesisPattern.Matches(result))
         {
-            if (PreservePattern.IsMatch(m.Value))
+            if (SafeRegex.IsMatch(PreservePattern, m.Value))
                 preserved.Add(m.Value);
         }
-        result = ParenthesisPattern.Replace(result, "");
+        result = SafeRegex.Replace(ParenthesisPattern, result, "");
         if (preserved.Count > 0)
             result = result.TrimEnd() + " " + string.Join(" ", preserved);
 
         // Strip all trailing bracket groups
-        while (TrailingBracketPattern.IsMatch(result))
-            result = TrailingBracketPattern.Replace(result, "");
+        while (SafeRegex.IsMatch(TrailingBracketPattern, result))
+            result = SafeRegex.Replace(TrailingBracketPattern, result, "");
 
         // Strip version-like suffixes
-        result = VersionSuffixPattern.Replace(result, "");
+        result = SafeRegex.Replace(VersionSuffixPattern, result, "");
 
         // Collapse multiple spaces
-        result = MultiSpacePattern.Replace(result, " ").Trim();
+        result = SafeRegex.Replace(MultiSpacePattern, result, " ").Trim();
 
         return string.IsNullOrWhiteSpace(result)
             ? folderName.Trim().ToLowerInvariant()
@@ -73,5 +73,5 @@ public static class FolderKeyNormalizer
     /// Check if a folder name indicates a multi-disc game.
     /// </summary>
     public static bool IsMultidiscFolder(string folderName)
-        => MultidiscPattern.IsMatch(folderName);
+        => SafeRegex.IsMatch(MultidiscPattern, folderName);
 }

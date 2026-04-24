@@ -66,7 +66,14 @@ public sealed record RomCandidate
 /// </summary>
 public sealed record DedupeGroup
 {
-    public RomCandidate Winner { get; init; } = null!;
+    private readonly RomCandidate? _winner;
+
+    public RomCandidate Winner
+    {
+        get => _winner ?? throw new InvalidOperationException("DedupeGroup.Winner was not initialized.");
+        init => _winner = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
     public IReadOnlyList<RomCandidate> Losers { get; init; } = Array.Empty<RomCandidate>();
     public string GameKey { get; init; } = "";
     /// <summary>

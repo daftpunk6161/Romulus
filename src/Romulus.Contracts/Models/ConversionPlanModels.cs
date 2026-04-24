@@ -50,6 +50,9 @@ public sealed record ConversionPlan
     /// <summary>Machine-readable skip reason when no execution happens.</summary>
     public string? SkipReason { get; init; }
 
+    /// <summary>Machine-readable risk reason when execution is review-gated.</summary>
+    public string? RiskReason { get; init; }
+
     /// <summary>Final target extension if at least one step exists.</summary>
     public string? FinalTargetExtension => Steps.Count > 0 ? Steps[^1].OutputExtension : null;
 

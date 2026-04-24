@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Romulus.Core.GameKeys;
 
@@ -138,6 +139,9 @@ public static class GameKeyNormalizer
     private static readonly System.Text.RegularExpressions.Regex DiscPaddingRegex =
         new(@"\((disc|disk|cd)\s*0+(\d+)\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled, RegexTimeout);
 
+    private static readonly Regex WhitespaceCollapseRegex =
+        new(@"\s+", RegexOptions.Compiled, RegexTimeout);
+
     private static readonly IReadOnlyDictionary<string, string> EmptyAliasMap =
         new Dictionary<string, string>();
 
@@ -154,6 +158,8 @@ public static class GameKeyNormalizer
 
     /// <summary>
     /// Folds Unicode text to ASCII by removing diacritical marks.
+    /// NFC/NFD-equivalent inputs intentionally collapse to the same folded value so
+    /// visually identical titles do not form separate game keys.
     /// Port of ConvertTo-AsciiFold from Core.ps1.
     /// </summary>
     public static string AsciiFold(string text)
@@ -235,7 +241,7 @@ public static class GameKeyNormalizer
         string? consoleType = null)
     {
         if (string.IsNullOrWhiteSpace(baseName))
-            return "__empty_key_null";
+            return "__empty_key_" + ComputeStableKeySuffix(baseName ?? string.Empty);
 
         var s = AsciiFold(baseName);
 
@@ -260,7 +266,7 @@ public static class GameKeyNormalizer
 
         // Normalize and collapse whitespace
         var key = s.Trim().ToLowerInvariant();
-        key = SafeRegex.Replace(key, @"\s+", "", System.Text.RegularExpressions.RegexOptions.None, RegexTimeout);
+        key = SafeRegex.Replace(WhitespaceCollapseRegex, key, "");
 
         // Apply alias maps
         if (alwaysAliasMap.TryGetValue(key, out var aliased))

@@ -31,7 +31,7 @@ public sealed class DatAuditPipelinePhase : IPipelinePhase<DatAuditInput, DatAud
             var fileName = Path.GetFileName(filePath);
             var consoleKey = candidate.ConsoleKey;
 
-            var result = DatAuditClassifier.ClassifyFull(hash, headerlessHash, fileName, consoleKey, input.DatIndex);
+            var result = DatAuditClassifier.ClassifyFull(hash, headerlessHash, fileName, consoleKey, input.DatIndex, input.Options.HashType);
 
             entries.Add(new DatAuditEntry(
                 FilePath: filePath,

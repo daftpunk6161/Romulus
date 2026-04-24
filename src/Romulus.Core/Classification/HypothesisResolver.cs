@@ -73,7 +73,8 @@ public static class HypothesisResolver
     /// </summary>
     public static ConsoleDetectionResult Resolve(
         IReadOnlyList<DetectionHypothesis> hypotheses,
-        Func<string, PlatformFamily>? familyLookup = null)
+        Func<string, PlatformFamily>? familyLookup = null,
+        bool datAvailable = false)
     {
         if (hypotheses.Count == 0)
             return ConsoleDetectionResult.Unknown;
@@ -244,7 +245,7 @@ public static class HypothesisResolver
 
         // Derive SortDecision with family-conflict awareness
         var decisionClass = DecisionResolver.Resolve(primaryTier, hasConflict, aggregateConfidence,
-            datAvailable: false, conflictType: conflictType, hasHardEvidence: hasHardEvidence);
+            datAvailable: datAvailable, conflictType: conflictType, hasHardEvidence: hasHardEvidence);
         var sortDecision = decisionClass.ToSortDecision();
 
         var matchEvidence = BuildMatchEvidence(

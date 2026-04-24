@@ -27,6 +27,15 @@ public static partial class DatAuditClassifier
         string actualFileName,
         string? consoleKey,
         DatIndex datIndex)
+        => ClassifyFull(hash, headerlessHash, actualFileName, consoleKey, datIndex, "SHA1");
+
+    public static DatAuditClassifyResult ClassifyFull(
+        string? hash,
+        string? headerlessHash,
+        string actualFileName,
+        string? consoleKey,
+        DatIndex datIndex,
+        string hashType)
     {
         ArgumentNullException.ThrowIfNull(actualFileName);
         ArgumentNullException.ThrowIfNull(datIndex);
@@ -34,7 +43,7 @@ public static partial class DatAuditClassifier
         // Try headerless hash first (some DATs use headerless hashes)
         if (!string.IsNullOrWhiteSpace(headerlessHash))
         {
-            var result = ClassifyWithHashFull(headerlessHash, actualFileName, consoleKey, datIndex);
+            var result = ClassifyWithHashFull(headerlessHash, actualFileName, consoleKey, datIndex, hashType);
             if (result.Status is DatAuditStatus.Have or DatAuditStatus.HaveWrongName or DatAuditStatus.Ambiguous)
                 return result;
             // On Miss or Unknown: fall through to try regular (headered) hash,
@@ -42,7 +51,7 @@ public static partial class DatAuditClassifier
         }
 
         // Fall back to regular hash (headered or container hash)
-        return ClassifyWithHashFull(hash, actualFileName, consoleKey, datIndex);
+        return ClassifyWithHashFull(hash, actualFileName, consoleKey, datIndex, hashType);
     }
 
     /// <summary>
@@ -69,14 +78,15 @@ public static partial class DatAuditClassifier
         string? hash,
         string actualFileName,
         string? consoleKey,
-        DatIndex datIndex)
+        DatIndex datIndex,
+        string hashType)
     {
         if (string.IsNullOrWhiteSpace(hash))
             return new(DatAuditStatus.Unknown, null, null, consoleKey);
 
         if (IsRealConsoleKey(consoleKey))
         {
-            var inConsole = datIndex.LookupWithFilename(consoleKey!, hash);
+            var inConsole = datIndex.LookupWithFilename(consoleKey!, hashType, hash);
             if (inConsole is null)
             {
                 if (TryOpticalNameFallbackForConsole(consoleKey!, actualFileName, datIndex, out var fallbackMatch))
@@ -101,7 +111,7 @@ public static partial class DatAuditClassifier
             return new(nameStatus, inConsole.Value.GameName, inConsole.Value.RomFileName, consoleKey);
         }
 
-        var matches = datIndex.LookupAllByHash(hash)
+        var matches = datIndex.LookupAllByHash(hashType, hash)
             .Where(static match => IsRealConsoleKey(match.ConsoleKey))
             .ToArray();
         if (matches.Length == 0)

@@ -11,19 +11,27 @@ namespace Romulus.Contracts.Models;
 /// </summary>
 public sealed class DatIndex
 {
+    private const string DefaultHashType = "SHA1";
+    private const char HashKeySeparator = '\u001F';
+
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _data = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _aliasData = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DatIndexEntry>> _nameIndex = new(StringComparer.OrdinalIgnoreCase);
     private int _totalEntries;
     private int _droppedByCapacityLimit;
 
-    public readonly record struct DatIndexEntry(string GameName, string? RomFileName, bool IsBios = false, string? ParentGameName = null)
+    public readonly record struct DatIndexEntry(
+        string GameName,
+        string? RomFileName,
+        bool IsBios = false,
+        string? ParentGameName = null,
+        string HashType = DefaultHashType)
     {
         public bool IsClone => !string.IsNullOrWhiteSpace(ParentGameName);
     }
 
-    /// <summary>Maximum entries per console to prevent OOM from malicious DATs. 0 = unlimited.</summary>
-    public int MaxEntriesPerConsole { get; init; }
+    /// <summary>Maximum entries per console to prevent OOM from malicious DATs.</summary>
+    public int MaxEntriesPerConsole { get; init; } = 500_000;
 
     /// <summary>Number of consoles indexed.</summary>
     public int ConsoleCount => _data.Count;
@@ -35,23 +43,32 @@ public sealed class DatIndex
     public int DroppedByCapacityLimit => Volatile.Read(ref _droppedByCapacityLimit);
 
     /// <summary>Add or update a hash→gameName mapping for a console.</summary>
-    public void Add(string consoleKey, string hash, string gameName, string? romFileName = null, bool isBios = false, string? parentGameName = null)
+    public void Add(
+        string consoleKey,
+        string hash,
+        string gameName,
+        string? romFileName = null,
+        bool isBios = false,
+        string? parentGameName = null,
+        string hashType = DefaultHashType)
     {
         var hashMap = _data.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
-        var newEntry = new DatIndexEntry(gameName, romFileName, isBios, parentGameName);
+        var normalizedHashType = NormalizeHashType(hashType);
+        var typedHashKey = BuildTypedHashKey(normalizedHashType, hash);
+        var newEntry = new DatIndexEntry(gameName, romFileName, isBios, parentGameName, normalizedHashType);
         var nameMap = _nameIndex.GetOrAdd(consoleKey, _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
 
         // Allow updates for existing keys even when at capacity
-        if (hashMap.TryGetValue(hash, out var oldEntry))
+        if (hashMap.TryGetValue(typedHashKey, out var oldEntry))
         {
-            hashMap[hash] = newEntry;
+            hashMap[typedHashKey] = newEntry;
             if (!string.Equals(oldEntry.GameName, gameName, StringComparison.OrdinalIgnoreCase))
                 nameMap.TryRemove(oldEntry.GameName, out _);
             // Keep name index in sync on update
             nameMap[gameName] = newEntry;
             return;
         }
-        if (MaxEntriesPerConsole > 0 && hashMap.Count >= MaxEntriesPerConsole)
+        if (hashMap.Count >= MaxEntriesPerConsole)
         {
             var dropped = Interlocked.Increment(ref _droppedByCapacityLimit);
             if (dropped == 1 || dropped % 100 == 0)
@@ -65,7 +82,7 @@ public sealed class DatIndex
 
             return;
         }
-        if (hashMap.TryAdd(hash, newEntry))
+        if (hashMap.TryAdd(typedHashKey, newEntry))
             Interlocked.Increment(ref _totalEntries);
 
         // Also index by game name (first entry per game wins — sufficient for name-based lookup)
@@ -79,35 +96,39 @@ public sealed class DatIndex
     /// </summary>
     public void AddWithAliases(
         string consoleKey,
+        string primaryHashType,
         string primaryHash,
-        IEnumerable<string>? aliasHashes,
+        IEnumerable<(string HashType, string Hash)>? aliasHashes,
         string gameName,
         string? romFileName = null,
         bool isBios = false,
         string? parentGameName = null)
     {
-        Add(consoleKey, primaryHash, gameName, romFileName, isBios, parentGameName);
+        var normalizedPrimaryHashType = NormalizeHashType(primaryHashType);
+        Add(consoleKey, primaryHash, gameName, romFileName, isBios, parentGameName, normalizedPrimaryHashType);
 
         if (aliasHashes is null)
             return;
 
         var aliasMap = _aliasData.GetOrAdd(consoleKey,
             _ => new ConcurrentDictionary<string, DatIndexEntry>(StringComparer.OrdinalIgnoreCase));
-        var entry = new DatIndexEntry(gameName, romFileName, isBios, parentGameName);
+        var primaryKey = BuildTypedHashKey(normalizedPrimaryHashType, primaryHash);
 
-        foreach (var alias in aliasHashes)
+        foreach (var (hashType, hash) in aliasHashes)
         {
-            if (string.IsNullOrWhiteSpace(alias))
+            if (string.IsNullOrWhiteSpace(hash))
                 continue;
 
-            var normalizedAlias = alias.Trim();
+            var normalizedHashType = NormalizeHashType(hashType);
+            var normalizedAlias = hash.Trim();
             if (normalizedAlias.Length == 0)
                 continue;
 
-            if (string.Equals(normalizedAlias, primaryHash, StringComparison.OrdinalIgnoreCase))
+            var aliasKey = BuildTypedHashKey(normalizedHashType, normalizedAlias);
+            if (string.Equals(aliasKey, primaryKey, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            aliasMap[normalizedAlias] = entry;
+            aliasMap[aliasKey] = new DatIndexEntry(gameName, romFileName, isBios, parentGameName, normalizedHashType);
         }
     }
 
@@ -120,6 +141,13 @@ public sealed class DatIndex
         return null;
     }
 
+    /// <summary>Look up a game name by console key, hash type and hash.</summary>
+    public string? Lookup(string consoleKey, string hashType, string hash)
+    {
+        var entry = LookupEntry(consoleKey, hashType, hash);
+        return entry?.GameName;
+    }
+
     /// <summary>Look up game name plus optional DAT ROM filename by console key and hash.</summary>
     public DatIndexEntry? LookupWithFilename(string consoleKey, string hash)
     {
@@ -128,6 +156,10 @@ public sealed class DatIndex
             return entry;
         return null;
     }
+
+    /// <summary>Look up game name plus optional DAT ROM filename by console key, hash type and hash.</summary>
+    public DatIndexEntry? LookupWithFilename(string consoleKey, string hashType, string hash)
+        => LookupEntry(consoleKey, hashType, hash);
 
     /// <summary>
     /// Look up a hash across ALL loaded consoles (fallback when console is unknown).
@@ -151,24 +183,48 @@ public sealed class DatIndex
         return null;
     }
 
+    /// <summary>Look up a typed hash across all loaded consoles.</summary>
+    public (string ConsoleKey, string GameName)? LookupAny(string hashType, string hash)
+    {
+        foreach (var key in EnumerateAllConsoleKeys())
+        {
+            var entry = LookupEntry(key, hashType, hash);
+            if (entry is not null)
+                return (key, entry.Value.GameName);
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Looks up all console matches for a hash in deterministic console-key order.
     /// </summary>
     public IReadOnlyList<(string ConsoleKey, DatIndexEntry Entry)> LookupAllByHash(string hash)
     {
         var results = new List<(string ConsoleKey, DatIndexEntry Entry)>();
-        var allKeys = _data.Keys
-            .Concat(_aliasData.Keys)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var key in allKeys)
+        foreach (var key in EnumerateAllConsoleKeys())
         {
             var entry = LookupEntry(key, hash);
             if (entry is not null)
             {
                 results.Add((key, entry.Value));
             }
+        }
+
+        return results;
+    }
+
+    /// <summary>Looks up all console matches for a typed hash in deterministic console-key order.</summary>
+    public IReadOnlyList<(string ConsoleKey, DatIndexEntry Entry)> LookupAllByHash(string hashType, string hash)
+    {
+        var results = new List<(string ConsoleKey, DatIndexEntry Entry)>();
+
+        foreach (var key in EnumerateAllConsoleKeys())
+        {
+            var entry = LookupEntry(key, hashType, hash);
+            if (entry is not null)
+                results.Add((key, entry.Value));
         }
 
         return results;
@@ -210,7 +266,11 @@ public sealed class DatIndex
         if (!_data.TryGetValue(consoleKey, out var hashMap))
             return null;
 
-        return hashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.GameName, StringComparer.OrdinalIgnoreCase);
+        return hashMap
+            .OrderBy(kvp => kvp.Value.HashType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(kvp => ExtractRawHash(kvp.Key), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Value.GameName, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -223,7 +283,7 @@ public sealed class DatIndex
 
         return hashMap
             .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(kvp => (kvp.Key, kvp.Value))
+            .Select(kvp => (ExtractRawHash(kvp.Key), kvp.Value))
             .ToArray();
     }
 
@@ -237,8 +297,8 @@ public sealed class DatIndex
 
             foreach (var kvp in otherHashMap)
             {
-                Add(consoleKey, kvp.Key, kvp.Value.GameName, kvp.Value.RomFileName,
-                    kvp.Value.IsBios, kvp.Value.ParentGameName);
+                Add(consoleKey, ExtractRawHash(kvp.Key), kvp.Value.GameName, kvp.Value.RomFileName,
+                    kvp.Value.IsBios, kvp.Value.ParentGameName, kvp.Value.HashType);
             }
 
             if (!other._aliasData.TryGetValue(consoleKey, out var otherAliasMap))
@@ -253,15 +313,77 @@ public sealed class DatIndex
 
     private DatIndexEntry? LookupEntry(string consoleKey, string hash)
     {
+        if (_data.TryGetValue(consoleKey, out var hashMap))
+        {
+            var match = LookupUntyped(hashMap, hash);
+            if (match is not null)
+                return match;
+        }
+
+        if (_aliasData.TryGetValue(consoleKey, out var aliasMap))
+            return LookupUntyped(aliasMap, hash);
+
+        return null;
+    }
+
+    private DatIndexEntry? LookupEntry(string consoleKey, string hashType, string hash)
+    {
+        var typedHashKey = BuildTypedHashKey(hashType, hash);
+
         if (_data.TryGetValue(consoleKey, out var hashMap) &&
-            hashMap.TryGetValue(hash, out var primaryEntry))
+            hashMap.TryGetValue(typedHashKey, out var primaryEntry))
             return primaryEntry;
 
         if (_aliasData.TryGetValue(consoleKey, out var aliasMap) &&
-            aliasMap.TryGetValue(hash, out var aliasEntry))
+            aliasMap.TryGetValue(typedHashKey, out var aliasEntry))
             return aliasEntry;
 
         return null;
+    }
+
+    private static DatIndexEntry? LookupUntyped(
+        ConcurrentDictionary<string, DatIndexEntry> map,
+        string hash)
+    {
+        if (map.TryGetValue(hash, out var legacyEntry))
+            return legacyEntry;
+
+        return map
+            .Where(kvp => string.Equals(ExtractRawHash(kvp.Key), hash, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(kvp => kvp.Value.HashType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => (DatIndexEntry?)kvp.Value)
+            .FirstOrDefault();
+    }
+
+    private IEnumerable<string> EnumerateAllConsoleKeys()
+        => _data.Keys
+            .Concat(_aliasData.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+
+    private static string BuildTypedHashKey(string hashType, string hash)
+        => $"{NormalizeHashType(hashType)}{HashKeySeparator}{hash.Trim()}";
+
+    private static string ExtractRawHash(string typedHashKey)
+    {
+        var separatorIndex = typedHashKey.IndexOf(HashKeySeparator);
+        return separatorIndex < 0 ? typedHashKey : typedHashKey[(separatorIndex + 1)..];
+    }
+
+    private static string NormalizeHashType(string? hashType)
+    {
+        if (string.IsNullOrWhiteSpace(hashType))
+            return DefaultHashType;
+
+        return hashType.Trim().ToUpperInvariant() switch
+        {
+            "CRC" => "CRC32",
+            "CRC32" => "CRC32",
+            "MD5" => "MD5",
+            "SHA256" => "SHA256",
+            _ => DefaultHashType
+        };
     }
 
     /// <summary>Get all indexed console keys (snapshot).</summary>

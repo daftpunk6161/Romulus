@@ -91,6 +91,7 @@ public sealed class RunResult
     public int GroupCount { get; init; }
     public int WinnerCount { get; init; }
     public int LoserCount { get; init; }
+    public int SkippedEmptyGameKeyCount { get; init; }
     public MovePhaseResult? MoveResult { get; init; }
     public MovePhaseResult? JunkMoveResult { get; init; }
     public ConsoleSortResult? ConsoleSortResult { get; init; }

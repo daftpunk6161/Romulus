@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Romulus.Contracts.Models;
+using Romulus.Core.Caching;
 
 namespace Romulus.Core.Rules;
 
@@ -20,10 +20,9 @@ public static class RuleEngine
     /// <summary>Timeout for user-defined regex patterns to prevent ReDoS.</summary>
     private static readonly TimeSpan RegexTimeout = SafeRegex.ShortTimeout;
 
-    /// <summary>Cache for compiled regex patterns from user rules. Bounded to 1024 entries to prevent memory exhaustion.</summary>
-    private static readonly ConcurrentDictionary<string, Regex?> _regexCache = new(StringComparer.Ordinal);
-    private static readonly int MaxRegexCacheSize = 1024;
-    private static readonly object _evictionLock = new();
+    /// <summary>LRU cache for compiled regex patterns from user rules.</summary>
+    private const int MaxRegexCacheSize = 1024;
+    private static readonly LruCache<string, Regex?> _regexCache = new(MaxRegexCacheSize, StringComparer.Ordinal);
 
     /// <summary>
     /// Validate rule syntax. Returns errors if the rule is misconfigured.
@@ -161,28 +160,24 @@ public static class RuleEngine
     {
         try
         {
-            // Evict ~25% of cache entries when capacity exceeded.
-            // Lock prevents stampede where multiple threads evict concurrently.
-            if (_regexCache.Count >= MaxRegexCacheSize)
+            if (!_regexCache.TryGet(pattern, out var rx))
             {
-                lock (_evictionLock)
+                try
                 {
-                    if (_regexCache.Count >= MaxRegexCacheSize)
-                    {
-                        var keysToRemove = _regexCache.Keys.Take(MaxRegexCacheSize / 4).ToList();
-                        foreach (var key in keysToRemove)
-                            _regexCache.TryRemove(key, out _);
-                    }
+                    rx = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout);
                 }
+                catch (ArgumentException)
+                {
+                    rx = null;
+                }
+
+                _regexCache.Set(pattern, rx);
             }
 
-            var rx = _regexCache.GetOrAdd(pattern, p =>
-            {
-                try { return new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout); }
-                catch (ArgumentException) { return null; }
-            });
             return rx is not null && rx.IsMatch(input);
         }
         catch (RegexMatchTimeoutException) { return false; }
     }
+
+    internal static int RegexCacheCountForTesting => _regexCache.Count;
 }

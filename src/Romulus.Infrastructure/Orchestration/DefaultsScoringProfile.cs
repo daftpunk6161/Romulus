@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Romulus.Core.Deduplication;
 using Romulus.Core.Scoring;
 
 namespace Romulus.Infrastructure.Orchestration;
@@ -11,7 +10,6 @@ public static class DefaultsScoringProfile
     public static void EnsureRegistered()
     {
         HealthScorer.RegisterWeightFactory(() => _lazy.Value?.HealthWeights ?? FallbackHealthWeights());
-        DeduplicationEngine.RegisterCategoryRankFactory(() => _lazy.Value?.CategoryRanks ?? FallbackCategoryRanks());
         VersionScorer.RegisterMaxVersionSegmentsFactory(() => _lazy.Value?.VersionScoreMaxSegments);
 
         var loaded = _lazy.Value;
@@ -19,9 +17,11 @@ public static class DefaultsScoringProfile
             return;
 
         HealthScorer.RegisterWeights(loaded.HealthWeights);
-        DeduplicationEngine.RegisterCategoryRanks(loaded.CategoryRanks);
         VersionScorer.RegisterMaxVersionSegments(loaded.VersionScoreMaxSegments);
     }
+
+    public static IReadOnlyDictionary<string, int> GetCategoryRanks()
+        => _lazy.Value?.CategoryRanks ?? FallbackCategoryRanks();
 
     private static DefaultsScoringData? Load()
     {

@@ -17,6 +17,7 @@ public sealed class RunResultBuilder
     public int GroupCount { get; set; }
     public int WinnerCount { get; set; }
     public int LoserCount { get; set; }
+    public int SkippedEmptyGameKeyCount { get; set; }
     public MovePhaseResult? MoveResult { get; set; }
     public MovePhaseResult? JunkMoveResult { get; set; }
     public ConsoleSortResult? ConsoleSortResult { get; set; }
@@ -74,6 +75,7 @@ public sealed class RunResultBuilder
         GroupCount = GroupCount,
         WinnerCount = WinnerCount,
         LoserCount = LoserCount,
+        SkippedEmptyGameKeyCount = SkippedEmptyGameKeyCount,
         MoveResult = MoveResult,
         JunkMoveResult = JunkMoveResult,
         ConsoleSortResult = ConsoleSortResult,

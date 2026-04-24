@@ -94,7 +94,7 @@ public static class FileClassifier
     ];
 
     private static readonly Regex RxJunkTags = new(
-        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program)\)"
+        @"\((alpha\s*\d*|beta\s*\d*|proto(?:type)?\s*\d*|sample|sampler(?:\s*(?:disc|cd))?|demo|preview|pre[\s-]*release|promo|kiosk(?:\s*demo)?|debug|trial(?:\s*version)?|taikenban|rehearsal-?\s*ban|location\s*test|test\s*program)\)"
         + @"|\((program|application|utility|enhancement\s*chip|test\s*program|test\s*cartridge)\)"
         + @"|\((competition\s*cart|service\s*disc|diagnostic|check\s*program)\)"
         + @"|\((hack|pirate|bootleg|homebrew|aftermarket|translated|translation)\)"
@@ -105,7 +105,7 @@ public static class FileClassifier
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 
     private static readonly Regex RxJunkWords = new(
-        @"\b(demo|sample\s*version|trial\s*version|trial|pre[\s-]*release|not\s*for\s*resale|sampler|bootleg\s*sampler)\b"
+        @"\b(demo|sample\s*version|trial\s*version|pre[\s-]*release|not\s*for\s*resale|bootleg\s*sampler)\b"
         + @"|^gamelist(?:\.xml)?(?:\.old|\.bak)?$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
 

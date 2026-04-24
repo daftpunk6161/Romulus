@@ -193,6 +193,8 @@ public static class RegionDetector
                 or "AT" or "BE" or "PT" or "CH" or "DK" or "FI" or "NO"
                 or "GR" or "IE" or "LU" or "RO" or "BG" or "SK" or "SI"
                 or "EE" or "LV" or "LT" or "ZA" => Regions.EU,
+            // BR is intentionally kept as its own region. AU/NZ are retained as
+            // first-class non-EU/non-US/non-JP regions instead of being folded.
             var value => value
         };
     }
@@ -200,6 +202,11 @@ public static class RegionDetector
     // Pre-compiled pattern for extracting parenthesized groups (BUG-M02)
     private static readonly System.Text.RegularExpressions.Regex ParenGroupPattern =
         new(@"\(([^)]+)\)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled,
+            RegexTimeout);
+
+    private static readonly System.Text.RegularExpressions.Regex SquareGroupPattern =
+        new(@"\[([^\]]+)\]",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled,
             RegexTimeout);
 
@@ -317,10 +324,8 @@ public static class RegionDetector
     {
         region = Regions.Unknown;
 
-        var matches = ParenGroupPattern.Matches(name);
-        foreach (System.Text.RegularExpressions.Match match in matches)
+        foreach (var content in EnumerateRegionGroupContents(name))
         {
-            var content = match.Groups[1].Value;
             var tokens = content.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
             if (tokens.Length < 2)
@@ -346,17 +351,15 @@ public static class RegionDetector
 
     internal static string? ResolveRegionFromTokens(string name, IReadOnlyDictionary<string, string> tokenToRegionMap)
     {
-        // Extract all parenthesized groups
-        var matches = ParenGroupPattern.Matches(name);
+        var groupContents = EnumerateRegionGroupContents(name);
 
-        if (matches.Count == 0)
+        if (groupContents.Count == 0)
             return null;
 
         var foundRegions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (System.Text.RegularExpressions.Match match in matches)
+        foreach (var content in groupContents)
         {
-            var content = match.Groups[1].Value;
             var tokens = content.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var token in tokens)
@@ -396,10 +399,8 @@ public static class RegionDetector
     {
         region = Regions.Unknown;
 
-        var matches = ParenGroupPattern.Matches(name);
-        foreach (System.Text.RegularExpressions.Match match in matches)
+        foreach (var content in EnumerateRegionGroupContents(name))
         {
-            var content = match.Groups[1].Value;
             var tokens = content.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length < 2)
                 continue;
@@ -427,5 +428,26 @@ public static class RegionDetector
         }
 
         return false;
+    }
+
+    private static IReadOnlyList<string> EnumerateRegionGroupContents(string name)
+    {
+        var groups = new List<(int Index, string Value)>();
+        foreach (System.Text.RegularExpressions.Match match in ParenGroupPattern.Matches(name))
+        {
+            if (match.Success)
+                groups.Add((match.Index, match.Groups[1].Value));
+        }
+
+        foreach (System.Text.RegularExpressions.Match match in SquareGroupPattern.Matches(name))
+        {
+            if (match.Success)
+                groups.Add((match.Index, match.Groups[1].Value));
+        }
+
+        return groups
+            .OrderBy(static group => group.Index)
+            .Select(static group => group.Value)
+            .ToArray();
     }
 }

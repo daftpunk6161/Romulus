@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace Romulus.Core.Classification;
 
 /// <summary>
@@ -42,14 +44,14 @@ public static class ContentSignatureClassifier
             && (header[4] == 0x37 || header[4] == 0x39) && header[5] == 0x61)
             return ContentType.Gif;
 
-        // BMP: BM (42 4D)
-        if (header[0] == 0x42 && header[1] == 0x4D)
+        // BMP: BM plus plausible file-size and pixel-data offset fields.
+        if (IsPlausibleBmpHeader(header))
             return ContentType.Bmp;
 
         // MP3: ID3 tag or MPEG sync word (FF FB, FF FA, FF F3, FF F2)
         if (header.Length >= 3 && header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
             return ContentType.Mp3;
-        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
+        if (IsPlausibleMp3FrameHeader(header))
             return ContentType.Mp3;
 
         // FLAC: fLaC
@@ -99,6 +101,32 @@ public static class ContentSignatureClassifier
     /// </summary>
     public static bool IsNonRom(ContentType type) =>
         type != ContentType.Unknown;
+
+    private static bool IsPlausibleBmpHeader(ReadOnlySpan<byte> header)
+    {
+        if (header.Length < 14 || header[0] != 0x42 || header[1] != 0x4D)
+            return false;
+
+        var fileSize = BinaryPrimitives.ReadUInt32LittleEndian(header[2..6]);
+        var pixelOffset = BinaryPrimitives.ReadUInt32LittleEndian(header[10..14]);
+        return fileSize >= 14 && pixelOffset >= 14 && pixelOffset <= fileSize;
+    }
+
+    private static bool IsPlausibleMp3FrameHeader(ReadOnlySpan<byte> header)
+    {
+        if (header.Length < 4 || header[0] != 0xFF || (header[1] & 0xE0) != 0xE0)
+            return false;
+
+        var versionBits = (header[1] >> 3) & 0b11;
+        var layerBits = (header[1] >> 1) & 0b11;
+        var bitrateIndex = (header[2] >> 4) & 0b1111;
+        var sampleRateIndex = (header[2] >> 2) & 0b11;
+
+        return versionBits != 0b01
+            && layerBits != 0b00
+            && bitrateIndex is not 0 and not 0b1111
+            && sampleRateIndex != 0b11;
+    }
 }
 
 /// <summary>

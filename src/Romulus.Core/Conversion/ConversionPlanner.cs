@@ -101,6 +101,7 @@ public sealed class ConversionPlanner(
 
         var allToolsAvailable = string.IsNullOrWhiteSpace(missingTool);
         var safety = _policyEvaluator.EvaluateSafety(policy, sourceIntegrity, capabilities, allToolsAvailable);
+        var riskReason = BuildRiskReason(policy, sourceIntegrity, safety);
 
         if (!allToolsAvailable)
         {
@@ -112,7 +113,8 @@ public sealed class ConversionPlanner(
                 SourceIntegrity = sourceIntegrity,
                 Safety = safety,
                 Steps = Array.Empty<ConversionStep>(),
-                SkipReason = $"tool-not-found:{missingTool}"
+                SkipReason = $"tool-not-found:{missingTool}",
+                RiskReason = riskReason
             };
         }
 
@@ -135,7 +137,8 @@ public sealed class ConversionPlanner(
             SourceIntegrity = sourceIntegrity,
             Safety = safety,
             Steps = steps,
-            SkipReason = null
+            SkipReason = null,
+            RiskReason = riskReason
         };
     }
 
@@ -169,5 +172,25 @@ public sealed class ConversionPlanner(
             Steps = Array.Empty<ConversionStep>(),
             SkipReason = reason
         };
+    }
+
+    private static string? BuildRiskReason(
+        ConversionPolicy policy,
+        SourceIntegrity sourceIntegrity,
+        ConversionSafety safety)
+    {
+        if (safety != ConversionSafety.Risky)
+            return null;
+
+        if (policy == ConversionPolicy.ManualOnly && sourceIntegrity == SourceIntegrity.Unknown)
+            return "manual-only:unknown-source";
+
+        if (policy == ConversionPolicy.ManualOnly)
+            return "manual-only";
+
+        if (sourceIntegrity == SourceIntegrity.Unknown)
+            return "unknown-source";
+
+        return "risky";
     }
 }

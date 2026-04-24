@@ -427,6 +427,8 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         bool DatConsoleSwitched,
         MatchKind DatMatchKind);
 
+    internal readonly record struct DatLookupHash(string HashType, string Hash);
+
     private static DatLookupResult LookupDat(
         string filePath, string ext, long sizeBytes,
         string consoleKey,
@@ -471,14 +473,14 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             var innerHashes = GetArchiveLookupHashes(filePath, archiveHashService, context.Options.HashType);
             foreach (var innerHash in innerHashes)
             {
-                computedHash ??= innerHash;
+                computedHash ??= innerHash.Hash;
 
                 var policyResult = TryPolicyAwareDatLookup(datIndex, innerHash, consoleKey, datPolicy,
                     detectionResult, filePath, consoleDetector, onProgress);
                 if (policyResult.IsMatch)
                 {
                     datMatch = true;
-                    computedHash = innerHash;
+                    computedHash = innerHash.Hash;
                     datMatchedBios = policyResult.IsBios;
                     datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
                     datGameName = policyResult.DatGameName;
@@ -498,10 +500,11 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         if (!datMatch && !isArchive && datPolicy.UseHeaderlessHash && headerlessHasher is not null
             && consoleKey is not "UNKNOWN" and not "")
         {
-            computedHeaderlessHash = headerlessHasher.ComputeHeaderlessHash(filePath, consoleKey, context.Options.HashType);
+            var headerlessHashType = NormalizeLookupHashType(context.Options.HashType);
+            computedHeaderlessHash = headerlessHasher.ComputeHeaderlessHash(filePath, consoleKey, headerlessHashType);
             if (computedHeaderlessHash is not null)
             {
-                var policyResult = TryPolicyAwareDatLookup(datIndex, computedHeaderlessHash, consoleKey, datPolicy,
+                var policyResult = TryPolicyAwareDatLookup(datIndex, new DatLookupHash(headerlessHashType, computedHeaderlessHash), consoleKey, datPolicy,
                     detectionResult, filePath, consoleDetector, onProgress);
                 if (policyResult.IsMatch)
                 {
@@ -525,14 +528,14 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             var hashCandidates = GetFileLookupHashes(filePath, hashService, context.Options.HashType);
             foreach (var hash in hashCandidates)
             {
-                computedHash ??= hash;
+                computedHash ??= hash.Hash;
 
                 var policyResult = TryPolicyAwareDatLookup(datIndex, hash, consoleKey, datPolicy,
                     detectionResult, filePath, consoleDetector, onProgress);
                 if (policyResult.IsMatch)
                 {
                     datMatch = true;
-                    computedHash = hash;
+                    computedHash = hash.Hash;
                     datMatchedBios = policyResult.IsBios;
                     datResolvedFromAmbiguousCandidates = policyResult.ResolvedFromAmbiguousCandidates;
                     datGameName = policyResult.DatGameName;
@@ -547,7 +550,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
                 }
                 else if (consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
                 {
-                    var hashHint = hash.Length >= 12 ? hash[..12] : hash;
+                    var hashHint = hash.Hash.Length >= 12 ? hash.Hash[..12] : hash.Hash;
                     onProgress?.Invoke(
                         $"[DAT] Kein Match: {Path.GetFileName(filePath)} (hash={hashHint})");
                 }
@@ -561,7 +564,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             var dataSha1 = chdTrackHashExtractor.ExtractDataSha1(filePath);
             if (dataSha1 is not null)
             {
-                var policyResult = TryPolicyAwareDatLookup(datIndex, dataSha1, consoleKey, datPolicy,
+                var policyResult = TryPolicyAwareDatLookup(datIndex, new DatLookupHash("SHA1", dataSha1), consoleKey, datPolicy,
                     detectionResult, filePath, consoleDetector, onProgress);
                 if (policyResult.IsMatch)
                 {
@@ -739,7 +742,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
 
     private static DatUnknownResolution TryPolicyAwareDatLookup(
         DatIndex datIndex,
-        string hash,
+        DatLookupHash hash,
         string consoleKey,
         FamilyDatPolicy datPolicy,
         ConsoleDetectionResult? detectionResult,
@@ -761,7 +764,7 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
 
         if (IsUsableResolvedConsoleKey(consoleKey))
         {
-            var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
+            var byConsole = datIndex.LookupWithFilename(consoleKey, hash.HashType, hash.Hash);
             if (byConsole is not null)
                 return new DatUnknownResolution(true, consoleKey, byConsole.Value.IsBios, false, byConsole.Value.GameName);
         }
@@ -769,12 +772,12 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         return DatUnknownResolution.NoMatch;
     }
 
-    internal static IReadOnlyList<string> GetFileLookupHashes(
+    internal static IReadOnlyList<DatLookupHash> GetFileLookupHashes(
         string filePath,
         FileHashService hashService,
         string preferredHashType)
     {
-        var hashes = new List<string>();
+        var hashes = new List<DatLookupHash>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var hashType in GetLookupHashTypeOrder(preferredHashType))
@@ -783,19 +786,19 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             if (string.IsNullOrWhiteSpace(hash))
                 continue;
 
-            if (seen.Add(hash))
-                hashes.Add(hash);
+            if (seen.Add($"{hashType}\0{hash}"))
+                hashes.Add(new DatLookupHash(hashType, hash));
         }
 
         return hashes;
     }
 
-    internal static IReadOnlyList<string> GetArchiveLookupHashes(
+    internal static IReadOnlyList<DatLookupHash> GetArchiveLookupHashes(
         string archivePath,
         ArchiveHashService archiveHashService,
         string preferredHashType)
     {
-        var hashes = new List<string>();
+        var hashes = new List<DatLookupHash>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var hashType in GetLookupHashTypeOrder(preferredHashType))
@@ -806,8 +809,8 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
                 if (string.IsNullOrWhiteSpace(hash))
                     continue;
 
-                if (seen.Add(hash))
-                    hashes.Add(hash);
+                if (seen.Add($"{hashType}\0{hash}"))
+                    hashes.Add(new DatLookupHash(hashType, hash));
             }
         }
 
@@ -831,15 +834,26 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
             if (string.IsNullOrWhiteSpace(hashType))
                 return;
 
-            var normalized = hashType.Trim().ToUpperInvariant() switch
-            {
-                "CRC" => "CRC32",
-                _ => hashType.Trim().ToUpperInvariant()
-            };
+            var normalized = NormalizeLookupHashType(hashType);
 
             if (seen.Add(normalized))
                 ordered.Add(normalized);
         }
+    }
+
+    private static string NormalizeLookupHashType(string? hashType)
+    {
+        if (string.IsNullOrWhiteSpace(hashType))
+            return "SHA1";
+
+        return hashType.Trim().ToUpperInvariant() switch
+        {
+            "CRC" => "CRC32",
+            "CRC32" => "CRC32",
+            "MD5" => "MD5",
+            "SHA256" => "SHA256",
+            _ => "SHA1"
+        };
     }
 
     /// <summary>
@@ -852,11 +866,24 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         DatIndex datIndex, string hash, string consoleKey,
         ConsoleDetectionResult? detectionResult, string filePath,
         ConsoleDetector? consoleDetector, Action<string>? onProgress)
+        => TryCrossConsoleDatLookup(
+            datIndex,
+            new DatLookupHash("SHA1", hash),
+            consoleKey,
+            detectionResult,
+            filePath,
+            consoleDetector,
+            onProgress);
+
+    internal static DatUnknownResolution TryCrossConsoleDatLookup(
+        DatIndex datIndex, DatLookupHash hash, string consoleKey,
+        ConsoleDetectionResult? detectionResult, string filePath,
+        ConsoleDetector? consoleDetector, Action<string>? onProgress)
     {
         // Fast path: if consoleKey is known, try that console first
         if (consoleKey is not "UNKNOWN" and not "" and not "AMBIGUOUS")
         {
-            var byConsole = datIndex.LookupWithFilename(consoleKey, hash);
+            var byConsole = datIndex.LookupWithFilename(consoleKey, hash.HashType, hash.Hash);
             if (byConsole is not null)
             {
                 return new DatUnknownResolution(true, consoleKey, byConsole.Value.IsBios, false, byConsole.Value.GameName);
@@ -952,8 +979,14 @@ public sealed partial class EnrichmentPipelinePhase : IPipelinePhase<EnrichmentP
         DatIndex datIndex,
         string hash,
         ConsoleDetectionResult? detectionResult)
+        => ResolveUnknownDatMatch(datIndex, new DatLookupHash("SHA1", hash), detectionResult);
+
+    internal static DatUnknownResolution ResolveUnknownDatMatch(
+        DatIndex datIndex,
+        DatLookupHash hash,
+        ConsoleDetectionResult? detectionResult)
     {
-        var matches = datIndex.LookupAllByHash(hash)
+        var matches = datIndex.LookupAllByHash(hash.HashType, hash.Hash)
             .Where(static match => IsUsableResolvedConsoleKey(match.ConsoleKey))
             .ToArray();
         if (matches.Length == 0)

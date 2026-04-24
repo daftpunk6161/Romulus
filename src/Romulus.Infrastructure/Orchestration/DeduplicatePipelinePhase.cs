@@ -18,7 +18,8 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
         context.OnProgress?.Invoke(RunProgressLocalization.Format("Dedupe.Start", input.Count));
 
         var dedupeSw = System.Diagnostics.Stopwatch.StartNew();
-        var groups = DeduplicationEngine.Deduplicate(input);
+        var dedupeResult = DeduplicationEngine.DeduplicateWithDiagnostics(input, DefaultsScoringProfile.GetCategoryRanks());
+        var groups = dedupeResult.Groups;
         var gameGroups = GetGameGroups(groups);
         dedupeSw.Stop();
 
@@ -36,7 +37,7 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
             junkGroupCount));
         context.Metrics.CompletePhase(gameGroups.Count);
 
-        return new DedupePhaseOutput(groups, gameGroups, loserCount);
+        return new DedupePhaseOutput(groups, gameGroups, loserCount, dedupeResult.SkippedEmptyGameKeyCount);
     }
 
     private static List<DedupeGroup> GetGameGroups(IReadOnlyList<DedupeGroup> groups)
@@ -53,4 +54,5 @@ public sealed class DeduplicatePipelinePhase : IPipelinePhase<IReadOnlyList<RomC
 public sealed record DedupePhaseOutput(
     IReadOnlyList<DedupeGroup> Groups,
     List<DedupeGroup> GameGroups,
-    int LoserCount);
+    int LoserCount,
+    int SkippedEmptyGameKeyCount);

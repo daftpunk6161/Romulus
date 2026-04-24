@@ -200,6 +200,7 @@ public static class CollectionExportService
             GroupCount = runResult.GroupCount > 0 ? runResult.GroupCount : groups.Count,
             WinnerCount = runResult.WinnerCount,
             LoserCount = runResult.LoserCount,
+            SkippedEmptyGameKeyCount = runResult.SkippedEmptyGameKeyCount,
             MoveResult = runResult.MoveResult,
             JunkMoveResult = runResult.JunkMoveResult,
             ConsoleSortResult = runResult.ConsoleSortResult,

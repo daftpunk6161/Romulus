@@ -675,6 +675,9 @@ public sealed partial class RunOrchestrator
         result.GroupCount = output.GameGroups.Count;
         result.WinnerCount = output.GameGroups.Count;
         result.LoserCount = output.LoserCount;
+        result.SkippedEmptyGameKeyCount = output.SkippedEmptyGameKeyCount;
+        if (output.SkippedEmptyGameKeyCount > 0)
+            result.AddWarning($"dedupe-empty-game-key-skipped:{output.SkippedEmptyGameKeyCount}");
         result.AllCandidates = allCandidates;
         result.DedupeGroups = output.GameGroups;
 

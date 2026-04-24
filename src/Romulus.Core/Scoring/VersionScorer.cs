@@ -162,10 +162,26 @@ public sealed class VersionScorer
     public VersionScorer(string verifiedPattern, string revisionPattern,
         string versionPattern, string langPattern)
     {
-        _rxVerified = new Regex(verifiedPattern, RegexOptions.Compiled, RxTimeout);
-        _rxRevision = new Regex(revisionPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
-        _rxVersion = new Regex(versionPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
-        _rxLang = new Regex(langPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, RxTimeout);
+        _rxVerified = CreateRegexOrFallback(verifiedPattern, @"\[!\]", RegexOptions.Compiled, "verified");
+        _rxRevision = CreateRegexOrFallback(revisionPattern, @"\(rev\s*([a-z0-9.]+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled, "revision");
+        _rxVersion = CreateRegexOrFallback(versionPattern, @"\(v\s*([\d.]+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled, "version");
+        _rxLang = CreateRegexOrFallback(langPattern, FallbackLangPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, "language");
+    }
+
+    private static Regex CreateRegexOrFallback(string pattern, string fallbackPattern, RegexOptions options, string label)
+    {
+        try
+        {
+            return new Regex(pattern, options, RxTimeout);
+        }
+        catch (ArgumentException ex)
+        {
+            Trace.TraceWarning(
+                "[VersionScorer] Invalid {0} regex pattern. Falling back to default. Error={1}",
+                label,
+                ex.Message);
+            return new Regex(fallbackPattern, options, RxTimeout);
+        }
     }
 
     /// <summary>

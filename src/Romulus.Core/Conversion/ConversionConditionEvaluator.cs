@@ -41,7 +41,7 @@ public sealed class ConversionConditionEvaluator
             ConversionCondition.IsWadFile => string.Equals(extension, ".wad", StringComparison.OrdinalIgnoreCase),
             ConversionCondition.IsCdiSource => string.Equals(extension, ".cdi", StringComparison.OrdinalIgnoreCase),
             ConversionCondition.IsEncryptedPbp => IsEncryptedPbp(sourcePath, extension),
-            _ => false
+            _ => throw new NotSupportedException($"ConversionCondition '{condition}' has no evaluator.")
         };
     }
 

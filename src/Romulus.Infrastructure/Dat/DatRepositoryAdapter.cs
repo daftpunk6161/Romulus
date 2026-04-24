@@ -66,8 +66,12 @@ public sealed class DatRepositoryAdapter
                         var parentGameName = ResolveParentName(game.Key, parentMap);
 
                         var aliasHashes = CollectAliasHashes(rom, normalizedHash);
+                        var primaryHashType = rom.TryGetValue("hashType", out var hashTypeValue)
+                            ? hashTypeValue
+                            : NormalizeHashType(hashType);
                         index.AddWithAliases(
                             consoleKey,
+                            primaryHashType,
                             normalizedHash,
                             aliasHashes,
                             game.Key,
@@ -85,7 +89,7 @@ public sealed class DatRepositoryAdapter
     public string GetDatGameKey(string gameName, string console)
     {
         // Normalize: lowercase, trim whitespace
-        return $"{console}|{gameName}".ToLowerInvariant().Trim();
+        return $"{console.Trim()}|{gameName.Trim()}".ToLowerInvariant();
     }
 
     public IDictionary<string, string> GetDatParentCloneIndex(string datPath)
@@ -262,38 +266,9 @@ public sealed class DatRepositoryAdapter
                             if (md5 is not null) rom["md5"] = md5;
                             if (crc is not null) rom["crc"] = crc;
 
-                            var selectedHashType = requestedHashType;
-                            var hash = requestedHashType switch
-                            {
-                                "SHA256" => sha256,
-                                "MD5" => md5,
-                                "CRC" or "CRC32" => crc,
-                                _ => sha1 // SHA1 default
-                            };
-
-                            // Fallback chain: if the preferred hash is absent, try alternatives.
-                            // Many DATs (MAME, FBNeo) only carry CRC32; No-Intro has all four.
-                            // R5-007 FIX: Include SHA1 in fallback (was skipped between SHA256→MD5).
-                            if (hash is null && requestedHashType is not "SHA1" and not ("CRC" or "CRC32"))
-                            {
-                                hash = sha1;
-                                if (hash is not null)
-                                    selectedHashType = "SHA1";
-                            }
-
-                            if (hash is null && requestedHashType is not ("CRC" or "CRC32"))
-                            {
-                                hash = md5;
-                                if (hash is not null)
-                                    selectedHashType = "MD5";
-                            }
-
-                            if (hash is null && requestedHashType is not ("CRC" or "CRC32"))
-                            {
-                                hash = crc;
-                                if (hash is not null)
-                                    selectedHashType = "CRC";
-                            }
+                            var selectedHash = SelectHashByPreference(requestedHashType, sha1, sha256, md5, crc);
+                            var selectedHashType = selectedHash.HashType;
+                            var hash = selectedHash.Hash;
 
                             if (hash is not null)
                             {
@@ -301,6 +276,7 @@ public sealed class DatRepositoryAdapter
                                 if (!string.IsNullOrWhiteSpace(normalizedHash))
                                 {
                                     rom["hash"] = normalizedHash;
+                                    rom["hashType"] = selectedHashType;
                                     if (!fallbackWarningEmitted
                                         && !string.Equals(selectedHashType, requestedHashType, StringComparison.OrdinalIgnoreCase))
                                     {
@@ -349,11 +325,57 @@ public sealed class DatRepositoryAdapter
         return hashType.Trim().ToUpperInvariant() switch
         {
             "CRC32" => "CRC32",
-            "CRC" => "CRC",
+            "CRC" => "CRC32",
             "MD5" => "MD5",
             "SHA256" => "SHA256",
+            "SHA1" => "SHA1",
             _ => "SHA1"
         };
+    }
+
+    private static (string HashType, string? Hash) SelectHashByPreference(
+        string requestedHashType,
+        string? sha1,
+        string? sha256,
+        string? md5,
+        string? crc)
+    {
+        foreach (var hashType in GetFallbackHashTypeOrder(requestedHashType))
+        {
+            var hash = hashType switch
+            {
+                "SHA256" => sha256,
+                "MD5" => md5,
+                "CRC32" => crc,
+                _ => sha1
+            };
+
+            if (!string.IsNullOrWhiteSpace(hash))
+                return (hashType, hash);
+        }
+
+        return (requestedHashType, null);
+    }
+
+    private static IEnumerable<string> GetFallbackHashTypeOrder(string requestedHashType)
+    {
+        var ordered = new List<string>(capacity: 4);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        Add(requestedHashType);
+        Add("SHA1");
+        Add("MD5");
+        Add("CRC32");
+        Add("SHA256");
+
+        return ordered;
+
+        void Add(string hashType)
+        {
+            var normalized = NormalizeHashType(hashType);
+            if (seen.Add(normalized))
+                ordered.Add(normalized);
+        }
     }
 
     private static string? NormalizeHashValue(string? hashValue)
@@ -365,20 +387,20 @@ public sealed class DatRepositoryAdapter
         return normalized.Length == 0 ? null : normalized;
     }
 
-    private static IReadOnlyCollection<string> CollectAliasHashes(
+    private static IReadOnlyCollection<(string HashType, string Hash)> CollectAliasHashes(
         IReadOnlyDictionary<string, string> rom,
         string primaryHash)
     {
-        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var aliases = new HashSet<(string HashType, string Hash)>();
 
-        AddAlias("sha1");
-        AddAlias("md5");
-        AddAlias("crc");
-        AddAlias("sha256");
+        AddAlias("SHA1", "sha1");
+        AddAlias("MD5", "md5");
+        AddAlias("CRC32", "crc");
+        AddAlias("SHA256", "sha256");
 
         return aliases;
 
-        void AddAlias(string key)
+        void AddAlias(string hashType, string key)
         {
             if (!rom.TryGetValue(key, out var hashValue) || string.IsNullOrWhiteSpace(hashValue))
                 return;
@@ -390,7 +412,7 @@ public sealed class DatRepositoryAdapter
             if (string.Equals(normalized, primaryHash, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            aliases.Add(normalized);
+            aliases.Add((NormalizeHashType(hashType), normalized));
         }
     }
 

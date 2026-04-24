@@ -1,4 +1,5 @@
 using Romulus.Contracts;
+using Romulus.Core.Caching;
 
 namespace Romulus.Core.Scoring;
 
@@ -18,8 +19,10 @@ public static class FormatScorer
 
     private static readonly object Sync = new();
     private static volatile ScoreState? _registeredState;
-    private static readonly object RegionScoreCacheSync = new();
-    private static readonly Dictionary<string, IReadOnlyDictionary<string, int>> RegionScoreCache = new(StringComparer.Ordinal);
+    private const int MaxRegionScoreCacheEntries = 100;
+    private static readonly LruCache<string, IReadOnlyDictionary<string, int>> RegionScoreCache = new(
+        MaxRegionScoreCacheEntries,
+        StringComparer.Ordinal);
     private static Func<(
         IReadOnlyDictionary<string, int> FormatScores,
         IReadOnlyDictionary<string, int> SetTypeScores,
@@ -151,10 +154,7 @@ public static class FormatScorer
             _registeredState = null;
             _scoreFactory = null;
         }
-        lock (RegionScoreCacheSync)
-        {
-            RegionScoreCache.Clear();
-        }
+        RegionScoreCache.Clear();
     }
 
     public static void RegisterScoreFactory(Func<(
@@ -247,7 +247,7 @@ public static class FormatScorer
         var rankMap = GetRegionRankMap(preferOrder);
         var idx = rankMap.TryGetValue(region, out var rank) ? rank : -1;
 
-        if (idx >= 0) return 1000 - idx;
+        if (idx >= 0) return Math.Max(1, 1000 - idx);
 
         return region.ToUpperInvariant() switch
         {
@@ -264,27 +264,26 @@ public static class FormatScorer
 
         var cacheKey = string.Join('\0', preferOrder.Select(static value => value?.Trim().ToUpperInvariant() ?? string.Empty));
 
-        lock (RegionScoreCacheSync)
+        if (RegionScoreCache.TryGet(cacheKey, out var cached))
+            return cached;
+
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var rank = 0;
+        for (var i = 0; i < preferOrder.Count; i++)
         {
-            if (RegionScoreCache.TryGetValue(cacheKey, out var cached))
-                return cached;
+            var region = preferOrder[i]?.Trim();
+            if (string.IsNullOrWhiteSpace(region))
+                continue;
 
-            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var rank = 0;
-            for (var i = 0; i < preferOrder.Count; i++)
-            {
-                var region = preferOrder[i]?.Trim();
-                if (string.IsNullOrWhiteSpace(region))
-                    continue;
-
-                if (!map.ContainsKey(region))
-                    map[region] = rank++;
-            }
-
-            RegionScoreCache[cacheKey] = map;
-            return map;
+            if (!map.ContainsKey(region))
+                map[region] = rank++;
         }
+
+        RegionScoreCache.Set(cacheKey, map);
+        return map;
     }
+
+    internal static int RegionScoreCacheCountForTesting => RegionScoreCache.Count;
 
     private static readonly IReadOnlyDictionary<string, int> EmptyRegionRankMap =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

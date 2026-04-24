@@ -1117,6 +1117,18 @@ internal static partial class Program
 
     internal static int RunForTests(CliRunOptions opts)
     {
+        ArgumentNullException.ThrowIfNull(opts);
+
+        // Test-Isolation: Verhindere, dass die unter Tests laufende CLI die echten
+        // DAT-Quellen des Benutzers (settings.json + dat-catalog-state) auflöst und
+        // damit Millionen Hashes pro Testlauf lädt. Tests, die DAT-Verhalten gezielt
+        // prüfen wollen, müssen EnableDat explizit setzen.
+        if (!opts.EnableDatExplicit)
+        {
+            opts.EnableDat = false;
+            opts.EnableDatExplicit = true;
+        }
+
         var hadOverrides = ConsoleOverrideEnabled.Value;
         var previousStdout = StdoutOverride.Value;
         var previousStderr = StderrOverride.Value;

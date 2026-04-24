@@ -73,6 +73,9 @@ public sealed class HeaderlessHasher : IHeaderlessHasher
         // Seek to content start and hash the rest
         fs.Position = skipBytes;
 
+        if (NormalizeHashType(hashType) is "CRC32")
+            return Crc32.HashStream(fs);
+
         using var algo = CreateHashAlgorithm(hashType);
         var hashBytes = algo.ComputeHash(fs);
         return Convert.ToHexStringLower(hashBytes);
@@ -93,6 +96,9 @@ public sealed class HeaderlessHasher : IHeaderlessHasher
             NormalizeN64LittleEndian(normalized);
         else if (!header.SequenceEqual(N64MagicBE))
             return null;
+
+        if (NormalizeHashType(hashType) is "CRC32")
+            return Crc32.HashStream(new MemoryStream(normalized, writable: false));
 
         using var algo = CreateHashAlgorithm(hashType);
         return Convert.ToHexStringLower(algo.ComputeHash(normalized));
@@ -129,7 +135,11 @@ public sealed class HeaderlessHasher : IHeaderlessHasher
     }
 
     private static string NormalizeHashType(string hashType)
-        => hashType.ToUpperInvariant().Replace("-", "");
+        => hashType.ToUpperInvariant().Replace("-", "") switch
+        {
+            "CRC" => "CRC32",
+            var normalized => normalized
+        };
 
     private static bool SupportsHeaderlessHash(string consoleKey)
         => !string.IsNullOrWhiteSpace(consoleKey)

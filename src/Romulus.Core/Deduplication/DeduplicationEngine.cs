@@ -9,10 +9,6 @@ namespace Romulus.Core.Deduplication;
 /// </summary>
 public static class DeduplicationEngine
 {
-    private static readonly object CategoryRankSync = new();
-    private static volatile IReadOnlyDictionary<string, int>? _registeredCategoryRanks;
-    private static Func<IReadOnlyDictionary<string, int>>? _categoryRankFactory;
-
     private static readonly IReadOnlyDictionary<string, int> FallbackCategoryRanks =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -23,60 +19,9 @@ public static class DeduplicationEngine
             [nameof(FileCategory.Unknown)] = 1
         };
 
-    /// <summary>
-    /// Resets all registered state. For test isolation only – never call in production.
-    /// </summary>
-    internal static void ResetForTesting()
-    {
-        lock (CategoryRankSync)
-        {
-            _registeredCategoryRanks = null;
-            _categoryRankFactory = null;
-        }
-    }
-
-    public static void RegisterCategoryRankFactory(Func<IReadOnlyDictionary<string, int>> factory)
-    {
-        ArgumentNullException.ThrowIfNull(factory);
-        lock (CategoryRankSync)
-        {
-            _categoryRankFactory = factory;
-            _registeredCategoryRanks = null;
-        }
-    }
-
-    public static void RegisterCategoryRanks(IReadOnlyDictionary<string, int> categoryRanks)
-    {
-        ArgumentNullException.ThrowIfNull(categoryRanks);
-        lock (CategoryRankSync)
-        {
-            _registeredCategoryRanks = new Dictionary<string, int>(categoryRanks, StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    private static IReadOnlyDictionary<string, int> EnsureCategoryRanksLoaded()
-    {
-        var cached = _registeredCategoryRanks;
-        if (cached is not null)
-            return cached;
-
-        lock (CategoryRankSync)
-        {
-            cached = _registeredCategoryRanks;
-            if (cached is not null)
-                return cached;
-
-            if (_categoryRankFactory is not null)
-            {
-                var loaded = _categoryRankFactory();
-                if (loaded is not null)
-                    _registeredCategoryRanks = new Dictionary<string, int>(loaded, StringComparer.OrdinalIgnoreCase);
-            }
-
-            _registeredCategoryRanks ??= FallbackCategoryRanks;
-            return _registeredCategoryRanks;
-        }
-    }
+    public sealed record DeduplicationResult(
+        IReadOnlyList<DedupeGroup> Groups,
+        int SkippedEmptyGameKeyCount);
 
     /// <summary>
     /// Selects the best ROM candidate from a group sharing the same GameKey.
@@ -86,12 +31,19 @@ public static class DeduplicationEngine
     /// BUG-011 FIX: Alphabetical MainPath tiebreaker ensures determinism.
     /// </summary>
     public static RomCandidate? SelectWinner(IReadOnlyList<RomCandidate> items)
+        => SelectWinner(items, FallbackCategoryRanks);
+
+    public static RomCandidate? SelectWinner(
+        IReadOnlyList<RomCandidate> items,
+        IReadOnlyDictionary<string, int> categoryRanks)
     {
+        ArgumentNullException.ThrowIfNull(categoryRanks);
+
         if (items is null || items.Count == 0) return null;
         if (items.Count == 1) return items[0];
 
-        var highestCategoryRank = items.Max(GetCategoryRank);
-        var prioritized = items.Where(x => GetCategoryRank(x) == highestCategoryRank);
+        var highestCategoryRank = items.Max(x => GetCategoryRank(x, categoryRanks));
+        var prioritized = items.Where(x => GetCategoryRank(x, categoryRanks) == highestCategoryRank);
 
         return prioritized
             .OrderByDescending(x => x.CompletenessScore)
@@ -106,10 +58,12 @@ public static class DeduplicationEngine
             .First();
     }
 
-    private static int GetCategoryRank(RomCandidate candidate)
+    private static int GetCategoryRank(
+        RomCandidate candidate,
+        IReadOnlyDictionary<string, int> categoryRanks)
     {
         var categoryName = candidate.Category.ToString();
-        return EnsureCategoryRanksLoaded().TryGetValue(categoryName, out var rank) ? rank : 0;
+        return categoryRanks.TryGetValue(categoryName, out var rank) ? rank : 0;
     }
 
     /// <summary>
@@ -121,12 +75,30 @@ public static class DeduplicationEngine
     /// </summary>
     public static IReadOnlyList<DedupeGroup> Deduplicate(
         IReadOnlyList<RomCandidate> candidates)
+        => DeduplicateWithDiagnostics(candidates, FallbackCategoryRanks).Groups;
+
+    public static IReadOnlyList<DedupeGroup> Deduplicate(
+        IReadOnlyList<RomCandidate> candidates,
+        IReadOnlyDictionary<string, int> categoryRanks)
+        => DeduplicateWithDiagnostics(candidates, categoryRanks).Groups;
+
+    public static DeduplicationResult DeduplicateWithDiagnostics(
+        IReadOnlyList<RomCandidate> candidates,
+        IReadOnlyDictionary<string, int> categoryRanks)
     {
+        ArgumentNullException.ThrowIfNull(categoryRanks);
+
         // Build groups with a single pass over candidates
         var groupDict = new Dictionary<string, List<RomCandidate>>(StringComparer.OrdinalIgnoreCase);
+        var skippedEmptyGameKeys = 0;
         foreach (var c in candidates)
         {
-            if (string.IsNullOrWhiteSpace(c.GameKey)) continue;
+            if (string.IsNullOrWhiteSpace(c.GameKey))
+            {
+                skippedEmptyGameKeys++;
+                continue;
+            }
+
             var groupKey = BuildGroupKey(c);
 
             if (!groupDict.TryGetValue(groupKey, out var list))
@@ -144,7 +116,7 @@ public static class DeduplicationEngine
         foreach (var key in sortedKeys)
         {
             var items = groupDict[key];
-            var winner = SelectWinner(items)!;
+            var winner = SelectWinner(items, categoryRanks)!;
             // Safety invariant:
             // A physical file path must never be both winner and loser within the same group.
             // Also deduplicate loser paths to avoid duplicate move attempts for identical files.
@@ -180,7 +152,7 @@ public static class DeduplicationEngine
             }
         }
 
-        return results;
+        return new DeduplicationResult(results, skippedEmptyGameKeys);
     }
 
     private static string BuildGroupKey(RomCandidate candidate)

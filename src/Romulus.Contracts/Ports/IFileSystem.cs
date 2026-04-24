@@ -40,6 +40,11 @@ public interface IFileSystem
         // Implementations with real filesystem access should override this method.
         return Array.Empty<string>();
     }
+    /// <summary>
+    /// Moves an item using the implementation's local safety rules. Prefer the overload
+    /// with <c>allowedRoot</c> for user-controlled destinations so containment is part of
+    /// the call contract instead of being left to caller discipline.
+    /// </summary>
     string? MoveItemSafely(string sourcePath, string destinationPath);
 
     string? MoveItemSafely(string sourcePath, string destinationPath, bool overwrite)
