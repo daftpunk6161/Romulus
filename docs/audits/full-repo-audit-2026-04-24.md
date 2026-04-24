@@ -22,17 +22,19 @@
 
 ## Priorisierung & Fortschritt
 
-| Severity | Round 1+2 | Round 3 | Round 4 | Gesamt | Erledigt |
-|----------|----------:|--------:|--------:|-------:|---------:|
-| **P0** (Release-Blocker)         |  8 |  1 |  9 |  18 | 0 |
-| **P1** (Hohe Risiken)            | 22 | 15 | 17 |  54 | 0 |
-| **P2** (Mittlere Risiken)        | 26 | 22 | 22 |  70 | 0 |
-| **P3** (Wartbarkeit / niedrig)   | 12 |  6 | 13 |  31 | 0 |
-| **Gesamt**                       | 68 | 44 | 61 | 173 | 0 |
+| Severity | Round 1+2 | Round 3 | Round 4 | Round 5 | Round 6 | Gesamt | Erledigt |
+|----------|----------:|--------:|--------:|--------:|--------:|-------:|---------:|
+| **P0** (Release-Blocker)         |  8 |  1 |  9 |  1 |  0 |  19 | 0 |
+| **P1** (Hohe Risiken)            | 22 | 15 | 17 | 11 |  6 |  71 | 0 |
+| **P2** (Mittlere Risiken)        | 26 | 22 | 22 | 19 | 18 | 107 | 0 |
+| **P3** (Wartbarkeit / niedrig)   | 12 |  6 | 13 |  9 | 12 |  52 | 0 |
+| **Gesamt**                       | 68 | 44 | 61 | 40 | 36 | 249 | 0 |
 
 > Bitte beim Abhaken die Tabelle hier oben mit aktualisieren.
 > Round-3-Funde: `R3-A-*` (DAT/Hash/Tools), `R3-B-*` (Settings/Loc/UI), `R3-C-*` (API/CLI/Reports/Logging).
 > Round-4-Funde: `R4-A-*` (Avalonia), `R4-B-*` (Tests/Benchmark), `R4-C-*` (Deploy/Safety/Logging/Audit).
+> Round-5-Funde: `R5-A-*` (Core/Contracts), `R5-B-*` (Infrastructure/Orchestration/Reporting), `R5-C-*` (WPF ViewModels/API).
+> Round-6-Funde: `R6-A-*` (CLI/Tools/Hashing/Safety/Sorting), `R6-B-*` (Data/Schemas/i18n/Loader), `R6-C-*` (XAML/Resources/Build/Avalonia).
 
 ---
 
@@ -44,6 +46,8 @@
 - [P3 – Wartbarkeit / Niedrige Risiken](#p3--wartbarkeit--niedrige-risiken)
 - [Round 3 – Neue Funde](#round-3--neue-funde)
 - [Round 4 – Neue Funde](#round-4--neue-funde)
+- [Round 5 – Neue Funde](#round-5--neue-funde)
+- [Round 6 – Neue Funde](#round-6--neue-funde)
 - [Test- & Verifikationsplan](#test---verifikationsplan)
 - [Sanierungsstrategie](#sanierungsstrategie)
 
@@ -1415,6 +1419,777 @@
 - [ ] **Fix umsetzen**
 - **File:** [JsonlLogWriter.cs](../../src/Romulus.Infrastructure/Logging/JsonlLogWriter.cs#L105)
 - **Fix:** try/catch um Rotations-Block; im catch: `Console.Error.WriteLine(...)` als Fallback-Strategie.
+
+---
+
+## Round 5 – Neue Funde
+
+> Scope: `R5-A-*` = Core + Contracts, `R5-B-*` = Infrastructure (Orchestration / Reporting / FileSystem / DAT), `R5-C-*` = WPF ViewModels + API.
+> Neue Funde: 1 P0 / 11 P1 / 19 P2 / 9 P3 = 40 gesamt. Kumulativ: 19 P0 / 65 P1 / 89 P2 / 40 P3 = **213 Gesamt**.
+
+---
+
+### R5-A-01 — `\btrial\b` false positive: legitime ROMs als Junk klassifiziert
+**Tags:** `classification` `junk-detection` `false-positive` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [FileClassifier.cs](../../src/Romulus.Core/Classification/FileClassifier.cs#L91)
+- **Problem:** `RxJunkWords` enthaelt `\btrial\b` als eigenstaendige Alternation. "Trial of Mana" (Square), "The Trial" (Activision), "Field Trial Edition" matchen dieses Pattern. Im Execute-Modus werden betroffene Dateien in den Trash verschoben – Datenverlust-Risiko.
+- **Fix:** `trial` aus unparen­thesierter `RxJunkWords` entfernen; nur `\(trial(?:\s*version)?\)` in parenthesiertem `RxJunkTags`-Pattern erlauben (analog zu `beta`, `alpha`).
+- **Tests fehlen:** `"Trial of Mana"` → `FileCategory.Game`; Regression-Suite fuer bekannte Falsch-Positiv-Kandidaten.
+
+---
+
+### R5-A-02 — `VersionScorer`-Konstruktor: ungueltige Regex aus rules.json → Startup-Absturz
+**Tags:** `scoring` `resilience` `startup-crash` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [VersionScorer.cs](../../src/Romulus.Core/Scoring/VersionScorer.cs#L175)
+- **Problem:** Parametrischer Konstruktor ruft `new Regex(verifiedPattern, ...)` ohne try/catch. Beschaedigte/manipulierte `rules.json` fuehrt zu `ArgumentException` → Startup-Absturz aller drei Entry Points.
+- **Fix:** Konstruktor-Body in try/catch einwickeln; bei `ArgumentException` Warnung loggen und Default-Pattern-Fallback nutzen. Alternativ: Pattern-Validierung in Infrastructure vor Factory-Uebergabe.
+- **Tests fehlen:** Konstruktor mit ungueltiger `revisionPattern` → kein Wurf, nutzt Fallback. Ungueltige rules.json → App startet mit Warnung.
+
+---
+
+### R5-A-03 — `\bsampler\b`: False Positive auf unparenthesierte ROM-Titel
+**Tags:** `classification` `junk-detection` `false-positive` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [FileClassifier.cs](../../src/Romulus.Core/Classification/FileClassifier.cs#L94)
+- **Problem:** `\bsampler\b` matcht Titelbestandteile wie "Bass Master Sampler Pack" oder "Drum Sampler 64". Diese Titel aus Arcade/Computer-ROM-Sets werden als Junk klassifiziert.
+- **Fix:** `sampler` in `RxJunkWords` durch parenthesisierten Ausdruck in `RxJunkTags` ersetzen: `\((sampler|sampler\s*disc|sampler\s*cd)\)`.
+- **Tests fehlen:** `"Bass Master Sampler Pack"` → `FileCategory.Game`; `"(Sampler)"` → `FileCategory.Junk`.
+
+---
+
+### R5-A-04 — `DeduplicationEngine.Deduplicate`: leere GameKeys still uebergangen
+**Tags:** `deduplication` `data-loss` `silent-skip` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [DeduplicationEngine.cs](../../src/Romulus.Core/Deduplication/DeduplicationEngine.cs#L113)
+- **Problem:** Kandidaten mit leerem/whitespace `GameKey` werden still uebersprungen (`if (string.IsNullOrWhiteSpace(c.GameKey)) continue`). Sie erscheinen weder als Winner noch Loser und werden nicht auditiert. Kein Logging, kein Counter.
+- **Fix:** Zaehler fuer uebersprungene Kandidaten fuehren und als Warnung im Run-Ergebnis zurueckgeben. Guard in Pipeline sicherstellen, dass keine Kandidaten mit leerem Key ankommen.
+- **Tests fehlen:** Kandidat mit leerem GameKey → erscheint als `SkippedCount`-Aequivalent im Ergebnis, nicht still ignoriert.
+
+---
+
+### R5-A-05 — `GameKeyNormalizer`: `"__empty_key_null"` kollabiert alle leeren Basenames
+**Tags:** `gamekeys` `determinism` `grouping` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [GameKeyNormalizer.cs](../../src/Romulus.Core/GameKeys/GameKeyNormalizer.cs#L239)
+- **Problem:** Alle null/whitespace-Inputs liefern denselben Key `__empty_key_null`. Zwei beschaedigte ZIP-Entries aus derselben Konsole landen in einer Dedup-Gruppe und ein falscher Winner wird gewaehlt.
+- **Fix:** `return "__empty_key_null_" + ComputeStableKeySuffix(baseName ?? "")` statt Konstante; oder beide Leer-Pfade in denselben SHA-256-Fallback fuehren.
+- **Tests fehlen:** Zwei verschiedene null/whitespace-Inputs → unterschiedliche Keys. Invariant: `__empty_key_null` nicht als Key fuer mehrere physische Dateien.
+
+---
+
+### R5-A-06 — `RegionDetector`: `[NTSC-J]`/`[Brazil]` in eckigen Klammern nicht erkannt
+**Tags:** `region-detection` `scoring` `false-winner` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [RegionDetector.cs](../../src/Romulus.Core/Regions/RegionDetector.cs#L203)
+- **Problem:** `ParenGroupPattern` extrahiert nur runde Klammern. Dateinamen wie `"Game [NTSC-J]"` oder `"Game [Brazil]"` (gaengiges No-Intro/TOSEC-Schema) erhalten `Region: UNKNOWN` → `RegionScore: 100` → potenziell falscher Winner.
+- **Fix:** Zweiten Pattern-Extraktor fuer `\[([^\]]+)\]` einfuehren und beide Ergebnisse dem Token-Resolver uebergeben.
+- **Tests fehlen:** `"Game [NTSC-J]"` → `Region: JP`; `"Game [Brazil]"` → `Region: BR`; eckige und runde Klammern-Tokens beide erkannt.
+
+---
+
+### R5-A-07 — `DatIndex.MaxEntriesPerConsole` default 0 = unbegrenzt
+**Tags:** `dat` `memory` `dos` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [DatIndex.cs](../../src/Romulus.Contracts/Models/DatIndex.cs#L20)
+- **Problem:** `MaxEntriesPerConsole` default `0` → Kapazitaetsguard inaktiv. Boesartige DAT mit Millionen Eintraegen fuellt Index unbegrenzt → OOM-Exception.
+- **Fix:** Vernuenftigen Default setzen: `MaxEntriesPerConsole = 500_000`.
+- **Tests fehlen:** DAT mit > MaxEntriesPerConsole Eintraegen → `DroppedByCapacityLimit > 0`, kein OOM. Default-Instance → `MaxEntriesPerConsole > 0`.
+
+---
+
+### R5-A-08 — `SourceIntegrityClassifier`: `.wud`, `.dax`, `.zso`, `.jso`, `.wux` fehlen
+**Tags:** `conversion` `integrity` `blocked-conversion` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [SourceIntegrityClassifier.cs](../../src/Romulus.Core/Conversion/SourceIntegrityClassifier.cs#L10)
+- **Problem:** `.wud`, `.wux`, `.tgc` (verlustfreie Wii-U/GC-Images) fallen in `Unknown` → Konversion geblockt. `.dax`, `.zso`, `.jso` (komprimierte PSP-Formate) ebenso falsch eingestuft.
+- **Fix:** `LosslessExtensions` um `.wud`, `.wux`, `.tgc` ergaenzen; `LossyExtensions` um `.dax`, `.zso`, `.jso`.
+- **Tests fehlen:** `.wud` → `Lossless`; `.dax` → `Lossy`; Konversionsplan `.wud→.rvz` nicht geblockt.
+
+---
+
+### R5-A-09 — `HypothesisResolver`: DAT-Gate `datAvailable: false` hardcoded
+**Tags:** `classification` `dat-gate` `adr-0021` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [HypothesisResolver.cs](../../src/Romulus.Core/Classification/HypothesisResolver.cs#L229)
+- **Problem:** `DecisionResolver.Resolve(..., datAvailable: false, ...)` immer fest. Strukturelle Tier-1-Evidenz kann `Sort` erreichen auch wenn ein DAT geladen ist, das die Datei NICHT enthaelt. Das konservative DAT-Gate (ADR-0021 Phase 1) wirkt nur via `EnrichmentPipelinePhase`, nicht bei direktem `DetectWithConfidence`-Aufruf.
+- **Fix:** Dokumentation explizit festhalten dass DAT-Gate NUR via `EnrichmentPipelinePhase` aktiv ist. Alternativ: optionalen `bool datAvailable`-Parameter ergaenzen.
+- **Tests fehlen:** Direkter `DetectWithConfidence`-Aufruf auf Tier-1-Datei ohne Enrichment → erzeugt `Sort` (Gap vs. Enrichment-Pfad belegt).
+
+---
+
+### R5-A-10 — `ConversionPolicyEvaluator`: `ManualOnly + Unknown` Risikogrund nicht maschinenlesbar
+**Tags:** `conversion` `policy` `ux` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [ConversionPolicyEvaluator.cs](../../src/Romulus.Core/Conversion/ConversionPolicyEvaluator.cs#L35)
+- **Problem:** `ManualOnly` + `Unknown`-Integrity → beide `Safety = Risky`. Im Batch-Review-Modus "Alle Risky genehmigen" werden Unknown-Integrity-Dateien ohne Einzelpruefung konvertiert; Unterschied zwischen Policy-Risky und Unknown-Source-Risky geht verloren.
+- **Fix:** `ConversionSafety` um `RiskyUnknownSource` erweitern oder maschinenlesbaren `RiskReason` am Plan anfuegen.
+- **Tests fehlen:** `Unknown`-Integrity + `ManualOnly` + lossless → Plan hat `RequiresReview=true`, Grund maschinenlesbar unterscheidbar.
+
+---
+
+### R5-A-11 — `RuleEngine._regexCache`: Eviction entfernt FIFO statt LRU
+**Tags:** `performance` `caching` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [RuleEngine.cs](../../src/Romulus.Core/Rules/RuleEngine.cs#L152)
+- **Problem:** `_regexCache.Keys.Take(MaxRegexCacheSize / 4)` auf `ConcurrentDictionary` ohne Ordnungsgarantie → effektiv zufaellige Eviction. Haeufig genutzte Patterns koennen evicted werden.
+- **Fix:** `ConcurrentDictionary` durch `LruCache<string, Regex?>` aus `Romulus.Core.Caching` ersetzen (thread-safe, echter LRU vorhanden).
+- **Tests fehlen:** Eviction unter Last → haeufig verwendetes Pattern bleibt im Cache (LRU-Invariant).
+
+---
+
+### R5-A-12 — `FormatScorer.RegionScoreCache`: unbegrenztes Wachstum
+**Tags:** `scoring` `memory` `api` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [FormatScorer.cs](../../src/Romulus.Core/Scoring/FormatScorer.cs#L253)
+- **Problem:** `RegionScoreCache` (`Dictionary<string, IReadOnlyDictionary<string, int>>`) ohne Size-Limit. Im API-Betrieb mit beliebigen `preferRegions`-Konfigurationen nicht-begrenztes Speicherwachstum moeglich.
+- **Fix:** Cache durch `LruCache<string, IReadOnlyDictionary<string, int>>` mit Groesse 100 ersetzen.
+- **Tests fehlen:** 200 verschiedene `preferOrder`-Kombinationen → Cachegroeße bleibt ≤ 100.
+
+---
+
+### R5-A-13 — `IFileSystem.MoveItemSafely(src, dst)`: kein Path-Containment im Contract
+**Tags:** `security` `path-traversal` `contract` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [IFileSystem.cs](../../src/Romulus.Contracts/Ports/IFileSystem.cs#L28)
+- **Problem:** Zweiargumentiger `MoveItemSafely`-Overload ohne `allowedRoot` bietet keinen Contract-Level-Schutz gegen Path Traversal. Callers koennen die sichere dreiargumentige Variante uebersehen.
+- **Fix:** Basis-Overload mit `[Obsolete]`-Annotation und Security-Hinweis markieren. Alternativ: XML-Doc-Kommentar mit explizitem Sicherheitshinweis.
+- **Tests fehlen:** Contract-Level-Test: Basis-Overload mit Traversal-Pfad – Implementierungsschicht muss schuetzen, Contract dokumentiert es nicht.
+
+---
+
+### R5-A-14 — `DedupeGroup.Winner = null!`: luegt ueber Nullbarkeit
+**Tags:** `contracts` `nullability` `nre-risk` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [RomCandidate.cs](../../src/Romulus.Contracts/Models/RomCandidate.cs#L62)
+- **Problem:** `public RomCandidate Winner { get; init; } = null!;` – `!`-Operator unterdruckt Null-Warning. Direkte Instanziierung ohne `Winner`-Setzen fuehrt zur Laufzeit-NRE.
+- **Fix:** `Winner` als `required` deklarieren oder Typ auf `RomCandidate?` aendern.
+- **Tests fehlen:** `new DedupeGroup { GameKey = "test" }` ohne Winner → Compile-Error (required) oder klare Runtime-Exception.
+
+---
+
+### R5-A-15 — `GameKeyNormalizer.AsciiFold`: NFC/NFD-Kollision undokumentiert
+**Tags:** `gamekeys` `documentation` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [GameKeyNormalizer.cs](../../src/Romulus.Core/GameKeys/GameKeyNormalizer.cs#L160)
+- **Problem:** NFC/NFD-aequivalente Strings erzeugen absichtlich denselben Key – undokumentiert, wirkt wie Bug.
+- **Fix:** XML-Kommentar bei `AsciiFold`: "NFD/NFC-aequivalente Strings werden absichtlich auf denselben Wert normalisiert."
+- **Tests fehlen:** NFC- und NFD-aequivalenter Input → gleicher Key (Invariant-Dokumentation als Test).
+
+---
+
+### R5-A-16 — `ConversionGraph.GetOutgoingEdges`: Tiebreaker fuer gleiche Kosten nicht stabil
+**Tags:** `conversion` `determinism` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [ConversionGraph.cs](../../src/Romulus.Core/Conversion/ConversionGraph.cs#L110)
+- **Problem:** `enqueueOrder`-Tiebreaker bei identischen Dijkstra-Pfadkosten haengt von `_capabilities`-Reihenfolge ab (keine stabile Ordnung aus IConversionRegistry).
+- **Fix:** Expliziter Tiebreaker auf Ziel-Extension bei gleichem Pfadkosten: alphabetisch kleinsten Target gewinnen lassen.
+- **Tests fehlen:** Zwei gleich-kostige Pfade A→C direkt und A→B→C → deterministisch derselbe Winner bei identischen Inputs.
+
+---
+
+### R5-A-17 — `SafeRegex.Replace` ad-hoc Overload in `GameKeyNormalizer`
+**Tags:** `performance` `regex` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [GameKeyNormalizer.cs](../../src/Romulus.Core/GameKeys/GameKeyNormalizer.cs#L263)
+- **Problem:** `SafeRegex.Replace(key, @"\s+", ...)` bei jedem Aufruf; BCL-Cache nur 15 Patterns. Statisches precompiled-Feld waere sicherer.
+- **Fix:** `private static readonly Regex WhitespaceCollapseRegex = new(@"\s+", RegexOptions.Compiled, DefaultTimeout);` als statisches Feld.
+- **Tests fehlen:** Performance-Test 10K Iterationen – kein Overhead durch Neukompilierung.
+
+---
+
+### R5-A-18 — `FolderKeyNormalizer`: direkte Regex-Calls ohne SafeRegex
+**Tags:** `gamekeys` `consistency` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [FolderKeyNormalizer.cs](../../src/Romulus.Core/GameKeys/FolderKeyNormalizer.cs#L38)
+- **Problem:** `TrailingBracketPattern.IsMatch/Replace` direkt aufgerufen (nicht ueber `SafeRegex`). Inkonsistent zum Rest des Projekts.
+- **Fix:** Alle Regex-Aufrufe in `FolderKeyNormalizer` ueber `SafeRegex.IsMatch`/`SafeRegex.Replace` fuehren.
+- **Tests fehlen:** Ausnahme-Invariante: `GetFolderBaseKey` wirft nie – auch bei extremen Inputs.
+
+---
+
+### R5-A-19 — `ConversionConditionEvaluator`: `_ => false` fuer unbekannte Enum-Werte
+**Tags:** `conversion` `fail-fast` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [ConversionConditionEvaluator.cs](../../src/Romulus.Core/Conversion/ConversionConditionEvaluator.cs#L40)
+- **Problem:** Switch mit `_ => false`: neue `ConversionCondition`-Werte ohne Evaluator liefern still `false` statt Fehler → Capability nie aktiviert ohne Hinweis.
+- **Fix:** `_ => throw new NotSupportedException($"ConversionCondition '{condition}' has no evaluator.")` oder zumindest `Trace.TraceWarning`.
+- **Tests fehlen:** Neuer `ConversionCondition`-Wert ohne Evaluator → Warnung/Exception statt stiller `false`.
+
+---
+
+### R5-A-20 — `RegionDetector.NormalizeRegionKey`: `"BR"`, `"AU"`, `"NZ"` undokumentiert passiert
+**Tags:** `region-detection` `documentation` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [RegionDetector.cs](../../src/Romulus.Core/Regions/RegionDetector.cs#L174)
+- **Problem:** `"BR"` (Brazil), `"AU"` (Australia), `"NZ"` (New Zealand) werden nicht explizit behandelt. Inkonsistent zum EU-Aggregationsmuster. Brasilianische ROMs haeufig im No-Intro-Katalog als `"(Brazil)"`.
+- **Fix:** Kommentar ergaenzen, dass `"BR"` absichtlich als eigene Region behalten wird (korrekte Region, kein Mapping auf US/EU/JP).
+- **Tests fehlen:** `"(Brazil)"` → `Region: BR` (Invariant-Dokumentation).
+
+---
+
+### R5-B-01 — Zip-Slip in TryParse7zDat: Extraktion unkontrolliert
+**Tags:** `security` `zip-slip` `dat` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [DatRepositoryAdapter.cs](../../src/Romulus.Infrastructure/Dat/DatRepositoryAdapter.cs#L536)
+- **Problem:** `TryParse7zDat` extrahiert mit `7z x -y -o{tempDir} {archivePath}`. Post-hoc-Validierung filtert nur welche Dateien gelesen werden – nicht welche 7z tatsaechlich geschrieben hat. Archiv mit `../`-Sequenzen kann Dateien ausserhalb `tempDir` platzieren.
+- **Fix:** Nach Extraktion alle Files mit `GetFiles(tempDir, "*", AllDirectories)` enumerieren und `Path.GetFullPath(f).StartsWith(normalizedTemp)` fuer ALLE pruefen. Alternativ 7z mit `-snl` aufrufen.
+- **Tests fehlen:** Crafted 7z mit `../../evil.bat` → kein File ausserhalb tempDir.
+
+---
+
+### R5-B-02 — Unendliche Rekursion in TryParse7zDat bei geschachteltem 7z
+**Tags:** `security` `stack-overflow` `dat` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [DatRepositoryAdapter.cs](../../src/Romulus.Infrastructure/Dat/DatRepositoryAdapter.cs#L556)
+- **Problem:** `ParseDatFileInternal` → `TryParse7zDat` → `ParseDatFileInternal(innerDatPath)`. Ist die extrahierte Datei ebenfalls ein 7z-Archiv, entsteht unbegrenzte Rekursion → `StackOverflowException` crasht den Host-Prozess.
+- **Fix:** `depth`-Parameter zu `ParseDatFileInternal` hinzufuegen (max Tiefe 1 oder 2); oder in `TryParse7zDat` pruefen `if (Is7zFile(innerDatPath)) { log; return empty; }`.
+- **Tests fehlen:** 7z-DAT das intern ein weiteres 7z enthaelt → kein StackOverflow, leere Results + Warning.
+
+---
+
+### R5-B-03 — `ValidateMagicHeader` nie im Produktionspfad aufgerufen
+**Tags:** `conversion` `validation` `data-loss` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [ConversionOutputValidator.cs](../../src/Romulus.Infrastructure/Conversion/ConversionOutputValidator.cs#L84)
+- **Problem:** `ValidateMagicHeader` prueft Magic Bytes fuer .zip, .7z, .rvz, .gcz, .wbfs, .cso – wird aber in `TryValidateCreatedOutput` NICHT aufgerufen. Nur Dateigroesse wird geprueft. Eine Konversion die eine Fehlermeldung als .rvz ausgibt besteht die Validierung; Source wird in Trash verschoben.
+- **Fix:** `ValidateMagicHeader` direkt in `TryValidateCreatedOutput` nach der Groessenprufung integrieren (Pflicht fuer Final-Outputs).
+- **Tests fehlen:** Konversion produziert Datei mit falschem Magic-Header → `TryValidateCreatedOutput` gibt `false` zurueck.
+
+---
+
+### R5-B-04 — `FileSystemAdapter`-Singleton: `_scanWarnings` Race-Condition
+**Tags:** `concurrency` `api` `data-integrity` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [FileSystemAdapter.cs](../../src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs#L19)
+- **Problem:** `FileSystemAdapter` als Singleton mit `_scanWarnings: List<string>`. Im API-Betrieb mit parallelen Requests cleart Request A beim Scan-Start die Warnings von Request B. Audit-Trail fuer parallele Scans inkorrekt.
+- **Fix:** `_scanWarnings` per-call lokal halten (`out`-Parameter oder Tuple-Rueckgabe). Alternativ `FileSystemAdapter` als Scoped registrieren.
+- **Tests fehlen:** 2 parallele `GetFilesSafe`-Aufrufe → Warnings des einen kontaminieren den anderen nicht.
+
+---
+
+### R5-B-05 — DAT XML-Parsing-Loop: kein CancellationToken
+**Tags:** `cancellation` `performance` `ux` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [DatRepositoryAdapter.cs](../../src/Romulus.Infrastructure/Dat/DatRepositoryAdapter.cs#L266)
+- **Problem:** `while (reader.Read())` ohne `cancellationToken.ThrowIfCancellationRequested()`. DAT-Dateien bis 100 MB / 100.000+ Eintraege. Abbruch-Request blockiert fuer mehrere Sekunden.
+- **Fix:** `CancellationToken`-Parameter zu `GetDatIndex`, `ParseDatFileInternal`, `GetDatParentCloneIndex` hinzufuegen. Im Loop: `if (++entryCount % 1000 == 0) ct.ThrowIfCancellationRequested()`.
+- **Tests fehlen:** DAT-Parse mit vorauslaufender Cancellation → `OperationCanceledException`, kein Partial-State.
+
+---
+
+### R5-B-06 — `BuildSummary` wirft `InvalidOperationException` im Report-Pfad
+**Tags:** `reporting` `crash` `error-handling` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [RunReportWriter.cs](../../src/Romulus.Infrastructure/Reporting/RunReportWriter.cs#L92)
+- **Problem:** Invariant-Bruch in `BuildSummary` wirft `InvalidOperationException`, die durch `WriteReport` und `TryGenerateRequestedReport` nicht gefangen wird. Nutzer erhaelt weder Bericht noch klare Fehlermeldung.
+- **Fix:** Spezifische `ReportAccountingException` werfen oder Invariante als non-fatal Warnung loggen. `WriteReport` braucht expliziten `catch (InvalidOperationException)` mit Logging.
+- **Tests fehlen:** `RunResult` mit unbalancierten TotalFiles/Candidates-Zaehlers → kein unkontrollierter Exception-Propagation.
+
+---
+
+### R5-B-07 — Set-Member-Move-Loop: kein Cancellation in innerer Schleife
+**Tags:** `cancellation` `move` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [MovePipelinePhase.cs](../../src/Romulus.Infrastructure/Orchestration/MovePipelinePhase.cs#L190)
+- **Problem:** `foreach (var plannedMemberMove in plannedMemberMoves)` ohne Cancellation-Pruefung. Grosse Disc-Sets (PS2: 20+ BIN-Tracks) werden ohne Unterbrechungsmoeglichkeit bewegt.
+- **Fix:** Am Anfang der inneren Schleife `cancellationToken.ThrowIfCancellationRequested()` einfuegen.
+- **Tests fehlen:** Viele Set-Members + vorauslaufende Cancellation → Rollback vollstaendig, kein Halb-Zustand.
+
+---
+
+### R5-B-08 — 7z `-oPath`-Argument ohne Quoting bei Leerzeichen in TempDir
+**Tags:** `security` `argument-injection` `dat` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [DatRepositoryAdapter.cs](../../src/Romulus.Infrastructure/Dat/DatRepositoryAdapter.cs#L526)
+- **Problem:** `var outArg = $"-o{tempDir}"` – bei `Path.GetTempPath()` mit Leerzeichen (`C:\Users\Max Mustermann\...`) interpretiert 7z nur Pfad bis zum ersten Leerzeichen als Ausgabeverzeichnis.
+- **Fix:** `var outArg = $"-o\"{tempDir}\""` oder sicherstellen dass `IToolRunner.InvokeProcess` Array-Argumente korrekt quotiert.
+- **Tests fehlen:** TempDir-Pfad mit Leerzeichen → 7z-Extraktion erfolgreich.
+
+---
+
+### R5-B-09 — `_nfcCache` statisch und unbegrenzt wachsend
+**Tags:** `memory` `performance` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [FileSystemAdapter.cs](../../src/Romulus.Infrastructure/FileSystem/FileSystemAdapter.cs#L58)
+- **Problem:** `private static readonly ConcurrentDictionary<string, string> _nfcCache` – bei langlaufenden API-Servern mit tausenden Dateipfaden unbegrenztes Wachstum.
+- **Fix:** `MemoryCache` mit Sliding Expiration oder Cache bei jedem neuen Run flushen.
+
+---
+
+### R5-B-10 — Preflight `TryValidateWritablePath` modifiziert Last-Write-Time
+**Tags:** `filesystem` `side-effect` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [RunOrchestrator.cs](../../src/Romulus.Infrastructure/Orchestration/RunOrchestrator.cs#L162)
+- **Problem:** `FileMode.OpenOrCreate, FileAccess.Write` auf bestehende Datei aendert Metadaten. Kommentar verspricht "side-effect free" – ist es nicht.
+- **Fix:** `FileMode.Open` statt `FileMode.OpenOrCreate` fuer bestehende Dateien verwenden.
+
+---
+
+### R5-B-11 — `TryGeneratePartialDatAudit` ignoriert Cancellation
+**Tags:** `cancellation` `ux` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [RunOrchestrator.PreviewAndPipelineHelpers.cs](../../src/Romulus.Infrastructure/Orchestration/RunOrchestrator.PreviewAndPipelineHelpers.cs#L167)
+- **Problem:** `phase.Execute(..., CancellationToken.None)` im Cancellation-Handler. Partial DAT-Audit nach User-Abbruch nicht abbrechbar.
+- **Fix:** Originalen `cancellationToken` uebergeben oder `CancellationTokenSource` mit kurzem Timeout (5s).
+
+---
+
+### R5-C-01 — `OnlyGames`-Validierungslogik invertiert: jeder Standard-API-Call schlaegt mit HTTP 400 fehl
+**Tags:** `api` `validation-logic` `release-blocker` `P0`
+- [ ] **Fix umsetzen**
+- **File:** [Program.RunWatchEndpoints.cs](../../src/Romulus.Api/Program.RunWatchEndpoints.cs#L660)
+- **Problem:** `if (!request.OnlyGames && !request.KeepUnknownWhenOnlyGames)` feuert wenn BEIDE Felder `false` sind – das ist der valide Standard-Aufruf. Jeder API-Client ohne explizite `onlyGames`/`keepUnknownWhenOnlyGames`-Belegung erhaelt HTTP 400.
+- **Fix:** `if (request.KeepUnknownWhenOnlyGames && !request.OnlyGames)` – nur ablehnen wenn `keepUnknownWhenOnlyGames=true AND onlyGames=false`.
+- **Tests fehlen:** POST `/runs` mit leerem Body (alle bool-Defaults `false`) → HTTP 202 (Regression). `keepUnknownWhenOnlyGames=true, onlyGames=false` → 400. `keepUnknownWhenOnlyGames=true, onlyGames=true` → 202.
+
+---
+
+### R5-C-02 — Redundanter `lock (_activeLock)` in `TryCreateOrReuse` (strukturell fehlerhaft)
+**Tags:** `concurrency` `api` `structural` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [RunLifecycleManager.cs](../../src/Romulus.Api/RunLifecycleManager.cs#L151)
+- **Problem:** Innerhalb von `lock (_activeLock)` (aussen, Zeile 56) befindet sich ein zweiter `lock (_activeLock)` (innen, Zeile 151). C# erlaubt Re-entry auf demselben Thread → kein Deadlock, aber strukturell irrefuehrend. Verdeckt kuenftige Aenderungen, die einen echten Deadlock verursachen koennten.
+- **Fix:** Inneren `lock (_activeLock)`-Block entfernen – der aeussere Lock schuetzt bereits vollstaendig.
+- **Tests fehlen:** Gleichzeitige POST `/runs`-Anfragen → Active-Conflict-Handling ohne Deadlock.
+
+---
+
+### R5-C-03 — `/watch/start`: Request-Body ohne explizites Groessenlimit
+**Tags:** `security` `dos` `api` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [Program.RunWatchEndpoints.cs](../../src/Romulus.Api/Program.RunWatchEndpoints.cs#L843)
+- **Problem:** `ReadToEndAsync()` ohne explizites Limit; POST `/runs` hat expliziten `MaxBytesReader` (1 MB-Check). Inkonsistenz: Buffer-Memory-Fenster offen bis Kestrel eingreift.
+- **Fix:** `if (ctx.Request.ContentLength is > 1_048_576) return ApiError(400, ...)` vor `ReadToEndAsync()`.
+- **Tests fehlen:** POST `/watch/start` mit body > 1 MB → 400.
+
+---
+
+### R5-C-04 — `/metadata/enrich` und `/metadata/enrich/batch`: kein expliziter Body-Size-Check
+**Tags:** `security` `dos` `api` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [Program.MetadataEndpoints.cs](../../src/Romulus.Api/Program.MetadataEndpoints.cs)
+- **Problem:** `ReadFromJsonAsync<T>` ohne Content-Length-Check. POST `/runs` prueft explizit auf 1 MB; inkonsistentes Security-Modell. Angreifer kann per `/metadata/enrich/batch` (bis 100 Items) Memory-Exhaustion versuchen.
+- **Fix:** Vor `ReadFromJsonAsync` `if (ctx.Request.ContentLength is > 1_048_576) return ApiError(400, ...)` einfuegen.
+- **Tests fehlen:** POST `/metadata/enrich/batch` mit body > 1 MB → 400 mit ApiError-Struktur.
+
+---
+
+### R5-C-05 — PUT `/profiles/{id}`: Body-Size nicht explizit validiert
+**Tags:** `security` `dos` `api` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [Program.ProfileWorkflowEndpoints.cs](../../src/Romulus.Api/Program.ProfileWorkflowEndpoints.cs)
+- **Problem:** `RunProfileDocument profile` ueber implizites Model Binding gebunden ohne 1-MB-Check. Analog R5-C-04.
+- **Fix:** `.AddBodySizeLimit(1_048_576)` auf Endpoint oder expliziter Content-Length-Check.
+- **Tests fehlen:** PUT mit body > 1 MB → 400.
+
+---
+
+### R5-C-06 — `ExtensionFilterItem.PropertyChanged`: kein Unsubscribe in `Dispose()`
+**Tags:** `wpf` `memory-leak` `lifecycle` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [MainViewModel.cs](../../src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs#L614)
+- **Problem:** `InitExtensionFilters()` subscribed `item.PropertyChanged += OnExtensionCheckedChanged`. `Dispose()` enthaelt keine Schleife zum Abmelden dieser Handler. Jedes `ExtensionFilterItem`/`ConsoleFilterItem` haelt Referenz auf `MainViewModel`.
+- **Fix:** In `Dispose()` `foreach (var item in ExtensionFilters) item.PropertyChanged -= OnExtensionCheckedChanged;` und analog fuer `ConsoleFilters`.
+- **Tests fehlen:** `MainViewModel.Dispose()` → danach keine `PropertyChanged`-Callbacks mehr auf geclearten Items.
+
+---
+
+### R5-C-07 — Fire-and-Forget `Task.Run` in `ArmInlineMoveConfirmDebounce`: Exception unbeobachtet
+**Tags:** `wpf` `async` `exception-handling` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [MainViewModel.cs](../../src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs#L628)
+- **Problem:** `_ = Task.Run(async () => { ... })` – Ergebnis verworfen. `ObjectDisposedException` oder `TaskCanceledException` nach Dispose des ViewModels waere unobserved. `App.xaml.cs` registriert kein `TaskScheduler.UnobservedTaskException`.
+- **Fix:** try/catch im Task-Body: unerwartete Exceptions explizit loggen oder deliberat swallowed.
+- **Tests fehlen:** Dispose vor Debounce-Expiry verursacht keine unbehandelte Exception.
+
+---
+
+### R5-C-08 — `RunService`: DI-Bypass-Konstruktor ohne Dokumentation
+**Tags:** `wpf` `di` `testability` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [RunService.cs](../../src/Romulus.UI.Wpf/Services/RunService.cs#L31)
+- **Problem:** Parameterloser Konstruktor instanziiert `RunEnvironmentFactory` direkt ohne DI (`DI-BYPASS-JUSTIFIED`-Kommentar). Im Produktionspfad wird dieser Konstruktor via DI-Container nicht verwendet, aber er ist `public` und erlaubt direkte Instanziierung mit hardcoded Abhaengigkeiten.
+- **Fix:** Konstruktor dokumentieren oder entfernen, da `App.xaml.cs` DI-Instanz liefert.
+- **Tests fehlen:** `RunService` ueber DI-Container aufgeloest verhalt sich identisch zu direkt instanziiertem.
+
+---
+
+### R5-C-09 — `SettingsService.SettingsWriteLock` ist `static` – serializiert Parallel-Tests
+**Tags:** `testing` `concurrency` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [SettingsService.cs](../../src/Romulus.UI.Wpf/Services/SettingsService.cs#L18)
+- **Problem:** `private static readonly object SettingsWriteLock = new()` – prozessweiter Lock. Parallele Tests mit mehreren `SettingsService`-Instanzen serialisiert → Flakiness und Timeouts moeglich.
+- **Fix:** Im Produktionscode (Singleton) kein Problem; fuer Tests: Settings-Pfade pro Test-Instance isolieren. Optional Lock auf Instanzebene wenn Service nicht als Singleton garantiert werden kann.
+- **Tests fehlen:** Paralleltest: zwei `SettingsService`-Instanzen schreiben gleichzeitig – kein Deadlock/Timeout.
+
+---
+
+## Round 6 – Neue Funde
+
+> Scope: `R6-A-*` = CLI + Tools + Hashing + Safety + Sorting, `R6-B-*` = Data/Schemas/i18n + Loader, `R6-C-*` = XAML + Resources + Build + Avalonia-Views.
+> Neue Funde: 0 P0 / 6 P1 / 18 P2 / 12 P3 = 36 gesamt. Kumulativ: 19 P0 / 71 P1 / 107 P2 / 52 P3 = **249 Gesamt**.
+
+---
+
+### R6-A-01 — 7z-Extraktion ohne Cancellation waehrend Long-Run-Teil
+**Tags:** `cancellation` `tool-integration` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [ArchiveHashService.cs](../../src/Romulus.Infrastructure/Hashing/ArchiveHashService.cs#L240)
+- **Problem:** `Hash7zEntries` ruft `_toolRunner.InvokeProcess(...)` ueber Ueberladung mit `CancellationToken.None`. Cancel/Ctrl+C blockiert bis Default-Timeout (30 min). Auch `ListArchiveEntries`-Vorschau und `GetArchiveEntryNames` nicht abbrechbar.
+- **Fix:** `IToolRunner.InvokeProcess`-Ueberladung mit `CancellationToken` plus Timeout (10 min) verwenden und `ct` durchreichen.
+- **Tests fehlen:** Cancellation-Test waehrend laufender 7z-Extraktion → `OperationCanceledException` innerhalb < 1 s.
+
+---
+
+### R6-A-02 — ChdTrackHashExtractor ohne Cancellation und Timeout-Override
+**Tags:** `cancellation` `tool-integration` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [ChdTrackHashExtractor.cs](../../src/Romulus.Infrastructure/Hashing/ChdTrackHashExtractor.cs#L29)
+- **Problem:** `ExtractDataSha1` ruft `chdman info` ohne `CancellationToken` und ohne `timeout`. Korrupte CHDs koennen Pipeline bis 30 min blockieren.
+- **Fix:** Signatur `ExtractDataSha1(string chdPath, CancellationToken ct = default)`; Aufrufer durchreichen; `TimeSpan.FromMinutes(2)` als Timeout.
+- **Tests fehlen:** Cancel-Test mit fake `IToolRunner`, der Cancel-Token respektiert.
+
+---
+
+### R6-A-03 — Decompression-Bomb-Schutz fehlt fuer 7z-Archive
+**Tags:** `security` `dos` `disk-exhaustion` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [ArchiveHashService.cs](../../src/Romulus.Infrastructure/Hashing/ArchiveHashService.cs#L99)
+- **Problem:** Nur `_maxArchiveSizeBytes` (Default 500 MB) auf KOMPRIMIERTE Datei geprueft. 7z mit hoher Kompression (100:1) kann aus 100 MB > 10 GB in `Path.GetTempPath()` schreiben → Disk voll → parallele Move-Phasen scheitern → Datenverlust-Risiko.
+- **Fix:** Vor `7z x` per `7z l -slt` Summe der `Size`-Felder parsen. Wenn > unkomprimierter Limit (z.B. 2 GB) abbrechen. Zusaetzlich `DriveInfo(tempDir).AvailableFreeSpace` pruefen. Analog fuer `.zip`.
+- **Tests fehlen:** Zip mit Entries `Length` > Limit → leeres Hash-Array, keine Datei in tempDir.
+
+---
+
+### R6-A-04 — `ROMULUS_CONVERSION_TOOLS_ROOT`-Override ohne Pfad-Sicherheit
+**Tags:** `security` `tool-hijack` `path-validation` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [ToolRunnerAdapter.cs](../../src/Romulus.Infrastructure/Tools/ToolRunnerAdapter.cs#L242)
+- **Problem:** `ResolveConversionToolsRoot` liest Env-Variable ungeprueft und setzt sie VOR `ProgramFiles`. Kein Check gegen Reparse-Points/UNC/Drive-Roots. Angreifer mit Env-Setzrecht kann Tool-Discovery in `\\evil-host\share\chdman.exe` umleiten. Hash-Verify mitigiert nur partiell.
+- **Fix:** Override-Pfad durch `SafetyValidator.NormalizePath` schicken; ablehnen wenn UNC/Drive-Root/Reparse-Point. Audit-Log emittieren wenn aktiv. Optional zusaetzlich `ROMULUS_ALLOW_TOOL_ROOT_OVERRIDE=1` verlangen.
+- **Tests fehlen:** Override mit `\\evil\share` → `FindTool` darf UNC nicht zurueckgeben.
+
+---
+
+### R6-A-05 — HeaderRepairService: `.bak`-Dateien akkumulieren unbegrenzt
+**Tags:** `data-hygiene` `disk-leak` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [HeaderRepairService.cs](../../src/Romulus.Infrastructure/Hashing/HeaderRepairService.cs#L53)
+- **Problem:** `RepairNesHeader`/`RemoveCopierHeader` erzeugen `path + ".bak"` mit `overwrite: true`. Wiederholte Reparaturen ueberschreiben Backup → Original-Stand verloren. Keine Audit-/Trash-/Undo-Integration. Re-Scans erfassen `.bak` nicht als Junk.
+- **Fix:** Backup in Trash-Root mit eindeutigem Namen (`<original>.<timestamp>.headerrepair.bak`) verschieben. Audit-Eintrag (`HEADER_REPAIR`) schreiben. Hygiene-Cleanup-Job ergaenzen.
+- **Tests fehlen:** Doppelte Reparatur derselben Datei → erstes `.bak` bleibt erhalten; Audit-Row geschrieben.
+
+---
+
+### R6-A-06 — HeaderRepairService nicht parallelisierungssicher (Race auf `.tmp`/`.bak`)
+**Tags:** `race-condition` `concurrency` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [HeaderRepairService.cs](../../src/Romulus.Infrastructure/Hashing/HeaderRepairService.cs#L48)
+- **Problem:** `path + ".tmp"` und `path + ".bak"` deterministisch ohne PID/GUID. Parallele Reparaturen kollidieren → `IOException` und halbgeschriebene `.tmp`-Reste. Crashed-Reste nach Restart koennen `File.Move(overwrite:true)` falsch interpretieren.
+- **Fix:** Per-Datei-Lock (`ConcurrentDictionary<string, SemaphoreSlim>` keyed auf `Path.GetFullPath`); eindeutige `.tmp`-Namen mit PID + GUID; verwaiste Romulus-Repair-Tmps (>5 min alt) beim Start aufraeumen.
+- **Tests fehlen:** Parallel-Test: zweimal `RemoveCopierHeader` auf dieselbe Datei aus zwei Tasks → genau eine Reparatur erfolgreich, keine Reste.
+
+---
+
+### R6-A-07 — Watch-Daemon Move-Modus ohne Rate-Limit / Loop-Bremse
+**Tags:** `data-loss-risk` `daemon` `safety` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [Program.cs](../../src/Romulus.CLI/Program.cs#L1370)
+- **Problem:** `SubcommandWatchAsync --mode Move --yes` triggert beliebig viele Move-Runs. Busy-Flag-Sperre da, aber kein Limit Runs/Stunde, kein Cool-Down nach Fehler, keine Self-Trigger-Suppression. Move-Targets innerhalb gewatchter Roots koennen Loops verursachen. `--yes` gilt fuer gesamte Daemon-Lebenszeit.
+- **Fix:** (a) Debounce-untere Schranke (min. 30 s); (b) Self-Trigger-Suppression fuer Move-Targets fuer N s nach eigenem Move; (c) max. Runs/Stunde konfigurierbar; (d) periodische Re-Bestaetigung oder hartes Time-Budget.
+- **Tests fehlen:** FakeWatchService 100 Events in 1 s → nur 1 Run; Move-Target-Self-Event wird gefiltert.
+
+---
+
+### R6-A-08 — `WriteAuditWarning` schreibt MOVE-aehnliche Audit-Zeile mit `oldPath==newPath==root`
+**Tags:** `audit-pollution` `data-quality` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [ConsoleSorter.cs](../../src/Romulus.Infrastructure/Sorting/ConsoleSorter.cs#L846)
+- **Problem:** Bei fehlendem Enrichment schreibt Sort eine Audit-Zeile mit `Action="CONSOLE_SORT"`, `RootPath=OldPath=NewPath=root`. Reports/KPIs/History koennten das als Sort-Operation zaehlen.
+- **Fix:** Eigene Action `"CONSOLE_SORT_WARNING"` oder `Category="WARNING"`; oder Warnings nur in JSONL-Run-Log statt Audit-CSV. Reports/KPI-Mapper anpassen.
+- **Tests fehlen:** Sort ohne `enrichedConsoleKeys` → keine Move-Zeile mit `OldPath==NewPath` in Audit-CSV.
+
+---
+
+### R6-A-09 — `IsRetryableProcessFailure` matcht "Win32" als Substring → falsche Retries
+**Tags:** `tool-integration` `false-positive` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [ToolRunnerAdapter.cs](../../src/Romulus.Infrastructure/Tools/ToolRunnerAdapter.cs#L348)
+- **Problem:** `output.Contains("Win32", OrdinalIgnoreCase)` matcht harmloses Tool-Output (Banner, Logs, Pfade mit "Win32"). Loest unnoetige Retry-Schleifen aus, idempotenz-unsichere Operationen koennten wiederholt werden.
+- **Fix:** Praezisere Pattern: nur `Win32Exception:`, `error code 0x80...`, oder Exit-Code `-1` PLUS `failed to start process`. "Win32"-Substring-Branch entfernen.
+- **Tests fehlen:** ToolResult `(ExitCode=1, Output="Win32 GDI module loaded")` → `IsRetryableProcessFailure=false`.
+
+---
+
+### R6-A-10 — `SubcommandEnrichAsync`: `Console.CancelKeyPress`-Handler-Leak und HttpClient-Singleton-Verstoss
+**Tags:** `resource-leak` `cli-hygiene` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [Program.cs](../../src/Romulus.CLI/Program.cs#L1497)
+- **Problem:** (1) `Console.CancelKeyPress += ...` ohne `-=` → in Tests/Re-Entry akkumulieren Handler. (2) `using var httpClient = new HttpClient()` umgeht `IHttpClientFactory`, parkt Sockets in TIME_WAIT bei wiederholten Aufrufen.
+- **Fix:** (1) Handler in Variable speichern, in `finally` mit `-=` entfernen. (2) HttpClient ueber `IHttpClientFactory`/`DatSourceService.CreateConfiguredHttpClient` beziehen.
+- **Tests fehlen:** `SubcommandEnrichAsync` zweimal in Folge → keine kumulierten Cancel-Handler.
+
+---
+
+### R6-B-01 — Tool-Hashes-Loader stuerzt bei nicht-String Werten in `Tools`
+**Tags:** `tool-hashes` `crash` `schema` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [ToolRunnerAdapter.cs](../../src/Romulus.Infrastructure/Tools/ToolRunnerAdapter.cs#L784)
+- **Problem:** `EnsureToolHashesLoaded` ruft `prop.Value.GetString()` ohne Kind-Pruefung. Schema erlaubt `additionalProperties: true`. Korrupte/feindliche `tool-hashes.json` (z.B. `"7z.exe": 1`) wirft `InvalidOperationException` – Catch fileart nur `IOException`/`JsonException`. Kompletter Run crasht. Zusaetzlich keine Hex-Validierung.
+- **Fix:** Schema haerten: `additionalProperties: { type: "string", pattern: "^[a-fA-F0-9]{64}$" }`. Loader: pro Eintrag `JsonValueKind.String` pruefen, regex-validieren, ungueltige Eintraege loggen+ueberspringen. `InvalidOperationException` in Catch.
+- **Tests fehlen:** Mixed `tool-hashes.json` (Zahl, Objekt, leerer String, gueltiger Hex) → Loader wirft nicht, nur gueltige Eintraege im Cache.
+
+---
+
+### R6-B-02 — Konsolen ohne `folderAliases` koennen nie aus Folder-Pfaden erkannt werden
+**Tags:** `consoles` `detection` `data-integrity` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [consoles.json](../../data/consoles.json)
+- **Problem:** `A800`, `GSUPD`, `MUGEN` haben weder Eintrag in `console-maps.json/ConsoleFolderMap` noch verwendete `folderAliases`. Folder-basierte Detection und FamilyDatPolicy laufen ins Leere. `dat-catalog.json` fuehrt aber `GSUPD`-Eintraege → stille Fehlklassifikation.
+- **Fix:** `folderAliases` ergaenzen und in `ConsoleFolderMap` referenzieren. Schema `folderAliases: minItems: 1` erzwingen.
+- **Tests fehlen:** Invariantentest: jede Console aus `consoles.json` ↔ `console-maps.json/ConsoleFolderMap` cross-checken.
+
+---
+
+### R6-B-03 — `discExtensions` enthaelt Container- und Patch-Formate
+**Tags:** `format-scores` `dat-fallback` `classification` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [format-scores.json](../../data/format-scores.json#L109)
+- **Problem:** `discExtensions` listet `.zip`, `.7z`, `.rar`, `.ecm`, `.cso`, `.pbp`, `.dax`, `.jso`, `.zso`. Cartridge-ZIP wird als disc-like behandelt → EnrichmentPipelinePhase Stage-4 erlaubt name-only DAT-Fallback fuer UNKNOWN-Console mit Cartridge-ZIP → Redump-Treffer schlaegt Cartridge-Treffer.
+- **Fix:** `discExtensions` strikt auf Disc-Container reduzieren. Container und PSP-Spezialformate ueber separate Felder (`archiveExtensions`, `pspImageExtensions`).
+- **Tests fehlen:** Cartridge-ZIP unter UNKNOWN → Stage-4 name-only DAT-Fallback abgelehnt; Schema-Test.
+
+---
+
+### R6-B-04 — Doppelte Compression-Ratios in `ui-lookups.json` und `conversion-registry.json`
+**Tags:** `single-source-of-truth` `conversion` `ui` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [conversion-registry.json](../../data/conversion-registry.json#L329)
+- **Problem:** Beide Dateien fuehren parallele `compressionEstimates`/`compressionRatios` mit teils abweichenden Werten. UI und Engine laufen auf zwei Wahrheiten → Drift-Vektor.
+- **Fix:** `conversion-registry.json/compressionEstimates` als Quelle behalten; `ui-lookups.json/compressionRatios` loeschen oder dynamisch ableiten.
+- **Tests fehlen:** Cleanup-Test: `compressionRatios` in `ui-lookups.json` nicht mehr existent (oder Cross-Check erzwungen).
+
+---
+
+### R6-B-05 — `createdvd` fuer XBOX/X360 erzeugt nicht abspielbare CHD-Dateien
+**Tags:** `conversion` `usability` `data-loss-risk` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [conversion-registry.json](../../data/conversion-registry.json#L60)
+- **Problem:** `iso→chd` mit `command: createdvd` listet `applicableConsoles: ["PS2", "XBOX", "X360"]`. XBOX/X360-ISOs sind XGD/XGD3 – chdman packt bit-getreu, aber kein XBOX/X360-Emulator (xemu, xenia) liest CHD-DVD. Default-UX laeuft in Sackgasse, Originale wandern in Trash.
+- **Fix:** XBOX/X360 aus `applicableConsoles` entfernen oder per Condition ausschliessen; alternativ `conversionPolicy: ManualOnly` und UI-Hinweis "nicht empfohlen".
+- **Tests fehlen:** ConversionPlanner schlaegt fuer XBOX/X360-ISO keine Auto-Capability vor.
+
+---
+
+### R6-B-06 — Schema-Validator meldet nur den ersten Fehler pro Datei
+**Tags:** `schema` `dx` `cleanup` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [StartupDataSchemaValidator.cs](../../src/Romulus.Infrastructure/Configuration/StartupDataSchemaValidator.cs#L49)
+- **Problem:** `ValidateSingleFile` wirft sofort `errors[0]`. Operator iteriert mehrfach durch das Fixen. Andere Dateien werden gar nicht erst validiert.
+- **Fix:** `ValidateNode` fortsetzen statt early-return; `ValidateRequiredFiles` sammelt Fehler aller Dateien und wirft konsolidierte `InvalidOperationException`.
+- **Tests fehlen:** Fehlerhafte `defaults.json` (mehrere Verstoesse) → alle Verstoesse in Exception-Message.
+
+---
+
+### R6-B-07 — `fr.json` mit 389 unuebersetzten Strings
+**Tags:** `i18n` `quality` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [fr.json](../../data/i18n/fr.json)
+- **Problem:** 389 Schluessel haben identischen Text wie `en.json`. Frankophone Nutzer sehen UI mit englischen Brocken trotz `AvailableLocales`-Eintrag.
+- **Fix:** Entweder uebersetzen oder Locale als "Beta" markieren / ausblenden via Vollstaendigkeits-Check.
+- **Tests fehlen:** Coverage-Test pro Locale: Quote `value == en[key]` < 5 % Schwelle.
+
+---
+
+### R6-B-08 — `rules.schema.json` validiert keine `Key`-Werte fuer Region-Listen
+**Tags:** `schema` `rules` `data-integrity` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [rules.schema.json](../../data/schemas/rules.schema.json#L13)
+- **Problem:** `RegionOrdered`/`Region2Letter` erlauben beliebige `Key`-Strings. Tippfehler `"WLD"` statt `"WORLD"` faellt nicht auf, kippt `preferredRegions`-Selektion still.
+- **Fix:** Schema um `enum` der zulaessigen Region-Keys ergaenzen (Master-Liste).
+- **Tests fehlen:** Schema-Test mit injizierter Region `"WLD"` → Fehlschlag.
+
+---
+
+### R6-B-09 — Schema-Validator hat keinen Tiefen-Guard (Stack-Overflow-Vektor)
+**Tags:** `security` `validator` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [StartupDataSchemaValidator.cs](../../src/Romulus.Infrastructure/Configuration/StartupDataSchemaValidator.cs#L52)
+- **Problem:** `ValidateNode` rekursiv ohne Tiefenzaehler. Modifizierte `*.schema.json` mit zirkulaerer/extrem tiefer Struktur → `StackOverflowException`, ungefangen → DoS gegen GUI/CLI/API beim Startup.
+- **Fix:** Tiefenparameter durchreichen, Cap (z.B. 64) erzwingen, `errors.Add(...)` bei Ueberschreitung.
+- **Tests fehlen:** Tief verschachteltes JSON (>100 Levels) → kontrollierte Fehlermeldung statt Crash.
+
+---
+
+### R6-B-10 — `defaults.json/extensions` als kommaseparierter String statt Array
+**Tags:** `defaults` `schema` `dx` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [defaults.json](../../data/defaults.json#L6)
+- **Problem:** `extensions` ist String wie `".zip,.7z,.rar,..."`, Schema typisiert nur `string` ohne Pattern. Whitespace/Newline brechen Split, Duplikate nicht erkannt. Inkonsistent zu `preferredRegions` (Array).
+- **Fix:** Auf `string[]` migrieren (Loader akzeptiert beides). Schema `array` mit Pattern `^\.[a-z0-9]+$`, `uniqueItems: true`.
+- **Tests fehlen:** Loader-Test mit Whitespace-Schmutz und Duplikaten; Schema-Test.
+
+---
+
+### R6-B-11 — Veralteter Kommentar in `LocalizationService.LoadStrings`
+**Tags:** `cleanup` `dx` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [LocalizationService.cs](../../src/Romulus.UI.Wpf/Services/LocalizationService.cs#L77)
+- **Problem:** Kommentar "Per-key fallback: DE base + overlay from target locale" passt nicht zur Implementierung (`LoadLocale("en")` als Basis).
+- **Fix:** Kommentar auf "EN base + overlay from target locale" korrigieren; Konstruktor-Verhalten klar dokumentieren.
+- **Tests fehlen:** Optional Coverage-Test: `SetLocale("xx")` mit nicht-existentem Locale → strikt EN-Werte.
+
+---
+
+### R6-B-12 — Wildcard `sourceExtension: "*"` re-archiviert bestehende Archive
+**Tags:** `conversion` `idempotency` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [conversion-registry.json](../../data/conversion-registry.json#L246)
+- **Problem:** ZIP-Normalisierungseintrag (`"sourceExtension": "*"` → `.zip`) matcht auch `.zip`/`.7z`. `Game.zip` → `Game.zip.zip` moeglich, Verify schlaegt fehl.
+- **Fix:** Capability-Match: source-extension darf nicht gleich target-extension sein. Oder Schema-Erweiterung um `excludedSourceExtensions: [".zip"]`.
+- **Tests fehlen:** Planer fuer `Tetris.zip` (NES) → keine `*→.zip`-Capability vorgeschlagen, fuer `Tetris.7z` schon.
+
+---
+
+### R6-C-01 — WebView2 in LibraryReportView ohne Sicherheits-Konfiguration und ohne Dispose
+**Tags:** `security` `xss` `webview2` `memory-leak` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [LibraryReportView.xaml.cs](../../src/Romulus.UI.Wpf/Views/LibraryReportView.xaml.cs#L34)
+- **Problem:** `webReportPreview.Source = ...` und `NavigateToString(...)` ohne CoreWebView2-Settings. `IsScriptEnabled`, `AreDevToolsEnabled` etc. auf Defaults (Scripts aktiv). Reports enthalten ROM-Dateinamen (User-Input) → Stored-XSS bei Encoding-Luecke moeglich, mit `file://`-Zugriff. WebView2 nie disposed → Hostprozess-Leak.
+- **Fix:** `IsScriptEnabled = false`, `AreDevToolsEnabled = false`, `IsWebMessageEnabled = false`. `NavigationStarting` mit Allowlist (nur `file://` unter ReportRoot). `Dispose()` in `Unloaded`.
+- **Tests fehlen:** Report mit `<script>alert(1)</script>` im ROM-Namen laden → IsScriptEnabled=false; Negativtest fuer Navigation auf `https://example.com`.
+
+---
+
+### R6-C-02 — `Process.Start` mit `UseShellExecute=true` fuer beliebige Catalog-URIs (Follina-Klasse)
+**Tags:** `security` `command-injection` `shell-execute` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [ToolsViewModel.cs](../../src/Romulus.UI.Wpf/ViewModels/ToolsViewModel.cs#L656)
+- **Problem:** `OpenRoadmapLink` akzeptiert beliebige absolute URIs aus `data/conversion-registry.json` und uebergibt sie an `ProcessStartInfo { FileName, UseShellExecute = true }`. `ms-msdt:`, `search-ms:`, `javascript:`, `file://...exe` lassen sich aufrufen → Lieferketten-Risiko.
+- **Fix:** Scheme-Allowlist erzwingen: nur `http`/`https`. Lokale Pfade ueber bestehende `OpenSafeShellPath`-Pipeline mit Extension-Allowlist.
+- **Tests fehlen:** Negativtest fuer `ms-msdt:`, `javascript:`, `file:`, `mailto:` → `Process.Start` darf nicht aufgerufen werden.
+
+---
+
+### R6-C-03 — Globaler `DispatcherUnhandledException` swallowed alle Exceptions
+**Tags:** `data-loss` `error-handling` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [App.xaml.cs](../../src/Romulus.UI.Wpf/App.xaml.cs#L122)
+- **Problem:** `OnDispatcherUnhandledException` setzt unconditionally `e.Handled = true`. Exceptions aus Move/Convert/Repair-Pfaden (per `Dispatcher.BeginInvoke` marshalliert) werden verschluckt. App laeuft mit halb-ausgefuehrtem Run weiter → Inkonsistenz im Audit-/Move-Plan.
+- **Fix:** Bei `_vm.IsBusy` Run abbrechen, Audit flushen, kontrolliert beenden statt `Handled=true`. Idle-Zustand: `Handled=true` zulaessig, aber Telemetrie/Reason-Code in ErrorSummary.
+- **Tests fehlen:** Exception waehrend `IsBusy=true` simulieren → App nicht still weiter, Cancel ausgeloest, Audit konsistent.
+
+---
+
+### R6-C-04 — `StartApiProcess` haerdcodierte Health-URL und String-Argument-Quoting
+**Tags:** `security` `argument-quoting` `hardcoded-url` `P1`
+- [ ] **Fix umsetzen**
+- **File:** [MainWindow.xaml.cs](../../src/Romulus.UI.Wpf/MainWindow.xaml.cs#L317)
+- **Problem:** (a) `Arguments = $"run --project \"{projectPath}\""` quotet manuell – `"` in Pfad ermoeglicht Argument-Injection an `dotnet`. (b) `http://127.0.0.1:5000/health` hardgecoded; bei anderem Port wird ein Fremdprozess auf Port 5000 angesprochen.
+- **Fix:** `ArgumentList.Add(...)` statt String-Interpolation. Health-URL aus tatsaechlicher API-Konfiguration (env/setting) oder erst nach erfolgreichem Health-Probe oeffnen.
+- **Tests fehlen:** ProjectPath mit `"` → kein gequetschtes Argument; Health-URL aus Settings.
+
+---
+
+### R6-C-05 — Fachliche Strings (DAT-Status-Labels) hardcoded im Converter
+**Tags:** `i18n` `architecture` `business-logic-in-converter` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [Converters.cs](../../src/Romulus.UI.Wpf/Converters/Converters.cs#L342)
+- **Problem:** `DatAuditStatusToLabelConverter` liefert hardgecoded "Have", "Wrong Name", "Miss", "Unknown", "Ambiguous". Umgeht i18n. `PhaseDetailConverter` koppelt zudem statisch an `FeatureService.GetLocalizedString`.
+- **Fix:** Labels in `LocalizationService` Keys (`DatAudit.Status.Have` etc.) verlagern. Converter liefert Enum→Key-String, Binding nutzt `Loc[...]`. PhaseDetailConverter durch DataTemplate/ViewModel-Property ersetzen.
+- **Tests fehlen:** Sprachumschaltung aendert DAT-Audit-Labels (DE/EN); Converter ohne `FeatureService`-Referenz.
+
+---
+
+### R6-C-06 — `PipelineWorkbenchView` ohne i18n und ohne `AutomationProperties`
+**Tags:** `i18n` `accessibility` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [PipelineWorkbenchView.xaml](../../src/Romulus.UI.Wpf/Views/PipelineWorkbenchView.xaml#L6)
+- **Problem:** Gesamte View nutzt rohe deutsche Strings, Buttons ohne `AutomationProperties.Name`. Tab loest Conversion/Sorting/Batch (Danger) aus.
+- **Fix:** Alle Texte auf `{Binding Loc[Pipeline.*]}`, Buttons mit `AutomationProperties.Name`.
+- **Tests fehlen:** Resource-Key-Test fuer alle sichtbaren Strings; Accessibility-Smoke-Test.
+
+---
+
+### R6-C-07 — Hardcodierte Statusfarben in DAT-Views umgehen Theme-System
+**Tags:** `theming` `accessibility` `style-consolidation` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [DatAuditView.xaml](../../src/Romulus.UI.Wpf/Views/DatAuditView.xaml#L41)
+- **Problem:** `Background="#00FF88"`, `"#FF0044"`, `"#FFB700"` etc. direkt im XAML. Theme-Switch (HighContrast/CleanDaylight) greift nicht; Kontrast (WCAG AA) gebrochen.
+- **Fix:** `{DynamicResource BrushSuccess/Danger/Warning/TextMuted/Ambiguous}` statt Hex-Literal.
+- **Tests fehlen:** Theme-Smoke-Test mit HighContrast → keine Neon-Farben in DAT-Views.
+
+---
+
+### R6-C-08 — `Global\Romulus_SingleInstance`-Mutex ohne ACL → Cross-Session-DoS
+**Tags:** `security` `dos` `single-instance` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [App.xaml.cs](../../src/Romulus.UI.Wpf/App.xaml.cs#L29)
+- **Problem:** Global-Mutex ohne `MutexSecurity`. Anderer User auf Multi-User-Host kann Mutex erzeugen → DoS gegen Erstuser. `AbandonedMutexException` wird nicht erkannt.
+- **Fix:** Auf `Local\` umstellen falls Cross-Session nicht noetig; sonst `MutexSecurity` mit `MutexAccessRule` fuer aktuellen User. `AbandonedMutexException` als createdNew=true behandeln.
+- **Tests fehlen:** AbandonedMutex simulieren → App startet; DACL-Sicherheits-Test.
+
+---
+
+### R6-C-09 — `LibraryReportView`-Lifecycle-Cleanup fehlt → WebView2-Hostprozess-Leak
+**Tags:** `memory-leak` `webview2` `lifecycle` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [LibraryReportView.xaml.cs](../../src/Romulus.UI.Wpf/Views/LibraryReportView.xaml.cs#L11)
+- **Problem:** `Loaded += OnLoaded` und Click-Lambda nie unsubscribed. msedgewebview2.exe bleibt laufen, Handler akkumulieren.
+- **Fix:** `Unloaded`-Handler: Loaded/Click-Handler entfernen, `webReportPreview.Dispose()`. Click-Handler als benannte Methode.
+- **Tests fehlen:** View 50× erzeugen+entladen → WebView2-Hostprozesse wachsen nicht linear.
+
+---
+
+### R6-C-10 — Avalonia-Views: keine `AutomationProperties`, keine `FallbackValue/TargetNullValue`, keine i18n
+**Tags:** `accessibility` `i18n` `binding-robustness` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [StartView.axaml](../../src/Romulus.UI.Avalonia/Views/StartView.axaml#L7)
+- **Problem:** `StartView`, `ProgressView`, `ResultView` nutzen ausschliesslich hardgecoded deutsche/englische Strings. Bindings ohne `FallbackValue/TargetNullValue`. Keine `AutomationProperties.Name` (Screenreader liest "ListBox").
+- **Fix:** Lokalisierungs-Service fuer Avalonia anbinden. `FallbackValue/TargetNullValue` setzen. `AutomationProperties.Name` fuer ListBox/Buttons.
+- **Tests fehlen:** Avalonia-i18n-Smoke-Test; A11y-Test ueber AutomationPeers.
+
+---
+
+### R6-C-11 — `ResultDialog.OnExport` ohne i18n und ohne CSV-Injection-Schutz
+**Tags:** `i18n` `export` `csv-injection` `P2`
+- [ ] **Fix umsetzen**
+- **File:** [ResultDialog.xaml.cs](../../src/Romulus.UI.Wpf/ResultDialog.xaml.cs#L88)
+- **Problem:** `Title = "Ergebnis exportieren"` und Filter hardcoded. CSV-Pfad schreibt `_plainText` ohne Formel-Praefix-Neutralisierung (`=`, `+`, `-`, `@`) – widerspricht bestehendem Standard im Avalonia-ResultViewModel.
+- **Fix:** Filter ueber `Loc[...]`. CSV-Pfad nutzt denselben CSV-Escaper wie Avalonia. Tabular-Daten via `gridContent.ItemsSource` exportieren.
+- **Tests fehlen:** Inhalt `=cmd|' /C calc'!A1` → Export escaped; i18n-Resource-Test.
+
+---
+
+### R6-C-12 — `NoWarn=NU1701` versteckt Package-Compatibility-Warnungen
+**Tags:** `release-hygiene` `nuget` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [Romulus.UI.Wpf.csproj](../../src/Romulus.UI.Wpf/Romulus.UI.Wpf.csproj#L12)
+- **Problem:** `NU1701`-Suppression versteckt echte Inkompatibilitaeten zwischen .NET 10 Target und Paketen. Kein `Directory.Packages.props`, kein NuGet.config-Source-Mapping → Lieferkette offen.
+- **Fix:** `NU1701` entfernen, Pakete aktualisieren oder TargetFramework-Mismatch dokumentieren. Central Package Management einfuehren.
+- **Tests fehlen:** Build-Pipeline-Gate ohne `NU1701`-Suppression.
+
+---
+
+### R6-C-13 — Wizard-Region-Checkboxen: hardcoded Content + Mischsprache mit AutomationName
+**Tags:** `i18n` `accessibility` `inconsistency` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [WizardView.xaml](../../src/Romulus.UI.Wpf/Views/WizardView.xaml#L155)
+- **Problem:** Region-Checkboxen `Content="Europe (EU)"` etc. und `AutomationProperties.Name="Region Europa bevorzugen"` hardgecoded. Mischsprache (Content englisch / AutomationName deutsch) → Screenreader liest deutsche Beschreibung fuer englischen Text. Plural `'{}{0} Ordner ausgewaehlt'` ebenfalls hardcoded.
+- **Fix:** Keys `Wizard.Region.EU/US/JP/World` und `*Tip` einfuehren; Content und AutomationProperties.Name aus derselben Sprachquelle binden.
+- **Tests fehlen:** Sprachumschaltung aendert Region-Labels; Content und AutomationName aus gleicher Quelle.
+
+---
+
+### R6-C-14 — Theme-FOUC: Cold-Start zeigt 200–500 ms SynthwaveDark vor User-Theme
+**Tags:** `theming` `startup-state` `consistency` `P3`
+- [ ] **Fix umsetzen**
+- **File:** [App.xaml](../../src/Romulus.UI.Wpf/App.xaml#L11)
+- **Problem:** `App.xaml` mergt unconditionally `Themes/SynthwaveDark.xaml`. User-Theme wird erst in `MainWindow.OnLoaded` aktiviert → FOUC. Fuer HighContrast-User UX-Problem.
+- **Fix:** Theme-Auswahl in `App.OnStartup` vor `mainWindow.Show()` aus `ISettingsService` lesen und initial setzen. Default in App.xaml auf neutrales Bridge-Theme reduzieren.
+- **Tests fehlen:** Headless-Smoke-Test mit `Theme=HighContrast` → `BrushBackground` direkt nach `Show()` korrekt.
 
 ---
 
