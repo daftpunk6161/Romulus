@@ -564,6 +564,14 @@ public sealed partial class MainViewModel
 
     private void OnShellStatePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ShellViewModel.ShowFirstRunWizard)
+            && !Shell.ShowFirstRunWizard
+            && ShowFirstRunWizardOnStartup
+            && Roots.Count == 0)
+        {
+            ShowFirstRunWizardOnStartup = false;
+        }
+
         if (e.PropertyName == nameof(ShellViewModel.WizardStep))
         {
             OnPropertyChanged(nameof(CanAdvanceWizard));

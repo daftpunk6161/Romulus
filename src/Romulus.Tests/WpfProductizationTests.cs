@@ -288,6 +288,19 @@ public sealed class WpfProductizationTests : IDisposable
     }
 
     [Fact]
+    public void MainViewModel_WhenWizardIsClosed_DisablesWizardStartupFlag()
+    {
+        var vm = CreateViewModel();
+        vm.ShowFirstRunWizardOnStartup = true;
+        vm.Shell.ShowFirstRunWizard = true;
+
+        vm.Shell.WizardSkipCommand.Execute(null);
+
+        Assert.False(vm.Shell.ShowFirstRunWizard);
+        Assert.False(vm.ShowFirstRunWizardOnStartup);
+    }
+
+    [Fact]
     public async Task MainViewModel_EmitCollectionHealthMonitorHintsAsync_ReportsStaleDatWarning()
     {
         var vm = CreateViewModel();
