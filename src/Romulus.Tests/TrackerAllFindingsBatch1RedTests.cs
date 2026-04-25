@@ -74,26 +74,5 @@ public sealed class TrackerAllFindingsBatch1RedTests
     }
 
     private static string FindRepoFile(params string[] segments)
-    {
-        var dir = AppContext.BaseDirectory;
-        for (var i = 0; i < 16; i++)
-        {
-            var hasRepoShape = Directory.Exists(Path.Combine(dir, "src"))
-                               && Directory.Exists(Path.Combine(dir, "data"));
-            if (hasRepoShape)
-            {
-                var candidate = Path.Combine(dir, Path.Combine(segments));
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-
-            var parent = Directory.GetParent(dir);
-            if (parent is null)
-                break;
-
-            dir = parent.FullName;
-        }
-
-        throw new FileNotFoundException($"Could not locate file: {Path.Combine(segments)}");
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.RepoFile(segments);
 }

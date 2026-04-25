@@ -80,10 +80,5 @@ public sealed class TrackerBlock7To12RedTests
     }
 
     private static string FindRepoFile(params string[] parts)
-    {
-        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
-        var repoRoot = Directory.GetParent(dataDir)?.FullName
-            ?? throw new InvalidOperationException("Repository root could not be resolved from data directory.");
-        return Path.Combine(new[] { repoRoot }.Concat(parts).ToArray());
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.RepoFile(parts);
 }

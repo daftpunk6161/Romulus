@@ -322,17 +322,7 @@ public sealed class Phase10And11RoundVerificationTests
     // =========================================================================
 
     private static string FindSrcRoot()
-    {
-        var dir = AppContext.BaseDirectory;
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(dir, "src");
-            if (Directory.Exists(candidate) && Directory.Exists(Path.Combine(candidate, "Romulus.Core")))
-                return candidate;
-            dir = Path.GetDirectoryName(dir);
-        }
-        throw new DirectoryNotFoundException("Could not find src/ root from " + AppContext.BaseDirectory);
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.SrcRoot();
 
     private static string FindRepoRoot()
     {

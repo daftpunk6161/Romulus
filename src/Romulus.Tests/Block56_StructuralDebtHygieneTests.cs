@@ -223,26 +223,5 @@ public sealed class Block56_StructuralDebtHygieneTests
     // ═══ HELPERS ════════════════════════════════════════════════════════
 
     private static string FindSrcRoot()
-    {
-        var dir = AppContext.BaseDirectory;
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(dir, "src");
-            if (Directory.Exists(candidate) && Directory.Exists(Path.Combine(candidate, "Romulus.Infrastructure")))
-                return candidate;
-
-            // Check if we ARE in src
-            if (Path.GetFileName(dir) == "src" && Directory.Exists(Path.Combine(dir, "Romulus.Infrastructure")))
-                return dir;
-
-            dir = Path.GetDirectoryName(dir);
-        }
-
-        // Fallback: try relative from test output
-        var fallback = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        if (Directory.Exists(Path.Combine(fallback, "src")))
-            return Path.Combine(fallback, "src");
-
-        throw new InvalidOperationException("Cannot locate src/ root from test output directory");
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.SrcRoot();
 }

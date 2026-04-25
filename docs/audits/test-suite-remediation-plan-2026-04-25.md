@@ -80,7 +80,7 @@
 ### Block E – Strukturhygiene Tests
 > Ziel: Suite navigierbar machen.
 
-- [ ] **E1** Test-Ordner nach Domaene einfuehren: `Recognition/`, `Sorting/`, `Safety/`, `Audit/`, `Reporting/`, `EntryPointParity/`, `Determinism/`.
+- [ ] **E1** Test-Ordner nach Domaene einfuehren: `Recognition/`, `Sorting/`, `Safety/`, `Audit/`, `Reporting/`, `EntryPointParity/`, `Determinism/`. _(Deferred - reine Strukturmigration ueber ~12k LOC Testcode ohne Verhaltensaenderung; siehe Block E Appendix.)_
 - [ ] **E2** Gott-Testdateien splitten:
   - [ ] `GuiViewModelTests.cs` (2554)
   - [ ] `GuiViewModelTests.AccessibilityAndRedTests.cs` (2118)
@@ -89,9 +89,10 @@
   - [ ] `AuditComplianceTests.cs` (1436)
   - [ ] `RunOrchestratorTests.cs` (1394)
   - [ ] `DetectionPipelineTests.cs` (1376)
-- [ ] **E3** Phase/Wave/Round/Tracker/Block-Naming aufloesen → Domaenen-Naming, historische Referenz nur als Doc-Kommentar.
-- [ ] **E4** `FindSrcRoot()` / `FindRepoFile`-Copies entfernen (sollte nach Block A weitgehend obsolet sein).
-- [ ] **E5** Test-Naming-Konvention dokumentieren (z. B. `Subject_Scenario_ExpectedBehavior`).
+  _(Deferred - hoher Diff-Churn ohne Release-Nutzen; siehe Block E Appendix.)_
+- [ ] **E3** Phase/Wave/Round/Tracker/Block-Naming aufloesen → Domaenen-Naming, historische Referenz nur als Doc-Kommentar. _(Deferred zusammen mit E1/E2; Konvention dokumentiert in `src/Romulus.Tests/TESTING.md`.)_
+- [x] **E4** `FindSrcRoot()` / `FindRepoFile`-Copies entfernen (sollte nach Block A weitgehend obsolet sein).
+- [x] **E5** Test-Naming-Konvention dokumentieren (z. B. `Subject_Scenario_ExpectedBehavior`).
 
 ---
 
@@ -399,3 +400,131 @@ Ergebnis: `Bestanden! Fehler: 0, erfolgreich: 14, gesamt: 14`.
 - Tests: `dotnet test --filter "FullyQualifiedName~BlockD_"` => **16/16 bestanden**.
 - Keine Aenderungen ausserhalb `src/Romulus.Tests/` und `docs/audits/`.
 
+
+
+---
+
+## Block E - Naming, Strukturierung & Konsolidierung (Appendix)
+
+### Status
+
+- E1 (Domaenen-Ordner): **Deferred mit Begruendung** (siehe unten).
+- E2 (Gott-Testdateien splitten): **Deferred mit Begruendung** (siehe unten).
+- E3 (Phase/Wave/Round/Tracker/Block-Naming aufloesen): **Deferred mit Begruendung** (siehe unten).
+- E4 (`FindSrcRoot` / `FindRepoFile`-Konsolidierung): **Erledigt**.
+- E5 (Naming-Konvention dokumentieren): **Erledigt**.
+
+### Neue Fixtures
+
+- `src/Romulus.Tests/TestFixtures/RepoPaths.cs`
+  - `RepoFile(params string[] parts)` - eine Wahrheit fuer Pfade unter dem Repo-Root, basierend auf `RunEnvironmentBuilder.ResolveDataDir()`.
+  - `SrcRoot()` - eine Wahrheit fuer das `src/`-Verzeichnis, anhand `Romulus.Infrastructure` als Anker.
+- `src/Romulus.Tests/BlockE_RepoPathsTests.cs` - 3 Verifikationstests (`RepoFile` liefert existierende Datei, `SrcRoot` enthaelt bekannte Projekte, `RepoFile(null)` wirft `ArgumentNullException`).
+
+### Migrierte Dateien (E4)
+
+Alle lokalen `FindRepoFile`/`FindSrcRoot`-Kopien wurden auf `RepoPaths` umgestellt. Public Surface der Test-Klassen unveraendert (Helper bleiben `private static`, Body ist nur noch eine Delegation).
+
+| Datei | Helper |
+|---|---|
+| `Block2_SecurityHardeningTests.cs` | `FindRepoFile` |
+| `Block3_DiHygieneTests.cs` | `FindRepoFile` |
+| `Block4_RobustnessTests.cs` | `FindRepoFile` |
+| `Block56_StructuralDebtHygieneTests.cs` | `FindSrcRoot` |
+| `FreshAuditRound9RedTests.cs` | `FindRepoFile` |
+| `Phase10And11RoundVerificationTests.cs` | `FindSrcRoot` |
+| `TrackerAllFindingsBatch1RedTests.cs` | `FindRepoFile` |
+| `TrackerAllFindingsBatch4RedTests.cs` | `FindRepoFile` |
+| `TrackerBlock7To12RedTests.cs` | `FindRepoFile` |
+| `TrackerPoint2OpenFindingsRedTests.cs` | `FindRepoFile` |
+
+Damit ist die in Block A identifizierte Restduplikation `FindRepoFile`/`FindSrcRoot` vollstaendig aufgeloest. `Phase10And11RoundVerificationTests.FindRepoRoot()` bleibt bestehen, da es ueber `AGENTS.md` ankert (anderes Anforderungsprofil als `RepoPaths`) und nur an einer Stelle verwendet wird.
+
+### Naming-Konvention (E5)
+
+Dokumentiert in `src/Romulus.Tests/TESTING.md`:
+
+- Schema `Subject_Scenario_ExpectedBehavior`.
+- Praefixe `R\d+_`, `Block[A-Z]\d_`, `Phase\d+_`, `Wave\d+_`, `Tracker*` sind als historisch markiert; neue Tests verwenden sie nicht.
+- Inventar der zentralen Test-Fixtures (`TestFixtures/`).
+- Verbotsliste (Reflection-/Source-Spiegel, no-crash-only, doppelte Helper).
+
+### E1 / E2 / E3 - Deferred mit Begruendung
+
+Diese drei Punkte sind reine Strukturmigrationen (ca. 12k LOC Testcode), die kein Verhalten aendern und keine zusaetzliche Invariante absichern:
+
+- **Release-Regeln** (`.claude/rules/release.instructions.md`): "kosmetische Massenrefactors kurz vor Release vermeiden", "grosse, unnoetige Architektur-Umbauten" sind explizit in der Verbotsliste.
+- **Architektur-Regeln** (`.claude/rules/architecture.instructions.md`): Refactors brauchen klaren Nutzen (weniger Duplikation, bessere Testbarkeit, deterministischere Logik). E1/E2/E3 liefern davon nichts ueber das hinaus, was E4/E5 bereits abdecken.
+- **Risiko**: Massen-Renames + Datei-Splits erzeugen massiven Diff-Churn, brechen Test-Filter-Pattern in CI/Skripten und vergroessern die Review-Last vor Release ohne Schutzwert.
+
+Empfehlung: nach Release in einem dedizierten Cleanup-Branch ausfuehren.
+
+### Verifikation
+
+- Build: `dotnet build src/Romulus.Tests/Romulus.Tests.csproj` - 0 Warnungen, 0 Fehler.
+- Regression: `dotnet test --no-build --filter "FullyQualifiedName~BlockE_|...~BlockD_|...~Block2_|...~Block3_|...~Block4_|...~Block56_|...~Phase10|...~FreshAuditRound9|...~Tracker"` -> **82/82 gruen**.
+- Block-E-Verifikationstests in `BlockE_RepoPathsTests` decken `RepoPaths.RepoFile` und `RepoPaths.SrcRoot` ab.
+
+
+---
+
+## Block E - Naming, Strukturierung & Konsolidierung (Appendix)
+
+### Status
+
+- E1 (Domaenen-Ordner): **Deferred mit Begruendung** (siehe unten).
+- E2 (Gott-Testdateien splitten): **Deferred mit Begruendung** (siehe unten).
+- E3 (Phase/Wave/Round/Tracker/Block-Naming aufloesen): **Deferred mit Begruendung** (siehe unten).
+- E4 (`FindSrcRoot` / `FindRepoFile`-Konsolidierung): **Erledigt**.
+- E5 (Naming-Konvention dokumentieren): **Erledigt**.
+
+### Neue Fixtures
+
+- `src/Romulus.Tests/TestFixtures/RepoPaths.cs`
+  - `RepoFile(params string[] parts)` - eine Wahrheit fuer Pfade unter dem Repo-Root, basierend auf `RunEnvironmentBuilder.ResolveDataDir()`.
+  - `SrcRoot()` - eine Wahrheit fuer das `src/`-Verzeichnis, anhand `Romulus.Infrastructure` als Anker.
+- `src/Romulus.Tests/BlockE_RepoPathsTests.cs` - 3 Verifikationstests (`RepoFile` liefert existierende Datei, `SrcRoot` enthaelt bekannte Projekte, `RepoFile(null)` wirft `ArgumentNullException`).
+
+### Migrierte Dateien (E4)
+
+Alle lokalen `FindRepoFile`/`FindSrcRoot`-Kopien wurden auf `RepoPaths` umgestellt. Public Surface der Test-Klassen unveraendert (Helper bleiben `private static`, Body ist nur noch eine Delegation).
+
+| Datei | Helper |
+|---|---|
+| `Block2_SecurityHardeningTests.cs` | `FindRepoFile` |
+| `Block3_DiHygieneTests.cs` | `FindRepoFile` |
+| `Block4_RobustnessTests.cs` | `FindRepoFile` |
+| `Block56_StructuralDebtHygieneTests.cs` | `FindSrcRoot` |
+| `FreshAuditRound9RedTests.cs` | `FindRepoFile` |
+| `Phase10And11RoundVerificationTests.cs` | `FindSrcRoot` |
+| `TrackerAllFindingsBatch1RedTests.cs` | `FindRepoFile` |
+| `TrackerAllFindingsBatch4RedTests.cs` | `FindRepoFile` |
+| `TrackerBlock7To12RedTests.cs` | `FindRepoFile` |
+| `TrackerPoint2OpenFindingsRedTests.cs` | `FindRepoFile` |
+
+Damit ist die in Block A identifizierte Restduplikation `FindRepoFile`/`FindSrcRoot` vollstaendig aufgeloest. `Phase10And11RoundVerificationTests.FindRepoRoot()` bleibt bestehen, da es ueber `AGENTS.md` ankert (anderes Anforderungsprofil als `RepoPaths`) und nur an einer Stelle verwendet wird.
+
+### Naming-Konvention (E5)
+
+Dokumentiert in `src/Romulus.Tests/TESTING.md`:
+
+- Schema `Subject_Scenario_ExpectedBehavior`.
+- Praefixe `R\d+_`, `Block[A-Z]\d_`, `Phase\d+_`, `Wave\d+_`, `Tracker*` sind als historisch markiert; neue Tests verwenden sie nicht.
+- Inventar der zentralen Test-Fixtures (`TestFixtures/`).
+- Verbotsliste (Reflection-/Source-Spiegel, no-crash-only, doppelte Helper).
+
+### E1 / E2 / E3 - Deferred mit Begruendung
+
+Diese drei Punkte sind reine Strukturmigrationen (ca. 12k LOC Testcode), die kein Verhalten aendern und keine zusaetzliche Invariante absichern:
+
+- **Release-Regeln** (`.claude/rules/release.instructions.md`): "kosmetische Massenrefactors kurz vor Release vermeiden", "grosse, unnoetige Architektur-Umbauten" sind explizit in der Verbotsliste.
+- **Architektur-Regeln** (`.claude/rules/architecture.instructions.md`): Refactors brauchen klaren Nutzen (weniger Duplikation, bessere Testbarkeit, deterministischere Logik). E1/E2/E3 liefern davon nichts ueber das hinaus, was E4/E5 bereits abdecken.
+- **Risiko**: Massen-Renames + Datei-Splits erzeugen massiven Diff-Churn, brechen Test-Filter-Pattern in CI/Skripten und vergroessern die Review-Last vor Release ohne Schutzwert.
+
+Empfehlung: nach Release in einem dedizierten Cleanup-Branch ausfuehren.
+
+### Verifikation
+
+- Build: `dotnet build src/Romulus.Tests/Romulus.Tests.csproj` - 0 Warnungen, 0 Fehler.
+- Regression: `dotnet test --no-build --filter "FullyQualifiedName~BlockE_|...~BlockD_|...~Block2_|...~Block3_|...~Block4_|...~Block56_|...~Phase10|...~FreshAuditRound9|...~Tracker"` -> **82/82 gruen**.
+- Block-E-Verifikationstests in `BlockE_RepoPathsTests` decken `RepoPaths.RepoFile` und `RepoPaths.SrcRoot` ab.

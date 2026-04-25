@@ -90,12 +90,7 @@ public sealed class TrackerAllFindingsBatch4RedTests
     }
 
     private static string FindRepoFile(params string[] segments)
-    {
-        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
-        var repoRoot = Directory.GetParent(dataDir)?.FullName
-            ?? throw new InvalidOperationException("Repository root could not be resolved.");
-        return Path.Combine(new[] { repoRoot }.Concat(segments).ToArray());
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.RepoFile(segments);
 
     private sealed class NoopFileSystem : IFileSystem
     {

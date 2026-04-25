@@ -16,12 +16,7 @@ public sealed class Block3_DiHygieneTests
     // ═══ Helper ═════════════════════════════════════════════════════════
 
     private static string FindRepoFile(params string[] parts)
-    {
-        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
-        var repoRoot = Directory.GetParent(dataDir)?.FullName
-            ?? throw new InvalidOperationException("Repository root could not be resolved from data directory.");
-        return Path.Combine(new[] { repoRoot }.Concat(parts).ToArray());
-    }
+        => Romulus.Tests.TestFixtures.RepoPaths.RepoFile(parts);
 
     // ═══ R6-04 ══════════════════════════════════════════════════════════
 
