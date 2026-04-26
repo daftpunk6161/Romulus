@@ -1,0 +1,1 @@
+Recognition/Classification audit F1-F23 (F6 Cross-Family-Gate vor Tier0, F13 DAT-Gate Tier1->Review, F14 empty-key-sentinel, F1 DetectionSource-Confidence) verschieben Klassifikationsentscheidungen deterministisch; UnsafeSortRate unveraendert 0.000%, Trend improving
