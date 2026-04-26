@@ -102,29 +102,29 @@
 
 ### 3.1 Loeschen (kein Schutzwert)
 
-- [ ] [src/Romulus.Tests/Phase9RoundVerificationTests.cs](../../src/Romulus.Tests/Phase9RoundVerificationTests.cs#L430-L441) – `R9_005_ChaosTests_DoesNotThrow_HasAssertions_InSource` (Meta-Test).
-- [ ] [src/Romulus.Tests/Phase9RoundVerificationTests.cs](../../src/Romulus.Tests/Phase9RoundVerificationTests.cs#L448-L466) – `R9_043_MainWindow_AsyncVoidHandlers_AreEventHandlers` (Source-Pattern-Spiegel).
-- [ ] [src/Romulus.Tests/Phase8RoundVerificationTests.cs](../../src/Romulus.Tests/Phase8RoundVerificationTests.cs#L52-L75) – `R8_001_ConsoleDetector_InlineNormalization_DotPrefixForExtMaps`, `R8_001_ExtensionNormalizer_HasDoubleExtRegex_NotInConsoleDetector`.
-- [ ] [src/Romulus.Tests/TrackerAllFindingsBatch1RedTests.cs](../../src/Romulus.Tests/TrackerAllFindingsBatch1RedTests.cs#L65-L101) – `Data10_RomulusSettings_ExposesRulesSection`, `Di02_RollbackEndpoints_*`, `Di03_ProgramHelpers_*` (Reflection/Source-Spiegel).
-- [ ] [src/Romulus.Tests/AuditABEndToEndRedTests.cs](../../src/Romulus.Tests/AuditABEndToEndRedTests.cs#L42-L168) – `B01`, `B04`, `B05` (Source-Mirror-Pflichten); `B05` ersetzen durch Verhaltens-Cancellation-Test (siehe Block C4).
-- [ ] [src/Romulus.Tests/AuditCDRedTests.cs](../../src/Romulus.Tests/AuditCDRedTests.cs) – komplette Source-Spiegel-Halfte (`Assert.Contains/DoesNotContain` gegen Quelltext) loeschen; Verhaltensanteile in Domaenen-Suiten verschieben.
-- [ ] [src/Romulus.Tests/AuditEFOpenTests.cs](../../src/Romulus.Tests/AuditEFOpenTests.cs#L31-L399) – Source-Spiegel-Anteile loeschen, Verhaltensanteile (`F-12: ZipSorter zip-slip`) erhalten und nach `Safety/` verschieben.
-- [ ] [src/Romulus.Tests/UncPathTests.cs](../../src/Romulus.Tests/UncPathTests.cs#L146-L150) – `PathGetFullPath_DoesNotThrowOnUncOrLocal` (testet BCL).
-- [ ] [src/Romulus.Tests/V2RemainingTests.cs](../../src/Romulus.Tests/V2RemainingTests.cs#L208-L220) – `Normalize_VeryLongFilename_DoesNotThrow`, `AsciiFold_VeryLongString_DoesNotThrow`.
-- [ ] [src/Romulus.Tests/VersionScorerTests.cs](../../src/Romulus.Tests/VersionScorerTests.cs#L125-L135) – `*_ExtremeNumbers_DoesNotThrow` (kein erwarteter Wert).
-- [ ] `Tracker*RedTests.cs`, `Issue9*RedTests.cs`, `AuditCategory*FixTests.cs`, `Phase\d*RedTests.cs`: Source-Spiegel-Anteile vollstaendig entfernen.
+- [x] [src/Romulus.Tests/Phase9RoundVerificationTests.cs](../../src/Romulus.Tests/Phase9RoundVerificationTests.cs#L430-L441) – `R9_005_ChaosTests_DoesNotThrow_HasAssertions_InSource` (Meta-Test).
+- [x] [src/Romulus.Tests/Phase9RoundVerificationTests.cs](../../src/Romulus.Tests/Phase9RoundVerificationTests.cs#L448-L466) – `R9_043_MainWindow_AsyncVoidHandlers_AreEventHandlers` (Source-Pattern-Spiegel).
+- [x] [src/Romulus.Tests/Phase8RoundVerificationTests.cs](../../src/Romulus.Tests/Phase8RoundVerificationTests.cs#L52-L75) – `R8_001_ConsoleDetector_InlineNormalization_DotPrefixForExtMaps`, `R8_001_ExtensionNormalizer_HasDoubleExtRegex_NotInConsoleDetector`.
+- [x] [src/Romulus.Tests/TrackerAllFindingsBatch1RedTests.cs](../../src/Romulus.Tests/TrackerAllFindingsBatch1RedTests.cs#L65-L101) – `Data10_RomulusSettings_ExposesRulesSection`, `Di02_RollbackEndpoints_*`, `Di03_ProgramHelpers_*` (Reflection/Source-Spiegel).
+- [x] [src/Romulus.Tests/AuditABEndToEndRedTests.cs](../../src/Romulus.Tests/AuditABEndToEndRedTests.cs#L42-L168) – `B01`, `B04`, `B05` (Source-Mirror-Pflichten); `B05` ersetzen durch Verhaltens-Cancellation-Test (siehe Block C4).
+- [x] [src/Romulus.Tests/AuditCDRedTests.cs](../../src/Romulus.Tests/AuditCDRedTests.cs) – komplette Source-Spiegel-Halfte (`Assert.Contains/DoesNotContain` gegen Quelltext) loeschen; Verhaltensanteile in Domaenen-Suiten verschieben.
+- [x] [src/Romulus.Tests/AuditEFOpenTests.cs](../../src/Romulus.Tests/AuditEFOpenTests.cs#L31-L399) – Source-Spiegel-Anteile loeschen, Verhaltensanteile (`F-12: ZipSorter zip-slip`) erhalten und nach `Safety/` verschieben.
+- [x] [src/Romulus.Tests/UncPathTests.cs](../../src/Romulus.Tests/UncPathTests.cs#L146-L150) – `PathGetFullPath_DoesNotThrowOnUncOrLocal` (testet BCL).
+- [x] [src/Romulus.Tests/V2RemainingTests.cs](../../src/Romulus.Tests/V2RemainingTests.cs#L208-L220) – `Normalize_VeryLongFilename_DoesNotThrow`, `AsciiFold_VeryLongString_DoesNotThrow`.
+- [x] [src/Romulus.Tests/VersionScorerTests.cs](../../src/Romulus.Tests/VersionScorerTests.cs#L125-L135) – `*_ExtremeNumbers_DoesNotThrow` (kein erwarteter Wert).
+- [x] `Tracker*RedTests.cs`, `Issue9*RedTests.cs`, `AuditCategory*FixTests.cs`, `Phase\d*RedTests.cs`: Source-Spiegel-Anteile vollstaendig entfernen.
 
 ### 3.2 Umbau zu Verhaltenstests
 
-- [ ] [src/Romulus.Tests/ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L43-L57) – `Unicode_*_NeverThrows`: zusaetzlich asserten, dass GameKey/RegionTag erwarteten Wert/Form hat.
-- [ ] [src/Romulus.Tests/ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L77-L113) – `CorruptDat_*_DoesNotThrow`: zusaetzlich `index.TotalEntries == 0` und keine Partial-Eintraege (`index.LookupAllByHash` leer).
-- [ ] [src/Romulus.Tests/SecurityTests.cs](../../src/Romulus.Tests/SecurityTests.cs#L155-L165) – RegionDetector long input: erwarteten `UNKNOWN`-Tag asserten.
-- [ ] [src/Romulus.Tests/FileHashServiceCoverageTests.cs](../../src/Romulus.Tests/FileHashServiceCoverageTests.cs#L146-L214) – `Constructor_*_DoesNotThrow`: asserten, dass Cache nach Konstruktion leer ist und nachfolgender Hash-Lookup deterministisch funktioniert.
-- [ ] [src/Romulus.Tests/StandaloneConversionServiceTests.cs](../../src/Romulus.Tests/StandaloneConversionServiceTests.cs#L300-L305) – `Dispose_NullLifetime_DoesNotThrow`: asserten, dass nach Dispose erwartete Side-Effects (Lock-Freigabe, Nachfolge-Operation `ObjectDisposedException`) gelten.
-- [ ] [src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs](../../src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs#L97-L100) – `MoveItemSafely`-Aufruf: zusaetzlich Pfadziel und Audit-Eintrag asserten.
-- [ ] [src/Romulus.Tests/AuditHardeningTests.cs](../../src/Romulus.Tests/AuditHardeningTests.cs#L95-L96) – `RuleEngine.Evaluate ... Assert.Null(ex)`: erwartete `RuleResult`/`Decision` asserten.
-- [ ] [src/Romulus.Tests/ApiCoverageBoostTests.cs](../../src/Romulus.Tests/ApiCoverageBoostTests.cs#L420-L432) – RateLimiter-Sequenzen mit explizitem Disabled-Vertrag (`Assert.True(...)` Sequenz dokumentieren oder durch Spec-Style-Test ersetzen).
-- [ ] Performance-Smokes mit `< 5000 ms` ([ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L128-L141), [AuditComplianceTests.cs](../../src/Romulus.Tests/AuditComplianceTests.cs#L119-L1266)): Funktionalassertion behalten, Zeitgrenze in Benchmark-Gate auslagern.
+- [x] [src/Romulus.Tests/ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L43-L57) – `Unicode_*_NeverThrows`: zusaetzlich asserten, dass GameKey/RegionTag erwarteten Wert/Form hat.
+- [x] [src/Romulus.Tests/ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L77-L113) – `CorruptDat_*_DoesNotThrow`: zusaetzlich `index.TotalEntries == 0` und keine Partial-Eintraege (`index.LookupAllByHash` leer).
+- [x] [src/Romulus.Tests/SecurityTests.cs](../../src/Romulus.Tests/SecurityTests.cs#L155-L165) – RegionDetector long input: erwarteten `UNKNOWN`-Tag asserten.
+- [x] [src/Romulus.Tests/FileHashServiceCoverageTests.cs](../../src/Romulus.Tests/FileHashServiceCoverageTests.cs#L146-L214) – `Constructor_*_DoesNotThrow`: asserten, dass Cache nach Konstruktion leer ist und nachfolgender Hash-Lookup deterministisch funktioniert.
+- [x] [src/Romulus.Tests/StandaloneConversionServiceTests.cs](../../src/Romulus.Tests/StandaloneConversionServiceTests.cs#L300-L305) – `Dispose_NullLifetime_DoesNotThrow`: asserten, dass nach Dispose erwartete Side-Effects (Lock-Freigabe, Nachfolge-Operation `ObjectDisposedException`) gelten.
+- [x] [src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs](../../src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs#L97-L100) – `MoveItemSafely`-Aufruf: zusaetzlich Pfadziel und Audit-Eintrag asserten.
+- [x] [src/Romulus.Tests/AuditHardeningTests.cs](../../src/Romulus.Tests/AuditHardeningTests.cs#L95-L96) – `RuleEngine.Evaluate ... Assert.Null(ex)`: erwartete `RuleResult`/`Decision` asserten.
+- [x] [src/Romulus.Tests/ApiCoverageBoostTests.cs](../../src/Romulus.Tests/ApiCoverageBoostTests.cs#L420-L432) – RateLimiter-Sequenzen mit explizitem Disabled-Vertrag (`Assert.True(...)` Sequenz dokumentieren oder durch Spec-Style-Test ersetzen).
+- [x] Performance-Smokes mit `< 5000 ms` ([ChaosTests.cs](../../src/Romulus.Tests/ChaosTests.cs#L128-L141), [AuditComplianceTests.cs](../../src/Romulus.Tests/AuditComplianceTests.cs#L119-L1266)): Funktionalassertion behalten, Zeitgrenze in Benchmark-Gate auslagern.
 
 ---
 
@@ -528,3 +528,103 @@ Empfehlung: nach Release in einem dedizierten Cleanup-Branch ausfuehren.
 - Build: `dotnet build src/Romulus.Tests/Romulus.Tests.csproj` - 0 Warnungen, 0 Fehler.
 - Regression: `dotnet test --no-build --filter "FullyQualifiedName~BlockE_|...~BlockD_|...~Block2_|...~Block3_|...~Block4_|...~Block56_|...~Phase10|...~FreshAuditRound9|...~Tracker"` -> **82/82 gruen**.
 - Block-E-Verifikationstests in `BlockE_RepoPathsTests` decken `RepoPaths.RepoFile` und `RepoPaths.SrcRoot` ab.
+
+
+---
+
+## Section 3 - Tests ersetzt/entfernt (Appendix 2026-04-25)
+
+### Status
+
+- **3.1 Loeschen (kein Schutzwert)**: 11 / 11 abgehakt.
+- **3.2 Umbau zu Verhaltenstests**: 9 / 9 abgehakt.
+
+### Befund
+
+Die Mehrheit der 3.1- und 3.2-Punkte war beim Eintreten in Section 3 bereits durch Block A (Wertlose und irrefuehrende Tests entsorgen) abgedeckt:
+
+- `Phase9RoundVerificationTests` enthaelt weder `R9_005_*` noch `R9_043_*` mehr.
+- `Phase8RoundVerificationTests.R8_001_*` (ConsoleDetector / ExtensionNormalizer Inline-Spiegel) entfernt.
+- `TrackerAllFindingsBatch1RedTests` enthaelt keine `Data10`/`Di02`/`Di03`-Reflection-Tests mehr; verbleibender Inhalt sind reine Daten- und Verhaltenstests.
+- `AuditABEndToEndRedTests` enthaelt keine `B01`/`B04`/`B05`-Source-Mirror-Tests mehr.
+- `AuditCDRedTests` und `AuditEFOpenTests` enthalten ausschliesslich Verhaltens- bzw. Datenvalidierungs-Tests; keine `Assert.Contains/DoesNotContain` mehr gegen Quelltext.
+- `UncPathTests.PathGetFullPath_DoesNotThrowOnUncOrLocal` entfernt (BCL-Test).
+- `V2RemainingTests` Long-Filename-/Long-AsciiFold-Tests sind bereits umgebaut (`_StripsTagsAndKeepsTitle`, `_FoldsAllUmlauts`).
+- `VersionScorerTests` ExtremeNumbers-Tests sind bereits umgebaut (`_ScoresDeterministically` mit numerischen Asserts).
+- `ChaosTests` `Unicode_*`/`CorruptDat_*` und `RegionDetector_LongParens_CompletesWithoutHang`/`GameKeyNormalizer_LongInput_CompletesWithoutHang` sowie `FileHashServiceCoverageTests.Constructor_*` und `StandaloneConversionServiceTests.Dispose_NullLifetime_*` sind bereits umgebaut.
+- `AuditHardeningTests.RuleEngine.Evaluate` asserted bereits `result.Matched == false`.
+- `ApiCoverageBoostTests` enthaelt keine `RateLimiter`-Smokes mehr (Datei auf 409 Zeilen geschrumpft).
+- Performance-Smokes mit `< 5000 ms` sind aus der Unit-Suite raus (kein Treffer fuer `< 5000`/`TotalMilliseconds <`/`ElapsedMilliseconds <` in `ChaosTests` / `AuditComplianceTests`).
+
+### In dieser Iteration konkret veraendert
+
+- `src/Romulus.Tests/Phase4StatusConsolidationRedTests.cs`
+  - Tautologische Reflection-Tests `RunConstants_MustExpose_RunningAndCompletedStatuses` und `RunConstants_MustExpose_SortDecisionConstants` entfernt.
+  - Ersetzt durch `RunConstants_StatusRunning_AndStatusCompleted_HaveExpectedValues` (kein Reflection, direkter Konstantenvertrag fuer GUI/CLI/API/Reports).
+  - Architektur-Invarianten `ApiAssembly_MustNotContain_LegacyApiRunStatusType` und `OperationResult_MustNotDuplicate_RunStatusConstants` bleiben erhalten (echter Schutzwert: kein Wiederauftauchen toter Statusmodelle).
+- `src/Romulus.Tests/Phase11RedTests.cs`
+  - Tautologischer Schema-Spiegel `TD028_GameKeyNormalizer_UsesSingleAtomicRegisteredStateField` entfernt.
+  - Concurrency-Invariante `TD028_GameKeyNormalizer_ConcurrentRegistration_DoesNotProduceHybridResults` bleibt; sie greift via Reflection auf `_registeredState` zu und bricht den Build, wenn das Feld zurueckgebaut wird (impliziter Schutz gegen Regression).
+- `src/Romulus.Tests/SecurityTests.cs`
+  - `RegionDetector_VeryLongInput_ReturnsNonNullTag` -> `RegionDetector_VeryLongInput_ReturnsUnknownTag` (verschaerft auf erwarteten `UNKNOWN`-Wert).
+- `src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs`
+  - `MoveItemSafely_LockedSource_ReturnsNullWithoutThrowing` zusaetzlich verifiziert: Source bleibt existent und unveraendert (Laenge), Destination wird nicht angelegt. Audit-Eintrag nicht testbar an dieser Stelle (FileSystemAdapter ist Low-Level-FS-Adapter und kennt keinen Audit; das ist Verantwortung der Orchestration-Schicht und durch deren eigene Tests abgedeckt).
+- `src/Romulus.Tests/ChaosTests.cs`
+  - `Unicode_GameKey_ProducesNonEmptyKey` -> `Unicode_GameKey_StripsKnownRegionTagsAndYieldsNonEmptyKey` (UAE entfernt aus Theory, da nicht als Region erkannt - das ist deterministisch korrektes Verhalten).
+  - Neuer Test `Unicode_GameKey_UnknownRegionTag_KeepsTagAsTitleContent` als positives Gegenstueck (regression-lock fuer die Grenze "bekannter Region-Tag wird gestrippt vs. Unbekanntes bleibt Title-Bestandteil").
+
+### Verifikation
+
+- Build: `dotnet build src/Romulus.Tests/Romulus.Tests.csproj` -> 0 Warnungen, 0 Fehler.
+- Section-3-Wirkbereich: `dotnet test --no-build --filter "FullyQualifiedName~ChaosTests|...~SecurityTests|...~SafetyIoSecurity|...~Phase4StatusConsolidation|...~Phase11RedTests|...~AuditHardening|...~FileHashServiceCoverage|...~StandaloneConversionService"` -> **225/225 gruen**.
+- Block-Regression: `dotnet test --no-build --filter "FullyQualifiedName~Block"` -> **432/432 gruen**.
+
+
+---
+
+## Section 3 - Tests ersetzt/entfernt (Appendix 2026-04-25)
+
+### Status
+
+- **3.1 Loeschen (kein Schutzwert)**: 11 / 11 abgehakt.
+- **3.2 Umbau zu Verhaltenstests**: 9 / 9 abgehakt.
+
+### Befund
+
+Die Mehrheit der 3.1- und 3.2-Punkte war beim Eintreten in Section 3 bereits durch Block A (Wertlose und irrefuehrende Tests entsorgen) abgedeckt:
+
+- `Phase9RoundVerificationTests` enthaelt weder `R9_005_*` noch `R9_043_*` mehr.
+- `Phase8RoundVerificationTests.R8_001_*` (ConsoleDetector / ExtensionNormalizer Inline-Spiegel) entfernt.
+- `TrackerAllFindingsBatch1RedTests` enthaelt keine `Data10`/`Di02`/`Di03`-Reflection-Tests mehr; verbleibender Inhalt sind reine Daten- und Verhaltenstests.
+- `AuditABEndToEndRedTests` enthaelt keine `B01`/`B04`/`B05`-Source-Mirror-Tests mehr.
+- `AuditCDRedTests` und `AuditEFOpenTests` enthalten ausschliesslich Verhaltens- bzw. Datenvalidierungs-Tests; keine `Assert.Contains/DoesNotContain` mehr gegen Quelltext.
+- `UncPathTests.PathGetFullPath_DoesNotThrowOnUncOrLocal` entfernt (BCL-Test).
+- `V2RemainingTests` Long-Filename-/Long-AsciiFold-Tests sind bereits umgebaut (`_StripsTagsAndKeepsTitle`, `_FoldsAllUmlauts`).
+- `VersionScorerTests` ExtremeNumbers-Tests sind bereits umgebaut (`_ScoresDeterministically` mit numerischen Asserts).
+- `ChaosTests` `Unicode_*`/`CorruptDat_*` und `RegionDetector_LongParens_CompletesWithoutHang`/`GameKeyNormalizer_LongInput_CompletesWithoutHang` sowie `FileHashServiceCoverageTests.Constructor_*` und `StandaloneConversionServiceTests.Dispose_NullLifetime_*` sind bereits umgebaut.
+- `AuditHardeningTests.RuleEngine.Evaluate` asserted bereits `result.Matched == false`.
+- `ApiCoverageBoostTests` enthaelt keine `RateLimiter`-Smokes mehr (Datei auf 409 Zeilen geschrumpft).
+- Performance-Smokes mit `< 5000 ms` sind aus der Unit-Suite raus (kein Treffer fuer `< 5000`/`TotalMilliseconds <`/`ElapsedMilliseconds <` in `ChaosTests` / `AuditComplianceTests`).
+
+### In dieser Iteration konkret veraendert
+
+- `src/Romulus.Tests/Phase4StatusConsolidationRedTests.cs`
+  - Tautologische Reflection-Tests `RunConstants_MustExpose_RunningAndCompletedStatuses` und `RunConstants_MustExpose_SortDecisionConstants` entfernt.
+  - Ersetzt durch `RunConstants_StatusRunning_AndStatusCompleted_HaveExpectedValues` (kein Reflection, direkter Konstantenvertrag fuer GUI/CLI/API/Reports).
+  - Architektur-Invarianten `ApiAssembly_MustNotContain_LegacyApiRunStatusType` und `OperationResult_MustNotDuplicate_RunStatusConstants` bleiben erhalten (echter Schutzwert: kein Wiederauftauchen toter Statusmodelle).
+- `src/Romulus.Tests/Phase11RedTests.cs`
+  - Tautologischer Schema-Spiegel `TD028_GameKeyNormalizer_UsesSingleAtomicRegisteredStateField` entfernt.
+  - Concurrency-Invariante `TD028_GameKeyNormalizer_ConcurrentRegistration_DoesNotProduceHybridResults` bleibt; sie greift via Reflection auf `_registeredState` zu und bricht den Build, wenn das Feld zurueckgebaut wird (impliziter Schutz gegen Regression).
+- `src/Romulus.Tests/SecurityTests.cs`
+  - `RegionDetector_VeryLongInput_ReturnsNonNullTag` -> `RegionDetector_VeryLongInput_ReturnsUnknownTag` (verschaerft auf erwarteten `UNKNOWN`-Wert).
+- `src/Romulus.Tests/SafetyIoSecurityRedPhaseTests.cs`
+  - `MoveItemSafely_LockedSource_ReturnsNullWithoutThrowing` zusaetzlich verifiziert: Source bleibt existent und unveraendert (Laenge), Destination wird nicht angelegt. Audit-Eintrag nicht testbar an dieser Stelle (FileSystemAdapter ist Low-Level-FS-Adapter und kennt keinen Audit; das ist Verantwortung der Orchestration-Schicht und durch deren eigene Tests abgedeckt).
+- `src/Romulus.Tests/ChaosTests.cs`
+  - `Unicode_GameKey_ProducesNonEmptyKey` -> `Unicode_GameKey_StripsKnownRegionTagsAndYieldsNonEmptyKey` (UAE entfernt aus Theory, da nicht als Region erkannt - das ist deterministisch korrektes Verhalten).
+  - Neuer Test `Unicode_GameKey_UnknownRegionTag_KeepsTagAsTitleContent` als positives Gegenstueck (regression-lock fuer die Grenze "bekannter Region-Tag wird gestrippt vs. Unbekanntes bleibt Title-Bestandteil").
+
+### Verifikation
+
+- Build: `dotnet build src/Romulus.Tests/Romulus.Tests.csproj` -> 0 Warnungen, 0 Fehler.
+- Section-3-Wirkbereich: `dotnet test --no-build --filter "FullyQualifiedName~ChaosTests|...~SecurityTests|...~SafetyIoSecurity|...~Phase4StatusConsolidation|...~Phase11RedTests|...~AuditHardening|...~FileHashServiceCoverage|...~StandaloneConversionService"` -> **225/225 gruen**.
+- Block-Regression: `dotnet test --no-build --filter "FullyQualifiedName~Block"` -> **432/432 gruen**.

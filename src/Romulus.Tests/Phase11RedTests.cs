@@ -34,20 +34,11 @@ public sealed class Phase11RedTests : IDisposable
         }
     }
 
-    [Fact]
-    public void TD028_GameKeyNormalizer_UsesSingleAtomicRegisteredStateField()
-    {
-        var type = typeof(GameKeyNormalizer);
-        var flags = BindingFlags.NonPublic | BindingFlags.Static;
-
-        var atomicField = type.GetField("_registeredState", flags);
-        var oldPatternsField = type.GetField("_registeredPatterns", flags);
-        var oldAliasField = type.GetField("_registeredAliasMap", flags);
-
-        Assert.NotNull(atomicField);
-        Assert.Null(oldPatternsField);
-        Assert.Null(oldAliasField);
-    }
+    // TD028: the prior 'UsesSingleAtomicRegisteredStateField' test was a tautological schema mirror
+    // (it only asserted that '_registeredState' exists and the legacy fields '_registeredPatterns' /
+    // '_registeredAliasMap' do not). It was removed in section 3.1 of
+    // test-suite-remediation-plan-2026-04-25.md. The concurrency invariant below already breaks
+    // (and breaks the build via reflection setup) if the atomic state field is reverted.
 
     [Fact]
     public async Task TD028_GameKeyNormalizer_ConcurrentRegistration_DoesNotProduceHybridResults()

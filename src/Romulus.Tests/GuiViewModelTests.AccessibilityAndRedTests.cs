@@ -2185,6 +2185,16 @@ public partial class GuiViewModelTests
         vm.Shell.SelectedSubTab = "Results";
         Assert.False(vm.ShowSmartActionBar);
 
+        // Tools tab (Werkzeuge/DAT-Verwaltung/Toolchain) has its own per-tool actions;
+        // the global SmartActionBar must not show as orphan mini-buttons.
+        vm.Shell.SelectedNavTag = "Tools";
+        vm.Shell.SelectedSubTab = "Features";
+        Assert.False(vm.ShowSmartActionBar);
+
+        vm.Shell.SelectedNavTag = "Tools";
+        vm.Shell.SelectedSubTab = "DatManagement";
+        Assert.False(vm.ShowSmartActionBar);
+
         vm.Shell.SelectedNavTag = "Config";
         vm.Shell.SelectedSubTab = "Options";
         Assert.True(vm.ShowSmartActionBar);

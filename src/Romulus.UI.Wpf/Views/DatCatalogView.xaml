@@ -7,6 +7,7 @@
   <Grid Margin="20,16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>  <!-- Summary bar -->
+      <RowDefinition Height="Auto"/>  <!-- DAT-Root path bar -->
       <RowDefinition Height="Auto"/>  <!-- Filter bar -->
       <RowDefinition Height="*"/>     <!-- DataGrid -->
       <RowDefinition Height="Auto"/>  <!-- Action bar -->
@@ -75,8 +76,33 @@
       </Grid>
     </Border>
 
+    <!-- ═══ DAT-ROOT PFAD-LEISTE ══════════════════════════════════════ -->
+    <!-- Bindet direkt an MainViewModel.DatRoot via Window.DataContext, damit
+         der User den Pfad hier sehen, ändern und sofort einen Rescan triggern kann.
+         Verhindert das "203-only" Problem, wenn DatRoot in Setup leer/falsch ist. -->
+    <Border Grid.Row="1" Background="{DynamicResource BrushSurface}"
+            CornerRadius="{DynamicResource RadiusMD}" Padding="12,8" Margin="0,0,0,12">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="DAT-Root:" VerticalAlignment="Center"
+                   Margin="0,0,8,0" Foreground="{DynamicResource BrushTextMuted}"/>
+        <TextBox Grid.Column="1" VerticalAlignment="Center"
+                 Text="{Binding DataContext.DatRoot, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                 ToolTip="Pfad zum DAT-Ordner. Änderung scannt den Katalog automatisch neu."
+                 AutomationProperties.Name="DAT-Root Pfad"/>
+        <Button Grid.Column="2" Content="Rescan" Margin="8,0,0,0" Padding="12,4"
+                Command="{Binding RefreshCommand}"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                AutomationProperties.Name="DAT-Katalog neu scannen"/>
+      </Grid>
+    </Border>
+
     <!-- ═══ FILTER BAR ════════════════════════════════════════════════ -->
-    <Grid Grid.Row="1" Margin="0,0,0,8">
+    <Grid Grid.Row="2" Margin="0,0,0,8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
@@ -244,7 +270,7 @@
     </DataGrid>
 
     <!-- ═══ ACTION BAR ═══════════════════════════════════════════════ -->
-    <Border Grid.Row="3" Margin="0,12,0,0" Padding="0,8,0,0"
+    <Border Grid.Row="4" Margin="0,12,0,0" Padding="0,8,0,0"
             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">

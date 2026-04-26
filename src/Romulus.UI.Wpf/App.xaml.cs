@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -25,16 +27,15 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Single-instance guard: prevent zombie processes from multiple launches
+        // Single-instance guard: prevent zombie processes from multiple launches.
+        // Verhalten bei laufender Instance: bestehendes Fenster in den Vordergrund holen
+        // und still beenden. KEINE modale MessageBox - die ueberdeckte sonst Overlays
+        // wie den First-Run-Wizard und blockierte den User.
         const string mutexName = "Local\\Romulus_SingleInstance";
         _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
-            MessageBox.Show(
-                "Romulus läuft bereits (ggf. im System-Tray).",
-                "Romulus",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            TryActivateExistingInstance();
             _singleInstanceMutex.Dispose();
             _singleInstanceMutex = null;
             Shutdown(0);
@@ -142,5 +143,38 @@ public partial class App : Application
             AtomicFileWriter.AppendText(logPath, $"[{DateTime.UtcNow:O}] {ex}\n\n");
         }
         catch { /* best effort — don't throw during crash handling */ }
+    }
+
+    // ─── Single-Instance: bestehendes Romulus-Fenster aktivieren ───
+    private const int SW_RESTORE = 9;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    private static void TryActivateExistingInstance()
+    {
+        try
+        {
+            var current = Process.GetCurrentProcess();
+            var existing = Process.GetProcessesByName(current.ProcessName)
+                .FirstOrDefault(p => p.Id != current.Id && p.MainWindowHandle != IntPtr.Zero);
+
+            if (existing is null) return;
+
+            var handle = existing.MainWindowHandle;
+            if (IsIconic(handle))
+                ShowWindow(handle, SW_RESTORE);
+            SetForegroundWindow(handle);
+        }
+        catch { /* best effort - never block exit on activation failure */ }
     }
 }

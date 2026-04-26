@@ -205,14 +205,31 @@ public sealed partial class MainViewModel
                 ? _loc["Result.InlineConfirmReady"]
                 : _loc["Result.InlineConfirmWaiting"];
 
-    public bool ShowSmartActionBar =>
-        IsBusy ||
-        ShowStartMoveButton ||
-        (string.Equals(Shell.SelectedNavTag, NavTagMissionControl, StringComparison.Ordinal)
-            ? !(string.Equals(Shell.SelectedSubTab, "Dashboard", StringComparison.Ordinal)
-                || string.Equals(Shell.SelectedSubTab, "RecentRuns", StringComparison.Ordinal))
-            : !(string.Equals(Shell.SelectedNavTag, NavTagLibrary, StringComparison.Ordinal)
-                && string.Equals(Shell.SelectedSubTab, "Results", StringComparison.Ordinal)));
+    public bool ShowSmartActionBar
+    {
+        get
+        {
+            if (IsBusy || ShowStartMoveButton)
+                return true;
+
+            // Tools tab (Werkzeuge / DAT-Verwaltung / Toolchain) has its own per-tool actions;
+            // the global Run/Cancel/Convert/Move/Rollback bar would only show as orphan
+            // mini-buttons in the bottom-left corner.
+            if (string.Equals(Shell.SelectedNavTag, NavTagTools, StringComparison.Ordinal))
+                return false;
+
+            // Mission Control: hide on primary content surfaces (Dashboard / RecentRuns).
+            if (string.Equals(Shell.SelectedNavTag, NavTagMissionControl, StringComparison.Ordinal))
+            {
+                return !(string.Equals(Shell.SelectedSubTab, "Dashboard", StringComparison.Ordinal)
+                      || string.Equals(Shell.SelectedSubTab, "RecentRuns", StringComparison.Ordinal));
+            }
+
+            // Library: hide on Results (which has its own inline action panel).
+            return !(string.Equals(Shell.SelectedNavTag, NavTagLibrary, StringComparison.Ordinal)
+                  && string.Equals(Shell.SelectedSubTab, "Results", StringComparison.Ordinal));
+        }
+    }
 
     public bool HasRunResult =>
         Run.HasRunResult ||

@@ -5,9 +5,12 @@
   <UserControl.Resources>
     <DataTemplate x:Key="ToolCardTemplate">
       <Grid Margin="0,0,10,10" Width="320">
+        <!-- D7: Card click opens the documentation drawer; the actual tool launch lives
+             on the drawer's "Werkzeug starten" button (single execute path). -->
         <Button Padding="12,10"
                 HorizontalContentAlignment="Stretch"
-                Command="{Binding Command}"
+                Command="{Binding DataContext.ShowToolDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding}"
                 ToolTip="{Binding MaturityDescription}"
                 AutomationProperties.Name="{Binding DisplayName}"
                 Tag="{Binding Key}">
@@ -177,7 +180,8 @@
         <Button Grid.Column="0"
                 Padding="8,6"
                 HorizontalContentAlignment="Stretch"
-                Command="{Binding Command}"
+                Command="{Binding DataContext.ShowToolDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding}"
                 ToolTip="{Binding MaturityDescription}"
                 AutomationProperties.Name="{Binding DisplayName}">
           <Grid>
@@ -287,6 +291,8 @@
       <ColumnDefinition Width="200" MinWidth="160" MaxWidth="260"/>
       <ColumnDefinition Width="1"/>
       <ColumnDefinition Width="*"/>
+      <!-- D7: dedicated column for tool-doc drawer (auto-collapses when hidden so it never overlaps the tool grid). -->
+      <ColumnDefinition Width="Auto"/>
     </Grid.ColumnDefinitions>
 
     <Border Grid.Column="0" Background="{DynamicResource BrushSurface}" Padding="0,12">
@@ -436,8 +442,23 @@
               </DockPanel>
             </Border>
 
-            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"
-                    Visibility="{Binding IsSimpleMode, Converter={StaticResource InverseBoolToVis}}">
+            <!-- Always-on Schnellzugriff card. Hidden in simple mode and on the "Alle Werkzeuge"
+                 section, where the dedicated section view already exposes Quick Access via the
+                 sidebar (avoids stacking the same content twice). -->
+            <Border Margin="0,0,0,12">
+              <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource SectionCard}">
+                  <Setter Property="Visibility" Value="Visible"/>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSimpleMode}" Value="True">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding SelectedToolsSection}" Value="Alle Werkzeuge">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
               <StackPanel>
                 <TextBlock Text="{Binding DataContext.Loc[Tools.SectionQuickAccess], RelativeSource={RelativeSource AncestorType=Window}}"
                            Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
@@ -553,12 +574,12 @@
     </DockPanel>
 
     <!-- D7 (UX-Redesign Phase 3): Tool-Documentation-Drawer.
-         Overlay rechts in der Tools-Spalte, sichtbar wenn SelectedToolDoc != null.
+         Lives in its own grid column (Column 3) so it never overlaps the tool grid in Column 2.
+         When IsToolDocOpen=false the Border collapses and the column shrinks to width 0.
          Single source of truth fuer Tool-Doku (Daten kommen aus dem ToolItem-Modell:
          Description, MaturityDescription, MaturityBadgeText, RecommendationReason,
          AvailabilityText). Kein parallel-Datenpfad. -->
-    <Border Grid.Column="2"
-            HorizontalAlignment="Right"
+    <Border Grid.Column="3"
             Width="380"
             Background="{DynamicResource BrushSurface}"
             BorderBrush="{DynamicResource BrushBorder}"

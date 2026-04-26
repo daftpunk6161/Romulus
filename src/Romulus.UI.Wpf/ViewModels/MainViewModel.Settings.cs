@@ -157,6 +157,18 @@ public sealed partial class MainViewModel
                 ValidateDirectoryPath(value, nameof(DatRoot));
                 RefreshStatus();
                 SyncSetupProperty(nameof(SetupViewModel.DatRoot), value);
+
+                // Auto-refresh DAT catalog whenever DatRoot becomes a valid directory.
+                // Without this, switching DatRoot in Setup leaves DAT-Verwaltung showing
+                // only the 203 catalog entries (uncataloged on-disk DATs are missed).
+                if (_settingsLoaded
+                    && DatCatalog is not null
+                    && !DatCatalog.IsBusy
+                    && !string.IsNullOrWhiteSpace(value)
+                    && System.IO.Directory.Exists(value))
+                {
+                    _ = DatCatalog.RefreshCommand.ExecuteAsync(null);
+                }
             }
         }
     }

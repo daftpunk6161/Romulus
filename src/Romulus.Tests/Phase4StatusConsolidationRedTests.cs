@@ -8,28 +8,22 @@ namespace Romulus.Tests;
 
 public sealed class Phase4StatusConsolidationRedTests
 {
-    [Fact]
-    public void RunConstants_MustExpose_RunningAndCompletedStatuses()
-    {
-        var runningField = typeof(RunConstants).GetField("StatusRunning", BindingFlags.Public | BindingFlags.Static);
-        var completedField = typeof(RunConstants).GetField("StatusCompleted", BindingFlags.Public | BindingFlags.Static);
-
-        Assert.NotNull(runningField);
-        Assert.NotNull(completedField);
-        Assert.Equal("running", runningField!.GetValue(null));
-        Assert.Equal("completed", completedField!.GetValue(null));
-    }
+    // The two tautological 'field exists with value X' tests for RunConstants.StatusRunning,
+    // RunConstants.StatusCompleted and RunConstants.SortDecisions.* were removed in section 3.1
+    // of test-suite-remediation-plan-2026-04-25.md. Compile-time references to these constants
+    // (e.g. RunOrchestrator/RunResult), the architecture-invariant tests below, and the entry-point
+    // parity tests already protect the contract.
 
     [Fact]
-    public void RunConstants_MustExpose_SortDecisionConstants()
+    public void RunConstants_StatusRunning_AndStatusCompleted_HaveExpectedValues()
     {
-        var nested = typeof(RunConstants).GetNestedType("SortDecisions", BindingFlags.Public);
-
-        Assert.NotNull(nested);
-        Assert.Equal("Sort", nested!.GetField("Sort", BindingFlags.Public | BindingFlags.Static)!.GetValue(null));
-        Assert.Equal("Review", nested.GetField("Review", BindingFlags.Public | BindingFlags.Static)!.GetValue(null));
-        Assert.Equal("Blocked", nested.GetField("Blocked", BindingFlags.Public | BindingFlags.Static)!.GetValue(null));
-        Assert.Equal("DatVerified", nested.GetField("DatVerified", BindingFlags.Public | BindingFlags.Static)!.GetValue(null));
+        // Behavioural anchor (no reflection): regress the literal contract used by GUI/CLI/API/reports.
+        Assert.Equal("running", RunConstants.StatusRunning);
+        Assert.Equal("completed", RunConstants.StatusCompleted);
+        Assert.Equal("Sort", RunConstants.SortDecisions.Sort);
+        Assert.Equal("Review", RunConstants.SortDecisions.Review);
+        Assert.Equal("Blocked", RunConstants.SortDecisions.Blocked);
+        Assert.Equal("DatVerified", RunConstants.SortDecisions.DatVerified);
     }
 
     [Fact]

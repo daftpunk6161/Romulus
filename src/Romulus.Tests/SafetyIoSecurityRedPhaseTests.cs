@@ -88,6 +88,7 @@ public sealed class SafetyIoSecurityRedPhaseTests : IDisposable
         var source = Path.Combine(root, "locked.bin");
         var destination = Path.Combine(root, "moved.bin");
         File.WriteAllText(source, "locked-content");
+        var originalLength = new FileInfo(source).Length;
 
         var fs = new FileSystemAdapter();
 
@@ -96,9 +97,14 @@ public sealed class SafetyIoSecurityRedPhaseTests : IDisposable
         string? movedPath = null;
         var ex = Record.Exception(() => movedPath = fs.MoveItemSafely(source, destination));
 
-        // Erwartung (RED): Bei Lock kein harter IO-Crash, stattdessen null.
+        // Section 3.2 of test-suite-remediation-plan-2026-04-25.md: lock-failure must be
+        // observable (movedPath == null) AND data-loss safe (source untouched, destination
+        // never created).
         Assert.Null(ex);
         Assert.Null(movedPath);
+        Assert.True(File.Exists(source), "Source must remain intact when MoveItemSafely cannot proceed.");
+        Assert.False(File.Exists(destination), "Destination must not be created on a failed move.");
+        Assert.Equal(originalLength, new FileInfo(source).Length);
     }
 
     [Fact]

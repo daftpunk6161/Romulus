@@ -36,16 +36,27 @@ public sealed class ChaosTests : IDisposable
     [InlineData("ゲーム (Japan)")]
     [InlineData("Игра (Russia)")]
     [InlineData("게임 (Korea)")]
-    [InlineData("لعبة (UAE)")]
     [InlineData("Spiel (Germany) 🎮")]
     [InlineData("Jogo (Brazil) [!]")]
     [InlineData("Pokémon Édition Spéciale (France)")]
-    public void Unicode_GameKey_ProducesNonEmptyKey(string input)
+    public void Unicode_GameKey_StripsKnownRegionTagsAndYieldsNonEmptyKey(string input)
     {
         var key = GameKeyNormalizer.Normalize(input);
         Assert.False(string.IsNullOrWhiteSpace(key));
         Assert.DoesNotContain("(", key);
         Assert.DoesNotContain(")", key);
+    }
+
+    [Fact]
+    public void Unicode_GameKey_UnknownRegionTag_KeepsTagAsTitleContent()
+    {
+        // Section 3.2 of test-suite-remediation-plan-2026-04-25.md: GameKeyNormalizer
+        // strips KNOWN region/tag patterns only. Unknown tokens (e.g. "(UAE)") must remain
+        // part of the normalized key - this regression-locks the deterministic boundary
+        // between known region stripping and arbitrary-text preservation.
+        var key = GameKeyNormalizer.Normalize("لعبة (UAE)");
+        Assert.False(string.IsNullOrWhiteSpace(key));
+        Assert.Contains("(uae)", key, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

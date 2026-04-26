@@ -122,7 +122,15 @@ public sealed class ToolsViewModel : ObservableObject
     public string SelectedToolsSection
     {
         get => _selectedToolsSection;
-        set => SetProperty(ref _selectedToolsSection, value);
+        set
+        {
+            if (SetProperty(ref _selectedToolsSection, value))
+            {
+                // Close the documentation drawer when the user switches sections so it never
+                // lingers as a leftover panel from a previous selection.
+                SelectedToolDoc = null;
+            }
+        }
     }
 
     private bool _isSimpleMode = true;

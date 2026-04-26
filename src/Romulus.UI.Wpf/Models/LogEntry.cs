@@ -59,8 +59,10 @@ public sealed partial class ToolItem : ObservableObject
     public string UnavailableText { get; init; } = string.Empty;
     public string RoadmapLink { get; init; } = string.Empty;
 
-    /// <summary>Bound to the templated Button in the Werkzeuge tab. Set after FeatureCommands are registered.</summary>
-    public System.Windows.Input.ICommand? Command { get; set; }
+    /// <summary>Bound to the templated Button in the Werkzeuge tab. Set after FeatureCommands are registered.
+    /// Observable so XAML bindings update once WireToolItemCommands runs at startup.</summary>
+    [ObservableProperty]
+    private System.Windows.Input.ICommand? _command;
 
     [ObservableProperty]
     private bool _isVisible = true;

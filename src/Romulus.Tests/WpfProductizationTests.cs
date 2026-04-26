@@ -226,11 +226,9 @@ public sealed class WpfProductizationTests : IDisposable
 
         Assert.Contains("x:Key=\"WizardStepPanelBase\"", wizardXaml, StringComparison.Ordinal);
         Assert.Contains("<Setter Property=\"Visibility\" Value=\"Collapsed\"/>", wizardXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:sys=\"clr-namespace:System;assembly=System.Runtime\"", wizardXaml, StringComparison.Ordinal);
-        Assert.Contains("<DataTrigger Binding=\"{Binding Shell.WizardStep}\">", wizardXaml, StringComparison.Ordinal);
-        Assert.Contains("<sys:Int32>0</sys:Int32>", wizardXaml, StringComparison.Ordinal);
-        Assert.Contains("<sys:Int32>1</sys:Int32>", wizardXaml, StringComparison.Ordinal);
-        Assert.Contains("<sys:Int32>2</sys:Int32>", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("<DataTrigger Binding=\"{Binding Shell.WizardStepIs0}\" Value=\"True\">", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("<DataTrigger Binding=\"{Binding Shell.WizardStepIs1}\" Value=\"True\">", wizardXaml, StringComparison.Ordinal);
+        Assert.Contains("<DataTrigger Binding=\"{Binding Shell.WizardStepIs2}\" Value=\"True\">", wizardXaml, StringComparison.Ordinal);
         Assert.Contains("<ScrollViewer Grid.Row=\"1\"", wizardXaml, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Visibility=\"{Binding Shell.WizardStepIs0", wizardXaml, StringComparison.Ordinal);
@@ -238,6 +236,19 @@ public sealed class WpfProductizationTests : IDisposable
         Assert.DoesNotContain("Visibility=\"{Binding Shell.WizardStepIs2", wizardXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<DataTrigger Binding=\"{Binding Shell.WizardStep}\" Value=\"", wizardXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"Analyse laeuft...\"", wizardXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WizardView_DoesNotOverride_InheritedDataContext()
+    {
+        // Regression: Frueheres Pattern <UserControl.DataContext> mit RelativeSource AncestorType=Window
+        // setzte DataContext beim XAML-Load auf null (Window noch nicht im Tree erreichbar) und
+        // verhinderte die normale Vererbung von MainWindow.DataContext = MainViewModel.
+        // Folge: leerer Wizard ohne Texte, ohne Step-Inhalte. WizardView muss DataContext erben.
+        var wizardXaml = File.ReadAllText(FindUiFile("Views", "WizardView.xaml"));
+
+        Assert.DoesNotContain("<UserControl.DataContext>", wizardXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AncestorType=Window", wizardXaml, StringComparison.Ordinal);
     }
 
     [Fact]

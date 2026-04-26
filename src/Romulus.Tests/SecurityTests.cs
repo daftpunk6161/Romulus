@@ -157,10 +157,13 @@ public sealed class SecurityTests : IDisposable
     }
 
     [Fact]
-    public void RegionDetector_VeryLongInput_ReturnsNonNullTag()
+    public void RegionDetector_VeryLongInput_ReturnsUnknownTag()
     {
+        // Section 3.2 of test-suite-remediation-plan-2026-04-25.md: do not stop at
+        // 'tag is non-null' - assert that adversarially long bracket noise resolves
+        // deterministically to the UNKNOWN region marker (no partial/garbled match).
         var longInput = "Game (" + new string('A', 10000) + ")";
         var tag = RegionDetector.GetRegionTag(longInput);
-        Assert.False(string.IsNullOrEmpty(tag));
+        Assert.Equal("UNKNOWN", tag);
     }
 }

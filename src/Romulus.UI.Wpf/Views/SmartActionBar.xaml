@@ -34,70 +34,61 @@
             CanContentScroll="False"
         VerticalAlignment="Center" HorizontalAlignment="Left">
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <!-- Compact icon-only action buttons with tooltips. Labels live in ToolTip + AutomationProperties.Name. -->
         <!-- TASK-115: Run button — hidden when pipeline is busy -->
         <Button Command="{Binding RunCommand}" Style="{StaticResource PrimaryButton}"
-          Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                Width="52" Height="52" Padding="0" Margin="{DynamicResource SpaceRightXS}"
                 ToolTip="{Binding Loc[Start.RunTip]}" AutomationProperties.Name="{Binding Loc[Start.RunButton]}"
                 AutomationProperties.AcceleratorKey="F5" TabIndex="1"
                 Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}">
-          <StackPanel HorizontalAlignment="Center">
-            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="20" HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding Loc[Start.RunButton]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-          </StackPanel>
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="22"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Button>
 
         <!-- TASK-115: Cancel button — visible only when pipeline is running -->
         <Button x:Name="CancelButton" Command="{Binding CancelCommand}"
-          Width="60" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                Width="52" Height="52" Padding="0" Margin="{DynamicResource SpaceRightXS}"
                 AutomationProperties.AcceleratorKey="Esc"
                 ToolTip="{Binding Loc[Start.CancelTip]}" AutomationProperties.Name="{Binding Loc[Start.CancelButton]}" TabIndex="2"
                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
           <Button.Style>
             <Style TargetType="Button" BasedOn="{StaticResource DangerButton}"/>
           </Button.Style>
-          <StackPanel HorizontalAlignment="Center">
-            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" FontSize="20" HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding Loc[Start.CancelButton]}" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-          </StackPanel>
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" FontSize="22"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Button>
 
         <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
 
         <Button Command="{Binding ConvertOnlyCommand}"
-          Width="130" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                Width="52" Height="52" Padding="0" Margin="{DynamicResource SpaceRightXS}"
                 BorderBrush="{DynamicResource BrushSuccess}" Foreground="{DynamicResource BrushSuccess}"
                 Background="{DynamicResource BrushSuccessBg}" BorderThickness="2"
                 ToolTip="{Binding Loc[Start.ConvertOnlyTip]}" AutomationProperties.Name="{Binding Loc[Start.ConvertOnlyButton]}" TabIndex="3"
                 Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}">
-          <StackPanel HorizontalAlignment="Center">
-            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8AB;" FontSize="20" HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding Loc[Start.ConvertOnlyButton]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-          </StackPanel>
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8AB;" FontSize="22"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Button>
 
         <StackPanel Orientation="Horizontal" Visibility="{Binding ShowActionBarMoveButton, Converter={StaticResource BoolToVis}}">
           <Button Command="{Binding StartMoveCommand}" Style="{StaticResource DangerButton}"
-              Width="140" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                  Width="52" Height="52" Padding="0" Margin="{DynamicResource SpaceRightXS}"
                   ToolTip="{Binding MoveApplyGateText}" AutomationProperties.Name="Move ausfuehren" TabIndex="4">
-            <StackPanel HorizontalAlignment="Center">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" FontSize="20" HorizontalAlignment="Center"/>
-              <TextBlock Text="{Binding Loc[Result.BtnCleanup]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-            </StackPanel>
+            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" FontSize="22"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Button>
         </StackPanel>
 
         <Button Command="{Binding RollbackCommand}"
-          Width="110" MinHeight="52" Padding="6,2" Margin="{DynamicResource SpaceRightXS}"
+                Width="52" Height="52" Padding="0" Margin="{DynamicResource SpaceRightXS}"
                 AutomationProperties.AcceleratorKey="Ctrl+Z"
                 ToolTip="{Binding Loc[Start.RollbackTip]}" AutomationProperties.Name="{Binding Loc[Start.RollbackButton]}" TabIndex="5"
                 Visibility="{Binding CanRollback, Converter={StaticResource BoolToVis}}">
           <Button.Style>
             <Style TargetType="Button" BasedOn="{StaticResource WarningButton}"/>
           </Button.Style>
-          <StackPanel HorizontalAlignment="Center">
-            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE777;" FontSize="20" HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding Loc[Start.RollbackButton]}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-          </StackPanel>
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE777;" FontSize="22"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Button>
 
         <Rectangle Width="1" Height="40" Fill="{DynamicResource BrushBorder}" VerticalAlignment="Center" Margin="{DynamicResource SpaceDivider}"/>
