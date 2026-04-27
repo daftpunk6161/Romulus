@@ -36,7 +36,7 @@ internal static class CliOutputWriter
         {
             Status = projection.Status,
             ExitCode = projection.ExitCode,
-            Mode = "DryRun",
+            Mode = RunConstants.ModeDryRun,
             TotalFiles = projection.TotalFiles,
             Candidates = projection.Candidates,
             Groups = projection.Groups,
@@ -206,7 +206,8 @@ Exit codes:
   0  Success
   1  Runtime error
   2  Cancelled
-  3  Preflight / validation failure");
+  3  Preflight / validation failure
+  4  Completed with errors");
     }
 
     /// <summary>Errors: Outputs error messages to stderr.</summary>
@@ -266,7 +267,7 @@ internal sealed class CliDryRunOutput
     public string SchemaVersion { get; init; } = RunConstants.CliOutputSchemaVersion;
     public string Status { get; init; } = "";
     public int ExitCode { get; init; }
-    public string Mode { get; init; } = "DryRun";
+    public string Mode { get; init; } = RunConstants.ModeDryRun;
     public int TotalFiles { get; init; }
     public int Candidates { get; init; }
     public int Groups { get; init; }

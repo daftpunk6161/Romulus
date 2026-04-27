@@ -118,6 +118,9 @@ public static class RunConstants
     /// <summary>Schema version for CLI JSON output artifacts.</summary>
     public const string CliOutputSchemaVersion = "romulus-cli-output-v1";
 
+    /// <summary>Schema version for API JSON output artifacts (ApiRunResult / RunResultEnvelope).</summary>
+    public const string ApiOutputSchemaVersion = "romulus-api-output-v1";
+
     public static string ToWireStatus(this RunLifecycleStatus status)
         => status switch
         {

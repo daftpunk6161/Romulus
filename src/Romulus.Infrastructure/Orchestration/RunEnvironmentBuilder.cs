@@ -152,6 +152,26 @@ public sealed class RunEnvironmentBuilder
         return SettingsLoader.LoadDefaultsOnly(defaults);
     }
 
+    /// <summary>
+    /// F-02 (CLI/API parity audit, Apr 2026): convenience overload for API hosts that already
+    /// hold a HeadlessApiOptions instance. Forwards options.SettingsPath to the explicit-path
+    /// overload. Null options or null SettingsPath fall back to the legacy LoadSettings(dataDir).
+    /// Lives in Infrastructure (not Api) because RunEnvironmentBuilder is the canonical loader
+    /// reused by CLI, API and Tests.
+    /// </summary>
+    public static RomulusSettings LoadSettings(string dataDir, object? headlessApiOptions)
+    {
+        if (headlessApiOptions is null)
+            return LoadSettings(dataDir);
+
+        // Reflectively read SettingsPath to keep Infrastructure independent of Romulus.Api.
+        var prop = headlessApiOptions.GetType().GetProperty(
+            "SettingsPath",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        var path = prop?.GetValue(headlessApiOptions) as string;
+        return LoadSettings(dataDir, path);
+    }
+
     public static DatRootResolution ResolveEffectiveDatRoot(
         RunOptions runOptions,
         RomulusSettings settings,

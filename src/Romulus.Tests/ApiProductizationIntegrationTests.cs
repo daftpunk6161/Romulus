@@ -152,6 +152,7 @@ public sealed class ApiProductizationIntegrationTests
             });
 
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Add("X-Confirm-Token", "MOVE");
             var response = await client.PostAsync("/runs?wait=true", content);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

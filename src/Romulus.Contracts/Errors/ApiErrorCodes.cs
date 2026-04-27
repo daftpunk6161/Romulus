@@ -49,6 +49,9 @@ public static class ApiErrorCodes
     public const string RunInvalidReviewOffset = "RUN-INVALID-REVIEW-OFFSET";
     public const string RunInvalidReviewLimit = "RUN-INVALID-REVIEW-LIMIT";
     public const string RunRollbackNotAvailable = "RUN-ROLLBACK-NOT-AVAILABLE";
+    /// <summary>POST /run with mode=Move requires the X-Confirm-Token header set to 'MOVE'.
+    /// Mirrors the GUI typed-token confirmation gate for fachliche Paritaet.</summary>
+    public const string RunMoveConfirmationRequired = "RUN-MOVE-CONFIRMATION-REQUIRED";
 
     // ── DAT ──────────────────────────────────────────────────────────
 

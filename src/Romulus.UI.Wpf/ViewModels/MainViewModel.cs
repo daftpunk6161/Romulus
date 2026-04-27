@@ -958,7 +958,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         else
         {
             dispatcher.InvokeAsync(
-                () => AddLogCore(text, level));
+                () => AddLogCore(text, level),
+                System.Windows.Threading.DispatcherPriority.Background);
         }
     }
 
@@ -970,8 +971,14 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         if (LogEntries.Count >= MaxLogEntries)
         {
             var removeCount = Math.Min(LogTrimBatchSize, LogEntries.Count);
-            for (var i = 0; i < removeCount; i++)
-                LogEntries.RemoveAt(0);
+            // Clear + re-add is O(N) vs 256× RemoveAt(0) which is O(256N) due to array-shift.
+            // 1 Reset event is cheaper than 256 Remove events for the virtualizing panel.
+            var tail = new LogEntry[LogEntries.Count - removeCount];
+            for (var i = 0; i < tail.Length; i++)
+                tail[i] = LogEntries[removeCount + i];
+            LogEntries.Clear();
+            foreach (var entry in tail)
+                LogEntries.Add(entry);
 
             // Keep _runLogStartIndex consistent after trimming oldest entries
             _runLogStartIndex = Math.Max(0, _runLogStartIndex - removeCount);

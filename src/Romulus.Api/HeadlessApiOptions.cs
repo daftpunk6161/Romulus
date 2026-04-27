@@ -9,6 +9,14 @@ public sealed class HeadlessApiOptions
     public bool DashboardEnabled { get; init; } = true;
     public string[] AllowedRoots { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// F-02 (CLI/API parity audit, Apr 2026): explicit override for the user settings file.
+    /// When set, RunEnvironmentBuilder.LoadSettings(dataDir, options) uses this path instead
+    /// of %APPDATA%\Romulus\settings.json. Decouples server deployments from per-user state.
+    /// Configuration key: SettingsPath.
+    /// </summary>
+    public string? SettingsPath { get; init; }
+
     public bool RequiresAllowedRoots => AllowRemoteClients || !IsLoopbackAddress(BindAddress);
 
     public static HeadlessApiOptions FromConfiguration(IConfiguration configuration)
@@ -22,7 +30,8 @@ public sealed class HeadlessApiOptions
             AllowRemoteClients = configuration.GetValue("AllowRemoteClients", false),
             PublicBaseUrl = configuration["PublicBaseUrl"],
             DashboardEnabled = configuration.GetValue("DashboardEnabled", true),
-            AllowedRoots = configuration.GetSection("AllowedRoots").Get<string[]>() ?? Array.Empty<string>()
+            AllowedRoots = configuration.GetSection("AllowedRoots").Get<string[]>() ?? Array.Empty<string>(),
+            SettingsPath = configuration["SettingsPath"]
         };
     }
 

@@ -232,6 +232,9 @@
                    BorderThickness="0" Background="Transparent"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ScrollViewer.CanContentScroll="True"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling"
                    AutomationProperties.Name="Log-Stream">
             <ListBox.ItemTemplate>
               <DataTemplate>

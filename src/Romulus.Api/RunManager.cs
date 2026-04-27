@@ -185,7 +185,7 @@ public sealed class RunManager : IDisposable, IAsyncDisposable
 
         return new RunExecutionOutcome(
             status,
-            ApiRunResultMapper.Map(result, projection));
+            ApiRunResultMapper.Map(result, projection, run.Mode));
     }
 }
 
@@ -325,7 +325,7 @@ public sealed class RunRecord
         get { lock (_lock) return _status; }
         set { lock (_lock) _status = value; }
     }
-    public string Mode { get; init; } = "DryRun";
+    public string Mode { get; init; } = RunConstants.ModeDryRun;
     public string? WorkflowScenarioId { get; init; }
     public string? ProfileId { get; init; }
     [JsonIgnore]
@@ -341,7 +341,7 @@ public sealed class RunRecord
     public string? DatRoot { get; init; }
     public bool OnlyGames { get; init; }
     public bool KeepUnknownWhenOnlyGames { get; init; } = true;
-    public string HashType { get; init; } = "SHA1";
+    public string HashType { get; init; } = RunConstants.DefaultHashType;
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
@@ -494,6 +494,15 @@ public sealed class RunRecord
 
 public sealed class ApiRunResult
 {
+    /// <summary>F-03 (CLI/API parity audit, Apr 2026): schema version of this payload.
+    /// Mirrors CliDryRunOutput.SchemaVersion. Default = RunConstants.ApiOutputSchemaVersion.</summary>
+    public string SchemaVersion { get; init; } = Romulus.Contracts.RunConstants.ApiOutputSchemaVersion;
+    /// <summary>F-03: run mode (DryRun / Move) — mirrored from RunRecord.Mode so callers do
+    /// not have to inspect RunStatusDto separately.</summary>
+    public string Mode { get; init; } = Romulus.Contracts.RunConstants.ModeDryRun;
+    /// <summary>F-03: short alias for OrchestratorStatus (ok / completed_with_errors / blocked / cancelled).
+    /// Provided for entry-point parity with CLI which exposes the same field as `Status`.</summary>
+    public string Status { get; init; } = "";
     /// <summary>Orchestrator-level status (ok, completed_with_errors, blocked, cancelled).
     /// Distinct from RunRecord.Status which tracks lifecycle (pending, running, completed, failed).</summary>
     public string OrchestratorStatus { get; init; } = "";
@@ -502,6 +511,8 @@ public sealed class ApiRunResult
     public int Candidates { get; init; }
     public int Groups { get; init; }
     public int Winners { get; init; }
+    /// <summary>F-03: alias for Winners — mirrors CLI projection field name (`Keep`) for entry-point parity.</summary>
+    public int Keep { get; init; }
     /// <summary>Number of duplicate ROMs identified (losers in deduplication).
     /// In DryRun mode this is the count of files that *would* be moved, not actually moved files.</summary>
     public int Losers { get; init; }
@@ -742,7 +753,7 @@ public sealed class RunStatusDto
 {
     public string RunId { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
-    public string Mode { get; init; } = "DryRun";
+    public string Mode { get; init; } = RunConstants.ModeDryRun;
     public string? WorkflowScenarioId { get; init; }
     public string? ProfileId { get; init; }
     public string[] PreferRegions { get; init; } = Array.Empty<string>();
@@ -754,7 +765,7 @@ public sealed class RunStatusDto
     public bool EnableDatRename { get; init; }
     public bool OnlyGames { get; init; }
     public bool KeepUnknownWhenOnlyGames { get; init; }
-    public string HashType { get; init; } = "SHA1";
+    public string HashType { get; init; } = RunConstants.DefaultHashType;
     public string? ConvertFormat { get; init; }
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }

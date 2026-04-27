@@ -244,6 +244,20 @@ public partial class Program
         
             // Normalize to canonical casing
             mode = mode.Equals("Move", StringComparison.OrdinalIgnoreCase) ? "Move" : "DryRun";
+
+            // F-01 (CLI/API parity audit, Apr 2026): mode=Move requires an explicit typed
+            // confirmation token (X-Confirm-Token: MOVE), mirroring the GUI DangerConfirm.
+            if (MoveConfirmationGate.RequiresConfirmation(mode))
+            {
+                var confirmToken = ctx.Request.Headers[MoveConfirmationGate.HeaderName].FirstOrDefault();
+                if (!MoveConfirmationGate.IsValidConfirmationToken(mode, confirmToken))
+                {
+                    return ApiError(
+                        400,
+                        ApiErrorCodes.RunMoveConfirmationRequired,
+                        $"mode=Move requires the {MoveConfirmationGate.HeaderName} header set to '{MoveConfirmationGate.ConfirmationToken}'.");
+                }
+            }
         
             var idempotencyKey = ctx.Request.Headers["X-Idempotency-Key"].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(idempotencyKey))

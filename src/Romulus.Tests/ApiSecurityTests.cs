@@ -410,6 +410,7 @@ public sealed class ApiSecurityTests : IDisposable
 
         var payload = JsonSerializer.Serialize(new { roots = new[] { root }, mode = "Move" });
         using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+        ownerClient.DefaultRequestHeaders.Add("X-Confirm-Token", "MOVE");
         var createResponse = await ownerClient.PostAsync("/runs?wait=true", content);
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
 

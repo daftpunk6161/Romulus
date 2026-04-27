@@ -6,18 +6,23 @@ namespace Romulus.Api;
 
 internal static class ApiRunResultMapper
 {
-    public static ApiRunResult Map(RunResult result, RunProjection projection)
+    public static ApiRunResult Map(RunResult result, RunProjection projection, string? mode = null)
     {
+        mode ??= Romulus.Contracts.RunConstants.ModeDryRun;
         var projectedArtifacts = RunArtifactProjection.Project(result);
 
         return new ApiRunResult
         {
+            SchemaVersion = Romulus.Contracts.RunConstants.ApiOutputSchemaVersion,
+            Mode = mode ?? Romulus.Contracts.RunConstants.ModeDryRun,
+            Status = projection.Status,
             OrchestratorStatus = projection.Status,
             ExitCode = projection.ExitCode,
             TotalFiles = projection.TotalFiles,
             Candidates = projection.Candidates,
             Groups = projection.Groups,
             Winners = projection.Keep,
+            Keep = projection.Keep,
             Losers = projection.Dupes,
             Games = projection.Games,
             Unknown = projection.Unknown,

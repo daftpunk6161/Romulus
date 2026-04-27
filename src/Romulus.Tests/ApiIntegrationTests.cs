@@ -938,6 +938,7 @@ public sealed class ApiIntegrationTests
         {
             var payload = JsonSerializer.Serialize(new { roots = new[] { root }, mode = "Move" });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Add("X-Confirm-Token", "MOVE");
             var createResponse = await client.PostAsync("/runs?wait=true", content);
             Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
             using var createDoc = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
@@ -1681,6 +1682,7 @@ public sealed class ApiIntegrationTests
             });
 
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Add("X-Confirm-Token", "MOVE");
             var createResponse = await client.PostAsync("/runs?wait=true", content);
             Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
 
@@ -1727,6 +1729,7 @@ public sealed class ApiIntegrationTests
             });
 
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Add("X-Confirm-Token", "MOVE");
             var response = await client.PostAsync("/runs?wait=true", content);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
