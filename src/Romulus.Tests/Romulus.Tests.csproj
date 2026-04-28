@@ -31,7 +31,6 @@
     <ProjectReference Include="..\Romulus.Api\Romulus.Api.csproj" />
     <ProjectReference Include="..\Romulus.CLI\Romulus.CLI.csproj" />
     <ProjectReference Include="..\Romulus.UI.Wpf\Romulus.UI.Wpf.csproj" />
-    <ProjectReference Include="..\Romulus.UI.Avalonia\Romulus.UI.Avalonia.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\data\**\*">
