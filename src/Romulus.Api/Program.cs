@@ -19,7 +19,6 @@ using Romulus.Infrastructure.Conversion;
 using Romulus.Infrastructure.Dat;
 using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Index;
-using Romulus.Infrastructure.Metadata;
 using Romulus.Infrastructure.Orchestration;
 using Romulus.Infrastructure.Export;
 using Romulus.Infrastructure.Profiles;
@@ -43,14 +42,6 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddRomulusCore();
-builder.Services.AddSingleton<IGameMetadataProvider>(sp =>
-{
-    var dataDir = RunEnvironmentBuilder.TryResolveDataDir() ?? "";
-    var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
-    return new ScreenScraperMetadataProvider(
-        settings.MetadataProvider ?? new MetadataProviderSettings(),
-        new HttpClient());
-});
 builder.Services.AddHttpClient(DatSourceService.HttpClientName, client =>
 {
     client.Timeout = TimeSpan.FromSeconds(60);
@@ -825,7 +816,6 @@ app.MapPost("/convert", async (HttpContext ctx, AllowedRootPathPolicy allowedRoo
 // --- Completeness Report Endpoint (B4) ---
 
 MapRunCompletenessEndpoints(app, trustForwardedFor);
-MapMetadataEndpoints(app);
 MapHealthEndpoints(app);
 
 // Graceful shutdown: cancel active runs before process exits

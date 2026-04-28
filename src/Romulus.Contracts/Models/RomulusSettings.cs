@@ -18,9 +18,6 @@ public sealed class RomulusSettings
     [JsonPropertyName("dat")]
     public DatSettings Dat { get; set; } = new();
 
-    [JsonPropertyName("metadataProvider")]
-    public MetadataProviderSettings? MetadataProvider { get; set; }
-
     [JsonPropertyName("rules")]
     public Dictionary<string, JsonElement> Rules { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }

@@ -602,7 +602,6 @@ internal enum CliCommand
     Header,
     JunkReport,
     Completeness,
-    Enrich,
     Health
 }
 
