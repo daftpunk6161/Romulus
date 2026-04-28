@@ -260,26 +260,6 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     // ═══ EXPORT COMMANDS ════════════════════════════════════════════════
 
     [Fact]
-    public void ExportCollection_CsvFormat_CreatesCsvFile()
-    {
-        var csvPath = Path.Combine(_tempDir, "export.csv");
-        _dialog.InputBoxResponses = ["1"];
-        _dialog.NextSaveFile = csvPath;
-        ExecCommand("ExportCollection");
-        Assert.True(HasOutput() || File.Exists(csvPath));
-    }
-
-    [Fact]
-    public void ExportCollection_ExcelFormat_CreatesExcelXml()
-    {
-        var xmlPath = Path.Combine(_tempDir, "export.xml");
-        _dialog.InputBoxResponses = ["2"];
-        _dialog.NextSaveFile = xmlPath;
-        ExecCommand("ExportCollection");
-        Assert.True(HasOutput() || File.Exists(xmlPath));
-    }
-
-    [Fact]
     public void ExportLog_CreatesLogFile()
     {
         _vm.LogEntries.Add(new UI.Wpf.Models.LogEntry("Test log", "INFO"));

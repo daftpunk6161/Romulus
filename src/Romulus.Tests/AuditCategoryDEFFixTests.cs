@@ -172,7 +172,6 @@ public sealed class AuditCategoryDEFFixTests
         Assert.Contains(fields, f => f.StartsWith("DAT-"));
         Assert.Contains(fields, f => f.StartsWith("WATCH-"));
         Assert.Contains(fields, f => f.StartsWith("IO-"));
-        Assert.Contains(fields, f => f.StartsWith("EXPORT-"));
         Assert.Contains(fields, f => f.StartsWith("PROFILE-"));
         Assert.Contains(fields, f => f.StartsWith("WORKFLOW-"));
         Assert.Contains(fields, f => f.StartsWith("COLLECTION-"));

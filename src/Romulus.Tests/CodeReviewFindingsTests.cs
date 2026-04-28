@@ -212,45 +212,8 @@ public sealed class CodeReviewFindingsTests : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //  F4: /export/frontend – Doppeltes Body-Parsing (P2)
-    //
-    //  Bug: /export/frontend duplicates the body reading/parsing logic
-    //  instead of calling ReadJsonBodyAsync. This means it's also vulnerable
-    //  to the chunked-body DoS (F1).
-    //
-    //  Expected FAIL: Oversized chunked body to /export/frontend is not rejected.
-    //  Fix target: Program.cs /export/frontend – replace inline body reading
-    //  with ReadJsonBodyAsync<ApiFrontendExportRequest>.
+    //  F4: removed (Wave 1 A: /export/frontend endpoint culled)
     // ═══════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public async Task F4_ExportFrontend_ChunkedOversizedBody_Returns400()
-    {
-        var settings = new Dictionary<string, string?>
-        {
-            ["ApiKey"] = "test-key",
-            ["CorsMode"] = "strict-local",
-            ["CorsAllowOrigin"] = "http://127.0.0.1",
-            ["RateLimitRequests"] = "120",
-            ["RateLimitWindowSeconds"] = "60",
-        };
-        using var factory = ApiTestFactory.Create(settings);
-        using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Api-Key", "test-key");
-
-        // Create >1MB chunked body targeting /export/frontend
-        var oversizedJson = "{\"frontend\":\"launchbox\",\"outputPath\":\"C:\\\\out\",\"pad\":\"" +
-                            new string('x', 1_100_000) + "\"}";
-        var stream = new MemoryStream(Encoding.UTF8.GetBytes(oversizedJson));
-        using var content = new StreamContent(stream);
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
-        var response = await client.PostAsync("/export/frontend", content);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("TOO-LARGE", body, StringComparison.OrdinalIgnoreCase);
-    }
 
     // ═══════════════════════════════════════════════════════════════════
     //  F5: CSV-Export – FilePath fehlt (P2 Korrektheit)

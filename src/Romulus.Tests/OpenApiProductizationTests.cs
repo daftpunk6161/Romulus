@@ -29,14 +29,10 @@ public sealed class OpenApiProductizationTests
         Assert.True(paths.TryGetProperty("/runs/trends", out var trendsPath), "Missing /runs/trends path in embedded OpenAPI spec.");
         Assert.True(trendsPath.TryGetProperty("get", out _), "/runs/trends must declare GET.");
 
-        Assert.True(paths.TryGetProperty("/export/frontend", out var exportPath), "Missing /export/frontend path in embedded OpenAPI spec.");
-        Assert.True(exportPath.TryGetProperty("post", out _), "/export/frontend must declare POST.");
-
         Assert.True(schemas.TryGetProperty("RunProfileDocument", out _), "Missing RunProfileDocument schema in embedded OpenAPI spec.");
         Assert.True(schemas.TryGetProperty("RunProfileSummary", out _), "Missing RunProfileSummary schema in embedded OpenAPI spec.");
         Assert.True(schemas.TryGetProperty("WorkflowScenarioDefinition", out _), "Missing WorkflowScenarioDefinition schema in embedded OpenAPI spec.");
         Assert.True(schemas.TryGetProperty("RunSnapshotComparison", out _), "Missing RunSnapshotComparison schema in embedded OpenAPI spec.");
         Assert.True(schemas.TryGetProperty("StorageInsightReport", out _), "Missing StorageInsightReport schema in embedded OpenAPI spec.");
-        Assert.True(schemas.TryGetProperty("FrontendExportResult", out _), "Missing FrontendExportResult schema in embedded OpenAPI spec.");
     }
 }

@@ -690,40 +690,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.True(HasOutput());
     }
 
-    // ═══ EXPORT COMMANDS WITH CANDIDATES ════════════════════════════════
-
-    [Fact]
-    public void ExportCollection_CsvFormat_CreatesCsvFile()
-    {
-        _sut.RegisterCommands();
-        var csvPath = Path.Combine(_tempDir, "export.csv");
-        _dialog.ShowInputBoxResult = "1";
-        _dialog.SaveFileResult = csvPath;
-        _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<Romulus.Contracts.Models.RomCandidate>
-        {
-            new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
-        };
-        _vm.FeatureCommands["ExportCollection"].Execute(null);
-        Assert.True(File.Exists(csvPath));
-    }
-
-    [Fact]
-    public void ExportCollection_ExcelFormat_CreatesXmlFile()
-    {
-        _sut.RegisterCommands();
-        var xmlPath = Path.Combine(_tempDir, "export.xml");
-        _dialog.ShowInputBoxResult = "2";
-        _dialog.SaveFileResult = xmlPath;
-        _vm.LastCandidates = new System.Collections.ObjectModel.ObservableCollection<Romulus.Contracts.Models.RomCandidate>
-        {
-            new RomCandidate { MainPath = "game.sfc", GameKey = "Game", Region = "EU",
-                Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }
-        };
-        _vm.FeatureCommands["ExportCollection"].Execute(null);
-        Assert.True(File.Exists(xmlPath));
-    }
-
     // ═══ HEADER ANALYSIS WITH FILE ══════════════════════════════════════
 
     [Fact]
@@ -922,45 +888,7 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.Contains("2 Root-Ordner", content);
     }
 
-    // ═══ TASK-053: ExportCollection — 3 Formats ═════════════════════════
-
-    [Fact]
-    public void ExportCollection_DuplicateCsvFormat_CreatesDuplicateCsvFile()
-    {
-        _sut.RegisterCommands();
-        var csvPath = Path.Combine(_tempDir, "dupes.csv");
-        _dialog.ShowInputBoxResult = "3";
-        _dialog.SaveFileResult = csvPath;
-        _vm.LastDedupeGroups.Add(new DedupeGroup
-        {
-            GameKey = "DupeGame",
-            Winner = new RomCandidate { MainPath = "w.sfc", GameKey = "DupeGame", Region = "EU", Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" },
-            Losers = [new RomCandidate { MainPath = "l.sfc", GameKey = "DupeGame", Region = "US", Extension = ".sfc", SizeBytes = 1024, Category = FileCategory.Game, ConsoleKey = "SNES" }]
-        });
-        _vm.FeatureCommands["ExportCollection"].Execute(null);
-        Assert.True(File.Exists(csvPath));
-        var content = File.ReadAllText(csvPath);
-        Assert.Contains("l.sfc", content);
-    }
-
-    [Fact]
-    public void ExportCollection_InvalidChoice_LogsWarning()
-    {
-        _sut.RegisterCommands();
-        _dialog.ShowInputBoxResult = "99";
-        _vm.FeatureCommands["ExportCollection"].Execute(null);
-        Assert.Contains(_vm.LogEntries, e => e.Level == "WARN");
-    }
-
-    [Fact]
-    public void ExportCollection_EmptyInput_DoesNothing()
-    {
-        _sut.RegisterCommands();
-        _dialog.ShowInputBoxResult = "";
-        _vm.FeatureCommands["ExportCollection"].Execute(null);
-        Assert.Empty(_vm.LogEntries);
-        Assert.Empty(_dialog.ShowTextCalls);
-    }
+    // ═══ TASK-053: removed (ExportCollection cull) ═════════════════════
 
     // ═══ TASK-054: CommandPalette — FeatureCommands coverage ═════════════
 
@@ -1032,7 +960,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
         Assert.Contains("HealthScore", pinnedKeys);
         Assert.Contains("DuplicateAnalysis", pinnedKeys);
         Assert.Contains("RollbackQuick", pinnedKeys);
-        Assert.Contains("ExportCollection", pinnedKeys);
         Assert.Contains("DatAutoUpdate", pinnedKeys);
         Assert.Contains("IntegrityMonitor", pinnedKeys);
     }

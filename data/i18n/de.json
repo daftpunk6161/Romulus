@@ -772,12 +772,8 @@
 
   "Tool.HtmlReport": "HTML-Report",
   "Tool.HtmlReport.Desc": "HTML-Report generieren",
-  "Tool.LauncherIntegration": "Launcher-Integration",
-  "Tool.LauncherIntegration.Desc": "RetroArch-Playlist exportieren",
   "Tool.DatImport": "DAT-Import",
   "Tool.DatImport.Desc": "DAT-Dateien importieren",
-  "Tool.ExportCollection": "Sammlung exportieren",
-  "Tool.ExportCollection.Desc": "CSV, Excel-XML oder Duplikate exportieren",
 
   "Tool.StorageTiering": "Storage-Tiering",
   "Tool.StorageTiering.Desc": "Speicher-Analyse",

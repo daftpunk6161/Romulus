@@ -600,23 +600,8 @@ public sealed class CliArgsParserCoverageTests : IDisposable
     }
 
     // ──────────────────────────────────────────
-    // export subcommand edge cases
+    // export subcommand removed (Wave 1 A)
     // ──────────────────────────────────────────
-
-    [Fact]
-    public void Export_InvalidFormat_ReturnsValidationError()
-    {
-        var result = CliArgsParser.Parse(["export", "--roots", _tempDir, "--format", "badformat"]);
-        Assert.Equal(3, result.ExitCode);
-        Assert.Contains(result.Errors, e => e.Contains("Invalid export format"));
-    }
-
-    [Fact]
-    public void Export_NoRoots_ReturnsValidationError()
-    {
-        var result = CliArgsParser.Parse(["export", "--format", "csv"]);
-        Assert.Equal(3, result.ExitCode);
-    }
 
     [Fact]
     public void History_InvalidLimit_ReturnsError()
