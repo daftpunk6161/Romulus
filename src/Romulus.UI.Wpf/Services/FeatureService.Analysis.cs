@@ -108,8 +108,7 @@ public static partial class FeatureService
     }
 
 
-    // ═══ LAUNCHER INTEGRATION ═══════════════════════════════════════════
-    // Port of LauncherIntegration.ps1
+    // ═══ RETROARCH PLAYLIST EXPORT (used by tests / future use) ═════════
 
     private static Dictionary<string, string> CoreMapping =>
         UiLookupData.Instance.CoreMapping.Count > 0 ? UiLookupData.Instance.CoreMapping

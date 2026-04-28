@@ -530,8 +530,8 @@ public partial class Program
             runOptions.Roots,
             env.CollectionIndex,
             runOptions.Extensions,
-            run.CoreRunResult is { } frontendExportRunResult
-                ? RunArtifactProjection.Project(frontendExportRunResult).AllCandidates
+            run.CoreRunResult is { } completenessRunResult
+                ? RunArtifactProjection.Project(completenessRunResult).AllCandidates
                 : null,
             ct,
             env.FileSystem);
