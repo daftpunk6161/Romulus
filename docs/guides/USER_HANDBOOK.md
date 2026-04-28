@@ -6,17 +6,15 @@
 
 ## 1. Schnellstart
 
-### GUI (Avalonia, Standard)
-
-```bash
-dotnet run --project src/Romulus.UI.Avalonia
-```
-
-### GUI (WPF, Legacy)
+### GUI (WPF, Standard)
 
 ```bash
 dotnet run --project src/Romulus.UI.Wpf
 ```
+
+> Hinweis: Der Avalonia-Prototyp wurde in Welle 1 (Strategic Reduction 2026,
+> ADR-0022) archiviert nach `archive/avalonia-spike/`. Die WPF-GUI ist die einzige
+> aktive Desktop-Oberfläche.
 
 1. Im Tab **Sortieren** ROM-Ordner hinzufügen
 2. Optional Trash-Pfad setzen
