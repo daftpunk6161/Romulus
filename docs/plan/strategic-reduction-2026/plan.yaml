@@ -1588,8 +1588,10 @@ tasks:
     status: pending
     dependencies: ["T-W3-RUN-SMOKE-WITH-USERS", "T-W1-I18N-ORPHAN-SWEEP", "T-W2-README-REFRESH", "T-W2-AUDIT-MORATORIUM-DECREE", "T-W2-COVERAGE-GAP-CHECK", "T-W2-I18N-ORPHAN-CI-TEST"]
     conflicts_with: []
-    context_files: []
-    planning_pass: 1
+    context_files:
+      - path: docs/plan/strategic-reduction-2026/phase1-gate-report.md
+        description: Erste Gate-Bewertung (Verdict BLOCKED, 6/8 PASS, 2/8 BLOCKED)
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Hartes Stop/Go-Gate vor Phase 2.
@@ -1607,6 +1609,39 @@ tasks:
             likelihood: medium
             impact: critical
             mitigation: Mindestens zwei Reviewer; explicit "needs_revision" erlaubt
+        requires_review: true
+        review_depth: full
+        review_security_sensitive: false
+      - pass: 2
+        reason: |
+          Erste Bewertungsrunde durch gem-critic. Verdict BLOCKED -
+          needs_revision. 6 von 8 Kriterien bestanden (eine GUI, Tool-Karten
+          reduziert, 163/163 Konsolen tier-markiert, i18n CI-gesichert,
+          README ehrlich, Top-20-Coverage-CI gruen, i18n-Orphan-CI gruen).
+          2 Kriterien hart blockiert auf reale Beta-Daten:
+          T-W3-BETA-USERS und T-W3-RUN-SMOKE-WITH-USERS sind pending.
+          Vorbereitungs-Playbooks liegen, ausgefuellte Cohort-Tabelle und
+          Beobachtungsboegen fehlen. Status der Gate-Task BLEIBT pending.
+          Welle 4 darf NICHT starten.
+        timestamp: "2026-04-29"
+        estimated_effort: small
+        estimated_files: 2
+        estimated_lines: 150
+        focus_area: review
+        verification:
+          - docs/plan/strategic-reduction-2026/phase1-gate-report.md liegt vor
+          - Verdict ist explizit BLOCKED, nicht durchgewunken
+          - Folge-Welle-4-Tasks bleiben pending bis Re-Evaluation
+        acceptance_criteria:
+          - Alle 8 Kriterien aus T-W3-PHASE1-GATE.description einzeln bewertet
+          - Pro Blocker: konkrete Re-Evaluations-Bedingung dokumentiert
+          - Re-Evaluations-Pfad fuer gem-critic spezifiziert
+        failure_modes:
+          - scenario: Maintainer flippt Gate trotz fehlender Beta-Daten
+            likelihood: low
+            impact: critical
+            mitigation: Bericht dokumentiert B-1/B-2 explizit; pass-3 erst
+              nach erneuter gem-critic-Runde mit Cohort-/Run-Beleg-Stichprobe
         requires_review: true
         review_depth: full
         review_security_sensitive: false
