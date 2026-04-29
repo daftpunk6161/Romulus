@@ -394,6 +394,29 @@ Wenn Code erzeugt wird, liefere vollstaendige, zusammenhaengende Aenderungen sta
 
 ---
 
+## Audit-Moratorium (Welle 1-3, gueltig bis 2026-05-28)
+
+Im Geltungszeitraum von **2026-04-28 bis 2026-05-28** (Wellen 1-3 der strategischen Reduktion, siehe `docs/plan/strategic-reduction-2026/plan.yaml`) gilt ein hartes Moratorium gegen weitere Audit-Wucherung.
+
+**Verboten:**
+- neue Deep-Dive-Audits oder Repo-wide Audit-Berichte (`*audit*.md`, `*deep-dive*.md`, `*findings-tracker*.md`)
+- neue Findings-Tracker, Re-Audit-Round-Dokumente, Bug-Hunt-Reports
+- neue Dateien unter `archive/` mit Audit-/Findings-/Tracker-Charakter
+- Auftraege an Subagents wie "fuehre einen weiteren Deep-Dive durch" oder "audite das Repo erneut"
+
+**Erlaubt:**
+- konkrete P1-Sicherheits- oder Datenintegritaets-Befunde, die zu einem direkten Fix-PR fuehren (kein Sammeldokument)
+- Pin-Tests / Regressionstests, die einen einzelnen konkreten Bug absichern
+- Code-Reviews auf konkreten PRs (gem-reviewer / gem-critic auf eine Aenderung, nicht auf das ganze Repo)
+
+**Sanktion:** PRs, die das Moratorium verletzen, werden im Review abgelehnt. Reviewer pruefen die Moratorium-Checkbox im PR-Template.
+
+**Owner:** Repo-Maintainer (daftpunk6161).
+
+**Begruendung:** Vor Welle 1 lagen ueber zehn parallele Audit-Dokumente im Repo, ohne dass ihre Findings systematisch abgearbeitet wurden. Das Moratorium zwingt das Team, die Welle 1-3 Reduktion abzuschliessen, bevor neue Audit-Schichten oben drauf kommen. Nach Abschluss von Welle 3 wird der Status neu bewertet.
+
+---
+
 ## Was du vermeiden musst
 - keine stillen Verhaltensaenderungen
 - keine Logikduplikation zwischen GUI, CLI und API

@@ -861,7 +861,7 @@ tasks:
     prototype: false
     covers: ["TOP-2"]
     priority: high
-    status: pending
+    status: done
     dependencies: []
     conflicts_with: []
     context_files:
@@ -869,7 +869,7 @@ tasks:
         description: Hauptregel-Datei (einziger Speicherort des Moratoriums)
       - path: .github/PULL_REQUEST_TEMPLATE.md
         description: PR-Template-Hinweis
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Disziplin-Mechanismus gegen Audit-Inflation.
@@ -879,8 +879,8 @@ tasks:
         estimated_lines: 150
         focus_area: governance
         verification:
-          - Moratorium-Datei vorhanden
-          - AGENTS.md verweist darauf
+          - Moratorium-Abschnitt in AGENTS.md vorhanden
+          - PR-Template enthaelt Moratorium-Check
         acceptance_criteria:
           - Geltungszeitraum, Sanktion, Owner sind benannt
         failure_modes:
@@ -890,6 +890,29 @@ tasks:
             mitigation: PR-Reviewer lehnen Audit-PRs in Geltungszeitraum ab
         requires_review: true
         review_depth: standard
+      - pass: 2
+        reason: |
+          Acceptance gegen Audit-Wucherung permanent abgesichert: 4 Pin-Tests in
+          Wave2AuditMoratoriumTests verteidigen (a) Existenz und Vollstaendigkeit
+          des Moratorium-Abschnitts in AGENTS.md (Geltungszeitraum 2026-04-28
+          bis 2026-05-28, Verbots-/Erlaubnis-Scope, Sanktion, Owner daftpunk6161,
+          Plan-Bezug), (b) PR-Template-Existenz mit Verweis auf AGENTS.md und
+          mindestens einer Selbstdeklarations-Checkbox, (c) Wucherungs-Schutz:
+          KEINE parallele audit-moratorium.md in docs/, .claude/rules/ oder im
+          Plan-Verzeichnis (Single source bleibt AGENTS.md), (d) konkrete
+          Verbots-Items (Deep-Dive, Findings-Tracker) und Erlaubnis-Items
+          (P1-Sicherheit, Pin-Tests) sind explizit benannt.
+        timestamp: "2026-04-29"
+        verification:
+          - Wave2AuditMoratoriumTests (4 Pin-Tests gruen)
+          - AgentsMd_DeclaresMoratoriumWithRequiredFields
+          - PrTemplate_ExistsAndReferencesMoratoriumSection
+          - NoParallelMoratoriumDocumentExists
+          - AgentsMd_MoratoriumSectionListsConcreteForbiddenAndAllowedItems
+        acceptance_criteria:
+          - Single source AGENTS.md "## Audit-Moratorium" mit Geltungszeitraum, Verbot, Erlaubnis, Sanktion, Owner
+          - .github/PULL_REQUEST_TEMPLATE.md mit Moratorium-Check und AGENTS.md-Verweis
+          - Keine parallelen Moratorium-Dateien (Wucherungs-Schutz)
 
   - id: T-W2-SCORING-REASON-TRACE
     title: WinnerReasonTrace im RunResult einfuehren
