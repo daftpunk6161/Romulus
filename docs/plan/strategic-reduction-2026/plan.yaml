@@ -1453,7 +1453,7 @@ tasks:
     dependencies: ["T-W1-UI-REDUCTION", "T-W2-README-REFRESH"]
     conflicts_with: []
     context_files: []
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Echte Nutzer ersetzen Selbst-Audits.
@@ -1475,6 +1475,25 @@ tasks:
             mitigation: mind. 3 von 5 muessen extern sein
         requires_review: true
         review_depth: standard
+      - pass: 2
+        reason: |
+          Vorbereitungs-Artefakt erstellt:
+          docs/plan/strategic-reduction-2026/beta-recruiting-playbook.md.
+          Enthaelt Recruiting-Kanaele, Ansprache-Template, Interview-Leitfaden
+          (4 Bloecke), Onboarding-Anleitung, Cohort-Tracker-Schema und harte
+          Annahme-Kriterien (Owner benannt, 5 Eintraege, davon mind. 3 extern).
+          Status BLEIBT pending - keine Selbstausstellung. Wechsel auf done erst,
+          wenn der Cohort-Block im Playbook 5 reale Eintraege enthaelt und beide
+          Owner-Slots ausgefuellt sind. Coding-Agent kann reale Akquise nicht
+          ersetzen.
+        timestamp: "2026-04-29"
+        verification:
+          - docs/plan/strategic-reduction-2026/beta-recruiting-playbook.md vorhanden
+          - Interview-Leitfaden mit 4 Bloecken (Sammlung, Werkzeuge, Risiko, Logistik)
+          - Cohort-Schema und Annahme-Kriterien dokumentiert
+        acceptance_criteria:
+          - Vorbereitung steht; tatsaechliche Akquise ist Maintainer-Pflicht
+          - Status done erst nach 5 realen Cohort-Eintraegen (>=3 extern)
 
   - id: T-W3-RUN-SMOKE-WITH-USERS
     title: Vollstaendiger Workflow-Smoke mit Beta-Nutzern
@@ -1494,7 +1513,7 @@ tasks:
     dependencies: ["T-W3-BETA-USERS"]
     conflicts_with: []
     context_files: []
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Beweisbarkeit, dass der reduzierte Workflow tatsaechlich funktioniert.
@@ -1513,6 +1532,28 @@ tasks:
             likelihood: high
             impact: medium
             mitigation: Severity-Pflicht je Punkt + Owner
+      - pass: 2
+        reason: |
+          Vorbereitungs-Artefakt erstellt:
+          docs/plan/strategic-reduction-2026/beta-smoke-protocol.md.
+          Enthaelt Smoke-Skript fuer alle 8 Workflow-Schritte (Add Library,
+          Scan, Verify, Plan, Confirm, Execute, Report, Rollback), Severity-
+          Skala (P1/P2/P3), Beobachterregeln (kein Coaching, keine Live-Fixes),
+          Beobachtungsbogen-Schema je Run, Aggregations-Pflicht (Friktion ->
+          Backlog) und harte Annahme-Kriterien (5 Runs, alle 8 Schritte
+          beobachtet, mind. 4 von 5 ohne Coach-Eingriff abgeschlossen).
+          Status BLEIBT pending - Wechsel auf done erst, wenn der runs-Block
+          im Protokoll 5 reale Eintraege enthaelt. Coding-Agent kann
+          reale Workflow-Smokes nicht ersetzen.
+        timestamp: "2026-04-29"
+        verification:
+          - docs/plan/strategic-reduction-2026/beta-smoke-protocol.md vorhanden
+          - 8-Schritte-Skript mit Beobachtungspunkten je Schritt
+          - Severity-Skala P1/P2/P3 mit Reaktions-Pflicht
+          - Beobachterregeln (no coaching, no live-fix) explizit
+        acceptance_criteria:
+          - Vorbereitung steht; reale Smoke-Durchfuehrung ist Maintainer-Pflicht
+          - Status done erst nach 5 realen Run-Eintraegen mit Friktionsblock
         validation_matrix:
           - scenario: Voller Workflow Add-Library bis Rollback
             steps:
