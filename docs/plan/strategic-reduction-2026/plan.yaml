@@ -1276,6 +1276,7 @@ tasks:
   - id: T-W2-COVERAGE-GAP-CHECK
     title: Automatischer Top-20-Coverage-Check (CI-Skript)
     description: |
+      GOVERNANCE-TASK - kein eigenes Top-20-Item; verteidigt die Top-20-Coverage-Aussage.
       Stellt sicher, dass die "Top-20 1:1"-Behauptung des Plans hart bleibt.
       CI-Skript (PowerShell oder dotnet-Tool) liest plan.yaml und verifiziert:
       - jede TOP-1..TOP-20 Empfehlung erscheint in mindestens einem tasks[].covers
@@ -1289,13 +1290,15 @@ tasks:
     prototype: false
     covers: []
     priority: high
-    status: pending
+    status: done
     dependencies: []
     conflicts_with: []
     context_files:
       - path: docs/plan/strategic-reduction-2026/plan.yaml
         description: Quelle der Wahrheit
-    planning_pass: 1
+      - path: docs/plan/strategic-reduction-2026/top-20.md
+        description: Top-20-Liste mit TOP-1..TOP-20 Markern
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Hygiene-Schutz - macht die "1:1"-Aussage des Plans verifizierbar.
@@ -1314,10 +1317,33 @@ tasks:
             likelihood: medium
             impact: medium
             mitigation: kein Skip-Flag im Skript
+      - pass: 2
+        reason: |
+          Implementiert. Statt eines separaten Skripts liegt der Coverage-Check
+          als xUnit-Pin-Test (Wave2CoverageGapTests) im src/Romulus.Tests-Projekt -
+          laeuft damit automatisch im CI-Build. top-20.md neu erstellt mit
+          TOP-1..TOP-20 Markern. Test verifiziert: jedes TOP-N hat mind. einen
+          covers-Treffer; jeder covers-Eintrag verweist auf 1..20; Tasks ohne
+          covers tragen prototype:true ODER 'BONUS'-Title ODER 'BONUS-FEATURE' ODER
+          'GOVERNANCE-TASK' in der Description. Vier governance-Tasks (T-W2-COVERAGE-
+          GAP-CHECK, T-W2-I18N-ORPHAN-CI-TEST, T-W9-API-HARDENING, T-W11-CROSS-
+          PLATFORM-DECISION) wurden mit GOVERNANCE-TASK markiert.
+        timestamp: "2026-04-29"
+        verification:
+          - Wave2CoverageGapTests.Top20File_Exists
+          - Wave2CoverageGapTests.Top20File_DefinesAllTwenty
+          - Wave2CoverageGapTests.EveryTopN_IsCoveredByAtLeastOneTask
+          - Wave2CoverageGapTests.EveryCoversReference_PointsToValidTopN
+          - Wave2CoverageGapTests.TasksWithoutCovers_AreEitherPrototypeBonusOrGovernance
+        acceptance_criteria:
+          - top-20.md liegt vor und enthaelt TOP-1..TOP-20
+          - Plan-Drift wird automatisch erkannt (Test rot bei Diskrepanz)
+          - kein Skip-Flag im Test - laeuft als regulaerer xUnit-Test im CI
 
   - id: T-W2-I18N-ORPHAN-CI-TEST
     title: Dauerhafter i18n/Command-Orphan-Test (CI)
     description: |
+      GOVERNANCE-TASK - kein eigenes Top-20-Item; CI-Hygiene-Schutz.
       Macht aus T-W1-I18N-ORPHAN-SWEEP einen wiederverwendbaren Schutz.
       Bestehender Test WpfFingerprintAndI18nTests wird erweitert (oder neuer Test
       I18nOrphanGuardTests in src/Romulus.Tests):
@@ -2223,6 +2249,7 @@ tasks:
   - id: T-W9-API-HARDENING
     title: API-Haertung (Auth, Rate Limit, Doku) ohne Marketplace/Plugin
     description: |
+      GOVERNANCE-TASK - kein eigenes Top-20-Item; Power-Persona-Werkzeug, eng skopiert.
       Bestehende API: Auth ueberprufen (Fixed-Time-Comparison), Rate Limit
       bestaetigen, OpenAPI-Doku auf reduziertes Feature-Set anpassen,
       Endpunkte fuer Audit-Viewer/HealthScore/Provenance/Policy ergaenzen.
@@ -2350,6 +2377,7 @@ tasks:
   - id: T-W11-CROSS-PLATFORM-DECISION
     title: Cross-Platform-Entscheidung (nur falls Bedarf belegt)
     description: |
+      GOVERNANCE-TASK - kein eigenes Top-20-Item; reine ADR-Entscheidung.
       Rein governance-getrieben. Default-Pfad bei belegtem Bedarf: headless
       Romulus.CLI in Linux/macOS-Container. Avalonia-Reaktivierung NUR unter den
       drei in resolved_decisions[Avalonia] gelockten Bedingungen (>=3 belegte
