@@ -136,6 +136,24 @@ public static class CollectionExportService
         return (summary, entries);
     }
 
+    /// <summary>
+    /// T-W5-REPORT-UNIFICATION: synthesizes a minimal <see cref="RunResult"/> from
+    /// in-memory candidates/groups so callers without a live RunResult (Preview-only
+    /// case in the GUI) can still route through the canonical
+    /// <see cref="RunReportWriter"/> single-channel writer. This is the public entry
+    /// point used by <c>IResultExportService</c> after the dual-truth fallback path
+    /// was eliminated; producing the report through this projection guarantees
+    /// byte-identical output across GUI / CLI / API.
+    /// </summary>
+    public static RunResult BuildPreviewProjectionSource(
+        IReadOnlyList<RomCandidate> candidates,
+        IReadOnlyList<DedupeGroup> groups)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(groups);
+        return BuildReportProjectionSource(candidates, groups, runResult: null);
+    }
+
     private static RunResult BuildReportProjectionSource(
         IReadOnlyList<RomCandidate> candidates,
         IReadOnlyList<DedupeGroup> groups,

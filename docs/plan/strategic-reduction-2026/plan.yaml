@@ -2347,7 +2347,7 @@ tasks:
     prototype: false
     covers: ["TOP-15"]
     priority: high
-    status: pending
+    status: completed
     dependencies: ["T-W3-PHASE1-GATE"]
     conflicts_with: []
     context_files:
