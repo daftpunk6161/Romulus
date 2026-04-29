@@ -70,6 +70,15 @@ public sealed class RunResultBuilder
     /// </summary>
     public string? FailedPhaseStatus { get; set; }
 
+    /// <summary>
+    /// T-W5-CONVERSION-SAFETY-ADVISOR: deterministic accept-data-loss token
+    /// computed from the planned lossy items. Surfaced via
+    /// <see cref="RunResult.PendingLossyToken"/> so the next execute pass can
+    /// echo it via <c>RunOptions.AcceptDataLossToken</c>.
+    /// Null when the run produced no lossy plans.
+    /// </summary>
+    public string? PendingLossyToken { get; set; }
+
     public RunResultBuilder AddWarning(string warning)
     {
         if (!string.IsNullOrWhiteSpace(warning))
@@ -129,7 +138,8 @@ public sealed class RunResultBuilder
         Warnings = Warnings.Count > 0 ? Warnings.ToArray() : Array.Empty<string>(),
         IsPartial = IsPartial,
         FailedPhaseName = FailedPhaseName,
-        FailedPhaseStatus = FailedPhaseStatus
+        FailedPhaseStatus = FailedPhaseStatus,
+        PendingLossyToken = PendingLossyToken
         };
 
         // Defensive invariant check keeps report/output channels aligned.

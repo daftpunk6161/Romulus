@@ -248,6 +248,11 @@ internal static partial class CliArgsParser
                     opts.ApproveConversionReview = true;
                     opts.ApproveConversionReviewExplicit = true;
                     break;
+                case "--accept-data-loss":
+                    if (!TryConsumeValue(args, ref i, "--accept-data-loss", errors, out var acceptDataLossConvertVal)) break;
+                    opts.AcceptDataLossToken = acceptDataLossConvertVal;
+                    opts.AcceptDataLossTokenExplicit = true;
+                    break;
                 default:
                     if (!args[i].StartsWith("-"))
                         opts.InputPath ??= args[i];
@@ -402,6 +407,12 @@ internal static partial class CliArgsParser
                 case "--approve-conversion-review":
                     opts.ApproveConversionReview = true;
                     opts.ApproveConversionReviewExplicit = true;
+                    break;
+
+                case "--accept-data-loss":
+                    if (!TryConsumeValue(args, ref i, "--accept-data-loss", errors, out var acceptDataLossWatchVal)) break;
+                    opts.AcceptDataLossToken = acceptDataLossWatchVal;
+                    opts.AcceptDataLossTokenExplicit = true;
                     break;
 
                 case "--sortconsole":

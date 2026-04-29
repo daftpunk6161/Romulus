@@ -58,6 +58,28 @@ internal static class ConversionPhaseHelper
         if (workItems.Count == 0)
             return new ConversionBatchResult(0, 0, 0, 0, Array.Empty<ConversionResult>());
 
+        // T-W5-CONVERSION-SAFETY-ADVISOR: pre-flight gate.
+        // For executing modes (Move) only: project planned lossy items and
+        // require an explicit, matching AcceptDataLossToken. DryRun stays
+        // unaffected because lossy items are surfaced via the conversion
+        // report (RunResult.PendingLossyToken) without execution.
+        // No I/O leak of the token: we use ConversionLossyTokenPolicy
+        // exclusively for validation; failure throws before any tool runs.
+        if (!string.Equals(options.Mode, RunConstants.ModeDryRun, StringComparison.OrdinalIgnoreCase)
+            && converter is FormatConverterAdapter planner)
+        {
+            var planned = new List<(string SourcePath, ConversionPlan? Plan)>(workItems.Count);
+            foreach (var item in workItems)
+            {
+                if (item.SkipBeforeConversion)
+                    continue;
+                planned.Add((item.FilePath, planner.PlanForConsole(item.FilePath, item.ConsoleKey)));
+            }
+
+            var lossyItems = ConversionLossyBatchGate.CollectLossyFromPlans(planned);
+            ConversionLossyBatchGate.Enforce(lossyItems, options.AcceptDataLossToken);
+        }
+
         var orderedResults = new ConversionResult?[workItems.Count];
         var serializationLocks = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         var progressLock = new object();

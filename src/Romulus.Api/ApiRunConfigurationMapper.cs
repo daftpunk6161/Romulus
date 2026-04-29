@@ -42,6 +42,7 @@ internal static class ApiRunConfigurationMapper
             ConvertOnly = presence.ConvertOnly ? request.ConvertOnly : null,
             ApproveReviews = presence.ApproveReviews ? request.ApproveReviews : null,
             ApproveConversionReview = presence.ApproveConversionReview ? request.ApproveConversionReview : null,
+            AcceptDataLossToken = presence.AcceptDataLossToken ? request.AcceptDataLossToken : null,
             ConflictPolicy = presence.ConflictPolicy ? request.ConflictPolicy : null,
             TrashRoot = presence.TrashRoot ? request.TrashRoot : null
         };
@@ -67,6 +68,7 @@ internal static class ApiRunConfigurationMapper
             ConvertOnly = presence.ConvertOnly,
             ApproveReviews = presence.ApproveReviews,
             ApproveConversionReview = presence.ApproveConversionReview,
+            AcceptDataLossToken = presence.AcceptDataLossToken,
             ConflictPolicy = presence.ConflictPolicy,
             TrashRoot = presence.TrashRoot
         };
@@ -99,6 +101,7 @@ internal static class ApiRunConfigurationMapper
             ConvertOnly = options.ConvertOnly,
             ApproveReviews = options.ApproveReviews,
             ApproveConversionReview = options.ApproveConversionReview,
+            AcceptDataLossToken = options.AcceptDataLossToken,
             ConflictPolicy = options.ConflictPolicy,
             TrashRoot = options.TrashRoot,
             Extensions = options.Extensions.ToArray()
@@ -139,6 +142,7 @@ internal static class ApiRunConfigurationMapper
             ConvertOnly: propertyNames.Contains("convertOnly"),
             ApproveReviews: propertyNames.Contains("approveReviews"),
             ApproveConversionReview: propertyNames.Contains("approveConversionReview"),
+            AcceptDataLossToken: propertyNames.Contains("acceptDataLossToken"),
             ConflictPolicy: propertyNames.Contains("conflictPolicy"),
             TrashRoot: propertyNames.Contains("trashRoot"));
 
@@ -162,6 +166,7 @@ internal static class ApiRunConfigurationMapper
         bool ConvertOnly,
         bool ApproveReviews,
         bool ApproveConversionReview,
+        bool AcceptDataLossToken,
         bool ConflictPolicy,
         bool TrashRoot);
 }

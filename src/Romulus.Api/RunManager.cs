@@ -213,6 +213,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
         ConvertOnly = run.ConvertOnly;
         ApproveReviews = run.ApproveReviews;
         ApproveConversionReview = run.ApproveConversionReview;
+        AcceptDataLossToken = run.AcceptDataLossToken;
         TrashRoot = run.TrashRoot;
         ConflictPolicy = run.ConflictPolicy;
     }
@@ -235,6 +236,7 @@ internal sealed class RunRecordOptionsSource : IRunOptionsSource
     public bool ConvertOnly { get; }
     public bool ApproveReviews { get; }
     public bool ApproveConversionReview { get; }
+    public string? AcceptDataLossToken { get; }
     public string? TrashRoot { get; }
     public string ConflictPolicy { get; }
 }
@@ -293,6 +295,7 @@ public sealed class RunRequest
     public bool ConvertOnly { get; set; }
     public bool ApproveReviews { get; set; }
     public bool ApproveConversionReview { get; set; }
+    public string? AcceptDataLossToken { get; set; }
     public string? ConflictPolicy { get; set; }
     public string? TrashRoot { get; set; }
     public string[]? Extensions { get; set; }
@@ -346,6 +349,8 @@ public sealed class RunRecord
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
     public bool ApproveConversionReview { get; init; }
+    [JsonIgnore]
+    public string? AcceptDataLossToken { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
     [JsonIgnore]
     public string? TrashRoot { get; init; }

@@ -9,6 +9,7 @@ using Romulus.Infrastructure.Index;
 using Romulus.Infrastructure.Linking;
 using Romulus.Infrastructure.Metrics;
 using Romulus.Infrastructure.Paths;
+using Romulus.Infrastructure.Conversion;
 using Romulus.Infrastructure.Quarantine;
 using Romulus.Infrastructure.Reporting;
 
@@ -864,6 +865,15 @@ public sealed partial class RunOrchestrator
             TotalSavedBytes = savedBytes,
             Results = results
         };
+
+        // T-W5-CONVERSION-SAFETY-ADVISOR: surface the deterministic
+        // accept-data-loss token for every detected lossy result, so a
+        // follow-up execute pass can echo it via RunOptions.AcceptDataLossToken.
+        // Pure projection — no I/O, no logging of the token value.
+        var lossyItems = ConversionLossyBatchGate.CollectLossyFromResults(results);
+        if (lossyItems.Count > 0)
+            builder.PendingLossyToken =
+                Romulus.Core.Conversion.ConversionLossyTokenPolicy.ComputeAcceptDataLossToken(lossyItems);
     }
 
     internal static long? ResolveTotalTargetBytes(ConversionResult result)

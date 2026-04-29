@@ -26,6 +26,7 @@ public sealed record RunConfigurationDraft
     public bool? ConvertOnly { get; init; }
     public bool? ApproveReviews { get; init; }
     public bool? ApproveConversionReview { get; init; }
+    public string? AcceptDataLossToken { get; init; }
     public string? ConflictPolicy { get; init; }
     public string? TrashRoot { get; init; }
 }
@@ -55,6 +56,7 @@ public sealed record RunConfigurationExplicitness
     public bool ConvertOnly { get; init; }
     public bool ApproveReviews { get; init; }
     public bool ApproveConversionReview { get; init; }
+    public bool AcceptDataLossToken { get; init; }
     public bool ConflictPolicy { get; init; }
     public bool TrashRoot { get; init; }
 }

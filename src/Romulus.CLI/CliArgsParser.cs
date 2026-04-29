@@ -155,6 +155,13 @@ internal static partial class CliArgsParser
                     opts.ApproveConversionReviewExplicit = true;
                     break;
 
+                case "--accept-data-loss":
+                    if (!TryConsumeValue(args, ref i, "--accept-data-loss", errors, out var acceptDataLossVal))
+                        break;
+                    opts.AcceptDataLossToken = acceptDataLossVal;
+                    opts.AcceptDataLossTokenExplicit = true;
+                    break;
+
                 case "-conflictpolicy" or "--conflictpolicy":
                     if (!TryConsumeValue(args, ref i, "--conflictpolicy", errors, out var conflictPolicyVal))
                         break;
@@ -651,6 +658,8 @@ internal sealed class CliRunOptions
     public bool ApproveReviewsExplicit { get; set; }
     public bool ApproveConversionReview { get; set; }
     public bool ApproveConversionReviewExplicit { get; set; }
+    public string? AcceptDataLossToken { get; set; }
+    public bool AcceptDataLossTokenExplicit { get; set; }
     public string ConflictPolicy { get; set; } = Romulus.Contracts.RunConstants.DefaultConflictPolicy;
     public bool ConflictPolicyExplicit { get; set; }
     public bool Yes { get; set; }

@@ -134,6 +134,7 @@ internal static class CliOptionsMapper
             ConvertOnly = cli.ConvertOnlyExplicit ? cli.ConvertOnly : null,
             ApproveReviews = cli.ApproveReviewsExplicit ? cli.ApproveReviews : null,
             ApproveConversionReview = cli.ApproveConversionReviewExplicit ? cli.ApproveConversionReview : null,
+            AcceptDataLossToken = cli.AcceptDataLossTokenExplicit ? cli.AcceptDataLossToken : null,
             ConflictPolicy = cli.ConflictPolicyExplicit ? cli.ConflictPolicy : null,
             TrashRoot = cli.TrashRootExplicit ? cli.TrashRoot : null
         };
@@ -162,6 +163,7 @@ internal static class CliOptionsMapper
             ConvertOnly = cli.ConvertOnlyExplicit,
             ApproveReviews = cli.ApproveReviewsExplicit,
             ApproveConversionReview = cli.ApproveConversionReviewExplicit,
+            AcceptDataLossToken = cli.AcceptDataLossTokenExplicit,
             ConflictPolicy = cli.ConflictPolicyExplicit,
             TrashRoot = cli.TrashRootExplicit
         };
@@ -254,6 +256,9 @@ internal static class CliOptionsMapper
 
         if (!cli.ApproveConversionReviewExplicit && cli.ApproveConversionReview)
             cli.ApproveConversionReviewExplicit = true;
+
+        if (!cli.AcceptDataLossTokenExplicit && !string.IsNullOrWhiteSpace(cli.AcceptDataLossToken))
+            cli.AcceptDataLossTokenExplicit = true;
 
         if (!cli.ConflictPolicyExplicit &&
             !string.Equals(cli.ConflictPolicy, RunConstants.DefaultConflictPolicy, StringComparison.OrdinalIgnoreCase))

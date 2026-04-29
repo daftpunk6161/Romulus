@@ -22,6 +22,7 @@ public interface IRunOptionsSource
     bool ConvertOnly { get; }
     bool ApproveReviews { get; }
     bool ApproveConversionReview { get; }
+    string? AcceptDataLossToken { get; }
     string? TrashRoot { get; }
     string ConflictPolicy { get; }
 }
@@ -57,6 +58,7 @@ public sealed class RunOptionsFactory : IRunOptionsFactory
             ConvertOnly = source.ConvertOnly,
             ApproveReviews = source.ApproveReviews,
             ApproveConversionReview = source.ApproveConversionReview,
+            AcceptDataLossToken = source.AcceptDataLossToken,
             TrashRoot = source.TrashRoot,
             AuditPath = auditPath,
             ReportPath = reportPath,

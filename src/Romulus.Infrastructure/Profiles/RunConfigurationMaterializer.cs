@@ -213,6 +213,7 @@ public sealed class RunConfigurationMaterializer
             ConvertOnly = effectiveDraft.ConvertOnly ?? false;
             ApproveReviews = effectiveDraft.ApproveReviews ?? false;
             ApproveConversionReview = effectiveDraft.ApproveConversionReview ?? false;
+            AcceptDataLossToken = effectiveDraft.AcceptDataLossToken;
             TrashRoot = effectiveDraft.TrashRoot;
             ConflictPolicy = effectiveDraft.ConflictPolicy ?? RunConstants.DefaultConflictPolicy;
         }
@@ -235,6 +236,7 @@ public sealed class RunConfigurationMaterializer
         public bool ConvertOnly { get; }
         public bool ApproveReviews { get; }
         public bool ApproveConversionReview { get; }
+        public string? AcceptDataLossToken { get; }
         public string? TrashRoot { get; }
         public string ConflictPolicy { get; }
     }
