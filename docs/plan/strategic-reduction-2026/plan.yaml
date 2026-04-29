@@ -1665,8 +1665,10 @@ tasks:
     status: pending
     dependencies: ["T-W3-PHASE1-GATE"]
     conflicts_with: []
-    context_files: []
-    planning_pass: 1
+    context_files:
+      - path: docs/plan/strategic-reduction-2026/discovery-loop-playbook.md
+        description: Outcome-KPI-Definitionen, Wochenrhythmus, Tracker-Schema, Annahme-Kriterium
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Outcome-KPIs ersetzen Output-KPIs (Critic-Review-Befund warning #6).
@@ -1685,6 +1687,39 @@ tasks:
             likelihood: high
             impact: high
             mitigation: Phase-2-Gate haengt am Loop-Abschluss
+      - pass: 2
+        reason: |
+          Vorbereitungs-Playbook geliefert (Owner-Slots, 4 Outcome-KPIs mit
+          Schwellen + Anti-Pattern, Wochenrhythmus, Tracker-Schema,
+          Stabilitaetsregel, harte Annahme-Kriterien). Loop kann real erst
+          starten, wenn T-W3-PHASE1-GATE auf done flippt (Cohort + Smokes).
+          Status BLEIBT pending - Definition ist nicht Durchfuehrung. Eine
+          Pseudo-Done-Markierung waere genau der dokumentierte failure_mode.
+        timestamp: "2026-04-29"
+        estimated_effort: small
+        estimated_files: 1
+        estimated_lines: 200
+        focus_area: discovery
+        verification:
+          - docs/plan/strategic-reduction-2026/discovery-loop-playbook.md liegt vor
+          - 4 KPIs mit Quelle, Schwelle, Anti-Pattern definiert
+          - Tracker-Schema discovery-loop-tracker.md spezifiziert
+          - Annahme-Kriterium fuer done explizit (>= 3 stabile Wochen, Audit-Spot)
+        acceptance_criteria:
+          - Playbook deckt KPI-1..KPI-4 ab
+          - Stabilitaetsregel verbietet Wochen-Luecken-Interpolation
+          - Eskalationspfad benannt
+        failure_modes:
+          - scenario: Loop wird ohne reale Wochen-Daten als done markiert
+            likelihood: medium
+            impact: critical
+            mitigation: Annahme-Kriterium erfordert Tracker-Commits pro Woche;
+              gem-critic prueft Stichproben vor Phase-2-Gate
+          - scenario: KPI-Schwellen werden nachtraeglich gesenkt
+            likelihood: medium
+            impact: high
+            mitigation: Schwellen sind im Playbook fixiert; Senkung erfordert
+              expliziten pass-3-Eintrag mit Begruendung
 
   - id: T-W4-TELEMETRY-OPT-IN
     title: Opt-in Telemetrie-Hook (anonym, DSGVO-konform)
