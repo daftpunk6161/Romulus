@@ -13,6 +13,16 @@ namespace Romulus.Infrastructure.Dat;
 /// DAT file index and hash operations.
 /// Port of Dat.ps1 — XML-based DAT parsing with XXE protection,
 /// parent/clone mapping, game key resolution.
+///
+/// <para>
+/// <strong>DAT-First Policy (ADR-0023):</strong> Lookups via this adapter return the
+/// authoritative hard-evidence source for console / game identification. Heuristic
+/// fallbacks (folder/extension/keyword) live in
+/// <see cref="Romulus.Core.Classification.ConsoleDetector"/> and are gated by
+/// <see cref="Romulus.Contracts.Models.RunOptions.AllowHeuristicFallback"/> (default
+/// <c>false</c>). This adapter must remain the single source of DAT-backed identity —
+/// no consumer is permitted to bypass it with a parallel hash lookup.
+/// </para>
 /// </summary>
 public sealed class DatRepositoryAdapter
 {

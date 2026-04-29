@@ -40,6 +40,14 @@ public sealed record ConsoleDetectionResult(
     MatchEvidence? MatchEvidence = null,
     ConflictType ConflictType = ConflictType.None)
 {
+    /// <summary>
+    /// DAT-first policy flag (ADR-0023): <c>true</c> when the detection result was
+    /// produced by heuristic-only evidence (no Tier 0/1 hard source contributed).
+    /// Single source of truth for "best-effort" status — GUI/CLI/API/Reports must
+    /// read this property instead of recomputing it locally.
+    /// </summary>
+    public bool IsBestEffort => !HasHardEvidence;
+
     /// <summary>Unknown result with 0 confidence.</summary>
     public static ConsoleDetectionResult Unknown { get; } = new(
         "UNKNOWN", 0, Array.Empty<DetectionHypothesis>(), false, null,

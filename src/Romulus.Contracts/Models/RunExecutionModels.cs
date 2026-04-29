@@ -59,6 +59,18 @@ public sealed class RunOptions
     public string? AuditPath { get; init; }
     public string? ReportPath { get; init; }
     public string ConflictPolicy { get; init; } = "Rename";
+
+    /// <summary>
+    /// DAT-first policy gate (ADR-0023). When <c>false</c> (default), only detection
+    /// results with hard evidence (Tier 0/1: DatHash, DiscHeader, CartridgeHeader,
+    /// SerialNumber) are accepted for Sort/Move/Convert/Rename. Heuristic-only
+    /// results (folder/extension/keyword) are routed to the Review lane.
+    /// When <c>true</c>, soft-evidence detections may also drive sorting decisions
+    /// (opt-in "Best Effort" mode). Consumers must surface <see
+    /// cref="Romulus.Core.Classification.ConsoleDetectionResult.IsBestEffort"/>
+    /// in GUI/CLI/API/Reports — never recompute the flag locally.
+    /// </summary>
+    public bool AllowHeuristicFallback { get; init; }
 }
 
 /// <summary>

@@ -1022,7 +1022,7 @@ tasks:
     prototype: false
     covers: ["TOP-9"]
     priority: high
-    status: pending
+    status: done
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1030,7 +1030,7 @@ tasks:
         description: betroffene Lookup-Pfade
       - path: docs/adrs/
         description: ADR-Vorlage
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Aufloesung des DAT-first-vs-Hash-first-Spannungsfeldes.
@@ -1051,6 +1051,31 @@ tasks:
             mitigation: Test pruft Default-Wert AllowHeuristicFallback=false
         requires_review: true
         review_depth: full
+      - pass: 2
+        reason: |
+          Acceptance dauerhaft pin-test-gesichert. ADR-0023 (Status Accepted)
+          ergaenzt ADR-0021 (Architektur-Vorlauf, Status Proposed) als
+          verbindliche Policy: (1) DAT-first ist Default, (2) Heuristik nur
+          als Opt-In ueber RunOptions.AllowHeuristicFallback (Default false),
+          (3) ConsoleDetectionResult.IsBestEffort als Single source of truth
+          fuer den Best-Effort-Status (kein paralleles Berechnen in GUI/CLI/
+          API/Reports), (4) DatRepositoryAdapter dokumentiert die Policy als
+          Vertrag im XML-Doc-Header.
+        timestamp: "2026-04-29"
+        verification:
+          - Wave2DatFirstPolicyTests (7 Pin-Tests gruen)
+          - Adr0023_ExistsWithAcceptedStatusAndDeclaresPolicy
+          - RunOptions_AllowHeuristicFallback_DefaultsToFalse
+          - RunOptions_AllowHeuristicFallback_CanBeExplicitlyOptedIn
+          - ConsoleDetectionResult_IsBestEffort_TrueWhenNoHardEvidence
+          - ConsoleDetectionResult_IsBestEffort_FalseWhenHardEvidencePresent
+          - ConsoleDetectionResult_Unknown_IsBestEffortByDefinition
+          - DatRepositoryAdapter_SourceDocumentsDatFirstPolicy
+        acceptance_criteria:
+          - ADR-0023 mit Status Accepted, Owner, Reaktivierungs-Bedingung
+          - RunOptions.AllowHeuristicFallback existiert mit Default false
+          - ConsoleDetectionResult.IsBestEffort als computed property aus HasHardEvidence
+          - DatRepositoryAdapter dokumentiert DAT-first-Policy
 
   - id: T-W2-CONVERSION-SAFETY-CONTRACT
     title: AcceptDataLossToken in RunOptions + ConversionPolicy-Pre-Gate
