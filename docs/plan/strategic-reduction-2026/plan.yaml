@@ -1243,7 +1243,6 @@ tasks:
     prototype: false
     covers: ["TOP-17"]
     priority: high
-    status: pending
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1251,7 +1250,7 @@ tasks:
         description: bestehende Sidecar+Ledger-Atomicity als Vorbild
       - path: docs/adrs/
         description: ADR-Vorlage
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Verhindert Parallel-Wahrheit zwischen Audit und Provenance schon vor W7.
@@ -1272,6 +1271,29 @@ tasks:
             mitigation: ADR verbietet dies; gem-reviewer prueft W7-Implementierung dagegen
         requires_review: true
         review_depth: full
+      - pass: 2
+        reason: |
+          Umsetzung. ADR docs/adrs/0024-provenance-vs-audit.md verfasst und auf
+          Accepted gesetzt. Festschreibungen: (1) Verantwortungs-Trennung Audit-
+          Sidecar (Run-Scope) vs Provenance-Trail (ROM-Lifetime); (2) gemeinsame
+          Helper - Hashing/Signing/Atomic-Write werden via extrahiertem
+          AtomicSidecarWriter wiederverwendet, NICHT dupliziert; (3) Speicherort
+          - eigene Store-Datei je ROM-Fingerprint mit Hash-Prefix-Sharding,
+          niemals im Audit-Sidecar gemischt; (4) Cross-Reference - jeder
+          Provenance-Eintrag traegt audit_run_id; (5) explizite Verbots-Liste
+          (kein zweiter Sidecar, keine zweite Ledger, kein paralleles Signing,
+          Reihenfolge Audit-Commit -> Provenance-Append). T-W7-PROVENANCE-TRAIL
+          darf erst nach AtomicSidecarWriter-Refactor starten.
+        timestamp: "2026-04-29"
+        verification:
+          - docs/adrs/0024-provenance-vs-audit.md vorhanden, Status Accepted
+          - Verbots-Liste, Store-Layout, gemeinsame Helper benannt
+          - Cross-Reference audit_run_id verbindlich
+        acceptance_criteria:
+          - ADR liegt vor Wave-7-Code-Start vor
+          - Helper-Wiederverwendung explizit (kein zweites HMAC, kein zweiter Atomic-Write)
+          - Verantwortungs-Trennung klar (Run-Scope vs ROM-Lifetime)
+    status: done
 
   - id: T-W2-COVERAGE-GAP-CHECK
     title: Automatischer Top-20-Coverage-Check (CI-Skript)
