@@ -111,6 +111,56 @@ public sealed class DatRepositoryAdapter
     }
 
     /// <summary>
+    /// Multi-match lookup: returns every console match for the given hash in
+    /// deterministic console-key order. Mirrors <see cref="DatIndex.LookupAllByHash(string)"/>
+    /// projected into the canonical <see cref="DatMatch"/> contract so downstream
+    /// callers (and the upcoming MultiDatConflictResolver) work against an explicit
+    /// list instead of a single tuple.
+    /// </summary>
+    public IReadOnlyList<DatMatch> LookupByHash(DatIndex index, string hash)
+    {
+        if (index is null || string.IsNullOrWhiteSpace(hash))
+            return Array.Empty<DatMatch>();
+
+        var raw = index.LookupAllByHash(hash);
+        return ProjectMatches(raw);
+    }
+
+    /// <summary>
+    /// Typed multi-match lookup: returns every console match for the given typed hash
+    /// in deterministic console-key order.
+    /// </summary>
+    public IReadOnlyList<DatMatch> LookupByHash(DatIndex index, string hashType, string hash)
+    {
+        if (index is null || string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(hashType))
+            return Array.Empty<DatMatch>();
+
+        var raw = index.LookupAllByHash(hashType, hash);
+        return ProjectMatches(raw);
+    }
+
+    private static IReadOnlyList<DatMatch> ProjectMatches(
+        IReadOnlyList<(string ConsoleKey, DatIndex.DatIndexEntry Entry)> raw)
+    {
+        if (raw.Count == 0)
+            return Array.Empty<DatMatch>();
+
+        var projected = new DatMatch[raw.Count];
+        for (var i = 0; i < raw.Count; i++)
+        {
+            var (consoleKey, entry) = raw[i];
+            projected[i] = new DatMatch(
+                ConsoleKey: consoleKey,
+                GameName: entry.GameName,
+                RomFileName: entry.RomFileName,
+                IsBios: entry.IsBios,
+                ParentGameName: entry.ParentGameName,
+                HashType: entry.HashType);
+        }
+        return projected;
+    }
+
+    /// <summary>
     /// Load (parentMap, games) for a single DAT file. Routes through
     /// <see cref="IDatEntryCache"/> when available, parsing on miss and persisting
     /// the result. Returns a fresh payload on every call so subsequent index
