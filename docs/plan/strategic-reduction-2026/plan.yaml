@@ -556,7 +556,7 @@ tasks:
     prototype: false
     covers: ["TOP-14"]
     priority: high
-    status: pending
+    status: done
     dependencies: []
     conflicts_with: []
     context_files:
@@ -609,7 +609,7 @@ tasks:
     prototype: false
     covers: ["TOP-4", "TOP-5", "TOP-12", "TOP-13"]
     priority: high
-    status: pending
+    status: done
     dependencies: ["T-W1-AV-WPF-ADR", "T-W1-AV-ARCHIVE", "T-W1-FEATURE-CULL", "T-W1-CONSOLE-COVERAGE"]
     conflicts_with: []
     context_files:
@@ -661,7 +661,7 @@ tasks:
     prototype: false
     covers: ["TOP-2", "TOP-5"]
     priority: high
-    status: pending
+    status: done
     dependencies: ["T-W1-UI-REDUCTION"]
     conflicts_with: []
     context_files:
