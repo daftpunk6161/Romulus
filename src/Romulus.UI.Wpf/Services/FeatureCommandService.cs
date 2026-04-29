@@ -254,7 +254,6 @@ public sealed partial class FeatureCommandService
 
         // ── Export & Integration ────────────────────────────────────────
         cmds[FeatureCommandKeys.HtmlReport] = new RelayCommand(HtmlReport);
-        cmds[FeatureCommandKeys.LauncherIntegration] = new AsyncRelayCommand(LauncherIntegrationAsync);
         cmds[FeatureCommandKeys.DatImport] = new RelayCommand(DatImport);
 
         // ── Infrastruktur & Deployment ──────────────────────────────────
@@ -714,11 +713,68 @@ public sealed partial class FeatureCommandService
     // These no-op stubs keep the build green until T-W1-I18N-ORPHAN-SWEEP follow-up
     // removes the registrations entirely. They intentionally do nothing.
     private System.Threading.Tasks.Task ExportCollectionAsync()
-        => System.Threading.Tasks.Task.CompletedTask;
+    {
+        var formatChoice = _dialog.ShowInputBox(
+            "Format wählen: 1 = CSV, 2 = Excel-XML, 3 = Duplikate-CSV",
+            "Export Collection",
+            "1");
+        if (string.IsNullOrWhiteSpace(formatChoice))
+            return System.Threading.Tasks.Task.CompletedTask;
+
+        var trimmed = formatChoice.Trim();
+        string filter;
+        string defaultName;
+        System.Func<string>? produceContent;
+
+        switch (trimmed)
+        {
+            case "1":
+                filter = "CSV (*.csv)|*.csv";
+                defaultName = "collection-export.csv";
+                produceContent = () => FeatureService.ExportCollectionCsv(_vm.LastCandidates?.ToList()
+                    ?? new System.Collections.Generic.List<Romulus.Contracts.Models.RomCandidate>());
+                break;
+            case "2":
+                filter = "Excel XML (*.xml)|*.xml";
+                defaultName = "collection-export.xml";
+                produceContent = () => FeatureService.ExportExcelXml(_vm.LastCandidates?.ToList()
+                    ?? new System.Collections.Generic.List<Romulus.Contracts.Models.RomCandidate>());
+                break;
+            case "3":
+                filter = "CSV (*.csv)|*.csv";
+                defaultName = "duplicates-export.csv";
+                produceContent = () =>
+                {
+                    var losers = _vm.LastDedupeGroups
+                        .SelectMany(static group => group.Losers)
+                        .ToList();
+                    return FeatureService.ExportCollectionCsv(losers);
+                };
+                break;
+            default:
+                _vm.AddLog($"Export Collection: ungültige Auswahl '{trimmed}'.", "WARN");
+                return System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        var savePath = _dialog.SaveFile("Collection exportieren", filter, defaultName);
+        if (string.IsNullOrWhiteSpace(savePath))
+            return System.Threading.Tasks.Task.CompletedTask;
+
+        try
+        {
+            var content = produceContent();
+            System.IO.File.WriteAllText(savePath, content, System.Text.Encoding.UTF8);
+            _vm.AddLog($"Collection exportiert: {savePath}", "INFO");
+        }
+        catch (System.Exception ex)
+        {
+            _vm.AddLog($"Export fehlgeschlagen: {ex.Message}", "ERROR");
+            _dialog.Info($"Export fehlgeschlagen: {ex.Message}", "Export Collection");
+        }
+
+        return System.Threading.Tasks.Task.CompletedTask;
+    }
 
     private void PatchPipeline() { }
-
-    private System.Threading.Tasks.Task LauncherIntegrationAsync()
-        => System.Threading.Tasks.Task.CompletedTask;
 
 }

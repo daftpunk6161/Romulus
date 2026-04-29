@@ -214,7 +214,8 @@ public sealed class ConversionRegistryLoader : IConversionRegistry
                     "categoryOverride",
                     "conversionPolicy",
                     "preferredConversionTarget",
-                    "alternativeTargets"
+                    "alternativeTargets",
+                    "tier"
                 ],
                 "console entry");
 

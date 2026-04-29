@@ -123,7 +123,6 @@ public sealed class FeatureCommandServiceTests : IDisposable
     [InlineData("RulePackSharing")]
     [InlineData("ArcadeMergeSplit")]
     [InlineData("HtmlReport")]
-    [InlineData("LauncherIntegration")]
     [InlineData("DatImport")]
     [InlineData("StorageTiering")]
     [InlineData("NasOptimization")]

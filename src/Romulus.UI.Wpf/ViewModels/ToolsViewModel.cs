@@ -415,7 +415,6 @@ public sealed class ToolsViewModel : ObservableObject
             new(FeatureCommandKeys.AutoProfile, "Workflow", "\xE713", false, false, ToolMaturity.Experimental),
 
             new(FeatureCommandKeys.HtmlReport, "Export", "\xE774", true, true, ToolMaturity.Production),
-            new(FeatureCommandKeys.LauncherIntegration, "Export", "\xE768", true, false, ToolMaturity.Production),
             new(FeatureCommandKeys.DatImport, "Export", "\xE8B5", false, false, ToolMaturity.Production),
             new(FeatureCommandKeys.ExportCollection, "Export", "\xE792", true, true, ToolMaturity.Production),
 
