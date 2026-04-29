@@ -253,9 +253,9 @@
       </Border>
 
       <!-- ═══ ROW 3: ACTION RAIL (spans all columns) ═════════════════════ -->
-      <views:SmartActionBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
-                            Visibility="{Binding ShowSmartActionBar, Converter={StaticResource BoolToVis}}"
-                            TabIndex="56"/>
+      <!-- T-W1-UI-REDUCTION removed SmartActionBar; placeholder kept until
+           T-W1-I18N-ORPHAN-SWEEP follow-up cleans the binding for ShowSmartActionBar. -->
+      <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Height="0"/>
 
       <!-- ═══ TOAST / NOTIFICATION OVERLAY ════════════════════════════════ -->
       <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Shell.Notifications}"

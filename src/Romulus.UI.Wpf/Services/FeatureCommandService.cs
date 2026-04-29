@@ -709,4 +709,16 @@ public sealed partial class FeatureCommandService
         _dialog.Info(_vm.Loc.Format("Cmd.AutoProfileDialog", profile), _vm.Loc["Cmd.AutoProfileTitle"]);
     }
 
+    // Wave-1-Cull leftovers: registrations still bound to the command
+    // dictionary above; the underlying features were removed in T-W1-FEATURE-CULL.
+    // These no-op stubs keep the build green until T-W1-I18N-ORPHAN-SWEEP follow-up
+    // removes the registrations entirely. They intentionally do nothing.
+    private System.Threading.Tasks.Task ExportCollectionAsync()
+        => System.Threading.Tasks.Task.CompletedTask;
+
+    private void PatchPipeline() { }
+
+    private System.Threading.Tasks.Task LauncherIntegrationAsync()
+        => System.Threading.Tasks.Task.CompletedTask;
+
 }

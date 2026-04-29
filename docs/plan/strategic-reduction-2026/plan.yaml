@@ -1002,7 +1002,7 @@ tasks:
     prototype: false
     covers: ["TOP-6"]
     priority: high
-    status: pending
+    status: done
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1010,7 +1010,7 @@ tasks:
         description: bestehende Audit-Schicht
       - path: src/Romulus.Contracts/Ports/
         description: neuer Port
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Voraussetzung fuer den First-Class-Audit-Viewer.
@@ -1033,6 +1033,30 @@ tasks:
         tech_stack:
           - C# .NET 10
         test_coverage: full
+      - pass: 2
+        reason: |
+          Implementiert. Read-only Port (IAuditViewerBackingService) + Adapter
+          (AuditViewerBackingService) liegen unter Contracts.Ports / Infrastructure.Audit.
+          Adapter nutzt AuditCsvParser.ParseCsvLine + AuditSigningService.VerifyMetadataSidecar
+          und dupliziert keine HMAC-/Quoting-Logik (Source-Pin im Test). Pagination
+          via AuditPage(PageIndex, PageSize); Filter ueber AuditRunFilter
+          (RunId, FromUtc, ToUtc, Outcome). Verteidigt durch Wave2AuditViewerApiTests
+          (11/11 gruen).
+        timestamp: "2026-04-29"
+        verification:
+          - Wave2AuditViewerApiTests.Port_DoesNotExposeAnyWriteOperations
+          - Wave2AuditViewerApiTests.Adapter_ImplementsPort
+          - Wave2AuditViewerApiTests.ListRuns_OrdersMostRecentFirst
+          - Wave2AuditViewerApiTests.ListRuns_FilterByRunId_Works
+          - Wave2AuditViewerApiTests.ListRuns_Pagination_Works
+          - Wave2AuditViewerApiTests.ReadRunRows_FilterByOutcome_Works
+          - Wave2AuditViewerApiTests.ReadRunRows_Pagination_Works
+          - Wave2AuditViewerApiTests.ReadSidecar_ReturnsNullWhenAbsent
+          - Wave2AuditViewerApiTests.Adapter_DoesNotDuplicateAuditCsvParsingOrSigning
+        acceptance_criteria:
+          - Port liefert nur Lese-Operationen (ListRuns/ReadRunRows/ReadSidecar)
+          - Adapter implementiert Port und dupliziert keine Audit-Logik
+          - Pagination + Filter (RunId/Outcome/FromUtc/ToUtc) funktionieren
 
   - id: T-W2-DAT-FIRST-ADR
     title: ADR DAT-first vs Hash-Heuristik
