@@ -1357,7 +1357,6 @@ tasks:
     prototype: false
     covers: []
     priority: high
-    status: pending
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1365,7 +1364,7 @@ tasks:
         description: bestehende i18n-Tests als Basis
       - path: data/i18n/
         description: zu pruefende Sprach-Dateien
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Verhindert, dass Wuchs nach Welle 1 zurueckkommt - dauerhaft, nicht einmalig.
@@ -1388,6 +1387,29 @@ tasks:
           - C# .NET 10
           - xUnit
         test_coverage: full
+      - pass: 2
+        reason: |
+          Umsetzung. Permanente Read-only-Pruefung in
+          src/Romulus.Tests/Wave2I18nOrphanGuardTests.cs (4 xUnit Pin-Tests).
+          DynamicPrefixes (UnknownReason., Region.Code., Console.Display.,
+          ToolMaturity.) sind dokumentiert exempt. Wave-1 hat nur den
+          Cull-Slice gesweept; die verbleibenden ~480 Legacy-Orphans sind in
+          data/i18n/orphans-baseline-de.txt baselined - die Baseline darf nur
+          schrumpfen, niemals wachsen. Eigener Sanity-Test verhindert stale
+          Baseline-Eintraege. FeatureCommandService-Registrierungs-Bindung wird
+          bereits durch FeatureCommandServiceTests gedeckt; nicht dupliziert.
+        timestamp: "2026-04-28"
+        verification:
+          - Wave2I18nOrphanGuardTests.EveryEnglishKey_ExistsInGerman
+          - Wave2I18nOrphanGuardTests.EveryFrenchKey_ExistsInGerman
+          - Wave2I18nOrphanGuardTests.EveryGermanKey_IsReferencedInSource_OrTrackedInBaseline
+          - Wave2I18nOrphanGuardTests.Baseline_DoesNotListKeysThatAreActuallyReferencedNow
+        acceptance_criteria:
+          - en/fr Sprachdateien duerfen keinen Key enthalten, der nicht in de.json existiert
+          - Neue Orphans in de.json (jenseits Baseline) brechen den Build
+          - Baseline kann nur schrumpfen; stale Eintraege brechen den Build
+          - Reine Lesepruefung; keine Auto-Bereinigung; keine Skip-Attribute
+    status: done
 
   # ============================================================
   # WAVE 3 - Phase 1 Abschluss: Beta-Nutzer
