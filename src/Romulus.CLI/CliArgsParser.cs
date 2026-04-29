@@ -608,7 +608,8 @@ internal enum CliCommand
     Header,
     JunkReport,
     Completeness,
-    Health
+    Health,
+    Simulate
 }
 
 /// <summary>

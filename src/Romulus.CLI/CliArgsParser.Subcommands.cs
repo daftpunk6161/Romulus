@@ -19,6 +19,7 @@ internal static partial class CliArgsParser
         return first switch
         {
             "analyze" => ParseSubcommandWithRoots(CliCommand.Analyze, rest),
+            "simulate" => ParseSubcommandWithRoots(CliCommand.Simulate, rest),
             "profiles" => ParseProfilesSubcommand(rest),
             "diff" => ParseDiffSubcommand(rest),
             "merge" => ParseMergeSubcommand(rest),

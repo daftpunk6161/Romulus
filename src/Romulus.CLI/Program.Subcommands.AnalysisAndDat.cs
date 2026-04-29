@@ -83,6 +83,98 @@ internal static partial class Program
         }
     }
 
+    /// <summary>
+    /// T-W5-BEFORE-AFTER-SIMULATOR pass 3 — headless equivalent of the GUI
+    /// Simulator view. Wraps the canonical <see cref="RunOrchestrator"/> via
+    /// <see cref="BeforeAfterSimulator"/> (which forces DryRun) and emits a
+    /// deterministic JSON projection of items + summary. Side-effect-free even
+    /// when callers pass <c>--mode Move</c>; the simulator's <c>ForceDryRun</c>
+    /// chokepoint is single-source-of-truth.
+    /// </summary>
+    internal static async Task<int> SubcommandSimulateAsync(CliRunOptions opts)
+    {
+        SafeErrorWriteLine($"[Simulate] Projecting Before/After for {opts.Roots.Length} root(s)...");
+        var dataDir = RunEnvironmentBuilder.ResolveDataDir();
+        var settings = RunEnvironmentBuilder.LoadSettings(dataDir);
+        var (runOptions, mapErrors) = await CliOptionsMapper.MapAsync(opts, settings, dataDir).ConfigureAwait(false);
+        if (runOptions is null)
+        {
+            CliOutputWriter.WriteErrors(GetStderr(), mapErrors!);
+            return 3;
+        }
+
+        var serviceProvider = CreateCliServiceProvider(SafeErrorWriteLine);
+        try
+        {
+            var runEnvironmentFactory = serviceProvider.GetRequiredService<IRunEnvironmentFactory>();
+            using var env = runEnvironmentFactory.Create(runOptions, SafeErrorWriteLine);
+            using var reviewDecisionService = CreateReviewDecisionService(SafeErrorWriteLine);
+
+            // Plan executor is captured in a delegate so the BeforeAfterSimulator
+            // forces DryRun via its own canonical ForceDryRun helper instead of
+            // us duplicating the override here. This keeps the SoT invariant
+            // (BeforeAfterSimulatorTests.Simulate_PlanMatchesDirectDryRun_*).
+            BeforeAfterSimulationResult simulation;
+            using (var orchestrator = new RunOrchestrator(
+                env.FileSystem,
+                env.AuditStore,
+                env.ConsoleDetector,
+                env.HashService,
+                env.Converter,
+                env.DatIndex,
+                headerlessHasher: env.HeaderlessHasher,
+                onProgress: SafeErrorWriteLine,
+                archiveHashService: env.ArchiveHashService,
+                knownBiosHashes: env.KnownBiosHashes,
+                collectionIndex: env.CollectionIndex,
+                enrichmentFingerprint: env.EnrichmentFingerprint,
+                reviewDecisionService: reviewDecisionService))
+            {
+                var simulator = new BeforeAfterSimulator((effectiveOptions, ct) => orchestrator.Execute(effectiveOptions, ct));
+                simulation = simulator.Simulate(runOptions);
+            }
+
+            var output = new
+            {
+                items = simulation.Items.Select(item => new
+                {
+                    sourcePath = item.SourcePath,
+                    targetPath = item.TargetPath,
+                    action = item.Action.ToString(),
+                    sizeBytes = item.SizeBytes,
+                    reason = item.Reason
+                }).ToArray(),
+                summary = new
+                {
+                    totalBefore = simulation.Summary.TotalBefore,
+                    totalAfter = simulation.Summary.TotalAfter,
+                    kept = simulation.Summary.Kept,
+                    removed = simulation.Summary.Removed,
+                    converted = simulation.Summary.Converted,
+                    renamed = simulation.Summary.Renamed,
+                    potentialSavedBytes = simulation.Summary.PotentialSavedBytes
+                }
+            };
+
+            var json = CliOutputWriter.SerializeJson(output);
+            if (!string.IsNullOrEmpty(opts.OutputPath))
+            {
+                File.WriteAllText(opts.OutputPath, json);
+                SafeErrorWriteLine($"[Simulate] Wrote {simulation.Items.Count} item(s) to {opts.OutputPath}");
+            }
+            else
+            {
+                SafeStandardWriteLine(json);
+            }
+
+            return 0;
+        }
+        finally
+        {
+            (serviceProvider as IDisposable)?.Dispose();
+        }
+    }
+
     private static int SubcommandDatDiff(CliRunOptions opts)
     {
         if (!File.Exists(opts.DatFileA))

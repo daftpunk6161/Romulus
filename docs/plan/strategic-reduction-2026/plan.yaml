@@ -2103,11 +2103,15 @@ tasks:
         description: Default impl (Wave 5 pass 2)
       - path: src/Romulus.Tests/BeforeAfterSimulatorTests.cs
         description: 5 pin tests (Wave 5 pass 2)
+      - path: src/Romulus.Tests/CliSimulateSubcommandTests.cs
+        description: 8 CLI pin tests (Wave 5 pass 3)
+      - path: src/Romulus.CLI/Program.Subcommands.AnalysisAndDat.cs
+        description: SubcommandSimulateAsync handler (Wave 5 pass 3)
       - path: src/Romulus.Infrastructure/Orchestration/PhasePlanning.cs
         description: PhasePlanBuilder (used via RunOrchestrator)
       - path: src/Romulus.UI.Wpf/Views/
-        description: noch ausstehende Simulator-View (pass 3)
-    planning_pass: 2
+        description: noch ausstehende Simulator-View (pass 4)
+    planning_pass: 3
     planning_history:
       - pass: 1
         reason: Vertrauen vor dem Klick.
@@ -2163,6 +2167,68 @@ tasks:
           - Single-Source-of-Truth-Invariante per Test abgesichert -> ERFUELLT
           - WPF/CLI/API-Wiring -> NACHGELAGERT (pass 3)
         failure_modes: []
+      - pass: 3
+        reason: |
+          Pass 3 (CLI `simulate` subcommand): headless-Equivalent zur GUI-Simulator-View.
+          Die WPF-View bleibt fuer pass 4 offen; CLI-Wiring wird vorgezogen,
+          weil CI/Automation davon profitiert und der Wiring-Code dieselbe
+          single-source-of-truth (BeforeAfterSimulator.ForceDryRun) durchlaeuft
+          wie es die GUI tun wird.
+
+          Geliefert:
+          - src/Romulus.CLI/CliArgsParser.cs: Subcommand-Enum + Parser-Branch
+            'simulate' (gleiche Roots-/Mode-/OutputPath-Optionen wie analyze).
+          - src/Romulus.CLI/CliArgsParser.Subcommands.cs: SubcommandKind.Simulate.
+          - src/Romulus.CLI/CliOutputWriter.cs: Hilfetext / Usage-Eintrag fuer
+            'simulate'.
+          - src/Romulus.CLI/Program.cs: Dispatch case 'simulate' -> 
+            SubcommandSimulateAsync.
+          - src/Romulus.CLI/Program.Subcommands.AnalysisAndDat.cs:
+            internal static async Task<int> SubcommandSimulateAsync(CliRunOptions).
+            Wickelt RunOrchestrator in BeforeAfterSimulator (DryRun via
+            ForceDryRun-Chokepoint); emittiert deterministische
+            JSON-Projektion (items[] + summary{ totalBefore, totalAfter,
+            kept, removed, converted, renamed, potentialSavedBytes }).
+            OutputPath -> file write; sonst stdout.
+          - src/Romulus.Tests/CliSimulateSubcommandTests.cs (8 Tests):
+            * 6 Parser-Tests: simulate-Subcommand-Erkennung, Roots-/Mode-/
+              OutputPath-Mapping, Default-Mode=DryRun, fehlende Roots -> Fehler,
+              unbekannte Flags -> Fehler.
+            * 2 End-to-End-Smoke-Tests:
+              - Empty library -> exit 0, stdout enthaelt items[]/summary mit
+                korrekter Schema-Form (Schluessel + Zero-Werte).
+              - Mode=Move auf CLI -> Simulator forciert DryRun trotzdem;
+                Side-Effect-Free-Pin (decoy.zip-Datei muss unveraendert bleiben).
+
+          Wichtig (Drift-Falle entdeckt + behoben):
+          Ungekenzeichnetes 'Program.SubcommandSimulateAsync(...)' im Test-Code
+          band an die globale Romulus.Api.Program-Klasse statt an
+          Romulus.CLI.Program (beide Top-Level / globaler Namespace bei Api).
+          Tests qualifizieren Aufrufe explizit als
+          'Romulus.CLI.Program.SubcommandSimulateAsync(...)'. Pin-Tests
+          schuetzen vor Regression dieser Aufloesungs-Falle.
+
+          Tests: 8/8 grun + 354 verwandte Regressions-Tests (BeforeAfter,
+          CliArgsParser, CliOptionsMapper, SubcommandAnalyze) gruen = 362/362.
+          Done-Kriterium pass 4: WPF-Simulator-View (zwei Listen + Diff-Summary)
+          oder GUI-Integration in MainViewModel/Plan-Tab.
+        timestamp: "2026-04-30"
+        estimated_effort: small
+        estimated_files: 6
+        estimated_lines: 280
+        focus_area: feature
+        verification:
+          - 8/8 CliSimulateSubcommandTests gruen
+          - dotnet test --filter "FullyQualifiedName~CliSimulate|FullyQualifiedName~BeforeAfterSimulator|FullyQualifiedName~CliArgsParser|FullyQualifiedName~CliOptionsMapper|FullyQualifiedName~SubcommandAnalyze" -> 362/362
+        acceptance_criteria:
+          - CLI `simulate` headless verfuegbar -> ERFUELLT
+          - Side-Effect-Free auch bei Mode=Move -> ERFUELLT (ForceDryRun-Pin)
+          - JSON-Projektion deterministisch + dokumentiert -> ERFUELLT
+          - WPF-Simulator-View -> NACHGELAGERT (pass 4)
+        failure_modes: []
+        tech_stack:
+          - C# .NET 10
+        test_coverage: full
 
   - id: T-W5-CONVERSION-SAFETY-ADVISOR
     title: Conversion Safety Advisor + UI-Confirm-Token
