@@ -1128,6 +1128,8 @@ tasks:
 
   - id: T-W2-CONVERSION-SAFETY-CONTRACT
     title: AcceptDataLossToken in RunOptions + ConversionPolicy-Pre-Gate
+    status: done
+    planning_pass: 2
     description: |
       Erweitere RunOptions um AcceptDataLossToken (string).
       ConversionPolicy lehnt Lossy-Pfade hart ab, wenn Token nicht gesetzt oder ungueltig.
@@ -1152,7 +1154,6 @@ tasks:
     prototype: false
     covers: ["TOP-10"]
     priority: high
-    status: pending
     dependencies: []
     conflicts_with: []
     context_files:
@@ -1160,7 +1161,6 @@ tasks:
         description: ConversionPolicy/Planner
       - path: src/Romulus.Contracts/Models/
         description: RunOptions
-    planning_pass: 1
     planning_history:
       - pass: 1
         reason: Datenverlust-Risiko technisch hart eindaemmen.
@@ -1189,6 +1189,37 @@ tasks:
         review_security_sensitive: true
         requires_review: true
         review_depth: full
+      - pass: 2
+        reason: |
+          Implementiert. Vertrags-Kante: ConversionLossyTokenPolicy in
+          Romulus.Core.Conversion (pure, keine I/O); RunOptions.AcceptDataLossToken
+          und RunResult.PendingLossyToken als init-Properties (default null).
+          Token ist SHA-256 ueber kanonische, sortierte Projektion der Lossy-Items
+          (Source|SourceFormat|TargetFormat); kein Zeitstempel, deterministisch.
+          Vergleich Ordinal/case-sensitive. Empty plan ⇒ Token irrelevant.
+          ValidateAcceptDataLossToken wirft InvalidOperationException bei missing/
+          empty/mismatch. Welle 5 verdrahtet UI/CLI/API darauf.
+        timestamp: "2026-04-29"
+        verification:
+          - Wave2ConversionSafetyContractTests.RunOptions_AcceptDataLossToken_DefaultsToNull
+          - Wave2ConversionSafetyContractTests.RunResult_PendingLossyToken_DefaultsToNull
+          - Wave2ConversionSafetyContractTests.ComputeToken_EmptyPlan_ReturnsNull
+          - Wave2ConversionSafetyContractTests.ComputeToken_NonEmptyPlan_ReturnsLowercaseHexSha256
+          - Wave2ConversionSafetyContractTests.ComputeToken_IsDeterministic
+          - Wave2ConversionSafetyContractTests.ComputeToken_OrderingDoesNotChangeResult
+          - Wave2ConversionSafetyContractTests.ComputeToken_DiffersBetweenDifferentPlans
+          - Wave2ConversionSafetyContractTests.Validate_LossyPlanWithoutToken_ThrowsInvalidOperation
+          - Wave2ConversionSafetyContractTests.Validate_LossyPlanWithEmptyToken_ThrowsInvalidOperation
+          - Wave2ConversionSafetyContractTests.Validate_LossyPlanWithMismatchedToken_Throws
+          - Wave2ConversionSafetyContractTests.Validate_LossyPlanWithCorrectToken_DoesNotThrow
+          - Wave2ConversionSafetyContractTests.Validate_TokenComparisonIsOrdinal_CaseSensitive
+          - Wave2ConversionSafetyContractTests.Validate_EmptyPlan_DoesNotRequireToken
+        acceptance_criteria:
+          - Lossy-Plan ohne Token wird hart abgelehnt (InvalidOperationException)
+          - Token deterministisch (gleicher Plan ⇒ gleicher Hash)
+          - Token unterschiedlich, sobald sich Plan unterscheidet
+          - Token-Vergleich Ordinal/case-sensitive
+          - Empty plan benoetigt keinen Token
 
   - id: T-W2-PROVENANCE-AUDIT-ADR
     title: ADR Provenance vs Audit-Sidecar (Single Source vor W7)

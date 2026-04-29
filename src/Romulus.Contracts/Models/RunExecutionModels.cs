@@ -71,6 +71,18 @@ public sealed class RunOptions
     /// in GUI/CLI/API/Reports — never recompute the flag locally.
     /// </summary>
     public bool AllowHeuristicFallback { get; init; }
+
+    /// <summary>
+    /// Wave 2 — T-W2-CONVERSION-SAFETY-CONTRACT. Token that the caller must
+    /// forward from the plan phase (see <c>RunResult.PendingLossyToken</c>)
+    /// to authorise lossy conversion paths in the execute phase. <c>null</c>
+    /// or empty means "no lossy authorisation given"; the orchestrator
+    /// rejects any run that contains lossy plan items without a matching
+    /// token via <c>ConversionLossyTokenPolicy.ValidateAcceptDataLossToken</c>.
+    /// Token is computed deterministically from the lossy plan; never
+    /// hardcoded, never invented client-side.
+    /// </summary>
+    public string? AcceptDataLossToken { get; init; }
 }
 
 /// <summary>
@@ -155,6 +167,16 @@ public sealed class RunResult
     /// — same inputs produce the same trace order.
     /// </summary>
     public IReadOnlyList<WinnerReasonTrace> WinnerReasons { get; init; } = Array.Empty<WinnerReasonTrace>();
+
+    /// <summary>
+    /// Wave 2 — T-W2-CONVERSION-SAFETY-CONTRACT. Deterministic token the
+    /// caller must echo back via <c>RunOptions.AcceptDataLossToken</c> to
+    /// authorise the lossy-conversion subset of the next execute phase.
+    /// <c>null</c> when the plan contains no lossy items. Computed via
+    /// <c>ConversionLossyTokenPolicy.ComputeAcceptDataLossToken</c>; never
+    /// emitted to logs.
+    /// </summary>
+    public string? PendingLossyToken { get; init; }
 
     /// <summary>
     /// Structured phase timing metrics.
