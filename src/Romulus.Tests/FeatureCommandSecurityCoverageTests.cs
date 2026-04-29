@@ -7,8 +7,11 @@ namespace Romulus.Tests;
 
 /// <summary>
 /// Tests for pure static methods in FeatureCommandService.Security.cs,
-/// FeatureCommandService.Productization.cs, FeatureCommandService.Collection.cs,
-/// and MainViewModel.Productization.cs to close uncovered branches.
+/// FeatureCommandService.Workflow.cs, FeatureCommandService.Data.cs, and
+/// MainViewModel.Productization.cs to close uncovered branches.
+/// (Wave 1 T-W1-UI-REDUCTION: Productization/Collection wurden in .Workflow.cs/
+///  .Data.cs konsolidiert; ehemalige Partial-Filenamen sind hier nur noch
+///  historisch dokumentiert.)
 /// </summary>
 public sealed class FeatureCommandSecurityCoverageTests
 {

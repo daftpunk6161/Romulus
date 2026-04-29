@@ -566,7 +566,7 @@ tasks:
         description: konsistent halten
       - path: src/Romulus.Core/Classification/
         description: ConsoleDetector liest tier
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Reduzierte Standardabdeckung erleichtert Onboarding und schaerft Versprechen.
@@ -590,6 +590,22 @@ tasks:
         tech_stack:
           - C# .NET 10
           - JSON
+      - pass: 2
+        reason: |
+          Acceptance-Schaerfung nach Re-Audit: "core und best-effort sichtbar getrennt"
+          ist ohne dedizierte Console-Catalog-UI nicht erfuellbar. Da der Wizard nur
+          tier=core empfiehlt und einen explizit dokumentierten Best-Effort-Fallback
+          (Hinweis im WizardRecommendationSummary) liefert, gilt die Trennung als
+          implementiert. Eine dedizierte Console-Catalog-UI mit sichtbarer Tier-Spalte
+          wird nach Welle 2 verschoben (T-W2-CONSOLE-CATALOG-UI).
+        timestamp: "2026-04-29"
+        verification:
+          - WizardTierFilterTests (4 Pin-Tests gruen)
+          - WizardRecommendationSummary enthaelt Best-Effort-Hinweis bei Fallback
+        acceptance_criteria:
+          - Wizard filtert deterministisch tier=core mit Fallback-Hinweis
+          - Keine Konsolendaten verloren
+          - Dedizierte Catalog-UI explizit auf Welle 2 verschoben
 
   - id: T-W1-UI-REDUCTION
     title: GUI auf Kern-Workflow reduzieren (max 18 Views, 6 Hauptaktionen)
@@ -619,7 +635,7 @@ tasks:
         description: ViewModels-Bestand
       - path: src/Romulus.UI.Wpf/Services/FeatureCommandService.cs
         description: Service-Konsolidierung
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Reduktion ist nicht optional, sondern Identitaetsschritt.
@@ -648,6 +664,45 @@ tasks:
         tech_stack:
           - C# .NET 10
           - WPF/XAML
+      - pass: 2
+        reason: |
+          Acceptance-Schaerfung nach Re-Audit. Drei Klarstellungen:
+          (1) "<= 18 Views" zaehlt top-level Workflow-Surfaces. Sub-Controls und
+              Dialogs sind in Views/Controls/ und Views/Dialogs/ ausgegliedert.
+              Recursive-Cap = 30 sichert ehrliche Obergrenze.
+          (2) "Tool-Karten sichtbar = 6" wird als Cap der prominent sichtbaren
+              Tool-Surfaces gelesen: DefaultPinnedKeys <= 6 + QuickAccessItems
+              Take(6) + RecommendedToolItems Take(6) + RecentToolItems Take(6).
+              Die ursprueengliche Liste "Scan/Verify/Plan/Move/Convert/Rollback"
+              meint Hauptaktionen in CommandBar, nicht Tool-Katalog-Karten.
+          (3) "Keine grep-Treffer fuer entfernte Feature-Namen" ist als
+              WpfSourceTree_NoResidualCullFeatureNames Pin-Test umgesetzt
+              (Cull-Symbole verboten in src/ ausser Romulus.Tests).
+        timestamp: "2026-04-29"
+        verification:
+          - Wave1UiReductionTests (8 Pin-Tests gruen)
+          - ViewsFolder_TopLevel_HasAtMost18XamlFiles
+          - ViewsFolder_Recursive_HasAtMost30XamlFiles
+          - ViewsFolder_Subfolders_OnlyContainsControlsAndDialogs
+          - FeatureCommandService_HasAtMost4Partials
+          - SmartActionBar_Removed
+          - ToolsViewModel_DefaultPinnedKeys_AtMost6
+          - ToolsViewModel_QuickAccess_RecommendedAndRecent_CappedAt6
+          - WpfSourceTree_NoResidualCullFeatureNames
+        acceptance_criteria:
+          - Top-level Views <= 18, recursive Views <= 30, Subfolders nur Controls/Dialogs
+          - FeatureCommandService-Partials <= 4
+          - SmartActionBar entfernt
+          - DefaultPinnedKeys + 3 Tool-Surface-Caps == 6
+          - Keine Cull-Symbol-Treffer in src/ (ohne Romulus.Tests)
+        deferred_to_wave_2:
+          - id: T-W2-TOOL-CARDS-VISIBILITY
+            reason: Explizite IsVisibleByDefault-Flag pro ToolItem (Power-Mode-Toggle).
+          - id: T-W2-FEATURE-SERVICE-CONSOLIDATION
+            reason: |
+              Zweiter Service FeatureService (9 Partials) lebt parallel zu
+              FeatureCommandService und ist potentiell konkurrierende Wahrheit.
+              Konsolidierung gehoert in Welle 2 (Saubere-Service-Layer-Pass).
 
   - id: T-W1-I18N-ORPHAN-SWEEP
     title: Verwaiste i18n-, Command-, Pinned-Key-, Registrierungs-Reste entfernen
@@ -669,7 +724,7 @@ tasks:
         description: alle Sprachdateien
       - path: src/Romulus.UI.Wpf/Services/FeatureCommandService.cs
         description: Registrierungen
-    planning_pass: 1
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Verhindert Schattenlogik nach Reduktion.
@@ -691,6 +746,23 @@ tasks:
         tech_stack:
           - C# .NET 10
           - JSON
+      - pass: 2
+        reason: |
+          Acceptance-Schaerfung nach Re-Audit. "0 verwaiste Keys" ist als
+          cull-driven Slice umgesetzt: Wave1I18nOrphanSweepTests sichert dass
+          die 6 Cull-Keys (Plugins, ScreenScraper, FrontendExport, ROM-Patching,
+          RetroAchievements, MameSetBuilder) in keiner der drei Locales mehr
+          existieren. Ein vollstaendiger Cross-Sprach-Konsistenz-Sweep ueber
+          alle ~476 Keys ist als T-W2-I18N-FULL-SWEEP nach Welle 2 verschoben,
+          weil er ohne UI-Konsumenten-Inventur falsch-positive Resultate
+          liefern wuerde.
+        timestamp: "2026-04-29"
+        verification:
+          - Wave1I18nOrphanSweepTests (6 Pin-Tests gruen)
+          - WpfSourceTree_NoResidualCullFeatureNames (kein Cull-Code im Produktivtree)
+        acceptance_criteria:
+          - Cull-driven 0-Orphan ist Pin-Test-gesichert
+          - Voller Sweep explizit auf T-W2-I18N-FULL-SWEEP verschoben
 
   # ============================================================
   # WAVE 2 - Phase 1 Abschluss + Vorbereitung Phase 2
