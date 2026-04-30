@@ -54,6 +54,10 @@
                          Visibility="{Binding Shell.ShowLibrarySafetyTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Safety}"
                          AutomationProperties.Name="Safety Review"/>
+            <RadioButton GroupName="SubTab" Content="Inbox" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowLibraryInboxTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=Inbox}"
+                         AutomationProperties.Name="Review Inbox (Quarantine Workflow)"/>
             <RadioButton GroupName="SubTab" Content="DAT Audit" Style="{StaticResource SubTabPill}"
                          Visibility="{Binding Shell.ShowLibraryDatAuditTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=DatAudit}"
@@ -102,6 +106,10 @@
                          Visibility="{Binding Shell.ShowSystemAboutTab, Converter={StaticResource BoolToVis}}"
                          IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=About}"
                          AutomationProperties.Name="Audit and System Settings"/>
+            <RadioButton GroupName="SubTab" Content="Audit-Viewer" Style="{StaticResource SubTabPill}"
+                         Visibility="{Binding Shell.ShowSystemAuditViewerTab, Converter={StaticResource BoolToVis}}"
+                         IsChecked="{Binding Shell.SelectedSubTab, Converter={StaticResource StrEqualsToBool}, ConverterParameter=AuditViewer}"
+                         AutomationProperties.Name="Audit Viewer (Read-only)"/>
           </StackPanel>
         </StackPanel>
       </ScrollViewer>

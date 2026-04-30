@@ -87,6 +87,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public SimulatorViewModel Simulator { get; }
     /// <summary>T-W4-AUDIT-VIEWER-UI: Read-only Audit-Browser ueber IAuditViewerBackingService.</summary>
     public AuditViewerViewModel AuditViewer { get; }
+    /// <summary>T-W4-REVIEW-INBOX (W5): Inbox mit drei Lanes Safe/Review/Blocked + Bulk-Quarantine + Decision-Explainer-Sprung.</summary>
+    public ReviewInboxViewModel ReviewInbox { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -153,6 +155,11 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
             _dialog,
             _loc,
             auditRollbackCallback);
+        ReviewInbox = new ReviewInboxViewModel(
+            _dialog,
+            _loc,
+            quarantineCallback: null,
+            openExplainerCallback: null);
         InitializeRunConfigurationServices(runProfileService, runConfigurationMaterializer);
 
         // Wire child VM events

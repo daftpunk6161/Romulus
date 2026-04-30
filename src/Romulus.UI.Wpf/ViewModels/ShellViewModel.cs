@@ -146,6 +146,7 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowLibraryResultsTab => true;
     public bool ShowLibraryDecisionsTab => !IsSimpleMode;
     public bool ShowLibrarySafetyTab => true;
+    public bool ShowLibraryInboxTab => true; // T-W4-REVIEW-INBOX (W5)
     public bool ShowLibraryReportTab => false;
     public bool ShowLibraryDatAuditTab => !IsSimpleMode;
 
@@ -167,6 +168,7 @@ public sealed class ShellViewModel : ObservableObject
     public bool ShowSystemActivityLogTab => false;
     public bool ShowSystemAppearanceTab => true;
     public bool ShowSystemAboutTab => true;
+    public bool ShowSystemAuditViewerTab => true; // T-W4-AUDIT-VIEWER-UI
 
     public string CurrentWorkspaceTitle => NormalizeNavTag(SelectedNavTag) switch
     {
@@ -251,8 +253,8 @@ public sealed class ShellViewModel : ObservableObject
             ? subTab is "Dashboard" or "RecentRuns" or "Regions" or "Options" or "Profiles"
             : subTab is "Dashboard" or "RecentRuns" or "Regions" or "Options",
         LibraryTag => !IsSimpleMode
-            ? subTab is "Results" or "Decisions" or "Safety" or "DatAudit"
-            : subTab is "Results" or "Safety",
+            ? subTab is "Results" or "Decisions" or "Safety" or "Inbox" or "DatAudit"
+            : subTab is "Results" or "Safety" or "Inbox",
         PipelineTag => !IsSimpleMode
             ? subTab is "Conversion" or "Sorting" or "Batch"
             : false,
@@ -260,7 +262,7 @@ public sealed class ShellViewModel : ObservableObject
         ToolsTag => !IsSimpleMode
             ? subTab is "Features" or "ExternalTools" or "DatManagement"
             : subTab is "Features" or "ExternalTools" or "DatManagement",
-        SystemTag => subTab is "Appearance" or "About",
+        SystemTag => subTab is "Appearance" or "About" or "AuditViewer",
         _ => false
     };
 
