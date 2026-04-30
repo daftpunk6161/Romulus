@@ -222,7 +222,6 @@ public sealed partial class FeatureCommandService
         cmds[FeatureCommandKeys.ConversionPipeline] = new RelayCommand(ConversionPipeline);
         cmds[FeatureCommandKeys.ConversionVerify] = new RelayCommand(ConversionVerify);
         cmds[FeatureCommandKeys.FormatPriority] = new RelayCommand(FormatPriority);
-        cmds[FeatureCommandKeys.PatchPipeline] = new RelayCommand(PatchPipeline);
 
         // ── DAT & Verifizierung ─────────────────────────────────────────
         cmds[FeatureCommandKeys.DatAutoUpdate] = new AsyncRelayCommand(DatAutoUpdateAsync);
@@ -774,7 +773,5 @@ public sealed partial class FeatureCommandService
 
         return System.Threading.Tasks.Task.CompletedTask;
     }
-
-    private void PatchPipeline() { }
 
 }

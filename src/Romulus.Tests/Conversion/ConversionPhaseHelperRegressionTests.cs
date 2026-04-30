@@ -85,8 +85,12 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
     }
 
     [Fact]
-    public void ConvertOnlyPhase_SuccessfulCueConversion_MovesDescriptorAndSetMembersToConvertedTrash()
+    public void ConvertOnlyPhase_SuccessfulCueConversion_MovesDescriptorButLeavesSetMembersInPlace_R4_009()
     {
+        // R4-009: ConvertOnly mode darf KEINE Set-Member-Geschwister (.bin) mitziehen,
+        // weil ohne Dedupe/Move-Flow sonst verwaiste Tracks entstehen wuerden. Der
+        // Descriptor (.cue) wandert nach erfolgreicher Konvertierung in TrashConverted,
+        // die .bin-Sibling bleibt unangetastet im Quellordner liegen.
         var sourcePath = Path.Combine(_root, "game.cue");
         var trackPath = Path.Combine(_root, "track01.bin");
         File.WriteAllText(sourcePath, "FILE \"track01.bin\" BINARY");
@@ -112,10 +116,12 @@ public sealed class ConversionPhaseHelperRegressionTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(1, result.Converted);
+        // Descriptor wurde verschoben
         Assert.False(File.Exists(sourcePath));
-        Assert.False(File.Exists(trackPath));
         Assert.True(File.Exists(Path.Combine(_root, RunConstants.WellKnownFolders.TrashConverted, "game.cue")));
-        Assert.True(File.Exists(Path.Combine(_root, RunConstants.WellKnownFolders.TrashConverted, "track01.bin")));
+        // R4-009: Set-Member bleibt am Originalpfad
+        Assert.True(File.Exists(trackPath));
+        Assert.False(File.Exists(Path.Combine(_root, RunConstants.WellKnownFolders.TrashConverted, "track01.bin")));
     }
 
     [Fact]

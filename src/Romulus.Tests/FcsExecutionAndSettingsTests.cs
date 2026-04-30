@@ -95,7 +95,16 @@ public sealed class FcsExecutionAndSettingsTests : IDisposable
     {
         ClearOutput();
         Assert.True(_vm.FeatureCommands.ContainsKey(key), $"Command '{key}' not registered");
-        _vm.FeatureCommands[key].Execute(null);
+        var cmd = _vm.FeatureCommands[key];
+        cmd.Execute(null);
+
+        // AsyncRelayCommand-Pfade laufen sonst racend gegen den Assert: das ExecutionTask warten,
+        // damit Logs/Dialog-Aufrufe vor HasOutput()-Checks vollstaendig gefluscht sind.
+        if (cmd is CommunityToolkit.Mvvm.Input.IAsyncRelayCommand async && async.ExecutionTask is { } task)
+        {
+            try { task.GetAwaiter().GetResult(); }
+            catch { /* command-eigene Fehler werden ueber Logs/Dialog sichtbar */ }
+        }
     }
 
     // ═══ COLLECTION COMMANDS ════════════════════════════════════════════

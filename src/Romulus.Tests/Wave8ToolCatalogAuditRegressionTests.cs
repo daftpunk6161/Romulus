@@ -146,10 +146,17 @@ public sealed class Wave8ToolCatalogAuditRegressionTests : IDisposable
     [Fact]
     public void FT09_CommandPalette_SettingsFallback_DoesNotUseMagicNumber()
     {
-        var sourcePath = LocateRepoFile("src/Romulus.UI.Wpf/Services/FeatureCommandService.Infra.cs");
-        var source = File.ReadAllText(sourcePath);
+        // T-W6 cleanup: original Infra-Partial wurde konsolidiert; Pin scannt jetzt
+        // jede FeatureCommandService-Partial nach dem urspruenglichen Magic-Number-Anti-Pattern.
+        var servicesDir = LocateRepoDirectory("src/Romulus.UI.Wpf/Services");
+        var partials = Directory.GetFiles(servicesDir, "FeatureCommandService*.cs", SearchOption.TopDirectoryOnly);
+        Assert.NotEmpty(partials);
 
-        Assert.DoesNotContain("SelectTab(3)", source);
+        foreach (var path in partials)
+        {
+            var source = File.ReadAllText(path);
+            Assert.DoesNotContain("SelectTab(3)", source);
+        }
     }
 
     // ── Tile <-> Registration invariant ───────────────────────────────
@@ -185,5 +192,19 @@ public sealed class Wave8ToolCatalogAuditRegressionTests : IDisposable
         }
 
         throw new FileNotFoundException($"Repo file not found: {relative}");
+    }
+
+    private static string LocateRepoDirectory(string relative)
+    {
+        var dir = AppContext.BaseDirectory;
+        for (var i = 0; i < 10 && dir is not null; i++)
+        {
+            var candidate = Path.Combine(dir, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (Directory.Exists(candidate))
+                return candidate;
+            dir = Path.GetDirectoryName(dir);
+        }
+
+        throw new DirectoryNotFoundException($"Repo directory not found: {relative}");
     }
 }

@@ -15,7 +15,7 @@
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="Audit-Root:" VerticalAlignment="Center" Margin="0,0,8,0"
                      Foreground="{DynamicResource BrushTextMuted}"/>
-          <TextBox Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged}"
+          <TextBox Text="{Binding AuditRoot, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"
                    MinWidth="320" Margin="0,0,12,0"/>
           <Button Content="Aktualisieren" Command="{Binding RefreshCommand}"
                   Style="{StaticResource PrimaryButton}"/>

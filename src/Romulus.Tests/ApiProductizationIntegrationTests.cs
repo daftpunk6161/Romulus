@@ -253,59 +253,9 @@ public sealed class ApiProductizationIntegrationTests
         }
     }
 
-    [Fact]
-    public async Task Export_Frontend_WithRunId_ProducesLaunchBoxArtifact()
-    {
-        using var factory = ApiTestFactory.Create(new Dictionary<string, string?> { ["ApiKey"] = ApiKey });
-        using var client = CreateClientWithApiKey(factory);
-
-        var root = CreateTempRoot();
-        var outputDir = Path.Combine(CreateTempRoot(), "launchbox-export");
-        try
-        {
-            File.WriteAllText(Path.Combine(root, "Export Me (USA).zip"), "export");
-            var runPayload = JsonSerializer.Serialize(new
-            {
-                roots = new[] { root },
-                mode = "DryRun"
-            });
-
-            using var runContent = new StringContent(runPayload, Encoding.UTF8, "application/json");
-            var runResponse = await client.PostAsync("/runs?wait=true", runContent);
-            Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
-
-            using var runDoc = JsonDocument.Parse(await runResponse.Content.ReadAsStringAsync());
-            var runId = runDoc.RootElement.GetProperty("run").GetProperty("runId").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(runId));
-
-            var exportPayload = JsonSerializer.Serialize(new
-            {
-                frontend = "launchbox",
-                outputPath = outputDir,
-                collectionName = "Romulus Export",
-                runId
-            });
-
-            using var exportContent = new StringContent(exportPayload, Encoding.UTF8, "application/json");
-            var exportResponse = await client.PostAsync("/export/frontend", exportContent);
-
-            Assert.Equal(HttpStatusCode.OK, exportResponse.StatusCode);
-            using var exportDoc = JsonDocument.Parse(await exportResponse.Content.ReadAsStringAsync());
-            var rootJson = exportDoc.RootElement;
-            Assert.Equal("launchbox", rootJson.GetProperty("frontend").GetString());
-            Assert.True(rootJson.GetProperty("gameCount").GetInt32() >= 1);
-
-            var artifactPath = rootJson.GetProperty("artifacts")[0].GetProperty("path").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(artifactPath));
-            Assert.True(File.Exists(artifactPath));
-            Assert.EndsWith(".xml", artifactPath, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            SafeDeleteDirectory(root);
-            SafeDeleteDirectory(Path.GetDirectoryName(outputDir)!);
-        }
-    }
+    // Wave 1A: /export/frontend endpoint culled — Test Export_Frontend_WithRunId_ProducesLaunchBoxArtifact entfernt
+    // (vgl. CodeReviewFindingsTests.cs F4-Notiz). Re-Add nur wenn das Frontend-Export-Feature
+    // bewusst neu eingefuehrt wird.
 
     [Fact]
     public async Task Runs_FixDat_WithoutOutputPath_ReturnsBadRequest()

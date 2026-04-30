@@ -571,19 +571,9 @@ public sealed class ApiValidationIntegrationTests
             $"Expected 400 or 404, got {response.StatusCode}");
     }
 
-    // ──────────────── /export/frontend validation ────────────────
-
-    [Fact]
-    public async Task ExportFrontend_InvalidJson_Returns400()
-    {
-        using var client = CreateClient(DefaultSettings());
-
-        using var content = new StringContent("{bad", Encoding.UTF8, "application/json");
-        var response = await client.PostAsync("/export/frontend", content);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("EXPORT-INVALID-JSON", body);
-    }
+    // ──────────────── /export/frontend (entfernt) ────────────
+    // Wave 1A: Endpoint /export/frontend wurde geculled. Validation-Pin entfernt;
+    // re-add nur wenn der Endpoint bewusst neu eingefuehrt wird.
 
     // ──────────────── /healthz (no auth required) ────────────────
 

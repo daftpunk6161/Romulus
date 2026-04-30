@@ -51,16 +51,19 @@ public sealed class Wave1UiReductionTests
     }
 
     [Fact]
-    public void ViewsFolder_TopLevel_HasAtMost18XamlFiles()
+    public void ViewsFolder_TopLevel_HasAtMost21XamlFiles()
     {
         var viewsDir = Path.Combine(RepoRoot().FullName, "src", "Romulus.UI.Wpf", "Views");
         Assert.True(Directory.Exists(viewsDir), $"Views directory missing: {viewsDir}");
 
         var xamlFiles = Directory.GetFiles(viewsDir, "*.xaml", SearchOption.TopDirectoryOnly);
 
+        // Pass 3 (Wave 4/5): drei produktive Workflow-Surfaces sind nach W4-AUDIT-VIEWER-UI,
+        // W4-REVIEW-INBOX und W5-BEFORE-AFTER-SIMULATOR legitim hinzugekommen. Acceptance bleibt
+        // "Reduktion gehalten" — Limit auf 21 angepasst, weitere Erweiterung nur mit Begruendung.
         Assert.True(
-            xamlFiles.Length <= 18,
-            $"Expected <= 18 top-level view XAML files (T-W1-UI-REDUCTION acceptance, planning_pass 2), "
+            xamlFiles.Length <= 21,
+            $"Expected <= 21 top-level view XAML files (T-W1-UI-REDUCTION acceptance, planning_pass 3 nach W4/W5-Surfaces), "
             + $"found {xamlFiles.Length}: " + string.Join(", ", xamlFiles.Select(Path.GetFileName)));
     }
 
