@@ -2063,7 +2063,7 @@ tasks:
     prototype: false
     covers: ["TOP-6"]
     priority: high
-    status: pending
+    status: completed
     dependencies: ["T-W2-AUDIT-VIEWER-API", "T-W3-PHASE1-GATE"]
     conflicts_with: []
     context_files:
@@ -2071,7 +2071,21 @@ tasks:
         description: neue View
       - path: src/Romulus.UI.Wpf/ViewModels/
         description: neues ViewModel
-    planning_pass: 1
+      - path: src/Romulus.UI.Wpf/ViewModels/AuditViewerViewModel.cs
+        description: Read-only VM ueber IAuditViewerBackingService
+      - path: src/Romulus.UI.Wpf/Views/AuditViewerView.xaml
+        description: Master-Detail Read-only DataGrid + Sidecar-Anzeige
+      - path: src/Romulus.UI.Wpf/Views/AuditViewerView.xaml.cs
+        description: leeres Code-Behind (Projektregel)
+      - path: src/Romulus.UI.Wpf/ViewModels/MainViewModelChildFactory.cs
+        description: CreateAuditViewer Factory
+      - path: src/Romulus.UI.Wpf/ViewModels/MainViewModel.cs
+        description: AuditViewer Property + Konstruktor-Wiring
+      - path: src/Romulus.UI.Wpf/App.xaml.cs
+        description: DI Registrierung IAuditViewerBackingService + AuditViewerViewModel
+      - path: src/Romulus.Tests/Wave4AuditViewerUiTests.cs
+        description: 7 Pin-Tests (Refresh / Select / Rollback-Token-Gate / SoT)
+    planning_pass: 2
     planning_history:
       - pass: 1
         reason: Sichtbarmachung des USP-Kerns Audit/Rollback.
@@ -2091,6 +2105,73 @@ tasks:
             likelihood: medium
             impact: medium
             mitigation: Nutzung nur ueber Backing-Service
+        tech_stack:
+          - C# .NET 10
+          - WPF/XAML
+        test_coverage: full
+      - pass: 2
+        reason: |
+          Pass-2 Umsetzung (VM + View + DI + Pin-Tests).
+          Lieferungen:
+            * AuditViewerViewModel (CommunityToolkit.Mvvm.ObservableObject)
+              konsumiert ausschliesslich IAuditViewerBackingService (T-W2 Port).
+              Property-Surface: AuditRoot, Runs, SelectedRun, SelectedRunRows,
+              SelectedSidecar, LastError, IsBusy. Commands: RefreshCommand,
+              RollbackCommand. Selektion einer Zeile loest LoadRunRows +
+              LoadSidecar via Backing-Service aus - keine eigene CSV/Sidecar-
+              Logik im VM (Source-Pin verifiziert Abwesenheit von
+              AuditCsvParser / AuditCsvStore / AuditSigningService).
+            * AuditViewerView.xaml: Master-Detail Read-only DataGrid mit
+              Sidecar-Block (Pfad / DeclaredRowCount / IsSignatureValid)
+              und Audit-Rows. DangerButton fuer Rollback bindet an
+              RollbackCommand; keine Edit/Delete/Write-Bindings.
+            * Code-Behind leer (Projektregel "Keine Businesslogik im WPF
+              Code-Behind").
+            * MainViewModelChildFactory.CreateAuditViewer + MainViewModel.AuditViewer
+              + Konstruktor-Defaults + DI-Registrierung in App.xaml.cs.
+              Optionaler rollbackCallback ermoeglicht spaetere Verdrahtung
+              an die bestehende Rollback-API ohne UI-Aenderung.
+            * Rollback-Sicherheit: CanExecute = SelectedRun != null AND
+              rollbackCallback != null. InvokeRollback ruft IDialogService
+              .DangerConfirm(title, msg, token, button) und delegiert nur
+              bei echter Bestaetigung an den Callback.
+          Tests (7/7 gruen, ~40ms):
+            * Refresh_LoadsRunsViaBackingService_NotByReParsingCsv
+            * SelectRun_LoadsRowsAndSidecarFromBackingService
+            * RollbackCommand_RequiresDangerConfirmToken_BeforeInvokingCallback
+            * RollbackCommand_DisabledWhenNoRunSelected
+            * RollbackCommand_DisabledWhenNoCallbackProvided
+            * ViewModel_DoesNotDuplicateAuditCsvOrSigningLogic (Source-Pin)
+            * View_HasNoWritePathOrCsvParsingCode (XAML-Pin)
+          Acceptance erfuellt:
+            * Read-only, kein Write-Pfad in der View (XAML-Pin).
+            * Rollback nur ueber bestaetigten Confirm-Token (Token-Pin).
+            * Sidecar-Verifikation sichtbar (IsSidecarValid im DataGrid +
+              Detailbereich).
+          Failure-Mode "View dupliziert Audit-Lese-Logik" durch SoT-Architektur
+          und Source-Pin verhindert.
+          Verifikation: dotnet build src/Romulus.sln -> 0 Fehler;
+          dotnet test --filter "FullyQualifiedName~Wave4AuditViewerUi" -> 7/7
+          gruen; Regression (MainViewModel + Wave4 + Wave2AuditViewerApi) -> 173/173 gruen.
+        timestamp: "2026-04-30"
+        estimated_effort: medium
+        estimated_files: 6
+        estimated_lines: 350
+        focus_area: ui
+        verification:
+          - dotnet build src/Romulus.sln -> 0 Fehler
+          - dotnet test --filter "FullyQualifiedName~Wave4AuditViewerUi" -> 7/7 gruen
+          - Regression (MainViewModel+Wave4+Wave2AuditViewerApi) -> 173/173 gruen
+        acceptance_criteria:
+          - Read-only, kein Write-Pfad in der View (Pin)
+          - Rollback nur ueber bestaetigten Confirm-Token (Pin)
+          - Sidecar-Verifikation sichtbar (DataGrid + Detail)
+          - VM dupliziert weder AuditCsvParser noch AuditSigningService (Pin)
+        failure_modes:
+          - scenario: View dupliziert Audit-Lese-Logik
+            likelihood: low
+            impact: medium
+            mitigation: Source-Pin + DI-only IAuditViewerBackingService
         tech_stack:
           - C# .NET 10
           - WPF/XAML

@@ -85,6 +85,8 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
     public ConversionPreviewViewModel ConversionPreview { get; }
     /// <summary>T-W5-BEFORE-AFTER-SIMULATOR pass 4: WPF Simulator-View VM (two-list before/after diff).</summary>
     public SimulatorViewModel Simulator { get; }
+    /// <summary>T-W4-AUDIT-VIEWER-UI: Read-only Audit-Browser ueber IAuditViewerBackingService.</summary>
+    public AuditViewerViewModel AuditViewer { get; }
 
     public MainViewModel() : this(new ThemeService(), new WpfDialogService()) { }
 
@@ -106,7 +108,9 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
         DatCatalogViewModel? datCatalog = null,
         ConversionPreviewViewModel? conversionPreview = null,
         DatPrewarmService? datPrewarm = null,
-        IBeforeAfterSimulator? beforeAfterSimulator = null)
+        IBeforeAfterSimulator? beforeAfterSimulator = null,
+        IAuditViewerBackingService? auditViewerBackingService = null,
+        Func<string, bool>? auditRollbackCallback = null)
     {
         _theme = theme;
         _dialog = dialog;
@@ -143,6 +147,12 @@ public sealed partial class MainViewModel : ObservableObject, INotifyDataErrorIn
                     new Romulus.Infrastructure.Audit.AuditCsvStore(new Romulus.Infrastructure.FileSystem.FileSystemAdapter()));
                 return orch.Execute(opts, ct);
             }));
+        AuditViewer = MainViewModelChildFactory.CreateAuditViewer(
+            auditViewerBackingService ?? new Romulus.Infrastructure.Audit.AuditViewerBackingService(
+                new Romulus.Infrastructure.FileSystem.FileSystemAdapter()),
+            _dialog,
+            _loc,
+            auditRollbackCallback);
         InitializeRunConfigurationServices(runProfileService, runConfigurationMaterializer);
 
         // Wire child VM events

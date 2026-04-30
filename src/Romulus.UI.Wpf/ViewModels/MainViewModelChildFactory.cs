@@ -1,3 +1,4 @@
+using System;
 using Romulus.Contracts.Ports;
 using Romulus.UI.Wpf.Services;
 
@@ -39,4 +40,11 @@ internal static class MainViewModelChildFactory
 
     public static SimulatorViewModel CreateSimulator(IBeforeAfterSimulator simulator)
         => new(simulator);
+
+    public static AuditViewerViewModel CreateAuditViewer(
+        IAuditViewerBackingService backingService,
+        IDialogService dialogService,
+        ILocalizationService localizationService,
+        Func<string, bool>? rollbackCallback = null)
+        => new(backingService, dialogService, localizationService, rollbackCallback);
 }

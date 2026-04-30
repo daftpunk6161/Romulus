@@ -159,6 +159,16 @@ public partial class App : Application
         });
         services.AddSingleton<SimulatorViewModel>();
 
+        // T-W4-AUDIT-VIEWER-UI: read-only Audit-Browser ueber IAuditViewerBackingService.
+        services.AddSingleton<Romulus.Contracts.Ports.IAuditViewerBackingService>(sp =>
+            new Romulus.Infrastructure.Audit.AuditViewerBackingService(
+                sp.GetRequiredService<Romulus.Contracts.Ports.IFileSystem>()));
+        services.AddSingleton<AuditViewerViewModel>(sp =>
+            new AuditViewerViewModel(
+                sp.GetRequiredService<Romulus.Contracts.Ports.IAuditViewerBackingService>(),
+                sp.GetRequiredService<Romulus.Contracts.Ports.IDialogService>(),
+                sp.GetRequiredService<ILocalizationService>()));
+
         // ViewModel
         services.AddSingleton<MainViewModel>();
 
