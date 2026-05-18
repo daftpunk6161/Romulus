@@ -69,6 +69,15 @@ public sealed class Wave2AuditViewerApiTests
     }
 
     [Fact]
+    public void ListRuns_InvalidOrMissingRoot_FailsClosed()
+    {
+        var svc = new AuditViewerBackingService();
+
+        Assert.Throws<ArgumentException>(() => svc.ListRuns(" "));
+        Assert.Empty(svc.ListRuns(Path.Combine(Path.GetTempPath(), "missing-audit-root-" + Guid.NewGuid().ToString("N"))));
+    }
+
+    [Fact]
     public void ListRuns_OrdersMostRecentFirst()
     {
         var root = TempRoot();
@@ -89,6 +98,56 @@ public sealed class Wave2AuditViewerApiTests
             Assert.Equal("audit-old.csv", runs[1].FileName);
             Assert.Equal("new", runs[0].RunId);
             Assert.Equal("old", runs[1].RunId);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ListRuns_DateFiltersAndAuditSuffixRunIds_Work()
+    {
+        var root = TempRoot();
+        try
+        {
+            var older = Path.Combine(root, "alpha.audit.csv");
+            var inside = Path.Combine(root, "beta.audit.csv");
+            var newer = Path.Combine(root, "gamma.audit.csv");
+            WriteAuditCsv(older, Array.Empty<string[]>());
+            WriteAuditCsv(inside, Array.Empty<string[]>());
+            WriteAuditCsv(newer, Array.Empty<string[]>());
+            File.SetLastWriteTimeUtc(older, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            File.SetLastWriteTimeUtc(inside, new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
+            File.SetLastWriteTimeUtc(newer, new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var svc = new AuditViewerBackingService();
+            var filtered = svc.ListRuns(
+                root,
+                new AuditRunFilter(
+                    FromUtc: new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero),
+                    ToUtc: new DateTimeOffset(2026, 2, 15, 0, 0, 0, TimeSpan.Zero)));
+
+            Assert.Single(filtered);
+            Assert.Equal("beta", filtered[0].RunId);
+            Assert.Equal("beta.audit.csv", filtered[0].FileName);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ListRuns_InvalidSidecar_DoesNotMarkRunAsVerified()
+    {
+        var root = TempRoot();
+        try
+        {
+            var path = Path.Combine(root, "audit-invalid-sidecar.csv");
+            WriteAuditCsv(path, new[] { new[] { "C:\\r", "a", "b", "Move", "", "", "", "2026-04-01T00:00:00Z" } });
+            File.WriteAllText(path + ".meta.json", "{not-json");
+
+            var svc = new AuditViewerBackingService();
+            var run = Assert.Single(svc.ListRuns(root));
+
+            Assert.True(run.HasSidecar);
+            Assert.False(run.IsSidecarValid);
+            Assert.Equal(1, run.RowCount);
         }
         finally { Directory.Delete(root, true); }
     }
@@ -159,6 +218,54 @@ public sealed class Wave2AuditViewerApiTests
     }
 
     [Fact]
+    public void ReadRunRows_InvalidOrMissingPath_FailsClosed()
+    {
+        var svc = new AuditViewerBackingService();
+
+        Assert.Throws<ArgumentException>(() => svc.ReadRunRows(""));
+
+        var page = svc.ReadRunRows(
+            Path.Combine(Path.GetTempPath(), "missing-audit-" + Guid.NewGuid().ToString("N") + ".csv"),
+            page: new AuditPage(2, 25));
+
+        Assert.Empty(page.Rows);
+        Assert.Equal(0, page.TotalRowCount);
+        Assert.Equal(2, page.PageIndex);
+        Assert.Equal(25, page.PageSize);
+    }
+
+    [Fact]
+    public void ReadRunRows_SkipsMalformedCsvAndFiltersByTimestampRange()
+    {
+        var root = TempRoot();
+        try
+        {
+            var path = Path.Combine(root, "audit-range.csv");
+            File.WriteAllLines(path, new[]
+            {
+                "RootPath,OldPath,NewPath,Action,Category,Hash,Reason,Timestamp",
+                "C:\\r,a,b,Move,Game,h1,old,2026-04-01T00:00:00Z",
+                "\"unterminated",
+                "C:\\r,c,d,Move,Game,h2,inside,2026-04-10T00:00:00Z",
+                "C:\\r,e,f,Move,Game,h3,new,2026-05-01T00:00:00Z",
+                "C:\\r,g,h,Move,Game,h4,bad-date,not-a-date"
+            });
+
+            var svc = new AuditViewerBackingService();
+            var page = svc.ReadRunRows(
+                path,
+                new AuditRunFilter(
+                    FromUtc: new DateTimeOffset(2026, 4, 5, 0, 0, 0, TimeSpan.Zero),
+                    ToUtc: new DateTimeOffset(2026, 4, 20, 0, 0, 0, TimeSpan.Zero)));
+
+            Assert.Equal(4, page.TotalRowCount);
+            Assert.Single(page.Rows);
+            Assert.Equal("inside", page.Rows[0].Reason);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void ReadRunRows_FilterByOutcome_Works()
     {
         var root = TempRoot();
@@ -218,6 +325,61 @@ public sealed class Wave2AuditViewerApiTests
 
             var svc = new AuditViewerBackingService();
             Assert.Null(svc.ReadSidecar(path));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ReadSidecar_InvalidOrMalformedSidecar_FailsClosed()
+    {
+        var root = TempRoot();
+        try
+        {
+            var path = Path.Combine(root, "audit-sidecar-invalid.csv");
+            WriteAuditCsv(path, Array.Empty<string[]>());
+            var svc = new AuditViewerBackingService();
+
+            Assert.Throws<ArgumentException>(() => svc.ReadSidecar(" "));
+
+            File.WriteAllText(path + ".meta.json", "{not-json");
+            var info = svc.ReadSidecar(path);
+
+            Assert.NotNull(info);
+            Assert.Equal(0, info!.DeclaredRowCount);
+            Assert.False(info.IsSignatureValid);
+            Assert.Empty(info.Metadata);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ReadSidecar_ParsesMetadataTypesAndUnverifiedSignature()
+    {
+        var root = TempRoot();
+        try
+        {
+            var path = Path.Combine(root, "audit-sidecar-types.csv");
+            WriteAuditCsv(path, Array.Empty<string[]>());
+            File.WriteAllText(path + ".meta.json", """
+            {
+              "rowCount": 2,
+              "status": "completed",
+              "verified": true,
+              "optional": null,
+              "details": { "phase": "move" }
+            }
+            """);
+
+            var svc = new AuditViewerBackingService();
+            var info = svc.ReadSidecar(path);
+
+            Assert.NotNull(info);
+            Assert.Equal(2, info!.DeclaredRowCount);
+            Assert.False(info.IsSignatureValid);
+            Assert.Equal("completed", info.Metadata["status"]);
+            Assert.Equal("True", info.Metadata["verified"]);
+            Assert.Equal(string.Empty, info.Metadata["optional"]);
+            Assert.Contains("phase", info.Metadata["details"], StringComparison.Ordinal);
         }
         finally { Directory.Delete(root, true); }
     }
