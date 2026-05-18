@@ -1,5 +1,6 @@
 using Romulus.Api;
 using Romulus.Contracts.Ports;
+using System.Reflection;
 using Xunit;
 
 namespace Romulus.Tests;
@@ -54,6 +55,41 @@ public class RateLimiterTests
 
         Assert.True(limiter.TryAcquire("c"));
     }
+
+    [Fact]
+    public void TryAcquire_AfterEvictionInterval_RemovesStaleClientBuckets()
+    {
+        var clock = new TestTimeProvider(new DateTimeOffset(2026, 4, 10, 12, 0, 0, TimeSpan.Zero));
+        var limiter = new RateLimiter(1, TimeSpan.FromSeconds(1), clock);
+
+        Assert.True(limiter.TryAcquire("stale-client"));
+        Assert.True(ContainsBucket(limiter, "stale-client"));
+
+        clock.Advance(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(7));
+
+        Assert.True(limiter.TryAcquire("fresh-client"));
+
+        Assert.False(ContainsBucket(limiter, "stale-client"));
+        Assert.True(ContainsBucket(limiter, "fresh-client"));
+        Assert.Equal(1, BucketCount(limiter));
+    }
+
+    private static int BucketCount(RateLimiter limiter)
+    {
+        var buckets = GetBuckets(limiter);
+        return (int)buckets.GetType().GetProperty("Count")!.GetValue(buckets)!;
+    }
+
+    private static bool ContainsBucket(RateLimiter limiter, string clientId)
+    {
+        var buckets = GetBuckets(limiter);
+        return (bool)buckets.GetType().GetMethod("ContainsKey")!.Invoke(buckets, new object[] { clientId })!;
+    }
+
+    private static object GetBuckets(RateLimiter limiter)
+        => typeof(RateLimiter)
+            .GetField("_buckets", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(limiter)!;
 
     private sealed class TestTimeProvider(DateTimeOffset initialUtcNow) : ITimeProvider
     {
