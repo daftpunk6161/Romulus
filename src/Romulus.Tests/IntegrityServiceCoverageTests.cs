@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Analysis;
@@ -8,15 +10,24 @@ namespace Romulus.Tests;
 public sealed class IntegrityServiceCoverageTests : IDisposable
 {
     private readonly string _tempDir;
+    private readonly string _baselinePath;
+    private readonly string _baselineBackupPath;
+    private readonly bool _baselineExisted;
 
     public IntegrityServiceCoverageTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "Romulus_IST_" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
+        _baselinePath = ResolveIntegrityBaselinePath();
+        _baselineBackupPath = Path.Combine(_tempDir, "original-integrity-baseline.json");
+        _baselineExisted = File.Exists(_baselinePath);
+        if (_baselineExisted)
+            File.Copy(_baselinePath, _baselineBackupPath, overwrite: true);
     }
 
     public void Dispose()
     {
+        RestoreIntegrityBaseline();
         try { Directory.Delete(_tempDir, true); } catch { }
     }
 
@@ -177,6 +188,50 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
         Assert.Single(result); // Only the existing file
     }
 
+    [Fact]
+    public async Task CheckIntegrity_AfterBaseline_DetectsIntactChangedAndMissingFiles()
+    {
+        var intact = CreateFile("check/intact.bin", "stable");
+        var changed = CreateFile("check/changed.bin", "v1");
+        var missing = CreateFile("check/missing.bin", "gone");
+
+        await IntegrityService.CreateBaseline([intact, changed, missing]);
+        File.WriteAllText(changed, "v2");
+        File.Delete(missing);
+
+        var progress = new List<string>();
+        var result = await IntegrityService.CheckIntegrity(new Progress<string>(progress.Add));
+
+        Assert.Contains(Path.GetFullPath(intact), result.Intact);
+        Assert.Contains(Path.GetFullPath(changed), result.Changed);
+        Assert.Contains(Path.GetFullPath(missing), result.Missing);
+        Assert.True(result.BitRotRisk);
+        Assert.Contains(progress, message => message.Contains("Checking:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CheckIntegrity_LegacyDictionaryBaseline_UsesAbsolutePathsWithoutWrapperRoot()
+    {
+        var file = CreateFile("legacy/entry.bin", "legacy-content");
+        var baseline = new Dictionary<string, IntegrityEntry>(StringComparer.OrdinalIgnoreCase)
+        {
+            [Path.GetFullPath(file)] = new(
+                IntegrityService.ComputeSha256(file),
+                new FileInfo(file).Length,
+                File.GetLastWriteTimeUtc(file))
+        };
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_baselinePath)!);
+        File.WriteAllText(_baselinePath, JsonSerializer.Serialize(baseline));
+
+        var result = await IntegrityService.CheckIntegrity();
+
+        Assert.Empty(result.Changed);
+        Assert.Empty(result.Missing);
+        Assert.Contains(Path.GetFullPath(file), result.Intact);
+        Assert.False(result.BitRotRisk);
+    }
+
     #endregion
 
     #region Backup
@@ -267,4 +322,24 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
     }
 
     #endregion
+
+    private static string ResolveIntegrityBaselinePath()
+    {
+        var field = typeof(IntegrityService).GetField("BaselinePath", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+        return (string)field!.GetValue(null)!;
+    }
+
+    private void RestoreIntegrityBaseline()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_baselinePath)!);
+        if (_baselineExisted)
+        {
+            File.Copy(_baselineBackupPath, _baselinePath, overwrite: true);
+        }
+        else if (File.Exists(_baselinePath))
+        {
+            File.Delete(_baselinePath);
+        }
+    }
 }
