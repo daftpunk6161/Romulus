@@ -1,6 +1,7 @@
 using Romulus.Api;
 using Romulus.Contracts;
 using Romulus.Contracts.Errors;
+using Romulus.Contracts.Ports;
 using Romulus.Infrastructure.Audit;
 using Romulus.Infrastructure.FileSystem;
 using Romulus.Infrastructure.Paths;
@@ -77,6 +78,28 @@ public class RunManagerTests
     {
         var mgr = CreateManager();
         Assert.Null(mgr.GetActive());
+    }
+
+    [Fact]
+    public void Cancel_UnknownRun_ReturnsNotFound()
+    {
+        var mgr = CreateManager();
+
+        var result = mgr.Cancel("missing-run");
+
+        Assert.Equal(RunCancelDisposition.NotFound, result.Disposition);
+        Assert.Null(result.Run);
+    }
+
+    [Fact]
+    public async Task WaitForCompletion_UnknownRun_ReturnsNotFound()
+    {
+        var mgr = CreateManager();
+
+        var result = await mgr.WaitForCompletion("missing-run", timeout: TimeSpan.FromMilliseconds(10));
+
+        Assert.Equal(RunWaitDisposition.NotFound, result.Disposition);
+        Assert.Null(result.Run);
     }
 
     [Fact]
@@ -417,6 +440,133 @@ public class RunManagerTests
     }
 
     [Fact]
+    public async Task WaitForCompletion_AlreadyCompletedRun_ReturnsCompletedImmediately()
+    {
+        var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
+            new RunExecutionOutcome(RunConstants.StatusCompleted, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            }));
+
+        var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "completed-wait").Run!;
+        var firstWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
+
+        var secondWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
+
+        Assert.Equal(RunWaitDisposition.Completed, firstWait.Disposition);
+        Assert.Equal(RunWaitDisposition.Completed, secondWait.Disposition);
+        Assert.Equal(run.RunId, secondWait.Run!.RunId);
+    }
+
+    [Fact]
+    public async Task WaitForCompletion_PrematureCompletionSignal_DoesNotReportCompletedWhileRunStillRunning()
+    {
+        using var executorStarted = new ManualResetEventSlim(false);
+        using var allowCompletion = new ManualResetEventSlim(false);
+        var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, ct) =>
+        {
+            executorStarted.Set();
+            allowCompletion.Wait(ct);
+            return new RunExecutionOutcome(RunConstants.StatusCompleted, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            });
+        });
+
+        var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "premature-signal").Run!;
+        Assert.True(executorStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        run.SignalCompletion();
+
+        var prematureWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
+        Assert.Equal(RunWaitDisposition.TimedOut, prematureWait.Disposition);
+        Assert.Equal(RunConstants.StatusRunning, prematureWait.Run!.Status);
+
+        allowCompletion.Set();
+        Assert.True(SpinWait.SpinUntil(() => run.CompletedUtc is not null, TimeSpan.FromSeconds(5)));
+
+        var finalWait = await mgr.WaitForCompletion(run.RunId, timeout: TimeSpan.FromSeconds(5));
+        Assert.Equal(RunWaitDisposition.Completed, finalWait.Disposition);
+        Assert.Equal(RunConstants.StatusCompleted, finalWait.Run!.Status);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CancelsActiveRunAndSecondDisposeIsNoOp()
+    {
+        using var executorStarted = new ManualResetEventSlim(false);
+        using var neverComplete = new ManualResetEventSlim(false);
+        var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, ct) =>
+        {
+            executorStarted.Set();
+            neverComplete.Wait(ct);
+            return new RunExecutionOutcome(RunConstants.StatusCompleted, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            });
+        });
+
+        var run = mgr.TryCreateOrReuse(new RunRequest { Roots = new[] { GetTestRoot() } }, "DryRun", "dispose-active").Run!;
+        Assert.True(executorStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        await mgr.DisposeAsync();
+        await mgr.DisposeAsync();
+
+        var completed = mgr.Get(run.RunId)!;
+        Assert.Equal(RunConstants.StatusCancelled, completed.Status);
+        Assert.True(completed.CancellationRequested);
+        Assert.NotNull(completed.CompletedUtc);
+    }
+
+    [Fact]
+    public async Task CompletedRunHistory_EvictsOldRunsAndTheirIdempotencyKeys()
+    {
+        var clock = new ManualTimeProvider(new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero));
+        var root = CreateTempDir();
+        var request = new RunRequest { Roots = new[] { root } };
+        var mgr = new RunManager(
+            new FileSystemAdapter(),
+            new AuditCsvStore(),
+            (_, _, _, _) => new RunExecutionOutcome(RunConstants.StatusCompleted, new ApiRunResult
+            {
+                OrchestratorStatus = "ok",
+                ExitCode = 0
+            }),
+            timeProvider: clock);
+
+        try
+        {
+            string? firstRunId = null;
+            for (var index = 0; index < 105; index++)
+            {
+                var create = mgr.TryCreateOrReuse(request, "DryRun", $"evict-{index}");
+                Assert.Equal(RunCreateDisposition.Created, create.Disposition);
+                firstRunId ??= create.Run!.RunId;
+
+                var wait = await mgr.WaitForCompletion(create.Run!.RunId, timeout: TimeSpan.FromSeconds(5));
+                Assert.Equal(RunWaitDisposition.Completed, wait.Disposition);
+                Assert.True(SpinWait.SpinUntil(() => mgr.GetActive() is null, TimeSpan.FromSeconds(5)));
+                clock.Advance(TimeSpan.FromMinutes(3));
+            }
+
+            Assert.True(SpinWait.SpinUntil(() => mgr.List().Count <= 100, TimeSpan.FromSeconds(5)));
+            Assert.Null(mgr.Get(firstRunId!));
+
+            var replay = mgr.TryCreateOrReuse(request, "DryRun", "evict-0");
+            Assert.Equal(RunCreateDisposition.Created, replay.Disposition);
+            Assert.NotEqual(firstRunId, replay.Run!.RunId);
+            Assert.Equal(RunWaitDisposition.Completed,
+                (await mgr.WaitForCompletion(replay.Run.RunId, timeout: TimeSpan.FromSeconds(5))).Disposition);
+        }
+        finally
+        {
+            CleanupDir(root);
+        }
+    }
+
+    [Fact]
     public async Task TGAP48_Api_StatusStrings_UseCentralConstants()
     {
         var mgr = new RunManager(new FileSystemAdapter(), new AuditCsvStore(), (_, _, _, _) =>
@@ -726,5 +876,17 @@ public class RunManagerTests
     {
         try { Directory.Delete(dir, true); }
         catch { /* best effort */ }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : ITimeProvider
+    {
+        private DateTimeOffset _utcNow = initialUtcNow;
+
+        public DateTimeOffset UtcNow => _utcNow;
+
+        public void Advance(TimeSpan delta)
+        {
+            _utcNow = _utcNow.Add(delta);
+        }
     }
 }
