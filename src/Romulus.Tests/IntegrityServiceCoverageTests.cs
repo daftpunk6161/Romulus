@@ -13,6 +13,9 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
     private readonly string _baselinePath;
     private readonly string _baselineBackupPath;
     private readonly bool _baselineExisted;
+    private readonly string _trendPath;
+    private readonly string _trendBackupPath;
+    private readonly bool _trendExisted;
 
     public IntegrityServiceCoverageTests()
     {
@@ -23,11 +26,18 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
         _baselineExisted = File.Exists(_baselinePath);
         if (_baselineExisted)
             File.Copy(_baselinePath, _baselineBackupPath, overwrite: true);
+
+        _trendPath = ResolveTrendPath();
+        _trendBackupPath = Path.Combine(_tempDir, "original-trend-history.json");
+        _trendExisted = File.Exists(_trendPath);
+        if (_trendExisted)
+            File.Copy(_trendPath, _trendBackupPath, overwrite: true);
     }
 
     public void Dispose()
     {
         RestoreIntegrityBaseline();
+        RestoreTrendHistory();
         try { Directory.Delete(_tempDir, true); } catch { }
     }
 
@@ -234,6 +244,64 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
 
     #endregion
 
+    #region Trend History
+
+    [Fact]
+    public void SaveTrendSnapshot_CapsLegacyHistoryAndFormatReportUsesSharedLabels()
+    {
+        var existing = Enumerable.Range(0, 365)
+            .Select(day => new TrendSnapshot(
+                new DateTime(2025, 1, 1, 12, 0, 0, DateTimeKind.Local).AddDays(day),
+                TotalFiles: 10 + day,
+                SizeBytes: 1024 + day,
+                Verified: 5,
+                Dupes: 1,
+                Junk: 1,
+                QualityScore: 80))
+            .ToList();
+        Directory.CreateDirectory(Path.GetDirectoryName(_trendPath)!);
+        File.WriteAllText(_trendPath, JsonSerializer.Serialize(existing));
+
+        var now = new FixedTimeProvider(new DateTimeOffset(2026, 5, 18, 9, 30, 0, TimeSpan.Zero));
+
+        IntegrityService.SaveTrendSnapshot(
+            totalFiles: 100,
+            sizeBytes: 4096,
+            verified: 90,
+            dupes: 4,
+            junk: 2,
+            timeProvider: now);
+
+        var history = LoadLegacyTrendHistoryViaReflection();
+
+        Assert.Equal(365, history.Count);
+        Assert.Equal(new DateTime(2025, 1, 2, 12, 0, 0, DateTimeKind.Local), history[0].Timestamp);
+        Assert.Equal(100, history[^1].TotalFiles);
+        Assert.Equal(4096, history[^1].SizeBytes);
+        Assert.Equal(CollectionAnalysisService.CalculateHealthScore(100, 4, 2, 90), history[^1].QualityScore);
+
+        var report = IntegrityService.FormatTrendReport(history.TakeLast(2).ToList());
+        Assert.Contains("Trend Analysis", report, StringComparison.Ordinal);
+        Assert.Contains("Delta files", report, StringComparison.Ordinal);
+        Assert.Contains("Quality", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadLegacyTrendHistory_MissingOrMalformedSidecar_ReturnsEmptyHistory()
+    {
+        if (File.Exists(_trendPath))
+            File.Delete(_trendPath);
+
+        Assert.Empty(LoadLegacyTrendHistoryViaReflection());
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_trendPath)!);
+        File.WriteAllText(_trendPath, "{not-json");
+
+        Assert.Empty(LoadLegacyTrendHistoryViaReflection());
+    }
+
+    #endregion
+
     #region Backup
 
     [Fact]
@@ -261,6 +329,36 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
 
         var files = Directory.GetFiles(sessionDir, "*", SearchOption.AllDirectories);
         Assert.Single(files);
+    }
+
+    [Fact]
+    public void CreateBackup_BlankLabel_UsesBackupLeafAndCopiesFile()
+    {
+        var file = CreateFile("blank-label/source.bin", "data");
+        var backupRoot = Path.Combine(_tempDir, "blank-label-backups");
+        var now = new FixedTimeProvider(new DateTimeOffset(2026, 5, 18, 11, 22, 33, TimeSpan.Zero));
+
+        var sessionDir = IntegrityService.CreateBackup([file], backupRoot, " \t ", now);
+
+        Assert.EndsWith("_backup", Path.GetFileName(sessionDir), StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(sessionDir, "source.bin")));
+    }
+
+    [Fact]
+    public void CreateBackup_DestinationResolutionFailure_FailsClosedBeforeCopy()
+    {
+        var file = CreateFile("resolve-failure/source.bin", "data");
+        var backupRoot = Path.Combine(_tempDir, "resolve-failure-backups");
+        var fs = new TestFileSystem
+        {
+            ResolveChildPath = (_, _) => null
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            IntegrityService.CreateBackup([file], backupRoot, "blocked", fileSystem: fs));
+
+        Assert.Contains("Backup destination escaped", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, fs.CopyCount);
     }
 
     [Fact]
@@ -321,6 +419,34 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
         Assert.False(Directory.Exists(oldDir));
     }
 
+    [Fact]
+    public void CleanupOldBackups_SkipsDirectoryTreeContainingReparsePoint()
+    {
+        var backupRoot = Path.Combine(_tempDir, "cleanup_reparse");
+        var oldDir = Path.Combine(backupRoot, "old_session");
+        var childDir = Path.Combine(oldDir, "child");
+        Directory.CreateDirectory(childDir);
+        Directory.SetCreationTime(oldDir, DateTime.Now.AddDays(-30));
+        Directory.SetCreationTime(childDir, DateTime.Now.AddDays(-30));
+
+        var fs = new TestFileSystem
+        {
+            IsReparsePointFunc = path => string.Equals(
+                Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(childDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase)
+        };
+
+        var removed = IntegrityService.CleanupOldBackups(
+            backupRoot,
+            retentionDays: 7,
+            confirmDelete: _ => true,
+            fileSystem: fs);
+
+        Assert.Equal(0, removed);
+        Assert.True(Directory.Exists(oldDir));
+    }
+
     #endregion
 
     private static string ResolveIntegrityBaselinePath()
@@ -328,6 +454,20 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
         var field = typeof(IntegrityService).GetField("BaselinePath", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(field);
         return (string)field!.GetValue(null)!;
+    }
+
+    private static string ResolveTrendPath()
+    {
+        var field = typeof(IntegrityService).GetField("TrendFile", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+        return (string)field!.GetValue(null)!;
+    }
+
+    private static List<TrendSnapshot> LoadLegacyTrendHistoryViaReflection()
+    {
+        var method = typeof(IntegrityService).GetMethod("LoadLegacyTrendHistory", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return Assert.IsType<List<TrendSnapshot>>(method!.Invoke(null, null));
     }
 
     private void RestoreIntegrityBaseline()
@@ -340,6 +480,75 @@ public sealed class IntegrityServiceCoverageTests : IDisposable
         else if (File.Exists(_baselinePath))
         {
             File.Delete(_baselinePath);
+        }
+    }
+
+    private void RestoreTrendHistory()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_trendPath)!);
+        if (_trendExisted)
+        {
+            File.Copy(_trendBackupPath, _trendPath, overwrite: true);
+        }
+        else if (File.Exists(_trendPath))
+        {
+            File.Delete(_trendPath);
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class TestFileSystem : IFileSystem
+    {
+        public Func<string, string, string?> ResolveChildPath { get; init; } =
+            static (root, relative) => Path.GetFullPath(Path.Combine(root, relative));
+
+        public Func<string, bool> IsReparsePointFunc { get; init; } = static _ => false;
+
+        public int CopyCount { get; private set; }
+
+        public bool TestPath(string literalPath, string pathType = "Any")
+            => pathType switch
+            {
+                "Leaf" => File.Exists(literalPath),
+                "Container" => Directory.Exists(literalPath),
+                _ => File.Exists(literalPath) || Directory.Exists(literalPath)
+            };
+
+        public string EnsureDirectory(string path)
+        {
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        public IReadOnlyList<string> GetFilesSafe(string root, IEnumerable<string>? allowedExtensions = null)
+            => Directory.Exists(root)
+                ? Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+                : Array.Empty<string>();
+
+        public string? MoveItemSafely(string sourcePath, string destinationPath) => null;
+
+        public string? ResolveChildPathWithinRoot(string rootPath, string relativePath)
+            => ResolveChildPath(rootPath, relativePath);
+
+        public bool IsReparsePoint(string path) => IsReparsePointFunc(path);
+
+        public void DeleteFile(string path) => File.Delete(path);
+
+        public void CopyFile(string sourcePath, string destinationPath, bool overwrite = false)
+        {
+            CopyCount++;
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.Copy(sourcePath, destinationPath, overwrite);
+        }
+
+        public void WriteAllText(string path, string content)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, content);
         }
     }
 }
