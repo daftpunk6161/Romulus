@@ -301,6 +301,30 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
     }
 
     [Fact]
+    public void CopyFile_AdsInDestination_ThrowsAndPreservesSource()
+    {
+        var src = Path.Combine(_tempDir, "source-dest-ads.rom");
+        File.WriteAllText(src, "data");
+
+        Assert.Throws<InvalidOperationException>(
+            () => _fs.CopyFile(src, Path.Combine(_tempDir, "dst.rom:hidden")));
+
+        Assert.True(File.Exists(src));
+    }
+
+    [Fact]
+    public void CopyFile_ReservedDestinationName_ThrowsAndPreservesSource()
+    {
+        var src = Path.Combine(_tempDir, "source-reserved.rom");
+        File.WriteAllText(src, "data");
+
+        Assert.Throws<InvalidOperationException>(
+            () => _fs.CopyFile(src, Path.Combine(_tempDir, "NUL.txt")));
+
+        Assert.True(File.Exists(src));
+    }
+
+    [Fact]
     public void CopyFile_CreatesDestinationDirectory()
     {
         var src = Path.Combine(_tempDir, "source.rom");
@@ -352,6 +376,35 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
 
         var protectedTarget = Path.Combine(windowsDir, "romulus-fs-edge-test.txt");
         Assert.Throws<InvalidOperationException>(() => _fs.WriteAllText(protectedTarget, "x"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void WriteAllText_EmptyPath_Throws(string? path)
+    {
+        Assert.Throws<ArgumentException>(() => _fs.WriteAllText(path!, "x"));
+    }
+
+    [Fact]
+    public void ReadAllLines_ReadsWrittenFile()
+    {
+        var file = Path.Combine(_tempDir, "read-lines.txt");
+        File.WriteAllLines(file, ["one", "two"]);
+
+        var lines = _fs.ReadAllLines(file);
+
+        Assert.Equal(["one", "two"], lines);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void ReadAllLines_EmptyPath_Throws(string? path)
+    {
+        Assert.Throws<ArgumentException>(() => _fs.ReadAllLines(path!));
     }
 
     // ===== IsReparsePoint =====
@@ -410,6 +463,18 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
         Assert.Null(_fs.ResolveChildPathWithinRoot(_tempDir, "file:stream"));
     }
 
+    [Theory]
+    [InlineData(null, "file.rom")]
+    [InlineData("", "file.rom")]
+    [InlineData("  ", "file.rom")]
+    [InlineData("C:\\Roms", null)]
+    [InlineData("C:\\Roms", "")]
+    [InlineData("C:\\Roms", "  ")]
+    public void ResolveChildPath_EmptyRootOrRelativePath_ReturnsNull(string? root, string? relative)
+    {
+        Assert.Null(_fs.ResolveChildPathWithinRoot(root!, relative!));
+    }
+
     [Fact]
     public void ResolveChildPath_DeepNestedValid_ReturnsPath()
     {
@@ -431,6 +496,16 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
 
         Assert.NotNull(result);
         Assert.True(File.Exists(dst));
+    }
+
+    [Fact]
+    public void MoveItemSafely_SameSourceAndDestination_ThrowsAndPreservesSource()
+    {
+        var src = Path.Combine(_tempDir, "same-move.rom");
+        File.WriteAllText(src, "data");
+
+        Assert.Throws<InvalidOperationException>(() => _fs.MoveItemSafely(src, src));
+        Assert.True(File.Exists(src));
     }
 
     [Fact]
@@ -485,6 +560,59 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
 
         Assert.Throws<InvalidOperationException>(
             () => _fs.MoveItemSafely(src, Path.Combine(_tempDir, "dest.rom:hidden")));
+    }
+
+    [Fact]
+    public void MoveItemSafely_AdsInSource_ThrowsAndPreservesSource()
+    {
+        var src = Path.Combine(_tempDir, "ads-source.rom");
+        File.WriteAllText(src, "data");
+
+        Assert.Throws<InvalidOperationException>(
+            () => _fs.MoveItemSafely(src + ":hidden", Path.Combine(_tempDir, "dest.rom")));
+
+        Assert.True(File.Exists(src));
+    }
+
+    [Theory]
+    [InlineData(null, "dest.rom")]
+    [InlineData("", "dest.rom")]
+    [InlineData("  ", "dest.rom")]
+    public void MoveItemSafely_EmptySource_Throws(string? source, string destinationName)
+    {
+        Assert.Throws<ArgumentException>(() => _fs.MoveItemSafely(source!, Path.Combine(_tempDir, destinationName)));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void MoveItemSafely_EmptyDestination_Throws(string? destination)
+    {
+        var src = Path.Combine(_tempDir, "move-empty-dest.rom");
+        File.WriteAllText(src, "data");
+
+        Assert.Throws<ArgumentException>(() => _fs.MoveItemSafely(src, destination!));
+    }
+
+    // ===== GetAvailableFreeSpace =====
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void GetAvailableFreeSpace_EmptyPath_ReturnsNull(string? path)
+    {
+        Assert.Null(_fs.GetAvailableFreeSpace(path!));
+    }
+
+    [Fact]
+    public void GetAvailableFreeSpace_ExistingTempRoot_ReturnsNonNegativeValue()
+    {
+        var free = _fs.GetAvailableFreeSpace(_tempDir);
+
+        Assert.NotNull(free);
+        Assert.True(free >= 0);
     }
 
     // ===== IsWindowsReservedDeviceName static helper =====
@@ -584,5 +712,16 @@ public sealed class FileSystemAdapterEdgeCaseTests : IDisposable
         var result = FileSystemAdapter.NormalizePathNfc(nfc);
 
         Assert.Equal(Path.GetFullPath(nfc), result);
+    }
+
+    [Fact]
+    public void NormalizePathNfc_RepeatedPath_UsesCachedNormalizedValue()
+    {
+        var path = Path.Combine(_tempDir, "cached.rom");
+
+        var first = FileSystemAdapter.NormalizePathNfc(path);
+        var second = FileSystemAdapter.NormalizePathNfc(path);
+
+        Assert.Equal(first, second);
     }
 }
