@@ -200,6 +200,48 @@ public sealed class PersistedReviewDecisionServiceTests : IDisposable
         Assert.NotEmpty(Directory.EnumerateFiles(_tempDir, "*.review-open-failure.*.bak"));
     }
 
+    [Fact]
+    public async Task ReviewDecisionServiceFactory_ExplicitDatabasePath_RoundTripsApprovalsThroughSharedStore()
+    {
+        var warnings = new List<string>();
+        var approvedPath = Path.Combine(_tempDir, "factory-approved.bin");
+        File.WriteAllText(approvedPath, "stable");
+
+        using (var service = ReviewDecisionServiceFactory.TryCreate(_databasePath, warnings.Add))
+        {
+            Assert.NotNull(service);
+            var persisted = await service!.PersistApprovalsAsync(
+            [
+                CreateCandidate(approvedPath, SortDecision.Review, consoleKey: "SNES")
+            ], "api");
+
+            Assert.Equal(1, persisted);
+        }
+
+        using (var reopened = ReviewDecisionServiceFactory.TryCreate(_databasePath, warnings.Add))
+        {
+            Assert.NotNull(reopened);
+            var approved = await reopened!.GetApprovedPathSetAsync([approvedPath]);
+
+            Assert.Contains(Path.GetFullPath(approvedPath), approved);
+        }
+
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void ReviewDecisionServiceFactory_UnopenableDatabasePath_ReturnsNullAndWarns()
+    {
+        var warnings = new List<string>();
+        var directoryInsteadOfDatabase = Path.Combine(_tempDir, "collection-as-directory.db");
+        Directory.CreateDirectory(directoryInsteadOfDatabase);
+
+        using var service = ReviewDecisionServiceFactory.TryCreate(directoryInsteadOfDatabase, warnings.Add);
+
+        Assert.Null(service);
+        Assert.Contains(warnings, message => message.Contains("Disabled for this run", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static RomCandidate CreateCandidate(string path, SortDecision sortDecision, string consoleKey = "UNKNOWN")
         => new()
         {
