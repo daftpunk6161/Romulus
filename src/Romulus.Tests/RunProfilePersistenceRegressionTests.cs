@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Romulus.Contracts.Models;
 using Romulus.Infrastructure.Profiles;
+using System.Reflection;
 using Xunit;
 
 namespace Romulus.Tests;
@@ -33,6 +34,7 @@ public sealed class RunProfilePersistenceRegressionTests : IDisposable
         await store.UpsertAsync(Profile("custom-profile", "Custom Profile"));
         await store.UpsertAsync(Profile("alpha-profile", "Alpha Profile"));
         await File.WriteAllTextAsync(Path.Combine(_profileDir, "broken.json"), "{ not-json");
+        await File.WriteAllTextAsync(Path.Combine(_profileDir, "null.json"), "null");
         await File.WriteAllTextAsync(Path.Combine(_profileDir, "invalid.json"), JsonSerializer.Serialize(
             Profile("invalid-profile", "") with { Name = "" }));
 
@@ -54,12 +56,56 @@ public sealed class RunProfilePersistenceRegressionTests : IDisposable
     }
 
     [Fact]
+    public async Task JsonRunProfileStore_RejectsInvalidProfileBeforeWriting()
+    {
+        var store = CreateStore();
+        var invalid = Profile("invalid-profile", "") with { Name = "" };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await store.UpsertAsync(invalid));
+
+        Assert.Contains("name", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(_profileDir, "invalid-profile.json")));
+    }
+
+    [Fact]
+    public async Task JsonRunProfileStore_FailedAtomicWrite_CleansMatchingTempFiles()
+    {
+        var store = CreateStore();
+        var finalPathAsDirectory = Path.Combine(_profileDir, "blocked-profile.json");
+        Directory.CreateDirectory(finalPathAsDirectory);
+        var matchingTemp = Path.Combine(_profileDir, ".blocked-profile.json.orphan.tmp");
+        var unrelatedTemp = Path.Combine(_profileDir, ".other-profile.json.orphan.tmp");
+        await File.WriteAllTextAsync(matchingTemp, "stale");
+        await File.WriteAllTextAsync(unrelatedTemp, "keep");
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+            await store.UpsertAsync(Profile("blocked-profile", "Blocked Profile")));
+
+        Assert.False(File.Exists(matchingTemp));
+        Assert.True(File.Exists(unrelatedTemp));
+        Assert.True(Directory.Exists(finalPathAsDirectory));
+    }
+
+    [Fact]
+    public void JsonRunProfileStore_DeleteAtomicTempFiles_MissingDirectoryIsNoOp()
+    {
+        var method = typeof(JsonRunProfileStore).GetMethod(
+            "DeleteAtomicTempFiles",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        method!.Invoke(null, new object[] { Path.Combine(_tempRoot, "missing", "profile.json") });
+    }
+
+    [Fact]
     public async Task JsonRunProfileStore_ListSynchronouslyMatchesAsyncFilteringAndOrdering()
     {
         var store = CreateStore();
         await store.UpsertAsync(Profile("zeta-profile", "Zeta Profile") with { BuiltIn = true });
         await store.UpsertAsync(Profile("alpha-profile", "Alpha Profile"));
         await File.WriteAllTextAsync(Path.Combine(_profileDir, "broken.json"), "{ not-json");
+        await File.WriteAllTextAsync(Path.Combine(_profileDir, "null.json"), "null");
         await File.WriteAllTextAsync(Path.Combine(_profileDir, "invalid.json"), JsonSerializer.Serialize(
             Profile("invalid-profile", "") with { Name = "" }));
 
