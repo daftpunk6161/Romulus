@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using Romulus.Contracts;
 using Romulus.Contracts.Models;
 using Romulus.Contracts.Ports;
+using Romulus.Infrastructure.Analysis;
 using Romulus.Infrastructure.Monitoring;
 using Romulus.CLI;
 using Xunit;
@@ -187,6 +189,30 @@ public sealed class CollectionHealthMonitorTests
         Assert.Equal(1, report.Breakdown.Junk);
     }
 
+    [Fact]
+    public async Task GenerateReportAsync_MalformedIntegrityBaseline_FailsClosedWithoutBlockingHealthReport()
+    {
+        using var baseline = IntegrityBaselineScope.Capture();
+        Directory.CreateDirectory(Path.GetDirectoryName(baseline.Path)!);
+        File.WriteAllText(baseline.Path, "{ not valid json");
+
+        var index = new FakeCollectionIndex(
+        [
+            MakeIndexEntry("healthy.zip", FileCategory.Game, datMatch: true)
+        ]);
+        var monitor = new CollectionHealthMonitor(index);
+
+        var report = await monitor.GenerateReportAsync(consoleFilter: "snes");
+
+        Assert.Equal(1, report.Breakdown.TotalFiles);
+        Assert.Equal(1, report.Breakdown.DatVerified);
+        Assert.False(report.Integrity.HasBaseline);
+        Assert.Equal(0, report.Integrity.IntactCount);
+        Assert.Equal(0, report.Integrity.ChangedCount);
+        Assert.Equal(0, report.Integrity.MissingCount);
+        Assert.False(report.Integrity.BitRotRisk);
+    }
+
     // ═══ Helpers ═════════════════════════════════════════════════════
 
     private static RomCandidate MakeCandidate(string name, FileCategory cat,
@@ -250,6 +276,51 @@ public sealed class CollectionHealthMonitorTests
         public ValueTask AppendRunSnapshotAsync(CollectionRunSnapshot snapshot, CancellationToken ct = default) => default;
         public ValueTask<int> CountRunSnapshotsAsync(CancellationToken ct = default) => new(0);
         public ValueTask<IReadOnlyList<CollectionRunSnapshot>> ListRunSnapshotsAsync(int limit = 50, CancellationToken ct = default) => new((IReadOnlyList<CollectionRunSnapshot>)[]);
+    }
+
+    private sealed class IntegrityBaselineScope : IDisposable
+    {
+        private readonly string _backupPath;
+        private readonly bool _existed;
+
+        private IntegrityBaselineScope(string path, string backupPath, bool existed)
+        {
+            Path = path;
+            _backupPath = backupPath;
+            _existed = existed;
+        }
+
+        public string Path { get; }
+
+        public static IntegrityBaselineScope Capture()
+        {
+            var field = typeof(IntegrityService).GetField("BaselinePath", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(field);
+
+            var path = (string)field!.GetValue(null)!;
+            var backupPath = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "Romulus_HealthBaseline_" + Guid.NewGuid().ToString("N") + ".json");
+            var existed = File.Exists(path);
+            if (existed)
+                File.Copy(path, backupPath, overwrite: true);
+
+            return new IntegrityBaselineScope(path, backupPath, existed);
+        }
+
+        public void Dispose()
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+            if (_existed)
+            {
+                File.Copy(_backupPath, Path, overwrite: true);
+                File.Delete(_backupPath);
+            }
+            else if (File.Exists(Path))
+            {
+                File.Delete(Path);
+            }
+        }
     }
 }
 
